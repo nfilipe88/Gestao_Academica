@@ -2,14 +2,14 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as AcademicoActions from './academic.actions';
-import { map, switchMap, tap } from 'rxjs';
+import { map, switchMap } from 'rxjs';
 
 @Injectable()
 export class AcademicoEffects {
   private actions$ = inject(Actions);
   private http = inject(HttpClient);
 
-  // Carregar Cursos do Back-end
+  // --- CURSOS ---
   carregarCursos$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AcademicoActions.carregarCursos),
@@ -19,15 +19,36 @@ export class AcademicoEffects {
     )
   );
 
-  // Criar Curso e recarregar a lista a seguir
   criarCurso$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AcademicoActions.criarCurso),
       switchMap(action => this.http.post('/api/v1/academico/cursos', { nome: action.nome }).pipe(
-        map(() => AcademicoActions.carregarCursos()) // Dispara ação para buscar a lista atualizada
+        map(() => AcademicoActions.carregarCursos()) // Atualiza a lista após criar
       ))
     )
   );
 
-  // (A lógica para Turmas seria idêntica a esta)
+  // --- TURMAS ---
+  carregarTurmas$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.carregarTurmas),
+      switchMap(() => this.http.get<any[]>('/api/v1/academico/turmas').pipe(
+        map(turmas => AcademicoActions.carregarTurmasSucesso({ turmas }))
+      ))
+    )
+  );
+
+  criarTurma$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.criarTurma),
+      switchMap(action => this.http.post('/api/v1/academico/turmas', {
+        curso_id: action.curso_id,
+        nome_codigo: action.nome_codigo,
+        ano_letivo: action.ano_letivo,
+        vagas_maximas: action.vagas_maximas
+      }).pipe(
+        map(() => AcademicoActions.carregarTurmas()) // Atualiza a lista após criar
+      ))
+    )
+  );
 }

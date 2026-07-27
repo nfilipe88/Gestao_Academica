@@ -1,0 +1,14 @@
+import { createFeatureSelector, createSelector } from '@ngrx/store';
+import { AcademicoState } from './academic.reducer';
+
+export const selectAcademicoState = createFeatureSelector<AcademicoState>('academico');
+
+export const selectCursos = createSelector(
+  selectAcademicoState,
+  (state) => state.cursos
+);
+
+export const selectTurmas = createSelector(
+  selectAcademicoState,
+  (state) => state.turmas
+);
