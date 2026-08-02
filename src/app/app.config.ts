@@ -9,8 +9,6 @@ import { authReducer } from './store/auth/auth.reducer';
 import { AuthEffects } from './store/auth/auth.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
-// import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
-// import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -19,6 +17,6 @@ export const appConfig: ApplicationConfig = {
 
     // O NgRx tem de ser providenciado aqui na raiz!
     provideStore({ auth: authReducer }),
-    // provideEffects(AuthEffects)
+    provideEffects(AuthEffects),
   ]
 };

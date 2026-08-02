@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from 'express';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-registo.component',
@@ -17,7 +17,7 @@ export class RegistoComponent {
 
   registoForm = this.fb.group({
     nome_fantasia: ['', Validators.required],
-    cnpj_nif: ['', Validators.required],
+    nif: ['', Validators.required],
     nome_gestor: ['', Validators.required],
     email_gestor: ['', [Validators.required, Validators.email]],
     palavra_passe: ['', [Validators.required, Validators.minLength(8)]]
