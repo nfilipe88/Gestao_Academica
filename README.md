@@ -1,3 +1,51 @@
+src/app/
+│
+├── core/                   # Serviços vitais, interceptors e guards (carregados 1x)
+│   ├── auth/               # Lógica de autenticação (AuthService)
+│   ├── interceptors/       # jwt.interceptor.ts, error.interceptor.ts
+│   └── guards/             # tenant.guard.ts, auth.guard.ts
+│
+├── shared/                 # Componentes visuais burros (Tailwind) e utilitários globais
+│   ├── components/         # Botoes, Modais, Tabelas, Sidebar
+│   └── pipes/              # Formatação de moeda, datas
+│
+├── features/               # Os módulos de negócio do seu SaaS (Lazy Loaded)
+│   ├── admin/              # Ecrãs do Super Admin (gerir tenants)
+│   ├── academico/          # Diário de classe, matrículas
+│   ├── financeiro/         # Faturas, pagamentos
+│   └── public/             # Login, página de registo do CRM
+│
+├── store/                  # Gestão de Estado Global (Redux / NgRx)
+│   ├── auth/               # Estado do utilizador logado e permissões
+│   │   ├── auth.actions.ts
+│   │   ├── auth.reducer.ts
+│   │   └── auth.selectors.ts
+│   └── tenant/             # Dados globais da escola atual
+│
+├── app.component.ts        # Root component
+├── app.routes.ts           # Roteamento global (Lazy Loading das features)
+└── app.config.ts           # Configuração de providers globais (antigo app.module)
+
+cd D:\Projects_To_Implement\Gestao_Academica
+
+# Se ainda não é um repositório git local:
+git init
+git branch -M main
+
+# Conectar ao repositório remoto (só precisa fazer uma vez)
+git remote add origin https://github.com/nfilipe88/Gestao_Academica.git
+
+# Trazer o que já existe lá (README.md e .gitignore), para não dar conflito
+git fetch origin
+git merge origin/main --allow-unrelated-histories
+
+git add .
+git status
+
+git commit -m "Setup inicial: front-end Angular + backend FastAPI com auth, RLS e migrations"
+git push -u origin main
+
+
 # Gacademic
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.1.4.

@@ -1,0 +1,24 @@
+#Generic single-database configuration with an async dbapi.from alembic import op
+#import sqlalchemy as sa
+
+#def upgrade():
+    # ... (O Alembic vai colocar aqui os comandos de CREATE TABLE gerados automaticamente) ...
+    
+    # === ADICIONAR MANUALMENTE ESTAS LINHAS NO FINAL DA FUNÇÃO UPGRADE ===
+    # 1. Ativar o RLS na tabela de utilizadores
+#    op.execute("ALTER TABLE usuario ENABLE ROW LEVEL SECURITY;")
+    
+    # 2. Criar a política de isolamento forçando o Postgres a respeitar a variável de sessão
+#    op.execute("""
+#        CREATE POLICY isolamento_tenant_usuario ON usuario
+#        USING (tenant_id = current_setting('app.current_tenant_id', true)::UUID);
+#    """)
+
+#def downgrade():
+    # === ADICIONAR MANUALMENTE ESTAS LINHAS NO INÍCIO DA FUNÇÃO DOWNGRADE ===
+#    op.execute("DROP POLICY IF EXISTS isolamento_tenant_usuario ON usuario;")
+#    op.execute("ALTER TABLE usuario DISABLE ROW LEVEL SECURITY;")
+    
+    # ... (O Alembic vai colocar aqui os comandos DROP TABLE) ...
+
+    alembic revision --autogenerate -m "Criacao tabelas Curso e Turma com RLS"

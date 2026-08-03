@@ -1,0 +1,30 @@
+import uuid
+from sqlalchemy import String, Integer, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from app.database.models import Base # A nossa Base declarativa original
+
+class Curso(Base):
+    __tablename__ = "curso"
+    
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    # Relação obrigatória com a Instituição (Isolamento)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    
+    nome: Mapped[str] = mapped_column(String(150), nullable=False)
+    
+    # Relacionamento (Um Curso tem muitas Turmas)
+    turmas: Mapped[list["Turma"]] = relationship(back_populates="curso", cascade="all, delete-orphan")
+
+class Turma(Base):
+    __tablename__ = "turma"
+    
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    curso_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("curso.id", ondelete="CASCADE"), nullable=False)
+    
+    nome_codigo: Mapped[str] = mapped_column(String(50), nullable=False) # Ex: 10º Ano - Turma A
+    ano_letivo: Mapped[int] = mapped_column(Integer, nullable=False)     # Ex: 2024
+    vagas_maximas: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    
+    # Relacionamento
+    curso: Mapped["Curso"] = relationship(back_populates="turmas")
