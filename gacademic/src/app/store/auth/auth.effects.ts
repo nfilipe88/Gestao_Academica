@@ -1,5 +1,6 @@
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { Router } from '@angular/router';
 import { Actions, createEffect, ofType, ROOT_EFFECTS_INIT } from '@ngrx/effects';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import * as AuthActions from './auth.actions';
@@ -19,6 +20,7 @@ export class AuthEffects {
   private actions$ = inject(Actions);
   private http = inject(HttpClient);
   private platformId = inject(PLATFORM_ID);
+  private router = inject(Router);
 
   // Ao arrancar a app (só no browser), repõe a sessão gravada no
   // localStorage no estado do NgRx. Sem isto, um F5 faz o store voltar a
@@ -76,7 +78,17 @@ export class AuthEffects {
         }
       })
     ),
-    { dispatch: false } 
+    { dispatch: false }
+  );
+
+  // Sem isto, o login tinha sucesso (token gravado, store atualizada)
+  // mas o ecrã ficava parado em /login: nada disparava a navegação.
+  redirecionarAposLogin$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AuthActions.loginSuccess),
+      tap(() => this.router.navigateByUrl('/dashboard'))
+    ),
+    { dispatch: false }
   );
 
   clearAuthData$ = createEffect(() =>
@@ -88,6 +100,14 @@ export class AuthEffects {
           localStorage.removeItem('saas_user');
         }
       })
+    ),
+    { dispatch: false }
+  );
+
+  redirecionarAposLogout$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AuthActions.logout),
+      tap(() => this.router.navigateByUrl('/login'))
     ),
     { dispatch: false }
   );

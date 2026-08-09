@@ -16,8 +16,7 @@ export class DashboardLayoutComponent {
   isGestor$ = this.store.select(selectIsGestor);
 
   onLogout() {
+    // A navegação para /login acontece no AuthEffects (redirecionarAposLogout$).
     this.store.dispatch(logout());
-    // O router irá reagir automaticamente à perda do token através do fluxo do sistema
-    window.location.href = '/login';
   }
 }
