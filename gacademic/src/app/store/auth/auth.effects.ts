@@ -1,4 +1,4 @@
-import { Injectable, PLATFORM_ID, Inject } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Actions, createEffect, ofType, ROOT_EFFECTS_INIT } from '@ngrx/effects';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -8,13 +8,17 @@ import { catchError, map, switchMap, tap, of } from 'rxjs';
 
 @Injectable()
 export class AuthEffects {
-
-  // Refatorado para Injeção via Construtor (100% Seguro no SSR)
-  constructor(
-    private actions$: Actions,
-    private http: HttpClient,
-    @Inject(PLATFORM_ID) private platformId: Object
-  ) {}
+  // Injeção via campo (inject()), não via construtor: os createEffect()
+  // abaixo são campos de classe e, numa classe sem "extends", os campos
+  // são inicializados ANTES do corpo do construtor correr. Com injeção
+  // por construtor, "this.actions$" ainda estaria undefined nesse
+  // momento (TypeError: Cannot read properties of undefined (reading
+  // 'pipe')). Usando inject() como campo, a ordem de inicialização (na
+  // ordem de declaração) garante que já está pronto quando os efeitos
+  // abaixo o usam.
+  private actions$ = inject(Actions);
+  private http = inject(HttpClient);
+  private platformId = inject(PLATFORM_ID);
 
   // Ao arrancar a app (só no browser), repõe a sessão gravada no
   // localStorage no estado do NgRx. Sem isto, um F5 faz o store voltar a
