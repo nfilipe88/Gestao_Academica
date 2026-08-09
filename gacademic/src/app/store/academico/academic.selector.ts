@@ -8,6 +8,11 @@ export const selectCursos = createSelector(
   (state) => state.cursos
 );
 
+export const selectSeries = createSelector(
+  selectAcademicoState,
+  (state) => state.series
+);
+
 export const selectTurmas = createSelector(
   selectAcademicoState,
   (state) => state.turmas

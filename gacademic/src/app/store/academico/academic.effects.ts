@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as AcademicoActions from './academic.actions';
-import { Curso, Turma } from './academic.models';
+import { Curso, SerieAno, Turma } from './academic.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -37,6 +37,34 @@ export class AcademicoEffects {
     )
   );
 
+  // --- SÉRIES/ANOS ---
+  carregarSeries$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.carregarSeries),
+      switchMap(() => this.http.get<SerieAno[]>('/api/v1/academico/series').pipe(
+        map(series => AcademicoActions.carregarSeriesSucesso({ series })),
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar as séries/anos.'
+        })))
+      ))
+    )
+  );
+
+  criarSerieAno$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.criarSerieAno),
+      switchMap(action => this.http.post('/api/v1/academico/series', {
+        curso_id: action.curso_id,
+        nome: action.nome
+      }).pipe(
+        map(() => AcademicoActions.carregarSeries()), // Atualiza a lista após criar
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar a série/ano.'
+        })))
+      ))
+    )
+  );
+
   // --- TURMAS ---
   carregarTurmas$ = createEffect(() =>
     this.actions$.pipe(
@@ -54,7 +82,7 @@ export class AcademicoEffects {
     this.actions$.pipe(
       ofType(AcademicoActions.criarTurma),
       switchMap(action => this.http.post('/api/v1/academico/turmas', {
-        curso_id: action.curso_id,
+        serie_ano_id: action.serie_ano_id,
         nome_codigo: action.nome_codigo,
         ano_letivo: action.ano_letivo,
         vagas_maximas: action.vagas_maximas

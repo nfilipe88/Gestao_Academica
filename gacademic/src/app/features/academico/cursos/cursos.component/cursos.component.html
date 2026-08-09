@@ -32,7 +32,7 @@
       <thead>
         <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
           <th class="py-3 px-6 font-medium">Nome do Curso</th>
-          <th class="py-3 px-6 font-medium text-right">Ações</th>
+          <th class="py-3 px-6 font-medium text-right">Séries/Anos</th>
         </tr>
       </thead>
       <tbody>
@@ -40,9 +40,42 @@
         <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
           <td class="py-3 px-6 text-slate-800 font-medium">{{ curso.nome }}</td>
           <td class="py-3 px-6 text-right">
-            <a routerLink="/turmas" class="text-blue-500 hover:text-blue-700 text-sm font-medium">Ver Turmas</a>
+            <button type="button" (click)="alternarExpandido(curso.id)"
+              class="text-blue-500 hover:text-blue-700 text-sm font-medium cursor-pointer">
+              {{ cursoExpandidoId === curso.id ? 'Fechar' : 'Ver séries (' + curso.series.length + ')' }}
+            </button>
           </td>
         </tr>
+        @if (cursoExpandidoId === curso.id) {
+        <tr class="bg-slate-50/60 border-b border-slate-100">
+          <td colspan="2" class="px-6 pb-4 pt-1">
+            <div class="pl-3 border-l-2 border-blue-200 space-y-3">
+
+              @if (curso.series.length > 0) {
+                <ul class="flex flex-wrap gap-2">
+                  @for (serie of curso.series; track serie.id) {
+                    <li class="text-xs bg-white border border-slate-200 rounded-full px-3 py-1 text-slate-600">
+                      {{ serie.nome }}
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="text-sm text-slate-500">Ainda não tens séries/anos neste curso (ex: "10º Ano").</p>
+              }
+
+              <form [formGroup]="serieForm" (ngSubmit)="onSubmitSerie(curso.id)" class="flex gap-2 items-center">
+                <input type="text" formControlName="nome" placeholder="Ex: 10º Ano"
+                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                <button type="submit" [disabled]="serieForm.invalid"
+                  class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors">
+                  + Adicionar
+                </button>
+              </form>
+
+            </div>
+          </td>
+        </tr>
+        }
         } @empty {
         <tr>
           <td colspan="2" class="py-8 text-center text-slate-500">

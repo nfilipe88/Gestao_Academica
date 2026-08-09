@@ -7,10 +7,17 @@ export interface Curso {
   nome: string;
 }
 
-export interface Turma {
+export interface SerieAno {
   id: string;
   tenant_id: string;
   curso_id: string;
+  nome: string;
+}
+
+export interface Turma {
+  id: string;
+  tenant_id: string;
+  serie_ano_id: string;
   nome_codigo: string;
   ano_letivo: number;
   vagas_maximas: number;

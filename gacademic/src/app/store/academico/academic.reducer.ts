@@ -1,15 +1,17 @@
 import { createReducer, on } from '@ngrx/store';
 import * as AcademicoActions from './academic.actions';
-import { Curso, Turma } from './academic.models';
+import { Curso, SerieAno, Turma } from './academic.models';
 
 export interface AcademicoState {
   cursos: Curso[];
+  series: SerieAno[];
   turmas: Turma[];
   erro: string | null;
 }
 
 export const initialState: AcademicoState = {
   cursos: [],
+  series: [],
   turmas: [],
   erro: null
 };
@@ -17,10 +19,12 @@ export const initialState: AcademicoState = {
 export const academicoReducer = createReducer(
   initialState,
   on(AcademicoActions.carregarCursos, AcademicoActions.criarCurso,
+     AcademicoActions.carregarSeries, AcademicoActions.criarSerieAno,
      AcademicoActions.carregarTurmas, AcademicoActions.criarTurma,
     (state) => ({ ...state, erro: null })
   ),
   on(AcademicoActions.carregarCursosSucesso, (state, { cursos }) => ({ ...state, cursos })),
+  on(AcademicoActions.carregarSeriesSucesso, (state, { series }) => ({ ...state, series })),
   on(AcademicoActions.carregarTurmasSucesso, (state, { turmas }) => ({ ...state, turmas })),
   on(AcademicoActions.academicoOperacaoFalhou, (state, { erro }) => ({ ...state, erro }))
 );

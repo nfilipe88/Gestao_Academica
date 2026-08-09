@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
+from typing import Optional
 import uuid
 
 from app.database.session import obter_sessao_db
-from app.database.models_academico import Curso, Turma
+from app.database.models_academico import Curso, SerieAno, Turma
 from app.core.security import obter_utilizador_atual
 
 router = APIRouter(prefix="/api/v1/academico", tags=["Módulo Académico"])
@@ -16,8 +17,12 @@ router = APIRouter(prefix="/api/v1/academico", tags=["Módulo Académico"])
 class CursoCreate(BaseModel):
     nome: str
 
-class TurmaCreate(BaseModel):
+class SerieAnoCreate(BaseModel):
     curso_id: uuid.UUID
+    nome: str
+
+class TurmaCreate(BaseModel):
+    serie_ano_id: uuid.UUID
     nome_codigo: str
     ano_letivo: int
     vagas_maximas: int = 30
@@ -27,7 +32,7 @@ class TurmaCreate(BaseModel):
 # ==========================================
 @router.post("/cursos", status_code=status.HTTP_201_CREATED)
 async def criar_curso(
-    dados: CursoCreate, 
+    dados: CursoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
@@ -58,18 +63,18 @@ async def listar_cursos(
     return cursos
 
 # ==========================================
-# ROTAS PARA TURMAS
+# ROTAS PARA SÉRIES/ANOS
 # ==========================================
-@router.post("/turmas", status_code=status.HTTP_201_CREATED)
-async def criar_turma(
-    dados: TurmaCreate,
+# Camada intermédia entre Curso e Turma (ex: "10º Ano" dentro de
+# "Ensino Secundário"). Uma Turma liga-se sempre a uma Série/Ano, nunca
+# diretamente a um Curso.
+@router.post("/series", status_code=status.HTTP_201_CREATED)
+async def criar_serie_ano(
+    dados: SerieAnoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
-    """Cria uma turma validando se o curso pertence à escola."""
-
-    # 1. Validar se o curso existe E pertence à mesma escola do utilizador
-    # (filtro explícito, não só o RLS — mesma lógica aplicada em listar_cursos/listar_turmas).
+    """Cria uma Série/Ano associada a um curso da escola do utilizador logado."""
     curso_db = await db.execute(
         select(Curso).where(
             Curso.id == dados.curso_id,
@@ -79,10 +84,56 @@ async def criar_turma(
     if not curso_db.scalars().first():
         raise HTTPException(status_code=404, detail="Curso não encontrado na sua instituição.")
 
+    nova_serie = SerieAno(
+        curso_id=dados.curso_id,
+        nome=dados.nome,
+        tenant_id=utilizador["tenant_id"]
+    )
+    db.add(nova_serie)
+    await db.commit()
+    await db.refresh(nova_serie)
+    return nova_serie
+
+@router.get("/series")
+async def listar_series(
+    curso_id: Optional[uuid.UUID] = None,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Lista as Séries/Anos da escola do utilizador logado, opcionalmente filtradas por curso."""
+    query = select(SerieAno).where(SerieAno.tenant_id == utilizador["tenant_id"])
+    if curso_id:
+        query = query.where(SerieAno.curso_id == curso_id)
+    resultado = await db.execute(query)
+    series = resultado.scalars().all()
+    return series
+
+# ==========================================
+# ROTAS PARA TURMAS
+# ==========================================
+@router.post("/turmas", status_code=status.HTTP_201_CREATED)
+async def criar_turma(
+    dados: TurmaCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Cria uma turma validando se a série/ano pertence à escola."""
+
+    # 1. Validar se a série/ano existe E pertence à mesma escola do utilizador
+    # (filtro explícito, não só o RLS — mesma lógica aplicada em listar_cursos/listar_turmas).
+    serie_db = await db.execute(
+        select(SerieAno).where(
+            SerieAno.id == dados.serie_ano_id,
+            SerieAno.tenant_id == utilizador["tenant_id"]
+        )
+    )
+    if not serie_db.scalars().first():
+        raise HTTPException(status_code=404, detail="Série/Ano não encontrada na sua instituição.")
+
     # 2. Criar a Turma
     nova_turma = Turma(
         tenant_id=utilizador["tenant_id"],
-        curso_id=dados.curso_id,
+        serie_ano_id=dados.serie_ano_id,
         nome_codigo=dados.nome_codigo,
         ano_letivo=dados.ano_letivo,
         vagas_maximas=dados.vagas_maximas

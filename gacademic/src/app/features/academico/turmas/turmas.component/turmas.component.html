@@ -2,7 +2,7 @@
 
   <div>
     <h2 class="text-2xl font-bold text-slate-800">Turmas</h2>
-    <p class="text-slate-500 text-sm">Crie turmas associadas aos cursos da sua instituição.</p>
+    <p class="text-slate-500 text-sm">Crie turmas associadas a uma Série/Ano da sua instituição.</p>
   </div>
 
   @if (erro$ | async; as erro) {
@@ -11,9 +11,9 @@
     </div>
   }
 
-  @if ((cursos$ | async)?.length === 0) {
+  @if (avisoSetup$ | async; as aviso) {
     <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-      Ainda não tens nenhum curso registado. <a routerLink="/cursos" class="underline font-medium">Cria um curso primeiro</a> para poderes criar turmas.
+      {{ aviso }} <a routerLink="/cursos" class="underline font-medium">Ir para Cursos</a>
     </div>
   }
 
@@ -22,12 +22,12 @@
     <form [formGroup]="turmaForm" (ngSubmit)="onSubmit()" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
 
       <div class="md:col-span-2">
-        <label class="block text-sm font-medium text-slate-600 mb-1">Curso</label>
-        <select formControlName="curso_id"
+        <label class="block text-sm font-medium text-slate-600 mb-1">Curso / Série-Ano</label>
+        <select formControlName="serie_ano_id"
           class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-          <option value="" disabled>Selecione um curso</option>
-          @for (curso of cursos$ | async; track curso.id) {
-            <option [value]="curso.id">{{ curso.nome }}</option>
+          <option value="" disabled>Selecione uma série/ano</option>
+          @for (serie of seriesOptions$ | async; track serie.id) {
+            <option [value]="serie.id">{{ serie.label }}</option>
           }
         </select>
       </div>
@@ -36,7 +36,7 @@
         <label class="block text-sm font-medium text-slate-600 mb-1">Turma</label>
         <input type="text" formControlName="nome_codigo"
           class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          placeholder="Ex: 10º A" />
+          placeholder="Ex: Turma A" />
       </div>
 
       <div>
@@ -65,7 +65,7 @@
       <thead>
         <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
           <th class="py-3 px-6 font-medium">Turma</th>
-          <th class="py-3 px-6 font-medium">Curso</th>
+          <th class="py-3 px-6 font-medium">Curso / Série-Ano</th>
           <th class="py-3 px-6 font-medium">Ano Letivo</th>
           <th class="py-3 px-6 font-medium text-right">Vagas</th>
         </tr>
@@ -74,7 +74,7 @@
         @for (turma of turmas$ | async; track turma.id) {
         <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
           <td class="py-3 px-6 text-slate-800 font-medium">{{ turma.nome_codigo }}</td>
-          <td class="py-3 px-6 text-slate-600">{{ turma.cursoNome }}</td>
+          <td class="py-3 px-6 text-slate-600">{{ turma.serieLabel }}</td>
           <td class="py-3 px-6 text-slate-600">{{ turma.ano_letivo }}</td>
           <td class="py-3 px-6 text-right text-slate-600">{{ turma.vagas_maximas }}</td>
         </tr>
