@@ -1,0 +1,156 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Alunos e Responsáveis</h2>
+    <p class="text-slate-500 text-sm">Registe alunos e associe os respetivos responsáveis (pais, mães, tutores).</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ erro }}
+    </div>
+  }
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <h3 class="text-lg font-semibold text-slate-800 mb-4">Novo Aluno</h3>
+      <form [formGroup]="alunoForm" (ngSubmit)="onSubmitAluno()" class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Nome completo</label>
+          <input type="text" formControlName="nome_completo"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Matrícula (RA)</label>
+            <input type="text" formControlName="matricula_interna" placeholder="Ex: RA-0001"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Data de nascimento</label>
+            <input type="date" formControlName="data_nascimento"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Documento (NIF/CC) — opcional</label>
+          <input type="text" formControlName="numero_documento"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <button type="submit" [disabled]="alunoForm.invalid"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
+          Adicionar Aluno
+        </button>
+      </form>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <h3 class="text-lg font-semibold text-slate-800 mb-4">Novo Responsável</h3>
+      <form [formGroup]="responsavelForm" (ngSubmit)="onSubmitResponsavel()" class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Nome completo</label>
+          <input type="text" formControlName="nome_completo"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Telefone</label>
+            <input type="text" formControlName="telefone_contato"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Documento — opcional</label>
+            <input type="text" formControlName="numero_documento"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+        </div>
+        <button type="submit" [disabled]="responsavelForm.invalid"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
+          Adicionar Responsável
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+          <th class="py-3 px-6 font-medium">Nome</th>
+          <th class="py-3 px-6 font-medium">Matrícula</th>
+          <th class="py-3 px-6 font-medium">Nascimento</th>
+          <th class="py-3 px-6 font-medium text-right">Responsáveis</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (aluno of alunos$ | async; track aluno.id) {
+        <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+          <td class="py-3 px-6 text-slate-800 font-medium">{{ aluno.nome_completo }}</td>
+          <td class="py-3 px-6 text-slate-600">{{ aluno.matricula_interna }}</td>
+          <td class="py-3 px-6 text-slate-600">{{ aluno.data_nascimento }}</td>
+          <td class="py-3 px-6 text-right">
+            <button type="button" (click)="alternarExpandido(aluno.id)"
+              class="text-blue-500 hover:text-blue-700 text-sm font-medium cursor-pointer">
+              {{ alunoExpandidoId === aluno.id ? 'Fechar' : 'Ver (' + aluno.vinculos.length + ')' }}
+            </button>
+          </td>
+        </tr>
+        @if (alunoExpandidoId === aluno.id) {
+        <tr class="bg-slate-50/60 border-b border-slate-100">
+          <td colspan="4" class="px-6 pb-4 pt-1">
+            <div class="pl-3 border-l-2 border-blue-200 space-y-3">
+
+              @if (aluno.vinculos.length > 0) {
+                <ul class="space-y-1.5">
+                  @for (vinculo of aluno.vinculos; track vinculo.id) {
+                    <li class="text-sm text-slate-700 flex items-center gap-2">
+                      <span class="font-medium">{{ vinculo.nomeResponsavel }}</span>
+                      <span class="text-xs text-slate-500">({{ vinculo.tipo_parentesco }})</span>
+                      @if (vinculo.responsavel_financeiro) {
+                        <span class="text-xs bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">Financeiro</span>
+                      }
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="text-sm text-slate-500">Ainda não tens responsáveis vinculados a este aluno.</p>
+              }
+
+              <form [formGroup]="vincularForm" (ngSubmit)="onVincular(aluno.id)" class="flex flex-wrap gap-2 items-center">
+                <select formControlName="responsavel_id"
+                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                  <option value="" disabled>Selecione um responsável</option>
+                  @for (responsavel of responsaveis$ | async; track responsavel.id) {
+                    <option [value]="responsavel.id">{{ responsavel.nome_completo }}</option>
+                  }
+                </select>
+                <input type="text" formControlName="tipo_parentesco" placeholder="Ex: Mãe"
+                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 w-28 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                <label class="flex items-center gap-1.5 text-sm text-slate-600">
+                  <input type="checkbox" formControlName="responsavel_financeiro" />
+                  Responsável financeiro
+                </label>
+                <button type="submit" [disabled]="vincularForm.invalid"
+                  class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors">
+                  + Vincular
+                </button>
+              </form>
+
+            </div>
+          </td>
+        </tr>
+        }
+        } @empty {
+        <tr>
+          <td colspan="4" class="py-8 text-center text-slate-500">
+            Nenhum aluno registado na sua instituição.
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+</div>

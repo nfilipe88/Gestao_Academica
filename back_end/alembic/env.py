@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.database.models import Base # 1. Importar a nossa Base
 import app.database.models_academico
+import app.database.models_pessoas
 
 from alembic import context
 

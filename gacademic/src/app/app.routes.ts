@@ -39,6 +39,10 @@ export const routes: Routes = [
         path: 'turmas',
         loadComponent: () => import('./features/academico/turmas/turmas.component/turmas.component').then((m) => m.TurmasComponent)
       },
+      {
+        path: 'alunos',
+        loadComponent: () => import('./features/pessoas/alunos.component/alunos.component').then((m) => m.AlunosComponent)
+      },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

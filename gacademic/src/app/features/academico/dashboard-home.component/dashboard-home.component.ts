@@ -5,6 +5,8 @@ import { Store } from '@ngrx/store';
 import { combineLatest, map } from 'rxjs';
 import { carregarCursos, carregarTurmas } from '../../../store/academico/academic.actions';
 import { selectCursos, selectTurmas } from '../../../store/academico/academic.selector';
+import { carregarAlunos } from '../../../store/alunos/alunos.actions';
+import { selectAlunos } from '../../../store/alunos/alunos.selector';
 import { selectUsuario } from '../../../store/auth/auth.selectors';
 
 @Component({
@@ -20,21 +22,24 @@ export class DashboardHomeComponent implements OnInit {
 
   resumo$ = combineLatest([
     this.store.select(selectCursos),
-    this.store.select(selectTurmas)
+    this.store.select(selectTurmas),
+    this.store.select(selectAlunos)
   ]).pipe(
-    map(([cursos, turmas]) => ({
+    map(([cursos, turmas, alunos]) => ({
       totalCursos: cursos.length,
       totalTurmas: turmas.length,
+      totalAlunos: alunos.length,
       totalVagas: turmas.reduce((soma, turma) => soma + (turma.vagas_maximas ?? 0), 0),
       cursosRecentes: cursos.slice(-5).reverse()
     }))
   );
 
   ngOnInit() {
-    // O ecrã de Cursos/Turmas também despacha isto, mas o dashboard pode
-    // ser a primeira página aberta (ex.: logo após o login), por isso
-    // carrega os dados aqui também.
+    // O ecrã de Cursos/Turmas/Alunos também despacha isto, mas o
+    // dashboard pode ser a primeira página aberta (ex.: logo após o
+    // login), por isso carrega os dados aqui também.
     this.store.dispatch(carregarCursos());
     this.store.dispatch(carregarTurmas());
+    this.store.dispatch(carregarAlunos());
   }
 }
