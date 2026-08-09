@@ -1,13 +1,14 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { carregarCursos, criarCurso } from '../../../../store/academico/academic.actions';
-import { selectCursos } from '../../../../store/academico/academic.selector';
+import { selectAcademicoError, selectCursos } from '../../../../store/academico/academic.selector';
 
 @Component({
   selector: 'app-cursos.component',
-  imports: [ReactiveFormsModule, CommonModule, AsyncPipe],
+  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, RouterLink],
   templateUrl: './cursos.component.html',
   styleUrl: './cursos.component.css',
 })
@@ -17,6 +18,7 @@ export class CursosComponent implements OnInit {
 
   // Selecionar os cursos do estado global
   cursos$ = this.store.select(selectCursos);
+  erro$ = this.store.select(selectAcademicoError);
 
   cursoForm = this.fb.group({
     nome: ['', Validators.required]

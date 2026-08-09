@@ -7,13 +7,12 @@
 
         <nav class="flex-1 px-4 space-y-2 mt-4">
           <a routerLink="/dashboard" class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Visão Geral</a>
-          <a routerLink="/academico/turmas" class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Turmas e Alunos</a>
+          <a routerLink="/cursos" class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Cursos</a>
+          <a routerLink="/turmas" class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Turmas e Alunos</a>
 
-          @if (isGestor$ | async) {
-            <a routerLink="/admin/configuracoes" class="block py-2.5 px-4 rounded-lg text-yellow-500 hover:bg-slate-800 transition-colors mt-8">
-              ⚙️ Administração
-            </a>
-          }
+          <!-- "Administração" removido daqui até existir a rota /admin/configuracoes.
+               Um link para uma rota inexistente cai no wildcard e devolve
+               silenciosamente ao dashboard, o que parecia um botão avariado. -->
         </nav>
 
         <div class="p-4 border-t border-slate-800">

@@ -5,6 +5,12 @@
     <p class="text-slate-500 text-sm">Adicione e gira as estruturas curriculares da sua instituição.</p>
   </div>
 
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ erro }}
+    </div>
+  }
+
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
     <h3 class="text-lg font-semibold text-slate-800 mb-4">Novo Curso</h3>
     <form [formGroup]="cursoForm" (ngSubmit)="onSubmit()" class="flex gap-4 items-end">
@@ -34,7 +40,7 @@
         <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
           <td class="py-3 px-6 text-slate-800 font-medium">{{ curso.nome }}</td>
           <td class="py-3 px-6 text-right">
-            <button class="text-blue-500 hover:text-blue-700 text-sm font-medium">Ver Turmas</button>
+            <a routerLink="/turmas" class="text-blue-500 hover:text-blue-700 text-sm font-medium">Ver Turmas</a>
           </td>
         </tr>
         } @empty {

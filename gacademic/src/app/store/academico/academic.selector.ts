@@ -12,3 +12,8 @@ export const selectTurmas = createSelector(
   selectAcademicoState,
   (state) => state.turmas
 );
+
+export const selectAcademicoError = createSelector(
+  selectAcademicoState,
+  (state) => state.erro
+);

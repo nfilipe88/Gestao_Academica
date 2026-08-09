@@ -2,7 +2,8 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as AcademicoActions from './academic.actions';
-import { map, switchMap } from 'rxjs';
+import { Curso, Turma } from './academic.models';
+import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
 export class AcademicoEffects {
@@ -13,8 +14,13 @@ export class AcademicoEffects {
   carregarCursos$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AcademicoActions.carregarCursos),
-      switchMap(() => this.http.get<any[]>('/api/v1/academico/cursos').pipe(
-        map(cursos => AcademicoActions.carregarCursosSucesso({ cursos }))
+      switchMap(() => this.http.get<Curso[]>('/api/v1/academico/cursos').pipe(
+        map(cursos => AcademicoActions.carregarCursosSucesso({ cursos })),
+        // Sem isto, um erro aqui mata o effect para o resto da sessão:
+        // nenhuma ação carregarCursos voltaria a produzir efeito.
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os cursos.'
+        })))
       ))
     )
   );
@@ -23,7 +29,10 @@ export class AcademicoEffects {
     this.actions$.pipe(
       ofType(AcademicoActions.criarCurso),
       switchMap(action => this.http.post('/api/v1/academico/cursos', { nome: action.nome }).pipe(
-        map(() => AcademicoActions.carregarCursos()) // Atualiza a lista após criar
+        map(() => AcademicoActions.carregarCursos()), // Atualiza a lista após criar
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar o curso.'
+        })))
       ))
     )
   );
@@ -32,8 +41,11 @@ export class AcademicoEffects {
   carregarTurmas$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AcademicoActions.carregarTurmas),
-      switchMap(() => this.http.get<any[]>('/api/v1/academico/turmas').pipe(
-        map(turmas => AcademicoActions.carregarTurmasSucesso({ turmas }))
+      switchMap(() => this.http.get<Turma[]>('/api/v1/academico/turmas').pipe(
+        map(turmas => AcademicoActions.carregarTurmasSucesso({ turmas })),
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar as turmas.'
+        })))
       ))
     )
   );
@@ -47,7 +59,10 @@ export class AcademicoEffects {
         ano_letivo: action.ano_letivo,
         vagas_maximas: action.vagas_maximas
       }).pipe(
-        map(() => AcademicoActions.carregarTurmas()) // Atualiza a lista após criar
+        map(() => AcademicoActions.carregarTurmas()), // Atualiza a lista após criar
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar a turma.'
+        })))
       ))
     )
   );

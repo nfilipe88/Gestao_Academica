@@ -67,9 +67,15 @@ async def criar_turma(
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
     """Cria uma turma validando se o curso pertence à escola."""
-    
-    # 1. Validar se o curso existe (o RLS já impede que ele encontre um curso de outra escola)
-    curso_db = await db.execute(select(Curso).where(Curso.id == dados.curso_id))
+
+    # 1. Validar se o curso existe E pertence à mesma escola do utilizador
+    # (filtro explícito, não só o RLS — mesma lógica aplicada em listar_cursos/listar_turmas).
+    curso_db = await db.execute(
+        select(Curso).where(
+            Curso.id == dados.curso_id,
+            Curso.tenant_id == utilizador["tenant_id"]
+        )
+    )
     if not curso_db.scalars().first():
         raise HTTPException(status_code=404, detail="Curso não encontrado na sua instituição.")
 
