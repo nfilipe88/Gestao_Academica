@@ -83,10 +83,15 @@ export class AuthEffects {
 
   // Sem isto, o login tinha sucesso (token gravado, store atualizada)
   // mas o ecrã ficava parado em /login: nada disparava a navegação.
+  // Se o login veio de um redirecionamento (ver auth.guard.ts), volta
+  // ao destino original em vez de ir sempre para /dashboard.
   redirecionarAposLogin$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AuthActions.loginSuccess),
-      tap(() => this.router.navigateByUrl('/dashboard'))
+      tap(() => {
+        const returnUrl = this.router.parseUrl(this.router.url).queryParams['returnUrl'];
+        this.router.navigateByUrl(returnUrl || '/dashboard');
+      })
     ),
     { dispatch: false }
   );

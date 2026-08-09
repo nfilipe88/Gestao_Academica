@@ -23,8 +23,11 @@ export const guestGuard: CanActivateFn = (route, state) => {
       }
 
       if (token || tokenLocal) {
-        // Já está logado? Vai direto para o painel
-        return router.createUrlTree(['/dashboard']);
+        // Já está logado? Volta ao destino original (returnUrl), se
+        // veio de um redirecionamento do authGuard; senão vai para o
+        // dashboard por omissão.
+        const returnUrl = route.queryParamMap.get('returnUrl');
+        return returnUrl ? router.parseUrl(returnUrl) : router.createUrlTree(['/dashboard']);
       }
       return true; // Não está logado, pode ver o ecrã de login
     })

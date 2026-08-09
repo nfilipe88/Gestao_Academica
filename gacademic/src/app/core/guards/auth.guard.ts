@@ -28,8 +28,14 @@ export const authGuard: CanActivateFn = (route, state) => {
         return true; // Tem passe livre
       }
 
-      // Se não tem token, é expulso para o ecrã de login
-      return router.createUrlTree(['/login']);
+      // Se não tem token, é expulso para o ecrã de login, mas guardamos
+      // o destino pretendido em returnUrl. Sem isto, um F5/link direto
+      // numa rota protegida (ex.: /cursos) perde-se sempre: o SSR não
+      // consegue ler o localStorage no primeiro pedido, por isso este
+      // guard nega no servidor, e o utilizador acaba sempre em
+      // /dashboard assim que o guestGuard confirma a sessão no browser
+      // (ver guest.guard.ts).
+      return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
     })
   );
 };
