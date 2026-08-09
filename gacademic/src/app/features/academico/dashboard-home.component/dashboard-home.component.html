@@ -1,1 +1,56 @@
-<p>dashboard-home.component works!</p>
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">
+      Olá{{ (usuario$ | async)?.nome_completo ? ', ' + (usuario$ | async)?.nome_completo : '' }}
+    </h2>
+    <p class="text-slate-500 text-sm">Aqui está o resumo da tua instituição.</p>
+  </div>
+
+  @if (resumo$ | async; as resumo) {
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Cursos</p>
+        <p class="text-3xl font-bold text-slate-800 mt-1">{{ resumo.totalCursos }}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Turmas</p>
+        <p class="text-3xl font-bold text-slate-800 mt-1">{{ resumo.totalTurmas }}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Vagas totais</p>
+        <p class="text-3xl font-bold text-slate-800 mt-1">{{ resumo.totalVagas }}</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-slate-800">Cursos recentes</h3>
+          <a routerLink="/cursos" class="text-sm text-blue-500 hover:text-blue-700 font-medium">Ver todos</a>
+        </div>
+        @if (resumo.cursosRecentes.length === 0) {
+          <p class="text-sm text-slate-500">Ainda não tens cursos registados.</p>
+        } @else {
+          <ul class="divide-y divide-slate-100">
+            @for (curso of resumo.cursosRecentes; track curso.id) {
+              <li class="py-2.5 text-slate-700">{{ curso.nome }}</li>
+            }
+          </ul>
+        }
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Ações rápidas</h3>
+        <div class="flex flex-col gap-3 items-start">
+          <a routerLink="/cursos" class="text-sm font-medium text-blue-600 hover:text-blue-700">+ Novo curso</a>
+          <a routerLink="/turmas" class="text-sm font-medium text-blue-600 hover:text-blue-700">+ Nova turma</a>
+        </div>
+      </div>
+
+    </div>
+  }
+
+</div>

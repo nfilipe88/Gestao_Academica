@@ -13,6 +13,11 @@ export const selectAuthError = createSelector(
   (state) => state.erro
 );
 
+export const selectUsuario = createSelector(
+  selectAuthState,
+  (state) => state.usuario
+);
+
 export const selectTenantId = createSelector(
   selectAuthState,
   (state) => state.usuario?.tenant_id

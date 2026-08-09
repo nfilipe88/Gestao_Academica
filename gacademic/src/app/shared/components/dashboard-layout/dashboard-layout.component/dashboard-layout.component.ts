@@ -1,13 +1,13 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { logout } from '../../../../store/auth/auth.actions';
 import { selectIsGestor } from '../../../../store/auth/auth.selectors';
 import { Store } from '@ngrx/store';
 
 @Component({
   selector: 'app-dashboard-layout.component',
-  imports: [RouterOutlet, RouterLink, AsyncPipe],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, AsyncPipe],
   templateUrl: './dashboard-layout.component.html',
   styleUrl: './dashboard-layout.component.css',
 })

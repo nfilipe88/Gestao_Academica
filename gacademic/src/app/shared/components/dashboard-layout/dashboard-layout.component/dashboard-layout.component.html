@@ -6,9 +6,13 @@
         </div>
 
         <nav class="flex-1 px-4 space-y-2 mt-4">
-          <a routerLink="/dashboard" class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Visão Geral</a>
-          <a routerLink="/cursos" class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Cursos</a>
-          <a routerLink="/turmas" class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Turmas e Alunos</a>
+          <a routerLink="/dashboard" routerLinkActive="bg-slate-800 text-blue-400"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Visão Geral</a>
+          <a routerLink="/cursos" routerLinkActive="bg-slate-800 text-blue-400"
+            class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Cursos</a>
+          <a routerLink="/turmas" routerLinkActive="bg-slate-800 text-blue-400"
+            class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Turmas e Alunos</a>
 
           <!-- "Administração" removido daqui até existir a rota /admin/configuracoes.
                Um link para uma rota inexistente cai no wildcard e devolve
