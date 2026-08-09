@@ -3,6 +3,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { carregarCursos, criarCurso } from '../../../../store/academico/academic.actions';
+import { selectCursos } from '../../../../store/academico/academic.selector';
 
 @Component({
   selector: 'app-cursos.component',
@@ -15,7 +16,7 @@ export class CursosComponent implements OnInit {
   private store = inject(Store);
 
   // Selecionar os cursos do estado global
-  cursos$ = this.store.select((state: any) => state.academico.cursos);
+  cursos$ = this.store.select(selectCursos);
 
   cursoForm = this.fb.group({
     nome: ['', Validators.required]

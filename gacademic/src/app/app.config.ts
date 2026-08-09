@@ -7,6 +7,8 @@ import { provideEffects } from '@ngrx/effects';
 // Importações dos seus ficheiros
 import { authReducer } from './store/auth/auth.reducer';
 import { AuthEffects } from './store/auth/auth.effects';
+import { academicoReducer } from './store/academico/academic.reducer';
+import { AcademicoEffects } from './store/academico/academic.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 
@@ -16,7 +18,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withFetch(), withInterceptors([jwtInterceptor])),
 
     // O NgRx tem de ser providenciado aqui na raiz!
-    provideStore({ auth: authReducer }),
-    provideEffects(AuthEffects),
+    provideStore({ auth: authReducer, academico: academicoReducer }),
+    provideEffects(AuthEffects, AcademicoEffects),
   ]
 };

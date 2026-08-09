@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { iniciarLogin } from '../../../../store/auth/auth.actions';
+import { selectAuthError } from '../../../../store/auth/auth.selectors';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -13,6 +14,8 @@ import { CommonModule } from '@angular/common';
 export class LoginComponent {
 private fb = inject(FormBuilder);
   private store = inject(Store);
+
+  erro$ = this.store.select(selectAuthError);
 
   loginForm = this.fb.group({
     email: ['', [Validators.required, Validators.email]],

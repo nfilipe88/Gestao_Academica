@@ -1,19 +1,43 @@
 import { Injectable, PLATFORM_ID, Inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Actions, createEffect, ofType } from '@ngrx/effects';
+import { Actions, createEffect, ofType, ROOT_EFFECTS_INIT } from '@ngrx/effects';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import * as AuthActions from './auth.actions';
+import { UsuarioLogado } from './auth.actions';
 import { catchError, map, switchMap, tap, of } from 'rxjs';
 
 @Injectable()
 export class AuthEffects {
-  
+
   // Refatorado para Injeção via Construtor (100% Seguro no SSR)
   constructor(
     private actions$: Actions,
     private http: HttpClient,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
+
+  // Ao arrancar a app (só no browser), repõe a sessão gravada no
+  // localStorage no estado do NgRx. Sem isto, um F5 faz o store voltar a
+  // "deslogado" mesmo com o token ainda válido no localStorage.
+  restoreAuth$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ROOT_EFFECTS_INIT),
+      map(() => {
+        if (!isPlatformBrowser(this.platformId)) {
+          return AuthActions.restoreAuth({ token: null, usuario: null });
+        }
+        const token = localStorage.getItem('saas_access_token');
+        const usuarioBruto = localStorage.getItem('saas_user');
+        let usuario: UsuarioLogado | null = null;
+        try {
+          usuario = usuarioBruto ? JSON.parse(usuarioBruto) : null;
+        } catch {
+          usuario = null;
+        }
+        return AuthActions.restoreAuth({ token, usuario });
+      })
+    )
+  );
 
   login$ = createEffect(() =>
     this.actions$.pipe(

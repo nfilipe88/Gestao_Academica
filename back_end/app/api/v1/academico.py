@@ -42,12 +42,18 @@ async def criar_curso(
     return novo_curso
 
 @router.get("/cursos")
-async def listar_cursos(db: AsyncSession = Depends(obter_sessao_db)):
+async def listar_cursos(
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
     """
-    Lista os cursos. O Row Level Security (RLS) garante que 
-    apenas os cursos da escola atual sejam devolvidos.
+    Lista os cursos da escola do utilizador logado.
+    O RLS do Postgres é a última linha de defesa, mas filtramos também
+    explicitamente por tenant_id para não depender só dele.
     """
-    resultado = await db.execute(select(Curso))
+    resultado = await db.execute(
+        select(Curso).where(Curso.tenant_id == utilizador["tenant_id"])
+    )
     cursos = resultado.scalars().all()
     return cursos
 
@@ -80,10 +86,16 @@ async def criar_turma(
     return {"mensagem": "Turma criada com sucesso", "id": nova_turma.id}
 
 @router.get("/turmas")
-async def listar_turmas(db: AsyncSession = Depends(obter_sessao_db)):
+async def listar_turmas(
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
     """
-    Lista as turmas. O RLS garante que são apenas as turmas da escola do utilizador logado.
+    Lista as turmas da escola do utilizador logado (filtro explícito por
+    tenant_id, com o RLS do Postgres como camada extra de defesa).
     """
-    resultado = await db.execute(select(Turma))
+    resultado = await db.execute(
+        select(Turma).where(Turma.tenant_id == utilizador["tenant_id"])
+    )
     turmas = resultado.scalars().all()
     return turmas

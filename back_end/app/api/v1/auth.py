@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import time
+from collections import defaultdict
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,6 +13,28 @@ from app.schemas.auth_schemas import RegistoInicial, TokenResponse
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação e Onboarding"])
+
+# ==========================================
+# LIMITADOR DE TENTATIVAS DE LOGIN (anti força-bruta)
+# ==========================================
+# Implementação simples em memória: suficiente para um único processo/dev.
+# Em produção com múltiplos workers/instâncias, substituir por um limitador
+# partilhado (ex.: slowapi + Redis), senão cada worker conta à parte.
+_LOGIN_TENTATIVAS: dict[str, list[float]] = defaultdict(list)
+_LOGIN_MAX_TENTATIVAS = 5
+_LOGIN_JANELA_SEGUNDOS = 60
+
+
+def _verificar_limite_login(chave: str) -> None:
+    agora = time.monotonic()
+    tentativas = _LOGIN_TENTATIVAS[chave]
+    tentativas[:] = [t for t in tentativas if agora - t < _LOGIN_JANELA_SEGUNDOS]
+    if len(tentativas) >= _LOGIN_MAX_TENTATIVAS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiadas tentativas de login. Tente novamente dentro de 1 minuto."
+        )
+    tentativas.append(agora)
 
 @router.post("/registo", status_code=status.HTTP_201_CREATED)
 async def registo_inicial_escola(dados: RegistoInicial):
@@ -59,11 +84,14 @@ async def registo_inicial_escola(dados: RegistoInicial):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     """
     Endpoint de Login Padrão.
     Valida a hash da palavra-passe com o passlib e gera o JWT.
     """
+    ip_cliente = request.client.host if request.client else "desconhecido"
+    _verificar_limite_login(f"{ip_cliente}:{form_data.username}")
+
     async with AsyncSessionLocal() as db:
         # 1. Procurar o utilizador pelo email (username)
         resultado = await db.execute(select(Usuario).where(Usuario.email == form_data.username))

@@ -1,0 +1,14 @@
+# Ferramentas de desenvolvimento, lint e testes.
+# Não são necessárias para correr a aplicação em produção — só instalar
+# localmente/CI com: pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+
+pytest==9.0.2
+pytest-asyncio==1.2.0
+httpx==0.28.1
+black==26.1.0
+mypy==1.19.1
+flake8==7.3.0
+isort==7.0.0
+pylint==4.0.4
+pre_commit==4.5.1
