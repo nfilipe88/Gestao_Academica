@@ -18,6 +18,8 @@ export class ProfessoresComponent implements OnInit {
   erro$ = this.store.select(selectProfessoresError);
   professores$ = this.store.select(selectProfessores);
 
+  mostrarFormulario = false;
+
   professorForm = this.fb.group({
     nome_completo: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
@@ -27,6 +29,11 @@ export class ProfessoresComponent implements OnInit {
 
   ngOnInit() {
     this.store.dispatch(carregarProfessores());
+  }
+
+  alternarFormulario() {
+    this.mostrarFormulario = !this.mostrarFormulario;
+    this.professorForm.reset();
   }
 
   onSubmit() {
@@ -39,5 +46,6 @@ export class ProfessoresComponent implements OnInit {
       formacao_academica: formacao_academica || null
     }));
     this.professorForm.reset();
+    this.mostrarFormulario = false;
   }
 }

@@ -43,6 +43,9 @@ export class AlunosComponent implements OnInit {
   // Qual aluno está com o painel de Responsáveis aberto (só um de cada vez).
   alunoExpandidoId: string | null = null;
 
+  mostrarFormularioAluno = false;
+  mostrarFormularioResponsavel = false;
+
   alunoForm = this.fb.group({
     matricula_interna: ['', Validators.required],
     nome_completo: ['', Validators.required],
@@ -68,6 +71,11 @@ export class AlunosComponent implements OnInit {
     this.store.dispatch(carregarResponsaveis());
   }
 
+  alternarFormularioAluno() {
+    this.mostrarFormularioAluno = !this.mostrarFormularioAluno;
+    this.alunoForm.reset();
+  }
+
   onSubmitAluno() {
     if (this.alunoForm.invalid) return;
     const { matricula_interna, nome_completo, data_nascimento, numero_documento } = this.alunoForm.value;
@@ -78,6 +86,12 @@ export class AlunosComponent implements OnInit {
       numero_documento: numero_documento || null
     }));
     this.alunoForm.reset();
+    this.mostrarFormularioAluno = false;
+  }
+
+  alternarFormularioResponsavel() {
+    this.mostrarFormularioResponsavel = !this.mostrarFormularioResponsavel;
+    this.responsavelForm.reset();
   }
 
   onSubmitResponsavel() {
@@ -90,6 +104,7 @@ export class AlunosComponent implements OnInit {
       email: email || null
     }));
     this.responsavelForm.reset();
+    this.mostrarFormularioResponsavel = false;
   }
 
   alternarExpandido(alunoId: string) {

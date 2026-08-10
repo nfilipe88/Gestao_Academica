@@ -71,6 +71,8 @@ export class TurmasComponent implements OnInit {
   // Qual turma está com o painel de Matrículas aberto (só uma de cada vez).
   turmaExpandidaId: string | null = null;
 
+  mostrarFormulario = false;
+
   // Alunos matriculados na turma expandida, mais os que ainda não estão
   // matriculados nela (para preencher o <select> de "Matricular aluno").
   matriculasDaTurmaExpandida$ = combineLatest([
@@ -108,6 +110,16 @@ export class TurmasComponent implements OnInit {
     this.store.dispatch(carregarAlunos());
   }
 
+  alternarFormulario() {
+    this.mostrarFormulario = !this.mostrarFormulario;
+    this.turmaForm.reset({
+      serie_ano_id: '',
+      nome_codigo: '',
+      ano_letivo: new Date().getFullYear(),
+      vagas_maximas: 30
+    });
+  }
+
   onSubmit() {
     if (this.turmaForm.invalid) {
       return;
@@ -125,6 +137,7 @@ export class TurmasComponent implements OnInit {
       ano_letivo: new Date().getFullYear(),
       vagas_maximas: 30
     });
+    this.mostrarFormulario = false;
   }
 
   alternarExpandida(turmaId: string) {

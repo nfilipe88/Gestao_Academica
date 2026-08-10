@@ -15,6 +15,12 @@ export class DashboardLayoutComponent {
   private store = inject(Store);
   isGestor$ = this.store.select(selectIsGestor);
 
+  sidebarColapsada = false;
+
+  alternarSidebar() {
+    this.sidebarColapsada = !this.sidebarColapsada;
+  }
+
   onLogout() {
     // A navegação para /login acontece no AuthEffects (redirecionarAposLogout$).
     this.store.dispatch(logout());

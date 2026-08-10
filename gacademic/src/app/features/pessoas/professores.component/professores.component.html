@@ -1,8 +1,14 @@
 <div class="space-y-6">
 
-  <div>
-    <h2 class="text-2xl font-bold text-slate-800">Professores</h2>
-    <p class="text-slate-500 text-sm">Crie contas de acesso para os professores da sua instituição.</p>
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-800">Professores</h2>
+      <p class="text-slate-500 text-sm">Crie contas de acesso para os professores da sua instituição.</p>
+    </div>
+    <button type="button" (click)="alternarFormulario()"
+      class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+      {{ mostrarFormulario ? 'Cancelar' : '+ Novo' }}
+    </button>
   </div>
 
   @if (erro$ | async; as erro) {
@@ -11,6 +17,7 @@
     </div>
   }
 
+  @if (mostrarFormulario) {
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
     <h3 class="text-lg font-semibold text-slate-800 mb-4">Novo Professor</h3>
     <form [formGroup]="professorForm" (ngSubmit)="onSubmit()" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -47,6 +54,7 @@
       </div>
     </form>
   </div>
+  }
 
   <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
     <table class="w-full text-left border-collapse">

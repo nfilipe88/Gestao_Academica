@@ -33,6 +33,8 @@ export class CursosComponent implements OnInit {
   // Qual curso está com o painel de Séries/Anos aberto (só um de cada vez).
   cursoExpandidoId: string | null = null;
 
+  mostrarFormulario = false;
+
   cursoForm = this.fb.group({
     nome: ['', Validators.required]
   });
@@ -47,10 +49,16 @@ export class CursosComponent implements OnInit {
     this.store.dispatch(carregarSeries());
   }
 
+  alternarFormulario() {
+    this.mostrarFormulario = !this.mostrarFormulario;
+    this.cursoForm.reset();
+  }
+
   onSubmit() {
     if (this.cursoForm.valid) {
       this.store.dispatch(criarCurso({ nome: this.cursoForm.value.nome! }));
       this.cursoForm.reset();
+      this.mostrarFormulario = false;
     }
   }
 

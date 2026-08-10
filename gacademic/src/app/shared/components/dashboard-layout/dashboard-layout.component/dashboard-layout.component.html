@@ -1,43 +1,97 @@
 <div class="flex h-screen bg-slate-100">
 
-      <aside class="w-64 bg-slate-900 text-white flex flex-col transition-all">
-        <div class="p-6">
-          <h1 class="text-2xl font-bold text-blue-500">SaaS Académico</h1>
-        </div>
+  <aside class="bg-slate-900 text-white flex flex-col transition-all duration-200 overflow-hidden"
+    [class.w-64]="!sidebarColapsada" [class.w-20]="sidebarColapsada">
 
-        <nav class="flex-1 px-4 space-y-2 mt-4">
-          <a routerLink="/dashboard" routerLinkActive="bg-slate-800 text-blue-400"
-            [routerLinkActiveOptions]="{ exact: true }"
-            class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Visão Geral</a>
-          <a routerLink="/cursos" routerLinkActive="bg-slate-800 text-blue-400"
-            class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Cursos</a>
-          <a routerLink="/turmas" routerLinkActive="bg-slate-800 text-blue-400"
-            class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Turmas</a>
-          <a routerLink="/alunos" routerLinkActive="bg-slate-800 text-blue-400"
-            class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Alunos</a>
-
-          @if (isGestor$ | async) {
-            <!-- Só o Gestor pode criar contas de Professor (RBAC no back-end
-                 já bloqueia o resto; isto é só para não mostrar um ecrã que
-                 vai dar sempre 403 a quem não é Gestor). -->
-            <a routerLink="/professores" routerLinkActive="bg-slate-800 text-blue-400"
-              class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Professores</a>
+    <div class="p-4 flex items-center" [class.justify-between]="!sidebarColapsada" [class.justify-center]="sidebarColapsada">
+      @if (!sidebarColapsada) {
+        <h1 class="text-xl font-bold text-blue-500 truncate">SaaS Académico</h1>
+      }
+      <button type="button" (click)="alternarSidebar()"
+        [title]="sidebarColapsada ? 'Expandir menu' : 'Encolher menu'"
+        class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shrink-0">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          @if (sidebarColapsada) {
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+          } @else {
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           }
-
-          <!-- "Administração" removido daqui até existir a rota /admin/configuracoes.
-               Um link para uma rota inexistente cai no wildcard e devolve
-               silenciosamente ao dashboard, o que parecia um botão avariado. -->
-        </nav>
-
-        <div class="p-4 border-t border-slate-800">
-          <button (click)="onLogout()" class="w-full text-left text-rose-400 hover:text-rose-300 py-2 px-4 rounded-lg hover:bg-slate-800 transition-colors">
-            Sair do Sistema
-          </button>
-        </div>
-      </aside>
-
-      <main class="flex-1 overflow-y-auto p-8">
-        <router-outlet></router-outlet>
-      </main>
-
+        </svg>
+      </button>
     </div>
+
+    <nav class="flex-1 px-3 space-y-1 mt-2">
+
+      <a routerLink="/dashboard" routerLinkActive="bg-slate-800 text-blue-400"
+        [routerLinkActiveOptions]="{ exact: true }"
+        class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+        [class.justify-center]="sidebarColapsada" title="Visão Geral">
+        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75V21a.75.75 0 00.75.75H9.75v-6a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v6h4.5a.75.75 0 00.75-.75V9.75M8.25 21h8.25" />
+        </svg>
+        @if (!sidebarColapsada) { <span>Visão Geral</span> }
+      </a>
+
+      <a routerLink="/cursos" routerLinkActive="bg-slate-800 text-blue-400"
+        class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+        [class.justify-center]="sidebarColapsada" title="Cursos">
+        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+        </svg>
+        @if (!sidebarColapsada) { <span>Cursos</span> }
+      </a>
+
+      <a routerLink="/turmas" routerLinkActive="bg-slate-800 text-blue-400"
+        class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+        [class.justify-center]="sidebarColapsada" title="Turmas">
+        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+        </svg>
+        @if (!sidebarColapsada) { <span>Turmas</span> }
+      </a>
+
+      <a routerLink="/alunos" routerLinkActive="bg-slate-800 text-blue-400"
+        class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+        [class.justify-center]="sidebarColapsada" title="Alunos">
+        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        @if (!sidebarColapsada) { <span>Alunos</span> }
+      </a>
+
+      @if (isGestor$ | async) {
+        <!-- Só o Gestor pode criar contas de Professor (RBAC no back-end
+             já bloqueia o resto; isto é só para não mostrar um ecrã que
+             vai dar sempre 403 a quem não é Gestor). -->
+        <a routerLink="/professores" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Professores">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347M4.26 10.147a50.548 50.548 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814M4.26 10.147a50.552 50.552 0 015.223-1.981M19.74 10.147a50.552 50.552 0 00-5.223-1.981M4.26 10.147a49.999 49.999 0 00-.68 5.166M19.74 10.147c.334 1.678.57 3.395.68 5.166M4.5 12.75a2.25 2.25 0 002.25 2.25v-4.5A2.25 2.25 0 004.5 12.75z" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Professores</span> }
+        </a>
+      }
+
+      <!-- "Administração" removido daqui até existir a rota /admin/configuracoes.
+           Um link para uma rota inexistente cai no wildcard e devolve
+           silenciosamente ao dashboard, o que parecia um botão avariado. -->
+    </nav>
+
+    <div class="p-3 border-t border-slate-800">
+      <button (click)="onLogout()" type="button"
+        class="w-full flex items-center gap-3 text-left text-rose-400 hover:text-rose-300 py-2 px-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+        [class.justify-center]="sidebarColapsada" title="Sair do Sistema">
+        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H2.25" />
+        </svg>
+        @if (!sidebarColapsada) { <span>Sair do Sistema</span> }
+      </button>
+    </div>
+  </aside>
+
+  <main class="flex-1 overflow-y-auto p-8">
+    <router-outlet></router-outlet>
+  </main>
+
+</div>
