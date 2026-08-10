@@ -1,7 +1,7 @@
 import time
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -11,6 +11,7 @@ from app.database.session import AsyncSessionLocal # Usamos sessão limpa (sem R
 from app.database.models import Usuario, Tenant
 from app.schemas.auth_schemas import RegistoInicial, TokenResponse
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso
+from app.core.email import enviar_email, template_base
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação e Onboarding"])
 
@@ -37,7 +38,7 @@ def _verificar_limite_login(chave: str) -> None:
     tentativas.append(agora)
 
 @router.post("/registo", status_code=status.HTTP_201_CREATED)
-async def registo_inicial_escola(dados: RegistoInicial):
+async def registo_inicial_escola(dados: RegistoInicial, background_tasks: BackgroundTasks):
     """
     Endpoint para registo de uma nova escola (Tenant) e do seu primeiro Gestor.
     A operação é transacional: ou cria tudo, ou reverte tudo.
@@ -75,7 +76,25 @@ async def registo_inicial_escola(dados: RegistoInicial):
             
             # 4. Confirmar a transação
             await db.commit()
-            
+
+            # 5. E-mail de boas-vindas (best-effort, em background — não
+            # atrasa a resposta nem falha o registo se o SMTP falhar)
+            background_tasks.add_task(
+                enviar_email,
+                destinatario=dados.email_gestor,
+                assunto=f"Bem-vindo(a), {dados.nome_fantasia} já está na plataforma!",
+                corpo_html=template_base(
+                    "Escola registada com sucesso!",
+                    f"""
+                    <p>Olá {dados.nome_gestor},</p>
+                    <p>A instituição <strong>{dados.nome_fantasia}</strong> foi criada com sucesso
+                    na plataforma de Gestão Académica.</p>
+                    <p>Já pode iniciar sessão com o e-mail <strong>{dados.email_gestor}</strong>
+                    para começar a configurar cursos, turmas e alunos.</p>
+                    """
+                )
+            )
+
             return {"mensagem": "Escola e conta de Gestor criadas com sucesso!"}
             
         except Exception as e:

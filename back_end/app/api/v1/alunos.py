@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ import uuid
 from app.database.session import obter_sessao_db
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.core.security import obter_utilizador_atual
+from app.core.email import enviar_email, template_base
 
 router = APIRouter(prefix="/api/v1", tags=["Alunos e Responsáveis"])
 
@@ -24,6 +25,7 @@ class ResponsavelCreate(BaseModel):
     nome_completo: str
     telefone_contato: str
     numero_documento: str | None = None
+    email: str | None = None
 
 class VincularResponsavel(BaseModel):
     responsavel_id: uuid.UUID
@@ -86,7 +88,8 @@ async def criar_responsavel(
         tenant_id=utilizador["tenant_id"],
         nome_completo=dados.nome_completo,
         telefone_contato=dados.telefone_contato,
-        numero_documento=dados.numero_documento
+        numero_documento=dados.numero_documento,
+        email=dados.email
     )
     db.add(novo_responsavel)
     await db.commit()
@@ -111,6 +114,7 @@ async def listar_responsaveis(
 async def vincular_responsavel(
     aluno_id: uuid.UUID,
     dados: VincularResponsavel,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
@@ -118,7 +122,8 @@ async def vincular_responsavel(
     aluno_db = await db.execute(
         select(Aluno).where(Aluno.id == aluno_id, Aluno.tenant_id == utilizador["tenant_id"])
     )
-    if not aluno_db.scalars().first():
+    aluno = aluno_db.scalars().first()
+    if not aluno:
         raise HTTPException(status_code=404, detail="Aluno não encontrado na sua instituição.")
 
     responsavel_db = await db.execute(
@@ -127,7 +132,8 @@ async def vincular_responsavel(
             ResponsavelFinanceiroLegal.tenant_id == utilizador["tenant_id"]
         )
     )
-    if not responsavel_db.scalars().first():
+    responsavel = responsavel_db.scalars().first()
+    if not responsavel:
         raise HTTPException(status_code=404, detail="Responsável não encontrado na sua instituição.")
 
     ja_vinculado = await db.execute(
@@ -148,6 +154,26 @@ async def vincular_responsavel(
     )
     db.add(vinculo)
     await db.commit()
+
+    # E-mail de notificação (best-effort, em background). Só envia se o
+    # responsável tiver um e-mail registado — é opcional no cadastro.
+    if responsavel.email:
+        background_tasks.add_task(
+            enviar_email,
+            destinatario=responsavel.email,
+            assunto=f"Foi associado(a) como responsável de {aluno.nome_completo}",
+            corpo_html=template_base(
+                "Novo vínculo registado",
+                f"""
+                <p>Olá {responsavel.nome_completo},</p>
+                <p>Foi registado(a) como <strong>{dados.tipo_parentesco}</strong> de
+                <strong>{aluno.nome_completo}</strong> (matrícula {aluno.matricula_interna})
+                na plataforma de Gestão Académica.</p>
+                {"<p>Ficou também identificado(a) como <strong>responsável financeiro</strong> deste aluno.</p>" if dados.responsavel_financeiro else ""}
+                """
+            )
+        )
+
     return {"mensagem": "Responsável vinculado com sucesso", "id": vinculo.id}
 
 @router.get("/alunos/{aluno_id}/responsaveis")

@@ -19,6 +19,7 @@ export interface Responsavel {
   nome_completo: string;
   numero_documento: string | null;
   telefone_contato: string;
+  email: string | null; // Usado para notificar quando é vinculado a um aluno
   data_criacao: string;
 }
 

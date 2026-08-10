@@ -20,7 +20,7 @@ export const carregarResponsaveisSucesso = createAction(
 );
 export const criarResponsavel = createAction(
   '[Alunos] Criar Responsavel',
-  props<{ nome_completo: string, telefone_contato: string, numero_documento: string | null }>()
+  props<{ nome_completo: string, telefone_contato: string, numero_documento: string | null, email: string | null }>()
 );
 
 // --- Vínculo Aluno <-> Responsável ---

@@ -53,7 +53,8 @@ export class AlunosComponent implements OnInit {
   responsavelForm = this.fb.group({
     nome_completo: ['', Validators.required],
     telefone_contato: ['', Validators.required],
-    numero_documento: ['']
+    numero_documento: [''],
+    email: ['', Validators.email]
   });
 
   vincularForm = this.fb.group({
@@ -81,11 +82,12 @@ export class AlunosComponent implements OnInit {
 
   onSubmitResponsavel() {
     if (this.responsavelForm.invalid) return;
-    const { nome_completo, telefone_contato, numero_documento } = this.responsavelForm.value;
+    const { nome_completo, telefone_contato, numero_documento, email } = this.responsavelForm.value;
     this.store.dispatch(criarResponsavel({
       nome_completo: nome_completo!,
       telefone_contato: telefone_contato!,
-      numero_documento: numero_documento || null
+      numero_documento: numero_documento || null,
+      email: email || null
     }));
     this.responsavelForm.reset();
   }

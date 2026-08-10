@@ -59,7 +59,8 @@ export class AlunosEffects {
       switchMap(action => this.http.post('/api/v1/responsaveis', {
         nome_completo: action.nome_completo,
         telefone_contato: action.telefone_contato,
-        numero_documento: action.numero_documento
+        numero_documento: action.numero_documento,
+        email: action.email
       }).pipe(
         map(() => AlunosActions.carregarResponsaveis()), // Atualiza a lista após criar
         catchError(err => of(AlunosActions.alunosOperacaoFalhou({

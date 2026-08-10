@@ -43,6 +43,7 @@ class ResponsavelFinanceiroLegal(Base):
     nome_completo: Mapped[str] = mapped_column(String(255), nullable=False)
     numero_documento: Mapped[str] = mapped_column(String(50), nullable=True)
     telefone_contato: Mapped[str] = mapped_column(String(50), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=True) # Para notificações (ex: vínculo a um aluno)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     alunos: Mapped[list["AlunoResponsavel"]] = relationship(back_populates="responsavel", cascade="all, delete-orphan")
