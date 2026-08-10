@@ -1,0 +1,78 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Professores</h2>
+    <p class="text-slate-500 text-sm">Crie contas de acesso para os professores da sua instituição.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ erro }}
+    </div>
+  }
+
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+    <h3 class="text-lg font-semibold text-slate-800 mb-4">Novo Professor</h3>
+    <form [formGroup]="professorForm" (ngSubmit)="onSubmit()" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Nome completo</label>
+        <input type="text" formControlName="nome_completo"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">E-mail (login)</label>
+        <input type="email" formControlName="email"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Palavra-passe inicial</label>
+        <input type="password" formControlName="palavra_passe"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Formação académica — opcional</label>
+        <input type="text" formControlName="formacao_academica"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+
+      <div class="md:col-span-2">
+        <button type="submit" [disabled]="professorForm.invalid"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
+          Adicionar Professor
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+          <th class="py-3 px-6 font-medium">Nome</th>
+          <th class="py-3 px-6 font-medium">E-mail</th>
+          <th class="py-3 px-6 font-medium">Formação académica</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (professor of professores$ | async; track professor.id) {
+        <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+          <td class="py-3 px-6 text-slate-800 font-medium">{{ professor.nome_completo }}</td>
+          <td class="py-3 px-6 text-slate-600">{{ professor.email }}</td>
+          <td class="py-3 px-6 text-slate-600">{{ professor.formacao_academica || '—' }}</td>
+        </tr>
+        } @empty {
+        <tr>
+          <td colspan="3" class="py-8 text-center text-slate-500">
+            Nenhum professor registado na sua instituição.
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+</div>

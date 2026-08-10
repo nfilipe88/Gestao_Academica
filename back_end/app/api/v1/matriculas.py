@@ -8,9 +8,13 @@ from app.database.session import obter_sessao_db
 from app.database.models_academico import Turma
 from app.database.models_pessoas import Aluno
 from app.database.models_matricula import Matricula
-from app.core.security import obter_utilizador_atual
+from app.core.security import obter_utilizador_atual, exigir_perfil
 
 router = APIRouter(prefix="/api/v1", tags=["Matrículas"])
+
+# Quem pode matricular/alterar status (RBAC) — leitura fica aberta a
+# qualquer utilizador autenticado da escola.
+_PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 
 ESTADOS_VALIDOS = {"ATIVO", "TRANSFERIDO", "TRANCADO", "EVADIDO"}
 
@@ -33,7 +37,7 @@ class MatriculaStatusUpdate(BaseModel):
 async def criar_matricula(
     dados: MatriculaCreate,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Efetua a matrícula de um aluno numa turma, aplicando as regras de negócio RN01-RN05."""
     tenant_id = utilizador["tenant_id"]
@@ -127,7 +131,7 @@ async def atualizar_status_matricula(
     matricula_id: uuid.UUID,
     dados: MatriculaStatusUpdate,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Atualiza a situação do aluno (ex: de Ativo para Trancado, Transferido ou Evadido)."""
     if dados.status_matricula not in ESTADOS_VALIDOS:

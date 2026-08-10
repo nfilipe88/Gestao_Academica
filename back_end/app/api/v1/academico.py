@@ -7,7 +7,11 @@ import uuid
 
 from app.database.session import obter_sessao_db
 from app.database.models_academico import Curso, SerieAno, Turma
-from app.core.security import obter_utilizador_atual
+from app.core.security import obter_utilizador_atual, exigir_perfil
+
+# Quem pode criar/alterar a estrutura académica (RBAC) — leitura fica
+# aberta a qualquer utilizador autenticado da escola.
+_PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 
 router = APIRouter(prefix="/api/v1/academico", tags=["Módulo Académico"])
 
@@ -34,7 +38,7 @@ class TurmaCreate(BaseModel):
 async def criar_curso(
     dados: CursoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Cria um novo curso associado à escola do utilizador logado."""
     novo_curso = Curso(
@@ -72,7 +76,7 @@ async def listar_cursos(
 async def criar_serie_ano(
     dados: SerieAnoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Cria uma Série/Ano associada a um curso da escola do utilizador logado."""
     curso_db = await db.execute(
@@ -115,7 +119,7 @@ async def listar_series(
 async def criar_turma(
     dados: TurmaCreate,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Cria uma turma validando se a série/ano pertence à escola."""
 

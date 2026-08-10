@@ -62,3 +62,25 @@ async def obter_utilizador_atual(token: str = Depends(oauth2_scheme)) -> Dict[st
         }
     except JWTError:
         raise credenciais_exception
+
+
+def exigir_perfil(*perfis_permitidos: str):
+    """
+    Fábrica de dependência para RBAC (Controlo de Acesso Baseado em
+    Funções): bloqueia o endpoint com 403 se o perfil_acesso do
+    utilizador autenticado não estiver entre os permitidos.
+
+    Uso: Depends(exigir_perfil("GESTOR", "SECRETARIA"))
+
+    Substitui Depends(obter_utilizador_atual) nos endpoints que devem
+    ficar restritos — a autenticação (JWT válido) continua a ser
+    exigida da mesma forma, isto só acrescenta a verificação de perfil.
+    """
+    async def verificar(utilizador: Dict[str, Any] = Depends(obter_utilizador_atual)) -> Dict[str, Any]:
+        if utilizador["perfil_acesso"] not in perfis_permitidos:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Acesso restrito a: {', '.join(perfis_permitidos)}."
+            )
+        return utilizador
+    return verificar

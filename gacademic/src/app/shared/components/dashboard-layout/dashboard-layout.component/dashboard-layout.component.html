@@ -16,6 +16,14 @@
           <a routerLink="/alunos" routerLinkActive="bg-slate-800 text-blue-400"
             class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Alunos</a>
 
+          @if (isGestor$ | async) {
+            <!-- Só o Gestor pode criar contas de Professor (RBAC no back-end
+                 já bloqueia o resto; isto é só para não mostrar um ecrã que
+                 vai dar sempre 403 a quem não é Gestor). -->
+            <a routerLink="/professores" routerLinkActive="bg-slate-800 text-blue-400"
+              class="block py-2.5 px-4 rounded-lg hover:bg-slate-800 transition-colors">Professores</a>
+          }
+
           <!-- "Administração" removido daqui até existir a rota /admin/configuracoes.
                Um link para uma rota inexistente cai no wildcard e devolve
                silenciosamente ao dashboard, o que parecia um botão avariado. -->

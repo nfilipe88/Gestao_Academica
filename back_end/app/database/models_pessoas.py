@@ -72,3 +72,21 @@ class AlunoResponsavel(Base):
     __table_args__ = (
         UniqueConstraint("aluno_id", "responsavel_id", name="uq_aluno_responsavel"),
     )
+
+class Professor(Base):
+    """Cadastro de professor.
+
+    Ao contrário de Aluno/ResponsavelFinanceiroLegal, aqui usuario_id
+    NÃO é opcional: o documento de arquitetura já prevê que o professor
+    tenha login próprio (vai precisar de aceder ao Diário de Classe no
+    futuro), por isso criar um Professor cria sempre também a conta de
+    Usuario (perfil_acesso=PROFESSOR) junto — ver POST /api/v1/professores.
+    """
+    __tablename__ = "professor"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), nullable=False, unique=True)
+
+    formacao_academica: Mapped[str] = mapped_column(String(255), nullable=True)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))

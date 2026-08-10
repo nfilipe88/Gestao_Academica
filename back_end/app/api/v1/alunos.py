@@ -7,10 +7,14 @@ import uuid
 
 from app.database.session import obter_sessao_db
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
-from app.core.security import obter_utilizador_atual
+from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core.email import enviar_email, template_base
 
 router = APIRouter(prefix="/api/v1", tags=["Alunos e Responsáveis"])
+
+# Quem pode cadastrar/vincular alunos e responsáveis (RBAC) — leitura
+# fica aberta a qualquer utilizador autenticado da escola.
+_PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 
 # ==========================================
 # SCHEMAS (Pydantic)
@@ -39,7 +43,7 @@ class VincularResponsavel(BaseModel):
 async def criar_aluno(
     dados: AlunoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Cria um novo aluno na escola do utilizador logado."""
     ja_existe = await db.execute(
@@ -81,7 +85,7 @@ async def listar_alunos(
 async def criar_responsavel(
     dados: ResponsavelCreate,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Cria um novo responsável (Pai/Mãe/Tutor) na escola do utilizador logado."""
     novo_responsavel = ResponsavelFinanceiroLegal(
@@ -116,7 +120,7 @@ async def vincular_responsavel(
     dados: VincularResponsavel,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Vincula um responsável já existente a um aluno (RN: um aluno pode ter vários responsáveis)."""
     aluno_db = await db.execute(
