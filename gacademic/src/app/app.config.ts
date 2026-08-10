@@ -11,6 +11,8 @@ import { academicoReducer } from './store/academico/academic.reducer';
 import { AcademicoEffects } from './store/academico/academic.effects';
 import { alunosReducer } from './store/alunos/alunos.reducer';
 import { AlunosEffects } from './store/alunos/alunos.effects';
+import { matriculasReducer } from './store/matriculas/matriculas.reducer';
+import { MatriculasEffects } from './store/matriculas/matriculas.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 
@@ -20,7 +22,12 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withFetch(), withInterceptors([jwtInterceptor])),
 
     // O NgRx tem de ser providenciado aqui na raiz!
-    provideStore({ auth: authReducer, academico: academicoReducer, alunos: alunosReducer }),
-    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects),
+    provideStore({
+      auth: authReducer,
+      academico: academicoReducer,
+      alunos: alunosReducer,
+      matriculas: matriculasReducer
+    }),
+    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects),
   ]
 };
