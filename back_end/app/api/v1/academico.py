@@ -6,7 +6,7 @@ from typing import Optional
 import uuid
 
 from app.database.session import obter_sessao_db
-from app.database.models_academico import Curso, SerieAno, Turma
+from app.database.models_academico import Curso, Disciplina, GradeCurricular, SerieAno, Turma
 from app.core.security import obter_utilizador_atual, exigir_perfil
 
 # Quem pode criar/alterar a estrutura académica (RBAC) — leitura fica
@@ -30,6 +30,14 @@ class TurmaCreate(BaseModel):
     nome_codigo: str
     ano_letivo: int
     vagas_maximas: int = 30
+
+class DisciplinaCreate(BaseModel):
+    nome: str
+    carga_horaria_total: Optional[int] = None
+
+class GradeCurricularCreate(BaseModel):
+    serie_ano_id: uuid.UUID
+    disciplina_id: uuid.UUID
 
 # ==========================================
 # ROTAS PARA CURSOS
@@ -160,3 +168,89 @@ async def listar_turmas(
     )
     turmas = resultado.scalars().all()
     return turmas
+
+# ==========================================
+# ROTAS PARA DISCIPLINAS
+# ==========================================
+@router.post("/disciplinas", status_code=status.HTTP_201_CREATED)
+async def criar_disciplina(
+    dados: DisciplinaCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Cria uma nova disciplina (matéria) na escola do utilizador logado."""
+    nova_disciplina = Disciplina(
+        tenant_id=utilizador["tenant_id"],
+        nome=dados.nome,
+        carga_horaria_total=dados.carga_horaria_total
+    )
+    db.add(nova_disciplina)
+    await db.commit()
+    await db.refresh(nova_disciplina)
+    return nova_disciplina
+
+@router.get("/disciplinas")
+async def listar_disciplinas(
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Lista as disciplinas da escola do utilizador logado."""
+    resultado = await db.execute(
+        select(Disciplina).where(Disciplina.tenant_id == utilizador["tenant_id"])
+    )
+    return resultado.scalars().all()
+
+# ==========================================
+# ROTAS PARA GRADE CURRICULAR (Série/Ano <-> Disciplina)
+# ==========================================
+@router.post("/grade-curricular", status_code=status.HTTP_201_CREATED)
+async def adicionar_disciplina_a_serie(
+    dados: GradeCurricularCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Associa uma disciplina a uma Série/Ano (define a grade curricular dessa série)."""
+    tenant_id = utilizador["tenant_id"]
+
+    serie = (await db.execute(
+        select(SerieAno).where(SerieAno.id == dados.serie_ano_id, SerieAno.tenant_id == tenant_id)
+    )).scalars().first()
+    if not serie:
+        raise HTTPException(status_code=404, detail="Série/Ano não encontrada na sua instituição.")
+
+    disciplina = (await db.execute(
+        select(Disciplina).where(Disciplina.id == dados.disciplina_id, Disciplina.tenant_id == tenant_id)
+    )).scalars().first()
+    if not disciplina:
+        raise HTTPException(status_code=404, detail="Disciplina não encontrada na sua instituição.")
+
+    ja_existe = (await db.execute(
+        select(GradeCurricular).where(
+            GradeCurricular.serie_ano_id == dados.serie_ano_id,
+            GradeCurricular.disciplina_id == dados.disciplina_id
+        )
+    )).scalars().first()
+    if ja_existe:
+        raise HTTPException(status_code=400, detail="Esta disciplina já está associada a esta série/ano.")
+
+    novo_item = GradeCurricular(
+        tenant_id=tenant_id,
+        serie_ano_id=dados.serie_ano_id,
+        disciplina_id=dados.disciplina_id
+    )
+    db.add(novo_item)
+    await db.commit()
+    return {"mensagem": "Disciplina adicionada à grade curricular", "id": novo_item.id}
+
+@router.get("/grade-curricular")
+async def listar_grade_curricular(
+    serie_ano_id: Optional[uuid.UUID] = None,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Lista a grade curricular da escola, opcionalmente filtrada por série/ano."""
+    query = select(GradeCurricular).where(GradeCurricular.tenant_id == utilizador["tenant_id"])
+    if serie_ano_id:
+        query = query.where(GradeCurricular.serie_ano_id == serie_ano_id)
+    resultado = await db.execute(query)
+    return resultado.scalars().all()

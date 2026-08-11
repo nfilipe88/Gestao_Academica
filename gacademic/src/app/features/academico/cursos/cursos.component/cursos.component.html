@@ -60,13 +60,46 @@
             <div class="pl-3 border-l-2 border-blue-200 space-y-3">
 
               @if (curso.series.length > 0) {
-                <ul class="flex flex-wrap gap-2">
+                <div class="space-y-2">
                   @for (serie of curso.series; track serie.id) {
-                    <li class="text-xs bg-white border border-slate-200 rounded-full px-3 py-1 text-slate-600">
-                      {{ serie.nome }}
-                    </li>
+                    <div class="bg-white border border-slate-200 rounded-lg px-3 py-2">
+                      <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-slate-700">{{ serie.nome }}</span>
+                        <button type="button" (click)="alternarSerieExpandida(serie.id)"
+                          class="text-blue-500 hover:text-blue-700 text-xs font-medium cursor-pointer">
+                          {{ serieExpandidaId === serie.id ? 'Fechar' : 'Disciplinas (' + serie.disciplinas.length + ')' }}
+                        </button>
+                      </div>
+
+                      @if (serieExpandidaId === serie.id) {
+                        <div class="mt-2 pt-2 border-t border-slate-100 space-y-2">
+                          @if (serie.disciplinas.length > 0) {
+                            <ul class="flex flex-wrap gap-1.5">
+                              @for (nomeDisciplina of serie.disciplinas; track nomeDisciplina) {
+                                <li class="text-xs bg-slate-100 rounded-full px-2.5 py-1 text-slate-600">{{ nomeDisciplina }}</li>
+                              }
+                            </ul>
+                          } @else {
+                            <p class="text-xs text-slate-500">Ainda não há disciplinas nesta série.</p>
+                          }
+                          <form [formGroup]="gradeForm" (ngSubmit)="onSubmitGrade(serie.id)" class="flex gap-2 items-center">
+                            <select formControlName="disciplina_id"
+                              class="border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                              <option value="" disabled>Selecione uma disciplina</option>
+                              @for (disciplina of disciplinas$ | async; track disciplina.id) {
+                                <option [value]="disciplina.id">{{ disciplina.nome }}</option>
+                              }
+                            </select>
+                            <button type="submit" [disabled]="gradeForm.invalid"
+                              class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-lg disabled:opacity-50 transition-colors">
+                              + Adicionar
+                            </button>
+                          </form>
+                        </div>
+                      }
+                    </div>
                   }
-                </ul>
+                </div>
               } @else {
                 <p class="text-sm text-slate-500">Ainda não tens séries/anos neste curso (ex: "10º Ano").</p>
               }
@@ -88,6 +121,64 @@
         <tr>
           <td colspan="2" class="py-8 text-center text-slate-500">
             Nenhum curso registado na sua instituição.
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flex items-center justify-between pt-4">
+    <div>
+      <h2 class="text-xl font-bold text-slate-800">Disciplinas</h2>
+      <p class="text-slate-500 text-sm">Catálogo de matérias da instituição — depois associe-as a uma Série/Ano acima.</p>
+    </div>
+    <button type="button" (click)="alternarFormularioDisciplina()"
+      class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+      {{ mostrarFormularioDisciplina ? 'Cancelar' : '+ Novo' }}
+    </button>
+  </div>
+
+  @if (mostrarFormularioDisciplina) {
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+    <h3 class="text-lg font-semibold text-slate-800 mb-4">Nova Disciplina</h3>
+    <form [formGroup]="disciplinaForm" (ngSubmit)="onSubmitDisciplina()" class="flex gap-4 items-end">
+      <div class="flex-1">
+        <label class="block text-sm font-medium text-slate-600 mb-1">Nome</label>
+        <input type="text" formControlName="nome" placeholder="Ex: Matemática"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <div class="w-40">
+        <label class="block text-sm font-medium text-slate-600 mb-1">Carga horária — opcional</label>
+        <input type="number" formControlName="carga_horaria_total"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <button type="submit" [disabled]="disciplinaForm.invalid"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
+        Adicionar
+      </button>
+    </form>
+  </div>
+  }
+
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+          <th class="py-3 px-6 font-medium">Nome</th>
+          <th class="py-3 px-6 font-medium text-right">Carga horária</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (disciplina of disciplinas$ | async; track disciplina.id) {
+        <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+          <td class="py-3 px-6 text-slate-800 font-medium">{{ disciplina.nome }}</td>
+          <td class="py-3 px-6 text-right text-slate-600">{{ disciplina.carga_horaria_total || '—' }}</td>
+        </tr>
+        } @empty {
+        <tr>
+          <td colspan="2" class="py-8 text-center text-slate-500">
+            Nenhuma disciplina registada na sua instituição.
           </td>
         </tr>
         }

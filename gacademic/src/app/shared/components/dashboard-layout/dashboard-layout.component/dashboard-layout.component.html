@@ -59,6 +59,15 @@
         @if (!sidebarColapsada) { <span>Alunos</span> }
       </a>
 
+      <a routerLink="/diario" routerLinkActive="bg-slate-800 text-blue-400"
+        class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+        [class.justify-center]="sidebarColapsada" title="Diário de Classe">
+        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15M6.75 4.5A2.25 2.25 0 004.5 6.75v10.5A2.25 2.25 0 006.75 19.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75z" />
+        </svg>
+        @if (!sidebarColapsada) { <span>Diário de Classe</span> }
+      </a>
+
       <a routerLink="/comunicacoes" routerLinkActive="bg-slate-800 text-blue-400"
         class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
         [class.justify-center]="sidebarColapsada" title="Comunicações">

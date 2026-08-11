@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as AcademicoActions from './academic.actions';
-import { Curso, SerieAno, Turma } from './academic.models';
+import { Curso, Disciplina, GradeCurricular, SerieAno, Turma } from './academic.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -90,6 +90,62 @@ export class AcademicoEffects {
         map(() => AcademicoActions.carregarTurmas()), // Atualiza a lista após criar
         catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível criar a turma.'
+        })))
+      ))
+    )
+  );
+
+  // --- DISCIPLINAS ---
+  carregarDisciplinas$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.carregarDisciplinas),
+      switchMap(() => this.http.get<Disciplina[]>('/api/v1/academico/disciplinas').pipe(
+        map(disciplinas => AcademicoActions.carregarDisciplinasSucesso({ disciplinas })),
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar as disciplinas.'
+        })))
+      ))
+    )
+  );
+
+  criarDisciplina$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.criarDisciplina),
+      switchMap(action => this.http.post('/api/v1/academico/disciplinas', {
+        nome: action.nome,
+        carga_horaria_total: action.carga_horaria_total
+      }).pipe(
+        map(() => AcademicoActions.carregarDisciplinas()),
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar a disciplina.'
+        })))
+      ))
+    )
+  );
+
+  // --- GRADE CURRICULAR ---
+  carregarGradeCurricular$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.carregarGradeCurricular),
+      switchMap(() => this.http.get<GradeCurricular[]>('/api/v1/academico/grade-curricular').pipe(
+        map(grade => AcademicoActions.carregarGradeCurricularSucesso({ grade })),
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar a grade curricular.'
+        })))
+      ))
+    )
+  );
+
+  adicionarDisciplinaASerie$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.adicionarDisciplinaASerie),
+      switchMap(action => this.http.post('/api/v1/academico/grade-curricular', {
+        serie_ano_id: action.serie_ano_id,
+        disciplina_id: action.disciplina_id
+      }).pipe(
+        map(() => AcademicoActions.carregarGradeCurricular()),
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível adicionar a disciplina à série.'
         })))
       ))
     )

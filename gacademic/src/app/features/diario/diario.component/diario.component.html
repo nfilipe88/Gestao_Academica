@@ -1,0 +1,201 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Diário de Classe</h2>
+    <p class="text-slate-500 text-sm">Faça a chamada e lance notas das turmas/disciplinas que lecciona.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ erro }}
+    </div>
+  }
+
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      {{ mensagem }}
+    </div>
+  }
+
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+    <label class="block text-sm font-medium text-slate-600 mb-1">Turma / Disciplina</label>
+    <select [value]="alocacaoSelecionadaId" (change)="onSelecionarAlocacao($any($event.target).value)"
+      class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+      <option value="">Selecione uma turma/disciplina</option>
+      @for (alocacao of alocacoes$ | async; track alocacao.id) {
+        <option [value]="alocacao.id">{{ alocacao.nome_disciplina }} — {{ alocacao.nome_turma }}</option>
+      }
+    </select>
+    @if ((alocacoes$ | async)?.length === 0) {
+      <p class="text-sm text-amber-600 mt-2">
+        Ainda não tens nenhuma turma/disciplina alocada. Fala com o Gestor/Secretaria para te alocarem em Professores.
+      </p>
+    }
+  </div>
+
+  @if (turmaSelecionadaId && disciplinaSelecionadaId) {
+
+    <div class="flex gap-1 border-b border-slate-200">
+      <button type="button" (click)="aba = 'chamada'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'chamada'" [class.text-blue-600]="aba === 'chamada'"
+        [class.border-transparent]="aba !== 'chamada'" [class.text-slate-500]="aba !== 'chamada'">
+        Chamada
+      </button>
+      <button type="button" (click)="aba = 'notas'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'notas'" [class.text-blue-600]="aba === 'notas'"
+        [class.border-transparent]="aba !== 'notas'" [class.text-slate-500]="aba !== 'notas'">
+        Notas
+      </button>
+      <button type="button" (click)="onVerConsolidado()"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'consolidado'" [class.text-blue-600]="aba === 'consolidado'"
+        [class.border-transparent]="aba !== 'consolidado'" [class.text-slate-500]="aba !== 'consolidado'">
+        Consolidado
+      </button>
+    </div>
+
+    @if (aba === 'chamada') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+        <form [formGroup]="chamadaForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Data da aula</label>
+            <input type="date" formControlName="data_aula"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Nº de aulas</label>
+            <input type="number" formControlName="quantidade_aulas"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Conteúdo programado — opcional</label>
+            <input type="text" formControlName="conteudo_programado"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+        </form>
+
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-600 text-sm">
+              <th class="py-2 pr-3 font-medium">Nº</th>
+              <th class="py-2 pr-3 font-medium">Aluno</th>
+              <th class="py-2 pr-3 font-medium text-right">Presença</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (aluno of alunos$ | async; track aluno.matricula_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-500">{{ aluno.numero_chamada }}</td>
+                <td class="py-2 pr-3 text-slate-800">{{ aluno.nome_aluno }}</td>
+                <td class="py-2 pr-3 text-right">
+                  <button type="button" (click)="onTogglePresenca(aluno.matricula_id)"
+                    class="text-xs font-medium py-1 px-3 rounded-full transition-colors cursor-pointer"
+                    [class.bg-emerald-100]="presencasPorAluno[aluno.matricula_id]?.presenca"
+                    [class.text-emerald-700]="presencasPorAluno[aluno.matricula_id]?.presenca"
+                    [class.bg-rose-100]="!presencasPorAluno[aluno.matricula_id]?.presenca"
+                    [class.text-rose-700]="!presencasPorAluno[aluno.matricula_id]?.presenca">
+                    {{ presencasPorAluno[aluno.matricula_id]?.presenca ? 'Presente' : 'Falta' }}
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-6 text-center text-slate-500">Nenhum aluno matriculado nesta turma.</td></tr>
+            }
+          </tbody>
+        </table>
+
+        <button type="button" (click)="onSubmitChamada()" [disabled]="chamadaForm.invalid"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+          Guardar Chamada
+        </button>
+      </div>
+    }
+
+    @if (aba === 'notas') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+        <form [formGroup]="notasForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Período de avaliação</label>
+            <input type="text" formControlName="periodo_avaliacao" placeholder="Ex: 1º Trimestre"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Tipo de avaliação — opcional</label>
+            <input type="text" formControlName="tipo_avaliacao" placeholder="Ex: Prova Escrita"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Data da avaliação — opcional</label>
+            <input type="date" formControlName="data_avaliacao"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+        </form>
+
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-600 text-sm">
+              <th class="py-2 pr-3 font-medium">Aluno</th>
+              <th class="py-2 pr-3 font-medium text-right">Nota (0 a 10)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (aluno of alunos$ | async; track aluno.matricula_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-800">{{ aluno.nome_aluno }}</td>
+                <td class="py-2 pr-3 text-right">
+                  <input type="number" min="0" max="10" step="0.1"
+                    [value]="notasPorAluno[aluno.matricula_id]"
+                    (input)="onNotaChange(aluno.matricula_id, $any($event.target).value)"
+                    class="w-24 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 text-right focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="2" class="py-6 text-center text-slate-500">Nenhum aluno matriculado nesta turma.</td></tr>
+            }
+          </tbody>
+        </table>
+
+        <button type="button" (click)="onSubmitNotas()" [disabled]="notasForm.invalid"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+          Guardar Notas
+        </button>
+      </div>
+    }
+
+    @if (aba === 'consolidado') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        @if (consolidado$ | async; as c) {
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <p class="text-sm text-slate-500">Alunos</p>
+              <p class="text-2xl font-bold text-slate-800 mt-1">{{ c.total_alunos }}</p>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <p class="text-sm text-slate-500">Média da turma</p>
+              <p class="text-2xl font-bold text-slate-800 mt-1">{{ c.media_turma !== null ? (c.media_turma | number: '1.1-1') : '—' }}</p>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <p class="text-sm text-slate-500">Abaixo da média</p>
+              <p class="text-2xl font-bold text-slate-800 mt-1">{{ c.alunos_abaixo_da_media }}</p>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <p class="text-sm text-slate-500">Total de faltas</p>
+              <p class="text-2xl font-bold text-slate-800 mt-1">{{ c.total_faltas }}</p>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 mt-4">
+            A média usa o período de avaliação indicado no separador "Notas" (ou todos os períodos, se vazio).
+          </p>
+        } @else {
+          <p class="text-sm text-slate-500">A carregar…</p>
+        }
+      </div>
+    }
+
+  } @else {
+    <p class="text-sm text-slate-500">Seleciona uma turma/disciplina acima para começar.</p>
+  }
+
+</div>

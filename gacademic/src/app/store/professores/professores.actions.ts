@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { Professor } from './professores.models';
+import { Alocacao, Professor } from './professores.models';
 
 export const carregarProfessores = createAction('[Professores] Carregar Professores');
 export const carregarProfessoresSucesso = createAction(
@@ -9,6 +9,17 @@ export const carregarProfessoresSucesso = createAction(
 export const criarProfessor = createAction(
   '[Professores] Criar Professor',
   props<{ nome_completo: string, email: string, palavra_passe: string, formacao_academica: string | null }>()
+);
+
+// Alocação: qual professor lecciona qual disciplina em qual turma.
+export const carregarAlocacoes = createAction('[Professores] Carregar Alocacoes');
+export const carregarAlocacoesSucesso = createAction(
+  '[Professores] Carregar Alocacoes Sucesso',
+  props<{ alocacoes: Alocacao[] }>()
+);
+export const criarAlocacao = createAction(
+  '[Professores] Criar Alocacao',
+  props<{ professor_id: string, turma_id: string, disciplina_id: string }>()
 );
 
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,

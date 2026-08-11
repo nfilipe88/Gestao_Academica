@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Integer, ForeignKey
+from sqlalchemy import String, Integer, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.models import Base # A nossa Base declarativa original
 
@@ -46,3 +46,30 @@ class Turma(Base):
 
     # Relacionamento
     serie_ano: Mapped["SerieAno"] = relationship(back_populates="turmas")
+
+class Disciplina(Base):
+    """Uma matéria lecionada na escola (ex: Matemática, História).
+
+    Não pertence a nenhum Curso/Série diretamente — a ligação é feita
+    via Grade_Curricular (quais disciplinas pertencem a cada Série/Ano).
+    """
+    __tablename__ = "disciplina"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+
+    nome: Mapped[str] = mapped_column(String(150), nullable=False)
+    carga_horaria_total: Mapped[int] = mapped_column(Integer, nullable=True)
+
+class GradeCurricular(Base):
+    """Relação N:M entre Série/Ano e Disciplina: quais matérias pertencem a qual ano."""
+    __tablename__ = "grade_curricular"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    serie_ano_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("serie_ano.id", ondelete="CASCADE"), nullable=False)
+    disciplina_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disciplina.id", ondelete="CASCADE"), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("serie_ano_id", "disciplina_id", name="uq_grade_serie_disciplina"),
+    )

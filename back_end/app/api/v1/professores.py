@@ -2,14 +2,20 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, EmailStr, Field
+import uuid
 
 from app.database.session import obter_sessao_db
 from app.database.models import Usuario
+from app.database.models_academico import Disciplina, Turma
 from app.database.models_pessoas import Professor
+from app.database.models_diario import ProfessorTurmaDisciplina
 from app.core.security import obter_utilizador_atual, exigir_perfil, gerar_hash_senha
 from app.core.email import enviar_email, template_base
 
 router = APIRouter(prefix="/api/v1/professores", tags=["Professores"])
+
+# Quem pode alocar professores a turmas/disciplinas (RBAC).
+_PODE_ALOCAR = exigir_perfil("GESTOR", "SECRETARIA")
 
 # ==========================================
 # SCHEMAS (Pydantic)
@@ -19,6 +25,10 @@ class ProfessorCreate(BaseModel):
     email: EmailStr
     palavra_passe: str = Field(..., min_length=8)
     formacao_academica: str | None = None
+
+class AlocacaoCreate(BaseModel):
+    turma_id: uuid.UUID
+    disciplina_id: uuid.UUID
 
 # ==========================================
 # ROTAS
@@ -110,4 +120,97 @@ async def listar_professores(
             "data_criacao": professor.data_criacao,
         }
         for professor, nome_completo, email in resultado.all()
+    ]
+
+# ==========================================
+# ALOCAÇÃO (Professor <-> Turma <-> Disciplina)
+# ==========================================
+@router.post("/{professor_id}/alocacoes", status_code=status.HTTP_201_CREATED)
+async def alocar_professor(
+    professor_id: uuid.UUID,
+    dados: AlocacaoCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ALOCAR)
+):
+    """Define que este professor lecciona esta disciplina nesta turma."""
+    tenant_id = utilizador["tenant_id"]
+
+    professor = (await db.execute(
+        select(Professor).where(Professor.id == professor_id, Professor.tenant_id == tenant_id)
+    )).scalars().first()
+    if not professor:
+        raise HTTPException(status_code=404, detail="Professor não encontrado na sua instituição.")
+
+    turma = (await db.execute(
+        select(Turma).where(Turma.id == dados.turma_id, Turma.tenant_id == tenant_id)
+    )).scalars().first()
+    if not turma:
+        raise HTTPException(status_code=404, detail="Turma não encontrada na sua instituição.")
+
+    disciplina = (await db.execute(
+        select(Disciplina).where(Disciplina.id == dados.disciplina_id, Disciplina.tenant_id == tenant_id)
+    )).scalars().first()
+    if not disciplina:
+        raise HTTPException(status_code=404, detail="Disciplina não encontrada na sua instituição.")
+
+    ja_existe = (await db.execute(
+        select(ProfessorTurmaDisciplina).where(
+            ProfessorTurmaDisciplina.professor_id == professor_id,
+            ProfessorTurmaDisciplina.turma_id == dados.turma_id,
+            ProfessorTurmaDisciplina.disciplina_id == dados.disciplina_id
+        )
+    )).scalars().first()
+    if ja_existe:
+        raise HTTPException(status_code=400, detail="Este professor já está alocado a esta disciplina nesta turma.")
+
+    nova_alocacao = ProfessorTurmaDisciplina(
+        tenant_id=tenant_id,
+        professor_id=professor_id,
+        turma_id=dados.turma_id,
+        disciplina_id=dados.disciplina_id
+    )
+    db.add(nova_alocacao)
+    await db.commit()
+    return {"mensagem": "Professor alocado com sucesso", "id": nova_alocacao.id}
+
+@router.get("/alocacoes/minhas")
+async def listar_minhas_alocacoes(
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """
+    Lista as alocações (turma+disciplina) do professor autenticado — usadas
+    pelo Diário de Classe para saber a que turmas/disciplinas ele tem acesso.
+    Gestor/Secretaria recebem todas as alocações da escola.
+    """
+    tenant_id = utilizador["tenant_id"]
+
+    query = (
+        select(
+            ProfessorTurmaDisciplina, Turma.nome_codigo, Disciplina.nome
+        )
+        .join(Turma, Turma.id == ProfessorTurmaDisciplina.turma_id)
+        .join(Disciplina, Disciplina.id == ProfessorTurmaDisciplina.disciplina_id)
+        .where(ProfessorTurmaDisciplina.tenant_id == tenant_id)
+    )
+
+    if utilizador["perfil_acesso"] == "PROFESSOR":
+        professor = (await db.execute(
+            select(Professor).where(Professor.usuario_id == utilizador["usuario_id"], Professor.tenant_id == tenant_id)
+        )).scalars().first()
+        if not professor:
+            return []
+        query = query.where(ProfessorTurmaDisciplina.professor_id == professor.id)
+
+    resultado = await db.execute(query)
+    return [
+        {
+            "id": alocacao.id,
+            "professor_id": alocacao.professor_id,
+            "turma_id": alocacao.turma_id,
+            "nome_turma": nome_turma,
+            "disciplina_id": alocacao.disciplina_id,
+            "nome_disciplina": nome_disciplina,
+        }
+        for alocacao, nome_turma, nome_disciplina in resultado.all()
     ]

@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { Curso, SerieAno, Turma } from './academic.models';
+import { Curso, Disciplina, GradeCurricular, SerieAno, Turma } from './academic.models';
 
 // Ações para Cursos
 export const carregarCursos = createAction('[Academico] Carregar Cursos');
@@ -35,10 +35,33 @@ export const criarTurma = createAction(
   props<{ serie_ano_id: string, nome_codigo: string, ano_letivo: number, vagas_maximas: number }>()
 );
 
+// Ações para Disciplinas (catálogo global da escola, não pertencem a
+// nenhum Curso diretamente)
+export const carregarDisciplinas = createAction('[Academico] Carregar Disciplinas');
+export const carregarDisciplinasSucesso = createAction(
+  '[Academico] Carregar Disciplinas Sucesso',
+  props<{ disciplinas: Disciplina[] }>()
+);
+export const criarDisciplina = createAction(
+  '[Academico] Criar Disciplina',
+  props<{ nome: string, carga_horaria_total: number | null }>()
+);
+
+// Ações para Grade Curricular (associação Série/Ano <-> Disciplina)
+export const carregarGradeCurricular = createAction('[Academico] Carregar Grade Curricular');
+export const carregarGradeCurricularSucesso = createAction(
+  '[Academico] Carregar Grade Curricular Sucesso',
+  props<{ grade: GradeCurricular[] }>()
+);
+export const adicionarDisciplinaASerie = createAction(
+  '[Academico] Adicionar Disciplina A Serie',
+  props<{ serie_ano_id: string, disciplina_id: string }>()
+);
+
 // Ação genérica de falha: cobre qualquer um dos pedidos acima (carregar ou
-// criar cursos/séries/turmas). Sem isto, um erro HTTP dentro de um effect
-// fica por apanhar e mata esse effect para o resto da sessão (ver
-// academic.effects.ts).
+// criar cursos/séries/turmas/disciplinas/grade). Sem isto, um erro HTTP
+// dentro de um effect fica por apanhar e mata esse effect para o resto da
+// sessão (ver academic.effects.ts).
 export const academicoOperacaoFalhou = createAction(
   '[Academico API] Operação Falhou',
   props<{ erro: string }>()

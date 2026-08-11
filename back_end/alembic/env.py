@@ -12,6 +12,7 @@ import app.database.models_academico
 import app.database.models_pessoas
 import app.database.models_matricula
 import app.database.models_comunicacoes
+import app.database.models_diario
 
 from alembic import context
 

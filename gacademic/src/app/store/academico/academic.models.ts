@@ -22,3 +22,17 @@ export interface Turma {
   ano_letivo: number;
   vagas_maximas: number;
 }
+
+export interface Disciplina {
+  id: string;
+  tenant_id: string;
+  nome: string;
+  carga_horaria_total: number | null;
+}
+
+export interface GradeCurricular {
+  id: string;
+  tenant_id: string;
+  serie_ano_id: string;
+  disciplina_id: string;
+}

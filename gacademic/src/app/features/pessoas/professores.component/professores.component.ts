@@ -2,8 +2,11 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { carregarProfessores, criarProfessor } from '../../../store/professores/professores.actions';
-import { selectProfessores, selectProfessoresError } from '../../../store/professores/professores.selector';
+import { combineLatest, map } from 'rxjs';
+import { carregarCursos, carregarDisciplinas, carregarSeries, carregarTurmas } from '../../../store/academico/academic.actions';
+import { selectDisciplinas, selectTurmas } from '../../../store/academico/academic.selector';
+import { carregarAlocacoes, carregarProfessores, criarAlocacao, criarProfessor } from '../../../store/professores/professores.actions';
+import { selectAlocacoes, selectProfessores, selectProfessoresError } from '../../../store/professores/professores.selector';
 
 @Component({
   selector: 'app-professores.component',
@@ -16,9 +19,22 @@ export class ProfessoresComponent implements OnInit {
   private store = inject(Store);
 
   erro$ = this.store.select(selectProfessoresError);
-  professores$ = this.store.select(selectProfessores);
+  turmas$ = this.store.select(selectTurmas);
+  disciplinas$ = this.store.select(selectDisciplinas);
+
+  // Cada professor já com as suas alocações (turma + disciplina) juntas.
+  professores$ = combineLatest([
+    this.store.select(selectProfessores),
+    this.store.select(selectAlocacoes)
+  ]).pipe(
+    map(([professores, alocacoes]) => professores.map(professor => ({
+      ...professor,
+      alocacoes: alocacoes.filter(a => a.professor_id === professor.id)
+    })))
+  );
 
   mostrarFormulario = false;
+  professorExpandidoId: string | null = null;
 
   professorForm = this.fb.group({
     nome_completo: ['', Validators.required],
@@ -27,8 +43,19 @@ export class ProfessoresComponent implements OnInit {
     formacao_academica: ['']
   });
 
+  alocarForm = this.fb.group({
+    turma_id: ['', Validators.required],
+    disciplina_id: ['', Validators.required]
+  });
+
   ngOnInit() {
     this.store.dispatch(carregarProfessores());
+    this.store.dispatch(carregarAlocacoes());
+    // Precisamos das turmas e disciplinas para os <select> de alocação.
+    this.store.dispatch(carregarTurmas());
+    this.store.dispatch(carregarDisciplinas());
+    this.store.dispatch(carregarCursos());
+    this.store.dispatch(carregarSeries());
   }
 
   alternarFormulario() {
@@ -47,5 +74,21 @@ export class ProfessoresComponent implements OnInit {
     }));
     this.professorForm.reset();
     this.mostrarFormulario = false;
+  }
+
+  alternarExpandido(professorId: string) {
+    this.professorExpandidoId = this.professorExpandidoId === professorId ? null : professorId;
+    this.alocarForm.reset();
+  }
+
+  onAlocar(professorId: string) {
+    if (this.alocarForm.invalid) return;
+    const { turma_id, disciplina_id } = this.alocarForm.value;
+    this.store.dispatch(criarAlocacao({
+      professor_id: professorId,
+      turma_id: turma_id!,
+      disciplina_id: disciplina_id!
+    }));
+    this.alocarForm.reset();
   }
 }

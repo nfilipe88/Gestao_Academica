@@ -18,6 +18,16 @@ export const selectTurmas = createSelector(
   (state) => state.turmas
 );
 
+export const selectDisciplinas = createSelector(
+  selectAcademicoState,
+  (state) => state.disciplinas
+);
+
+export const selectGradeCurricular = createSelector(
+  selectAcademicoState,
+  (state) => state.gradeCurricular
+);
+
 export const selectAcademicoError = createSelector(
   selectAcademicoState,
   (state) => state.erro

@@ -17,6 +17,8 @@ import { professoresReducer } from './store/professores/professores.reducer';
 import { ProfessoresEffects } from './store/professores/professores.effects';
 import { comunicacoesReducer } from './store/comunicacoes/comunicacoes.reducer';
 import { ComunicacoesEffects } from './store/comunicacoes/comunicacoes.effects';
+import { diarioReducer } from './store/diario/diario.reducer';
+import { DiarioEffects } from './store/diario/diario.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 
@@ -32,8 +34,9 @@ export const appConfig: ApplicationConfig = {
       alunos: alunosReducer,
       matriculas: matriculasReducer,
       professores: professoresReducer,
-      comunicacoes: comunicacoesReducer
+      comunicacoes: comunicacoesReducer,
+      diario: diarioReducer
     }),
-    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects),
+    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects),
   ]
 };
