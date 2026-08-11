@@ -1,0 +1,129 @@
+<div class="space-y-6">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-800">Comunicações</h2>
+      <p class="text-slate-500 text-sm">Envie comunicados e convocatórias para uma turma, um aluno ou toda a escola.</p>
+    </div>
+    <button type="button" (click)="alternarFormulario()"
+      class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+      {{ mostrarFormulario ? 'Cancelar' : '+ Novo' }}
+    </button>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ erro }}
+    </div>
+  }
+
+  @if (mostrarFormulario) {
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+    <h3 class="text-lg font-semibold text-slate-800 mb-4">Novo Comunicado</h3>
+    <form [formGroup]="comunicadoForm" (ngSubmit)="onSubmit()" class="space-y-4">
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Tipo</label>
+          <select formControlName="tipo"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            @for (tipo of tiposComunicado; track tipo) {
+              <option [value]="tipo">{{ tipo === 'CONVOCATORIA' ? 'Convocatória' : 'Comunicado' }}</option>
+            }
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Destinatário</label>
+          <select formControlName="destinatario_tipo"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="TURMA">Uma turma</option>
+            <option value="ALUNO">Um aluno</option>
+            @if ((perfilAcesso$ | async) !== 'PROFESSOR') {
+              <!-- Professores não podem enviar para toda a escola (RBAC
+                   no back-end já bloqueia; isto é só para não deixar
+                   escolher uma opção que vai dar sempre 403). -->
+              <option value="ESCOLA">Toda a escola</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      @if (comunicadoForm.value.destinatario_tipo === 'TURMA') {
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Turma</label>
+          <select formControlName="destinatario_turma_id"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="" disabled>Selecione uma turma</option>
+            @for (turma of turmas$ | async; track turma.id) {
+              <option [value]="turma.id">{{ turma.nome_codigo }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      @if (comunicadoForm.value.destinatario_tipo === 'ALUNO') {
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Aluno</label>
+          <select formControlName="destinatario_aluno_id"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="" disabled>Selecione um aluno</option>
+            @for (aluno of alunos$ | async; track aluno.id) {
+              <option [value]="aluno.id">{{ aluno.nome_completo }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Título</label>
+        <input type="text" formControlName="titulo"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Mensagem</label>
+        <textarea formControlName="corpo" rows="4"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+      </div>
+
+      <button type="submit" [disabled]="comunicadoForm.invalid"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
+        Enviar
+      </button>
+    </form>
+  </div>
+  }
+
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+          <th class="py-3 px-6 font-medium">Título</th>
+          <th class="py-3 px-6 font-medium">Tipo</th>
+          <th class="py-3 px-6 font-medium">Destinatário</th>
+          <th class="py-3 px-6 font-medium">Autor</th>
+          <th class="py-3 px-6 font-medium text-right">Enviados</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (comunicado of comunicados$ | async; track comunicado.id) {
+        <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+          <td class="py-3 px-6 text-slate-800 font-medium">{{ comunicado.titulo }}</td>
+          <td class="py-3 px-6 text-slate-600">{{ comunicado.tipo === 'CONVOCATORIA' ? 'Convocatória' : 'Comunicado' }}</td>
+          <td class="py-3 px-6 text-slate-600">{{ comunicado.destinatarioLabel }}</td>
+          <td class="py-3 px-6 text-slate-600">{{ comunicado.autor_nome }}</td>
+          <td class="py-3 px-6 text-right text-slate-600">{{ comunicado.total_destinatarios }}</td>
+        </tr>
+        } @empty {
+        <tr>
+          <td colspan="5" class="py-8 text-center text-slate-500">
+            Ainda não enviaste nenhum comunicado.
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+</div>

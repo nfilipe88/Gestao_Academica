@@ -27,3 +27,8 @@ export const selectIsGestor = createSelector(
   selectAuthState,
   (state) => state.usuario?.perfil_acesso === 'GESTOR'
 );
+
+export const selectPerfilAcesso = createSelector(
+  selectAuthState,
+  (state) => state.usuario?.perfil_acesso ?? null
+);

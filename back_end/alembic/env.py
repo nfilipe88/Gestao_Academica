@@ -11,6 +11,7 @@ from app.database.models import Base # 1. Importar a nossa Base
 import app.database.models_academico
 import app.database.models_pessoas
 import app.database.models_matricula
+import app.database.models_comunicacoes
 
 from alembic import context
 
