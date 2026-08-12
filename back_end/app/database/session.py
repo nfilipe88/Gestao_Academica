@@ -43,3 +43,23 @@ async def obter_sessao_db(
             yield sessao
         finally:
             await sessao.close()
+
+
+async def obter_sessao_db_publica() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Sessão sem utilizador autenticado, para rotas verdadeiramente
+    públicas (ex.: webhooks de gateways de pagamento — é o PayPal quem
+    chama, não há um Bearer token nosso). Sem `obter_utilizador_atual`
+    não há tenant_id para configurar `app.current_tenant_id`; quem
+    chamar isto tem de descobrir o tenant a partir dos dados recebidos
+    (ex.: TransacaoGateway.gateway_transaction_id) e filtrar
+    explicitamente por ele nas queries seguintes — a mesma disciplina de
+    "RLS + WHERE tenant_id=..." explícito usada em todo o resto da
+    aplicação, só que aqui o tenant_id só é conhecido depois da
+    primeira query.
+    """
+    async with AsyncSessionLocal() as sessao:
+        try:
+            yield sessao
+        finally:
+            await sessao.close()

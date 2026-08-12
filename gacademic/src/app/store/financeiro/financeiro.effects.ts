@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import * as FinanceiroActions from './financeiro.actions';
-import { ContratoFinanceiro, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
+import { CobrancaGerada, ContratoFinanceiro, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -111,6 +111,47 @@ export class FinanceiroEffects {
         ]),
         catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível marcar a fatura como paga.'
+        })))
+      ))
+    )
+  );
+
+  gerarCobranca$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(FinanceiroActions.gerarCobranca),
+      switchMap(action => this.http.post<CobrancaGerada>(
+        `/api/v1/financeiro/faturas/${action.fatura_id}/gerar-cobranca`,
+        { metodo_pagamento: action.metodo_pagamento }
+      ).pipe(
+        // Nota: a abertura do separador do PayPal NÃO acontece aqui — teria
+        // de esperar por este pedido HTTP assíncrono, e a essa altura o
+        // gesto de clique do utilizador já não está "ativo" para o
+        // browser, pelo que window.open() seria bloqueado como pop-up. O
+        // componente abre a aba em branco de forma síncrona no clique e só
+        // lhe atribui a approve_url depois, através de `ultimaCobranca`.
+        switchMap(cobranca => [
+          FinanceiroActions.cobrancaGerada({ cobranca }),
+          FinanceiroActions.carregarFaturasDoContrato({ contrato_id: action.contrato_id })
+        ]),
+        catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível gerar a cobrança junto do PayPal.'
+        })))
+      ))
+    )
+  );
+
+  capturarPagamento$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(FinanceiroActions.capturarPagamento),
+      switchMap(action => this.http.post<{ mensagem: string }>(
+        '/api/v1/financeiro/transacoes/capturar', { order_id: action.order_id }
+      ).pipe(
+        switchMap(resp => [
+          FinanceiroActions.carregarFaturasDoContrato({ contrato_id: action.contrato_id }),
+          FinanceiroActions.financeiroOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível confirmar o pagamento junto do PayPal.'
         })))
       ))
     )

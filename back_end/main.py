@@ -34,6 +34,7 @@ app.include_router(professores.router)
 app.include_router(comunicacoes.router)
 app.include_router(diario.router)
 app.include_router(financeiro.router)
+app.include_router(financeiro.router_webhooks)
 app.include_router(usuarios.router)
 
 @app.get("/api/v1/health")

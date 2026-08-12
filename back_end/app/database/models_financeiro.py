@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, text
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -72,4 +72,36 @@ class FaturaMensalidade(Base):
 
     __table_args__ = (
         UniqueConstraint("contrato_id", "numero_parcela", name="uq_fatura_contrato_parcela"),
+    )
+
+
+class TransacaoGateway(Base):
+    """
+    Regista cada tentativa de cobrança feita junto de um gateway externo
+    para uma Fatura_Mensalidade (RN03 do documento). Por agora só existe
+    o método PAYPAL — o campo é uma string livre (não Enum) para não
+    exigir migração de esquema quando outros métodos forem adicionados
+    (ex: Referência Multibanco via ifthenpay).
+
+    Uma fatura pode ter várias transações ao longo do tempo (ex: uma
+    tentativa expirou/cancelou e o responsável gerou outra) — por isso
+    não há UniqueConstraint em fatura_id; a idempotência "não crie uma
+    segunda cobrança em aberto" é responsabilidade do endpoint
+    (POST /financeiro/faturas/{id}/gerar-cobranca), não do esquema.
+    """
+    __tablename__ = "transacao_gateway"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    fatura_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fatura_mensalidade.id", ondelete="CASCADE"), nullable=False)
+
+    metodo_pagamento: Mapped[str] = mapped_column(String(30), nullable=False)  # PAYPAL (por agora)
+    gateway_transaction_id: Mapped[str] = mapped_column(String(100), nullable=False)  # id da Order no PayPal
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="AGUARDANDO_PAGAMENTO")
+    # AGUARDANDO_PAGAMENTO, PAGO, CANCELADO, EXPIRADO
+
+    dados_cobranca: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)  # approve_url, capture_id, payload bruto relevante
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+    data_atualizacao: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP")
     )

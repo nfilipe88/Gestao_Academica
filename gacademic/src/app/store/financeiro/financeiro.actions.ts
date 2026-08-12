@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { ContratoFinanceiro, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
+import { CobrancaGerada, ContratoFinanceiro, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
 
 export const carregarMatriculasDoAluno = createAction(
   '[Financeiro] Carregar Matriculas Do Aluno',
@@ -52,6 +52,24 @@ export const carregarFaturasDoContratoSucesso = createAction(
 export const marcarFaturaPaga = createAction(
   '[Financeiro] Marcar Fatura Paga',
   props<{ fatura_id: string, contrato_id: string, valor_pago: number | null, forma_pagamento: string }>()
+);
+
+// Pede ao PayPal os dados de pagamento (approve_url) — o effect abre-a
+// numa nova aba assim que a resposta chega.
+export const gerarCobranca = createAction(
+  '[Financeiro] Gerar Cobranca',
+  props<{ fatura_id: string, contrato_id: string, metodo_pagamento: string }>()
+);
+export const cobrancaGerada = createAction(
+  '[Financeiro] Cobranca Gerada',
+  props<{ cobranca: CobrancaGerada }>()
+);
+
+// Chamado quando o PayPal redireciona de volta com sucesso
+// (?paypal_retorno=sucesso&token=<order_id>) — efetiva o pagamento.
+export const capturarPagamento = createAction(
+  '[Financeiro] Capturar Pagamento',
+  props<{ order_id: string, contrato_id: string }>()
 );
 
 export const processarReguaCobranca = createAction('[Financeiro] Processar Regua Cobranca');

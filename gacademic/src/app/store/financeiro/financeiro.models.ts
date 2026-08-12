@@ -33,6 +33,13 @@ export interface ContratoFinanceiro {
 // sempre calculado on-the-fly pelo back-end (RN02) — nunca gravado.
 export type StatusFatura = 'PENDENTE' | 'PAGO' | 'ATRASADO' | 'CANCELADO' | 'NEGOCIADO';
 
+export interface TransacaoAtiva {
+  transacao_id: string;
+  metodo: string; // 'PAYPAL' por agora
+  order_id: string;
+  approve_url: string | null;
+}
+
 export interface FaturaMensalidade {
   id: string;
   contrato_id: string;
@@ -48,4 +55,13 @@ export interface FaturaMensalidade {
   data_pagamento_realizado: string | null;
   valor_pago_realizado: number | null;
   forma_pagamento: string | null;
+  transacoes_ativas: TransacaoAtiva[];
+}
+
+export interface CobrancaGerada {
+  transacao_id: string;
+  fatura_id: string;
+  valor_cobrado: number;
+  dados_pagamento: { approve_url: string | null };
+  status: string;
 }

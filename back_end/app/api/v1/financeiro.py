@@ -1,21 +1,35 @@
+import logging
+import os
 from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from app.database.session import obter_sessao_db
+from app.database.session import obter_sessao_db, obter_sessao_db_publica
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.database.models_matricula import Matricula
-from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
+from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade, TransacaoGateway
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core.email import enviar_email, template_base
+from app.core import paypal
+
+logger = logging.getLogger("financeiro")
 
 router = APIRouter(prefix="/api/v1/financeiro", tags=["Financeiro"])
+
+# Router à parte, sem o prefixo /financeiro e sem exigir autenticação —
+# é o PayPal quem chama isto (ver POST /api/v1/webhooks/paypal/pagamentos
+# mais abaixo). Registado em main.py como qualquer outro router.
+router_webhooks = APIRouter(prefix="/api/v1/webhooks", tags=["Webhooks"])
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:4200")
+
+METODOS_GATEWAY_SUPORTADOS = {"PAYPAL"}
 
 # Só Gestor/Secretaria criam/gerem contratos e mexem em pagamentos — o
 # mesmo padrão RBAC usado em matrículas/académico. Leitura (extrato,
@@ -49,6 +63,14 @@ class ContratoCreate(BaseModel):
 class FaturaMarcarPago(BaseModel):
     valor_pago: Decimal | None = None  # se omitido, assume o valor atualizado (com juros/multa, se houver)
     forma_pagamento: str = "MANUAL"
+
+
+class GerarCobrancaRequest(BaseModel):
+    metodo_pagamento: str = "PAYPAL"
+
+
+class CapturarPagamentoRequest(BaseModel):
+    order_id: str
 
 
 # ==========================================
@@ -93,7 +115,16 @@ def _calcular_situacao_fatura(fatura: FaturaMensalidade) -> dict:
     }
 
 
-def _serializar_fatura(fatura: FaturaMensalidade) -> dict:
+def _serializar_transacao(transacao: TransacaoGateway) -> dict:
+    return {
+        "transacao_id": transacao.id,
+        "metodo": transacao.metodo_pagamento,
+        "order_id": transacao.gateway_transaction_id,
+        "approve_url": transacao.dados_cobranca.get("approve_url"),
+    }
+
+
+def _serializar_fatura(fatura: FaturaMensalidade, transacoes_ativas: list[TransacaoGateway] | None = None) -> dict:
     situacao = _calcular_situacao_fatura(fatura)
     return {
         "id": fatura.id,
@@ -106,6 +137,7 @@ def _serializar_fatura(fatura: FaturaMensalidade) -> dict:
         "valor_pago_realizado": fatura.valor_pago_realizado,
         "forma_pagamento": fatura.forma_pagamento,
         **situacao,
+        "transacoes_ativas": [_serializar_transacao(t) for t in (transacoes_ativas or [])],
     }
 
 
@@ -280,7 +312,20 @@ async def listar_faturas_do_contrato(
         .order_by(FaturaMensalidade.numero_parcela)
     )).scalars().all()
 
-    return [_serializar_fatura(fatura) for fatura in faturas]
+    # Uma única query para as transações em aberto de todas as faturas
+    # (em vez de N+1) — agrupadas por fatura_id em Python.
+    transacoes = (await db.execute(
+        select(TransacaoGateway).where(
+            TransacaoGateway.fatura_id.in_([f.id for f in faturas]),
+            TransacaoGateway.tenant_id == tenant_id,
+            TransacaoGateway.status == "AGUARDANDO_PAGAMENTO"
+        )
+    )).scalars().all()
+    transacoes_por_fatura: dict[uuid.UUID, list[TransacaoGateway]] = {}
+    for t in transacoes:
+        transacoes_por_fatura.setdefault(t.fatura_id, []).append(t)
+
+    return [_serializar_fatura(fatura, transacoes_por_fatura.get(fatura.id)) for fatura in faturas]
 
 
 # ==========================================
@@ -292,12 +337,22 @@ async def obter_fatura(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
+    tenant_id = utilizador["tenant_id"]
     fatura = (await db.execute(
-        select(FaturaMensalidade).where(FaturaMensalidade.id == fatura_id, FaturaMensalidade.tenant_id == utilizador["tenant_id"])
+        select(FaturaMensalidade).where(FaturaMensalidade.id == fatura_id, FaturaMensalidade.tenant_id == tenant_id)
     )).scalars().first()
     if not fatura:
         raise HTTPException(status_code=404, detail="Fatura não encontrada na sua instituição.")
-    return _serializar_fatura(fatura)
+
+    transacoes_ativas = (await db.execute(
+        select(TransacaoGateway).where(
+            TransacaoGateway.fatura_id == fatura_id,
+            TransacaoGateway.tenant_id == tenant_id,
+            TransacaoGateway.status == "AGUARDANDO_PAGAMENTO"
+        )
+    )).scalars().all()
+
+    return _serializar_fatura(fatura, transacoes_ativas)
 
 
 # ==========================================
@@ -358,6 +413,202 @@ async def marcar_fatura_paga(
             )
 
     return {"mensagem": "Fatura marcada como paga.", "valor_pago_realizado": valor_pago}
+
+
+# ==========================================
+# G1. GERAR/EMITIR COBRANÇA (PayPal)
+# ==========================================
+@router.post("/faturas/{fatura_id}/gerar-cobranca")
+async def gerar_cobranca(
+    fatura_id: uuid.UUID,
+    dados: GerarCobrancaRequest,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """
+    Pede ao gateway (por agora só PayPal) os dados de pagamento de uma
+    fatura. Idempotente: se já houver uma cobrança do mesmo método em
+    aberto para esta fatura, devolve essa em vez de criar outra Order no
+    PayPal (evita cobrar taxa de emissão em duplicado por duplo-clique).
+    Aberto a qualquer utilizador autenticado — o Portal do Responsável,
+    quando existir, vai chamar isto sem ser Gestor/Secretaria.
+    """
+    tenant_id = utilizador["tenant_id"]
+    if dados.metodo_pagamento not in METODOS_GATEWAY_SUPORTADOS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Método de pagamento não suportado. Use um de: {', '.join(sorted(METODOS_GATEWAY_SUPORTADOS))}."
+        )
+
+    fatura = (await db.execute(
+        select(FaturaMensalidade).where(FaturaMensalidade.id == fatura_id, FaturaMensalidade.tenant_id == tenant_id)
+    )).scalars().first()
+    if not fatura:
+        raise HTTPException(status_code=404, detail="Fatura não encontrada na sua instituição.")
+    if fatura.status_pagamento in ("PAGO", "CANCELADO"):
+        raise HTTPException(status_code=400, detail="Esta fatura já está paga ou cancelada.")
+
+    # Idempotência: reaproveita uma cobrança do mesmo método já em aberto.
+    existente = (await db.execute(
+        select(TransacaoGateway).where(
+            TransacaoGateway.fatura_id == fatura_id,
+            TransacaoGateway.tenant_id == tenant_id,
+            TransacaoGateway.metodo_pagamento == dados.metodo_pagamento,
+            TransacaoGateway.status == "AGUARDANDO_PAGAMENTO"
+        )
+    )).scalars().first()
+    if existente:
+        return {
+            "transacao_id": existente.id,
+            "fatura_id": fatura.id,
+            "valor_cobrado": existente.dados_cobranca.get("valor"),
+            "dados_pagamento": {"approve_url": existente.dados_cobranca.get("approve_url")},
+            "status": existente.status,
+        }
+
+    situacao = _calcular_situacao_fatura(fatura)
+    valor_cobrado = situacao["valor_atualizado"]
+
+    contrato = (await db.execute(
+        select(ContratoFinanceiro).where(ContratoFinanceiro.id == fatura.contrato_id)
+    )).scalars().first()
+    aluno_nome = None
+    if contrato:
+        aluno_nome = (await db.execute(
+            select(Aluno.nome_completo).join(Matricula, Matricula.aluno_id == Aluno.id)
+            .where(Matricula.id == contrato.matricula_id)
+        )).scalar_one_or_none()
+
+    # matricula_id vai na URL de retorno para a página conseguir repor a
+    # seleção de aluno/matrícula depois do PayPal redirecionar de volta
+    # (o formulário fica "vazio" nesse ponto — é uma navegação nova).
+    matricula_id = contrato.matricula_id if contrato else None
+    sufixo_retorno = f"&matricula_id={matricula_id}" if matricula_id else ""
+
+    try:
+        order = await paypal.criar_order(
+            valor=str(valor_cobrado),
+            referencia=str(fatura.id),
+            descricao=f"Parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas if contrato else '?'} — {aluno_nome or ''}",
+            return_url=f"{FRONTEND_URL}/financeiro?paypal_retorno=sucesso{sufixo_retorno}",
+            cancel_url=f"{FRONTEND_URL}/financeiro?paypal_retorno=cancelado{sufixo_retorno}",
+        )
+    except paypal.PayPalNaoConfigurado as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception:
+        logger.exception("Falha ao criar Order no PayPal para a fatura %s", fatura_id)
+        raise HTTPException(status_code=502, detail="Não foi possível gerar a cobrança junto do PayPal. Tente novamente.")
+
+    approve_url = next((link["href"] for link in order.get("links", []) if link.get("rel") == "approve"), None)
+
+    nova_transacao = TransacaoGateway(
+        tenant_id=tenant_id,
+        fatura_id=fatura.id,
+        metodo_pagamento="PAYPAL",
+        gateway_transaction_id=order["id"],
+        status="AGUARDANDO_PAGAMENTO",
+        dados_cobranca={"approve_url": approve_url, "valor": str(valor_cobrado), "order_bruta": order},
+    )
+    db.add(nova_transacao)
+    await db.commit()
+    await db.refresh(nova_transacao)
+
+    return {
+        "transacao_id": nova_transacao.id,
+        "fatura_id": fatura.id,
+        "valor_cobrado": valor_cobrado,
+        "dados_pagamento": {"approve_url": approve_url},
+        "status": nova_transacao.status,
+    }
+
+
+# ==========================================
+# G2. CAPTURAR PAGAMENTO (após o responsável aprovar no PayPal)
+# ==========================================
+@router.post("/transacoes/capturar")
+async def capturar_pagamento(
+    dados: CapturarPagamentoRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """
+    Chamado pelo front-end assim que o PayPal redireciona de volta com
+    sucesso (?paypal_retorno=sucesso&token=<order_id>). Efetiva a
+    cobrança (capture) e marca a fatura como PAGO. O Webhook
+    (POST /api/v1/webhooks/paypal/pagamentos) faz a mesma coisa como
+    rede de segurança caso o utilizador feche a janela antes disto correr.
+    """
+    tenant_id = utilizador["tenant_id"]
+    transacao = (await db.execute(
+        select(TransacaoGateway).where(
+            TransacaoGateway.gateway_transaction_id == dados.order_id,
+            TransacaoGateway.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not transacao:
+        raise HTTPException(status_code=404, detail="Transação não encontrada na sua instituição.")
+    if transacao.status == "PAGO":
+        return {"mensagem": "Pagamento já tinha sido confirmado.", "status": "PAGO"}
+
+    try:
+        captura = await paypal.capturar_order(transacao.gateway_transaction_id)
+    except Exception:
+        logger.exception("Falha ao capturar a Order %s no PayPal", transacao.gateway_transaction_id)
+        raise HTTPException(status_code=502, detail="Não foi possível confirmar o pagamento junto do PayPal.")
+
+    if captura.get("status") != "COMPLETED":
+        raise HTTPException(status_code=400, detail=f"Pagamento não confirmado pelo PayPal (status: {captura.get('status')}).")
+
+    await _efetivar_pagamento_gateway(db, background_tasks, transacao, captura)
+    return {"mensagem": "Pagamento confirmado com sucesso.", "status": "PAGO"}
+
+
+async def _efetivar_pagamento_gateway(db: AsyncSession, background_tasks: BackgroundTasks, transacao: TransacaoGateway, captura: dict):
+    """Passo comum entre a captura direta (front-end) e o webhook (RN03)."""
+    fatura = (await db.execute(
+        select(FaturaMensalidade).where(FaturaMensalidade.id == transacao.fatura_id)
+    )).scalars().first()
+    if not fatura or fatura.status_pagamento == "PAGO":
+        transacao.status = "PAGO"
+        await db.commit()
+        return
+
+    try:
+        valor_capturado = Decimal(
+            captura["purchase_units"][0]["payments"]["captures"][0]["amount"]["value"]
+        )
+    except (KeyError, IndexError, TypeError):
+        valor_capturado = transacao.dados_cobranca.get("valor")
+
+    fatura.status_pagamento = "PAGO"
+    fatura.data_pagamento_realizado = datetime.now(timezone.utc)
+    fatura.valor_pago_realizado = valor_capturado
+    fatura.forma_pagamento = "PAYPAL"
+
+    transacao.status = "PAGO"
+    transacao.dados_cobranca = {**transacao.dados_cobranca, "captura_bruta": captura}
+
+    await db.commit()
+
+    contrato = (await db.execute(
+        select(ContratoFinanceiro).where(ContratoFinanceiro.id == fatura.contrato_id)
+    )).scalars().first()
+    if contrato:
+        responsavel = (await db.execute(
+            select(ResponsavelFinanceiroLegal).where(ResponsavelFinanceiroLegal.id == contrato.responsavel_id)
+        )).scalars().first()
+        if responsavel and responsavel.email:
+            background_tasks.add_task(
+                enviar_email,
+                destinatario=responsavel.email,
+                assunto=f"Pagamento recebido — parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas}",
+                corpo_html=template_base(
+                    "Pagamento confirmado",
+                    f"Recebemos via PayPal o pagamento da parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas}, "
+                    f"no valor de {valor_capturado}€. Obrigado!"
+                )
+            )
 
 
 # ==========================================
@@ -437,3 +688,62 @@ async def processar_regua_cobranca(
 
     await db.commit()
     return {"mensagem": "Régua de cobrança processada.", "emails_enviados": contagem}
+
+
+# ==========================================
+# WEBHOOK (RN03) — rota pública, chamada pelo PayPal
+# ==========================================
+@router_webhooks.post("/paypal/pagamentos")
+async def webhook_paypal_pagamentos(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(obter_sessao_db_publica)
+):
+    """
+    Rede de segurança do RN03: confirma o pagamento mesmo que o
+    responsável tenha fechado a janela antes do redirecionamento de
+    volta (POST /financeiro/transacoes/capturar) chegar a correr.
+
+    Sem PAYPAL_WEBHOOK_ID configurado, a assinatura não é validada e o
+    evento é ignorado (mas registado em log) — não confiamos em
+    payloads não verificados que digam "paguei" sem confirmar que
+    vieram mesmo do PayPal.
+    """
+    corpo_bruto = await request.body()
+
+    try:
+        assinatura_valida = await paypal.verificar_assinatura_webhook(dict(request.headers), corpo_bruto)
+    except Exception:
+        logger.exception("Erro ao verificar assinatura do webhook do PayPal.")
+        return {"recebido": True}  # 200 sempre, para o PayPal não ficar a retentar indefinidamente
+
+    if not assinatura_valida:
+        logger.warning("Webhook do PayPal recebido mas a assinatura não foi validada — ignorado.")
+        return {"recebido": True}
+
+    evento = await request.json()
+    tipo_evento = evento.get("event_type")
+    if tipo_evento != "PAYMENT.CAPTURE.COMPLETED":
+        return {"recebido": True}
+
+    recurso = evento.get("resource", {})
+    order_id = (recurso.get("supplementary_data", {}) or {}).get("related_ids", {}).get("order_id")
+    if not order_id:
+        logger.warning("Webhook PAYMENT.CAPTURE.COMPLETED sem order_id em supplementary_data — ignorado.")
+        return {"recebido": True}
+
+    transacao = (await db.execute(
+        select(TransacaoGateway).where(TransacaoGateway.gateway_transaction_id == order_id)
+    )).scalars().first()
+    if not transacao:
+        logger.warning("Webhook do PayPal referencia a Order %s, que não existe na nossa base de dados.", order_id)
+        return {"recebido": True}
+
+    # A "captura" simulada aqui replica só o suficiente da resposta da
+    # PayPal Orders API para o _efetivar_pagamento_gateway conseguir ler
+    # o valor pago; o resto do payload do evento fica em dados_cobranca.
+    captura_simulada = {
+        "purchase_units": [{"payments": {"captures": [{"amount": recurso.get("amount", {})}]}}]
+    }
+    await _efetivar_pagamento_gateway(db, background_tasks, transacao, captura_simulada)
+    return {"recebido": True}

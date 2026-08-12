@@ -1,17 +1,19 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Store } from '@ngrx/store';
+import { filter, take } from 'rxjs';
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
 import { selectAlunos } from '../../../store/alunos/alunos.selector';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import {
-  carregarContratoDaMatricula, carregarMatriculasDoAluno, carregarResponsaveisDaMatricula,
-  criarContrato, marcarFaturaPaga, processarReguaCobranca
+  capturarPagamento, carregarContratoDaMatricula, carregarMatriculasDoAluno, carregarResponsaveisDaMatricula,
+  criarContrato, gerarCobranca, marcarFaturaPaga, processarReguaCobranca
 } from '../../../store/financeiro/financeiro.actions';
 import {
   selectContrato, selectContratoCarregado, selectFaturas, selectFinanceiroError,
-  selectFinanceiroMensagem, selectMatriculasDoAluno, selectResponsaveisElegiveis
+  selectFinanceiroMensagem, selectMatriculasDoAluno, selectResponsaveisElegiveis, selectUltimaCobranca
 } from '../../../store/financeiro/financeiro.selector';
 
 const FORMAS_PAGAMENTO = ['MANUAL', 'DINHEIRO', 'TRANSFERENCIA', 'MBWAY', 'OUTRO'];
@@ -25,6 +27,8 @@ const FORMAS_PAGAMENTO = ['MANUAL', 'DINHEIRO', 'TRANSFERENCIA', 'MBWAY', 'OUTRO
 export class FinanceiroComponent implements OnInit {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   alunos$ = this.store.select(selectAlunos);
   matriculas$ = this.store.select(selectMatriculasDoAluno);
@@ -52,8 +56,39 @@ export class FinanceiroComponent implements OnInit {
     percentual_desconto_bolsa: [0, [Validators.min(0), Validators.max(100)]]
   });
 
+  // Mensagem local (não vem do back-end) para o caso "cancelado" do
+  // redirecionamento do PayPal — não há nada para o effects tratar aí.
+  pagamentoCanceladoLocalmente = false;
+
   ngOnInit() {
     this.store.dispatch(carregarAlunos());
+
+    // Depois do PayPal redirecionar de volta (ver return_url/cancel_url
+    // gerados em POST /financeiro/faturas/{id}/gerar-cobranca), a página
+    // recarrega do zero — a matrícula selecionada vem na própria URL
+    // para conseguirmos repor o extrato sem o utilizador escolher tudo outra vez.
+    const params = this.route.snapshot.queryParamMap;
+    const matriculaId = params.get('matricula_id');
+    const retorno = params.get('paypal_retorno');
+    const token = params.get('token'); // PayPal chama o order_id de "token" no redirecionamento
+
+    if (matriculaId) {
+      this.onSelecionarMatricula(matriculaId);
+    }
+
+    if (retorno === 'sucesso' && token) {
+      this.contrato$.pipe(filter(c => !!c), take(1)).subscribe(contrato => {
+        this.store.dispatch(capturarPagamento({ order_id: token, contrato_id: contrato!.id }));
+      });
+    } else if (retorno === 'cancelado') {
+      this.pagamentoCanceladoLocalmente = true;
+    }
+
+    // Limpa os parâmetros do PayPal da URL para um refresh da página não
+    // tentar capturar/reprocessar a mesma Order outra vez.
+    if (retorno) {
+      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    }
   }
 
   onSelecionarAluno(alunoId: string) {
@@ -96,6 +131,27 @@ export class FinanceiroComponent implements OnInit {
   onMarcarPago(faturaId: string, contratoId: string) {
     const forma = this.formaPagamentoPorFatura[faturaId] || 'MANUAL';
     this.store.dispatch(marcarFaturaPaga({ fatura_id: faturaId, contrato_id: contratoId, valor_pago: null, forma_pagamento: forma }));
+  }
+
+  onPagarComPayPal(faturaId: string, contratoId: string) {
+    // Abre já a aba em branco, de forma síncrona, dentro do próprio
+    // handler de clique — é isto que impede o browser de bloquear como
+    // pop-up. Só depois é que sabemos a approve_url (vem do back-end),
+    // altura em que só falta redirecionar esta aba já aberta.
+    const aba = window.open('', '_blank');
+    this.store.dispatch(gerarCobranca({ fatura_id: faturaId, contrato_id: contratoId, metodo_pagamento: 'PAYPAL' }));
+
+    this.store.select(selectUltimaCobranca).pipe(
+      filter(cobranca => !!cobranca && cobranca.fatura_id === faturaId),
+      take(1)
+    ).subscribe(cobranca => {
+      const approveUrl = cobranca?.dados_pagamento?.approve_url;
+      if (aba && approveUrl) {
+        aba.location.href = approveUrl;
+      } else if (aba) {
+        aba.close();
+      }
+    });
   }
 
   onProcessarRegua() {

@@ -44,3 +44,6 @@ bcrypt==3.2.2
 python-dotenv==1.2.1
 python-multipart==0.0.22
 aiosmtplib==2.0.2
+
+# Cliente HTTP assíncrono — usado para falar com a API do PayPal (app/core/paypal.py).
+httpx==0.28.1

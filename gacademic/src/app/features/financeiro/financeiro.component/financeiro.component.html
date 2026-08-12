@@ -20,6 +20,11 @@
   @if (mensagem$ | async; as mensagem) {
     <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
+  @if (pagamentoCanceladoLocalmente) {
+    <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+      O pagamento no PayPal foi cancelado — a fatura continua pendente, podes tentar novamente.
+    </div>
+  }
 
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
@@ -173,18 +178,31 @@
                   </span>
                 </td>
                 <td class="py-3 px-4 text-right">
-                  @if ((podeGerir$ | async) && fatura.status_efetivo !== 'PAGO' && fatura.status_efetivo !== 'CANCELADO') {
-                    <div class="flex items-center justify-end gap-2">
-                      <select [(ngModel)]="formaPagamentoPorFatura[fatura.id]" [ngModelOptions]="{ standalone: true }"
-                        class="text-xs border border-slate-300 rounded-lg px-2 py-1 text-slate-700 focus:outline-hidden">
-                        @for (forma of formasPagamento; track forma) {
-                          <option [value]="forma">{{ forma }}</option>
-                        }
-                      </select>
-                      <button type="button" (click)="onMarcarPago(fatura.id, contrato.id)"
-                        class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
-                        Marcar Pago
-                      </button>
+                  @if (fatura.status_efetivo !== 'PAGO' && fatura.status_efetivo !== 'CANCELADO') {
+                    <div class="flex items-center justify-end gap-2 flex-wrap">
+                      @if (fatura.transacoes_ativas.length > 0) {
+                        <a [href]="fatura.transacoes_ativas[0].approve_url" target="_blank" rel="noopener"
+                          class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-lg transition-colors">
+                          Continuar pagamento PayPal
+                        </a>
+                      } @else {
+                        <button type="button" (click)="onPagarComPayPal(fatura.id, contrato.id)"
+                          class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
+                          Pagar com PayPal
+                        </button>
+                      }
+                      @if (podeGerir$ | async) {
+                        <select [(ngModel)]="formaPagamentoPorFatura[fatura.id]" [ngModelOptions]="{ standalone: true }"
+                          class="text-xs border border-slate-300 rounded-lg px-2 py-1 text-slate-700 focus:outline-hidden">
+                          @for (forma of formasPagamento; track forma) {
+                            <option [value]="forma">{{ forma }}</option>
+                          }
+                        </select>
+                        <button type="button" (click)="onMarcarPago(fatura.id, contrato.id)"
+                          class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
+                          Marcar Pago
+                        </button>
+                      }
                     </div>
                   } @else if (fatura.status_efetivo === 'PAGO') {
                     <span class="text-xs text-slate-400">{{ fatura.forma_pagamento }}</span>

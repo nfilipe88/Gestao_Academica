@@ -1,6 +1,6 @@
 import { createReducer, on } from '@ngrx/store';
 import * as FinanceiroActions from './financeiro.actions';
-import { ContratoFinanceiro, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
+import { CobrancaGerada, ContratoFinanceiro, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
 
 export interface FinanceiroState {
   matriculas: MatriculaResumo[];
@@ -8,6 +8,7 @@ export interface FinanceiroState {
   contrato: ContratoFinanceiro | null;
   contratoCarregado: boolean; // distingue "ainda não pedi" de "pedi e não existe"
   faturas: FaturaMensalidade[];
+  ultimaCobranca: CobrancaGerada | null; // consumida pelo componente para navegar o separador do PayPal já aberto
   mensagem: string | null;
   erro: string | null;
 }
@@ -18,6 +19,7 @@ export const initialState: FinanceiroState = {
   contrato: null,
   contratoCarregado: false,
   faturas: [],
+  ultimaCobranca: null,
   mensagem: null,
   erro: null
 };
@@ -27,8 +29,11 @@ export const financeiroReducer = createReducer(
   on(FinanceiroActions.carregarMatriculasDoAluno, FinanceiroActions.carregarResponsaveisDaMatricula,
      FinanceiroActions.carregarFaturasDoContrato, FinanceiroActions.criarContrato,
      FinanceiroActions.marcarFaturaPaga, FinanceiroActions.processarReguaCobranca,
+     FinanceiroActions.capturarPagamento,
     (state) => ({ ...state, erro: null, mensagem: null })
   ),
+  on(FinanceiroActions.gerarCobranca, (state) => ({ ...state, erro: null, mensagem: null, ultimaCobranca: null })),
+  on(FinanceiroActions.cobrancaGerada, (state, { cobranca }) => ({ ...state, ultimaCobranca: cobranca })),
   on(FinanceiroActions.carregarContratoDaMatricula, (state) => ({
     ...state, erro: null, mensagem: null, contrato: null, contratoCarregado: false, faturas: []
   })),

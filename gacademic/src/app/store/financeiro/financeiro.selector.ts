@@ -8,5 +8,6 @@ export const selectResponsaveisElegiveis = createSelector(selectFinanceiroState,
 export const selectContrato = createSelector(selectFinanceiroState, (state) => state.contrato);
 export const selectContratoCarregado = createSelector(selectFinanceiroState, (state) => state.contratoCarregado);
 export const selectFaturas = createSelector(selectFinanceiroState, (state) => state.faturas);
+export const selectUltimaCobranca = createSelector(selectFinanceiroState, (state) => state.ultimaCobranca);
 export const selectFinanceiroMensagem = createSelector(selectFinanceiroState, (state) => state.mensagem);
 export const selectFinanceiroError = createSelector(selectFinanceiroState, (state) => state.erro);
