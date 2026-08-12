@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1 import academico, alunos, auth, comunicacoes, diario, matriculas, professores, usuarios
+from app.api.v1 import academico, alunos, auth, comunicacoes, diario, financeiro, matriculas, professores, usuarios
 
 # Inicialização da aplicação FastAPI
 app = FastAPI(
@@ -33,6 +33,7 @@ app.include_router(matriculas.router)
 app.include_router(professores.router)
 app.include_router(comunicacoes.router)
 app.include_router(diario.router)
+app.include_router(financeiro.router)
 app.include_router(usuarios.router)
 
 @app.get("/api/v1/health")

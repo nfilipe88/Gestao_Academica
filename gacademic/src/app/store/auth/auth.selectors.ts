@@ -32,3 +32,11 @@ export const selectPerfilAcesso = createSelector(
   selectAuthState,
   (state) => state.usuario?.perfil_acesso ?? null
 );
+
+// Usado pelo módulo Financeiro: criar contrato, marcar fatura paga e
+// processar a régua de cobrança são GESTOR/SECRETARIA no back-end
+// (exigir_perfil("GESTOR", "SECRETARIA") em financeiro.py).
+export const selectIsGestorOuSecretaria = createSelector(
+  selectAuthState,
+  (state) => state.usuario?.perfil_acesso === 'GESTOR' || state.usuario?.perfil_acesso === 'SECRETARIA'
+);

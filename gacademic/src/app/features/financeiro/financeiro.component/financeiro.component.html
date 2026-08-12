@@ -1,0 +1,206 @@
+<div class="space-y-6">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-800">Financeiro</h2>
+      <p class="text-slate-500 text-sm">Contratos financeiros, mensalidades e cobrança dos alunos.</p>
+    </div>
+    @if (podeGerir$ | async) {
+      <button type="button" (click)="onProcessarRegua()"
+        class="text-sm bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer"
+        title="Envia lembretes/avisos por e-mail às faturas que estejam a 3 dias do vencimento, no dia do vencimento, ou 5 dias em atraso.">
+        Processar Régua de Cobrança
+      </button>
+    }
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Aluno</label>
+      <select [value]="alunoSelecionadoId" (change)="onSelecionarAluno($any($event.target).value)"
+        class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        <option value="">Selecione um aluno</option>
+        @for (aluno of alunos$ | async; track aluno.id) {
+          <option [value]="aluno.id">{{ aluno.nome_completo }} ({{ aluno.matricula_interna }})</option>
+        }
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Matrícula / Ano letivo</label>
+      <select [value]="matriculaSelecionadaId ?? ''" (change)="onSelecionarMatricula($any($event.target).value)"
+        [disabled]="!alunoSelecionadoId"
+        class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400">
+        <option value="">Selecione a matrícula</option>
+        @for (matricula of matriculas$ | async; track matricula.matricula_id) {
+          <option [value]="matricula.matricula_id">{{ matricula.nome_turma }} — {{ matricula.ano_letivo }} ({{ matricula.status_matricula }})</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  @if (matriculaSelecionadaId) {
+
+    @if ((contratoCarregado$ | async) === false) {
+      <p class="text-sm text-slate-500">A carregar contrato financeiro…</p>
+    }
+
+    @if ((contratoCarregado$ | async) && !(contrato$ | async)) {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-800">Sem contrato financeiro</h3>
+            <p class="text-sm text-slate-500">Esta matrícula ainda não tem um contrato financeiro assinado.</p>
+          </div>
+          @if (podeGerir$ | async) {
+            <button type="button" (click)="alternarFormularioContrato()"
+              class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+              {{ mostrarFormularioContrato ? 'Cancelar' : '+ Novo Contrato' }}
+            </button>
+          }
+        </div>
+
+        @if (mostrarFormularioContrato) {
+          <form [formGroup]="contratoForm" (ngSubmit)="onSubmitContrato()" class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Responsável (quem paga)</label>
+              <select formControlName="responsavel_id"
+                class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                <option value="" disabled>Selecione o responsável financeiro</option>
+                @for (responsavel of responsaveis$ | async; track responsavel.responsavel_id) {
+                  <option [value]="responsavel.responsavel_id">
+                    {{ responsavel.nome_completo }} ({{ responsavel.tipo_parentesco }}){{ responsavel.responsavel_financeiro ? ' — Financeiro' : '' }}
+                  </option>
+                }
+              </select>
+              @if ((responsaveis$ | async)?.length === 0) {
+                <p class="text-xs text-amber-600 mt-1">Este aluno ainda não tem responsáveis vinculados — vá a Alunos e vincule um primeiro.</p>
+              }
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-1">Valor total anual (€)</label>
+                <input type="number" min="0.01" step="0.01" formControlName="valor_total_anual"
+                  class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-1">Nº de parcelas</label>
+                <input type="number" min="1" max="36" formControlName="quantidade_parcelas"
+                  class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-1">Dia de vencimento (1-28)</label>
+                <input type="number" min="1" max="28" formControlName="dia_vencimento_padrao"
+                  class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-1">Desconto de bolsa (%) — opcional</label>
+                <input type="number" min="0" max="100" formControlName="percentual_desconto_bolsa"
+                  class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              </div>
+            </div>
+            <button type="submit" [disabled]="contratoForm.invalid"
+              class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+              Assinar Contrato e Gerar Faturas
+            </button>
+          </form>
+        }
+      </div>
+    }
+
+    @if (contrato$ | async; as contrato) {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-2">
+          <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <p class="text-sm text-slate-500">Valor total anual</p>
+            <p class="text-xl font-bold text-slate-800 mt-1">{{ contrato.valor_total_anual }}€</p>
+          </div>
+          <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <p class="text-sm text-slate-500">Parcelas</p>
+            <p class="text-xl font-bold text-slate-800 mt-1">{{ contrato.quantidade_parcelas }}x</p>
+          </div>
+          <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <p class="text-sm text-slate-500">Vencimento</p>
+            <p class="text-xl font-bold text-slate-800 mt-1">Dia {{ contrato.dia_vencimento_padrao }}</p>
+          </div>
+          <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <p class="text-sm text-slate-500">Desconto bolsa</p>
+            <p class="text-xl font-bold text-slate-800 mt-1">{{ contrato.percentual_desconto_bolsa }}%</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+              <th class="py-3 px-4 font-medium">Parcela</th>
+              <th class="py-3 px-4 font-medium">Vencimento</th>
+              <th class="py-3 px-4 font-medium text-right">Valor original</th>
+              <th class="py-3 px-4 font-medium text-right">Valor atualizado</th>
+              <th class="py-3 px-4 font-medium">Status</th>
+              <th class="py-3 px-4 font-medium text-right">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (fatura of faturas$ | async; track fatura.id) {
+              <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                <td class="py-3 px-4 text-slate-800 font-medium">{{ fatura.numero_parcela }}/{{ contrato.quantidade_parcelas }}</td>
+                <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento }}</td>
+                <td class="py-3 px-4 text-slate-600 text-right">{{ fatura.valor_original }}€</td>
+                <td class="py-3 px-4 text-right" [class.text-rose-600]="fatura.status_efetivo === 'ATRASADO'" [class.font-semibold]="fatura.status_efetivo === 'ATRASADO'">
+                  {{ fatura.valor_atualizado }}€
+                  @if (fatura.status_efetivo === 'ATRASADO') {
+                    <span class="block text-xs text-rose-400">+{{ fatura.juros_aplicados }}€ juros, +{{ fatura.multa_aplicada }}€ multa ({{ fatura.dias_atraso }}d)</span>
+                  }
+                </td>
+                <td class="py-3 px-4">
+                  <span class="text-xs font-medium py-1 px-3 rounded-full"
+                    [class.bg-emerald-100]="fatura.status_efetivo === 'PAGO'" [class.text-emerald-700]="fatura.status_efetivo === 'PAGO'"
+                    [class.bg-rose-100]="fatura.status_efetivo === 'ATRASADO'" [class.text-rose-700]="fatura.status_efetivo === 'ATRASADO'"
+                    [class.bg-amber-100]="fatura.status_efetivo === 'NEGOCIADO'" [class.text-amber-700]="fatura.status_efetivo === 'NEGOCIADO'"
+                    [class.bg-slate-100]="fatura.status_efetivo === 'PENDENTE' || fatura.status_efetivo === 'CANCELADO'"
+                    [class.text-slate-600]="fatura.status_efetivo === 'PENDENTE' || fatura.status_efetivo === 'CANCELADO'">
+                    {{ fatura.status_efetivo }}
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-right">
+                  @if ((podeGerir$ | async) && fatura.status_efetivo !== 'PAGO' && fatura.status_efetivo !== 'CANCELADO') {
+                    <div class="flex items-center justify-end gap-2">
+                      <select [(ngModel)]="formaPagamentoPorFatura[fatura.id]" [ngModelOptions]="{ standalone: true }"
+                        class="text-xs border border-slate-300 rounded-lg px-2 py-1 text-slate-700 focus:outline-hidden">
+                        @for (forma of formasPagamento; track forma) {
+                          <option [value]="forma">{{ forma }}</option>
+                        }
+                      </select>
+                      <button type="button" (click)="onMarcarPago(fatura.id, contrato.id)"
+                        class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
+                        Marcar Pago
+                      </button>
+                    </div>
+                  } @else if (fatura.status_efetivo === 'PAGO') {
+                    <span class="text-xs text-slate-400">{{ fatura.forma_pagamento }}</span>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="6" class="py-6 text-center text-slate-500">Sem faturas geradas.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+  } @else {
+    <p class="text-sm text-slate-500">Seleciona um aluno e uma matrícula para ver o histórico financeiro.</p>
+  }
+
+</div>

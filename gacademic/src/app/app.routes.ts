@@ -55,6 +55,10 @@ export const routes: Routes = [
         path: 'diario',
         loadComponent: () => import('./features/diario/diario.component/diario.component').then((m) => m.DiarioComponent)
       },
+      {
+        path: 'financeiro',
+        loadComponent: () => import('./features/financeiro/financeiro.component/financeiro.component').then((m) => m.FinanceiroComponent)
+      },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

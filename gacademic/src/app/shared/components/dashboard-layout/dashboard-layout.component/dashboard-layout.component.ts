@@ -2,7 +2,7 @@ import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { logout } from '../../../../store/auth/auth.actions';
-import { selectIsGestor } from '../../../../store/auth/auth.selectors';
+import { selectIsGestor, selectIsGestorOuSecretaria } from '../../../../store/auth/auth.selectors';
 import { Store } from '@ngrx/store';
 
 @Component({
@@ -14,6 +14,7 @@ import { Store } from '@ngrx/store';
 export class DashboardLayoutComponent {
   private store = inject(Store);
   isGestor$ = this.store.select(selectIsGestor);
+  isGestorOuSecretaria$ = this.store.select(selectIsGestorOuSecretaria);
 
   sidebarColapsada = false;
 

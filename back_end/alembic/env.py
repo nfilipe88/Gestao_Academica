@@ -13,6 +13,7 @@ import app.database.models_pessoas
 import app.database.models_matricula
 import app.database.models_comunicacoes
 import app.database.models_diario
+import app.database.models_financeiro
 
 from alembic import context
 
