@@ -1,40 +1,18 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from pydantic import BaseModel
-from datetime import date
 import uuid
 
 from app.database.session import obter_sessao_db
-from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core.email import enviar_email, template_base
+from app.schemas.alunos import AlunoCreate, ResponsavelCreate, VincularResponsavel
+from app.cruds import alunos as crud_alunos
 
 router = APIRouter(prefix="/api/v1", tags=["Alunos e Responsáveis"])
 
 # Quem pode cadastrar/vincular alunos e responsáveis (RBAC) — leitura
 # fica aberta a qualquer utilizador autenticado da escola.
 _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
-
-# ==========================================
-# SCHEMAS (Pydantic)
-# ==========================================
-class AlunoCreate(BaseModel):
-    matricula_interna: str
-    nome_completo: str
-    data_nascimento: date
-    numero_documento: str | None = None
-
-class ResponsavelCreate(BaseModel):
-    nome_completo: str
-    telefone_contato: str
-    numero_documento: str | None = None
-    email: str | None = None
-
-class VincularResponsavel(BaseModel):
-    responsavel_id: uuid.UUID
-    tipo_parentesco: str
-    responsavel_financeiro: bool = False
 
 # ==========================================
 # ROTAS PARA ALUNOS
@@ -46,26 +24,7 @@ async def criar_aluno(
     utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Cria um novo aluno na escola do utilizador logado."""
-    ja_existe = await db.execute(
-        select(Aluno).where(
-            Aluno.tenant_id == utilizador["tenant_id"],
-            Aluno.matricula_interna == dados.matricula_interna
-        )
-    )
-    if ja_existe.scalars().first():
-        raise HTTPException(status_code=400, detail="Já existe um aluno com esta matrícula interna.")
-
-    novo_aluno = Aluno(
-        tenant_id=utilizador["tenant_id"],
-        matricula_interna=dados.matricula_interna,
-        nome_completo=dados.nome_completo,
-        data_nascimento=dados.data_nascimento,
-        numero_documento=dados.numero_documento
-    )
-    db.add(novo_aluno)
-    await db.commit()
-    await db.refresh(novo_aluno)
-    return novo_aluno
+    return await crud_alunos.criar_aluno(db, utilizador["tenant_id"], dados)
 
 @router.get("/alunos")
 async def listar_alunos(
@@ -73,10 +32,7 @@ async def listar_alunos(
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
     """Lista os alunos da escola do utilizador logado."""
-    resultado = await db.execute(
-        select(Aluno).where(Aluno.tenant_id == utilizador["tenant_id"])
-    )
-    return resultado.scalars().all()
+    return await crud_alunos.listar_alunos(db, utilizador["tenant_id"])
 
 # ==========================================
 # ROTAS PARA RESPONSÁVEIS
@@ -88,17 +44,7 @@ async def criar_responsavel(
     utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Cria um novo responsável (Pai/Mãe/Tutor) na escola do utilizador logado."""
-    novo_responsavel = ResponsavelFinanceiroLegal(
-        tenant_id=utilizador["tenant_id"],
-        nome_completo=dados.nome_completo,
-        telefone_contato=dados.telefone_contato,
-        numero_documento=dados.numero_documento,
-        email=dados.email
-    )
-    db.add(novo_responsavel)
-    await db.commit()
-    await db.refresh(novo_responsavel)
-    return novo_responsavel
+    return await crud_alunos.criar_responsavel(db, utilizador["tenant_id"], dados)
 
 @router.get("/responsaveis")
 async def listar_responsaveis(
@@ -106,10 +52,7 @@ async def listar_responsaveis(
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
     """Lista os responsáveis da escola do utilizador logado."""
-    resultado = await db.execute(
-        select(ResponsavelFinanceiroLegal).where(ResponsavelFinanceiroLegal.tenant_id == utilizador["tenant_id"])
-    )
-    return resultado.scalars().all()
+    return await crud_alunos.listar_responsaveis(db, utilizador["tenant_id"])
 
 # ==========================================
 # VÍNCULO ALUNO <-> RESPONSÁVEL
@@ -123,41 +66,7 @@ async def vincular_responsavel(
     utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Vincula um responsável já existente a um aluno (RN: um aluno pode ter vários responsáveis)."""
-    aluno_db = await db.execute(
-        select(Aluno).where(Aluno.id == aluno_id, Aluno.tenant_id == utilizador["tenant_id"])
-    )
-    aluno = aluno_db.scalars().first()
-    if not aluno:
-        raise HTTPException(status_code=404, detail="Aluno não encontrado na sua instituição.")
-
-    responsavel_db = await db.execute(
-        select(ResponsavelFinanceiroLegal).where(
-            ResponsavelFinanceiroLegal.id == dados.responsavel_id,
-            ResponsavelFinanceiroLegal.tenant_id == utilizador["tenant_id"]
-        )
-    )
-    responsavel = responsavel_db.scalars().first()
-    if not responsavel:
-        raise HTTPException(status_code=404, detail="Responsável não encontrado na sua instituição.")
-
-    ja_vinculado = await db.execute(
-        select(AlunoResponsavel).where(
-            AlunoResponsavel.aluno_id == aluno_id,
-            AlunoResponsavel.responsavel_id == dados.responsavel_id
-        )
-    )
-    if ja_vinculado.scalars().first():
-        raise HTTPException(status_code=400, detail="Este responsável já está vinculado a este aluno.")
-
-    vinculo = AlunoResponsavel(
-        tenant_id=utilizador["tenant_id"],
-        aluno_id=aluno_id,
-        responsavel_id=dados.responsavel_id,
-        tipo_parentesco=dados.tipo_parentesco,
-        responsavel_financeiro=dados.responsavel_financeiro
-    )
-    db.add(vinculo)
-    await db.commit()
+    vinculo, aluno, responsavel = await crud_alunos.vincular_responsavel(db, utilizador["tenant_id"], aluno_id, dados)
 
     # E-mail de notificação (best-effort, em background). Só envia se o
     # responsável tiver um e-mail registado — é opcional no cadastro.
@@ -187,10 +96,4 @@ async def listar_responsaveis_do_aluno(
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
     """Lista os responsáveis vinculados a um aluno específico."""
-    resultado = await db.execute(
-        select(AlunoResponsavel).where(
-            AlunoResponsavel.aluno_id == aluno_id,
-            AlunoResponsavel.tenant_id == utilizador["tenant_id"]
-        )
-    )
-    return resultado.scalars().all()
+    return await crud_alunos.listar_responsaveis_do_aluno(db, utilizador["tenant_id"], aluno_id)
