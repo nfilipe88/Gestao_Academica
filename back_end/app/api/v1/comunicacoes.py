@@ -10,17 +10,65 @@ from app.database.models_academico import Turma
 from app.database.models_pessoas import Aluno, AlunoResponsavel, Professor, ResponsavelFinanceiroLegal
 from app.database.models_matricula import Matricula
 from app.database.models_comunicacoes import Comunicado
+from app.database.models_diario import ProfessorTurmaDisciplina
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core.email import enviar_email, template_base
 
 router = APIRouter(prefix="/api/v1/comunicados", tags=["Comunicações"])
 
 # Quem pode enviar comunicados/convocatórias. Professores podem enviar
-# (RN pedida), mas não para toda a escola — ver validação em criar_comunicado.
-# NOTA: um Professor consegue hoje visar QUALQUER turma da escola, não só
-# as suas — Professor_Turma_Disciplina (quem lecciona o quê) ainda não
-# existe. Quando existir, restringir aqui.
+# (RN pedida), mas não para toda a escola nem para turmas/alunos que não
+# são seus — ver validação em criar_comunicado (_validar_autoria_professor).
 _PODE_ENVIAR = exigir_perfil("GESTOR", "SECRETARIA", "PROFESSOR")
+
+
+async def _validar_autoria_professor(
+    db: AsyncSession, utilizador: dict, destinatario_tipo: str,
+    turma_id: uuid.UUID | None, aluno_id: uuid.UUID | None
+) -> None:
+    """
+    Um Professor só pode comunicar com turmas/alunos das turmas onde
+    está efetivamente alocado (Professor_Turma_Disciplina — Nível 1).
+    Gestor/Secretaria não passam por aqui (já filtrados antes de chamar isto).
+    """
+    professor = (await db.execute(
+        select(Professor).where(
+            Professor.usuario_id == utilizador["usuario_id"],
+            Professor.tenant_id == utilizador["tenant_id"]
+        )
+    )).scalars().first()
+    if not professor:
+        raise HTTPException(status_code=403, detail="Utilizador não corresponde a nenhum professor cadastrado.")
+
+    if destinatario_tipo == "TURMA":
+        alocado = (await db.execute(
+            select(ProfessorTurmaDisciplina).where(
+                ProfessorTurmaDisciplina.professor_id == professor.id,
+                ProfessorTurmaDisciplina.turma_id == turma_id
+            )
+        )).scalars().first()
+        if not alocado:
+            raise HTTPException(status_code=403, detail="Só pode comunicar com turmas onde lecciona.")
+
+    elif destinatario_tipo == "ALUNO":
+        turma_do_aluno = (await db.execute(
+            select(Matricula.turma_id).where(
+                Matricula.aluno_id == aluno_id,
+                Matricula.status_matricula == "ATIVO",
+                Matricula.tenant_id == utilizador["tenant_id"]
+            )
+        )).scalars().all()
+        if not turma_do_aluno:
+            raise HTTPException(status_code=403, detail="Aluno sem matrícula ativa nesta instituição.")
+
+        alocado = (await db.execute(
+            select(ProfessorTurmaDisciplina).where(
+                ProfessorTurmaDisciplina.professor_id == professor.id,
+                ProfessorTurmaDisciplina.turma_id.in_(turma_do_aluno)
+            )
+        )).scalars().first()
+        if not alocado:
+            raise HTTPException(status_code=403, detail="Só pode comunicar com alunos das turmas onde lecciona.")
 
 TIPOS_VALIDOS = {"COMUNICADO", "CONVOCATORIA"}
 DESTINATARIOS_VALIDOS = {"TURMA", "ALUNO", "ESCOLA"}
@@ -137,6 +185,11 @@ async def criar_comunicado(
         )).scalars().first()
         if not aluno:
             raise HTTPException(status_code=404, detail="Aluno não encontrado na sua instituição.")
+
+    if utilizador["perfil_acesso"] == "PROFESSOR":
+        await _validar_autoria_professor(
+            db, utilizador, dados.destinatario_tipo, dados.destinatario_turma_id, dados.destinatario_aluno_id
+        )
 
     emails = await _resolver_emails_destinatarios(
         db, tenant_id, dados.destinatario_tipo, dados.destinatario_turma_id, dados.destinatario_aluno_id
