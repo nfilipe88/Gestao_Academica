@@ -1,0 +1,52 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+  <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+
+    @if (!enviado) {
+      <div class="text-center mb-6">
+        <h1 class="text-2xl font-bold text-white">Peça mais informações</h1>
+        <p class="text-slate-400 text-sm mt-1">Deixe os seus dados e entraremos em contacto brevemente.</p>
+      </div>
+
+      @if (erro) {
+        <div class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-300 mb-4">{{ erro }}</div>
+      }
+
+      <form [formGroup]="leadForm" (ngSubmit)="onSubmit()" class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">O seu nome</label>
+          <input type="text" formControlName="nome_responsavel"
+            class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Nome do candidato (aluno)</label>
+          <input type="text" formControlName="nome_aluno_candidato"
+            class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">E-mail — opcional</label>
+            <input type="email" formControlName="email_contato"
+              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Telefone — opcional</label>
+            <input type="text" formControlName="telefone"
+              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+          </div>
+        </div>
+
+        <button type="submit" [disabled]="leadForm.invalid"
+          class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-md py-2.5 mt-2 transition-colors cursor-pointer">
+          Enviar Pedido de Contacto
+        </button>
+      </form>
+    } @else {
+      <div class="text-center py-6">
+        <div class="text-emerald-400 text-4xl mb-3">✓</div>
+        <h1 class="text-xl font-bold text-white">Pedido recebido!</h1>
+        <p class="text-slate-400 text-sm mt-2">Obrigado pelo contacto — a nossa equipa entrará em contacto consigo brevemente.</p>
+      </div>
+    }
+
+  </div>
+</div>

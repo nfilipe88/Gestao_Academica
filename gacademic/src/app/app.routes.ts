@@ -19,6 +19,16 @@ export const routes: Routes = [
   },
 
   // ==========================================
+  // ROTA PÚBLICA (sem guestGuard — não é sobre estar "deslogado", é uma
+  // página para os pais visitantes do site da escola; um membro da
+  // equipa com sessão iniciada também tem de conseguir vê-la, ex. para testar o link)
+  // ==========================================
+  {
+    path: 'captar/:tenantId',
+    loadComponent: () => import('./features/public/captar-lead/captar-lead.component/captar-lead.component').then((m) => m.CaptarLeadComponent)
+  },
+
+  // ==========================================
   // ROTAS PROTEGIDAS (Exigem Autenticação)
   // ==========================================
   {
@@ -58,6 +68,10 @@ export const routes: Routes = [
       {
         path: 'financeiro',
         loadComponent: () => import('./features/financeiro/financeiro.component/financeiro.component').then((m) => m.FinanceiroComponent)
+      },
+      {
+        path: 'crm',
+        loadComponent: () => import('./features/crm/crm.component/crm.component').then((m) => m.CrmComponent)
       },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }

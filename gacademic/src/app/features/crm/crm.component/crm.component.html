@@ -1,0 +1,124 @@
+<div class="space-y-6">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-800">CRM — Captação de Alunos</h2>
+      <p class="text-slate-500 text-sm">Acompanhe os potenciais alunos (Leads) do primeiro contacto até à matrícula.</p>
+    </div>
+    <button type="button" (click)="alternarFormularioLead()"
+      class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer">
+      {{ mostrarFormularioLead ? 'Cancelar' : '+ Novo Lead' }}
+    </button>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  @if (mostrarFormularioLead) {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <form [formGroup]="leadForm" (ngSubmit)="onSubmitLead()" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Nome do responsável</label>
+          <input type="text" formControlName="nome_responsavel"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">E-mail — opcional</label>
+          <input type="email" formControlName="email_contato"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Telefone — opcional</label>
+          <input type="text" formControlName="telefone"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Nome do candidato (aluno)</label>
+          <input type="text" formControlName="nome_aluno_candidato"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Data de nascimento — opcional</label>
+          <input type="date" formControlName="data_nascimento_candidato"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Origem</label>
+          <select formControlName="origem_lead"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            @for (origem of origens; track origem) {
+              <option [value]="origem">{{ origem }}</option>
+            }
+          </select>
+        </div>
+        <div class="md:col-span-3">
+          <button type="submit" [disabled]="leadForm.invalid"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+            Registar Lead
+          </button>
+        </div>
+      </form>
+    </div>
+  }
+
+  <div class="flex gap-4 overflow-x-auto pb-4">
+    @for (coluna of colunas$ | async; track coluna.etapa.id) {
+      <div class="bg-slate-50 rounded-xl border border-slate-200 w-80 shrink-0 flex flex-col">
+        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h3 class="font-semibold text-slate-800 text-sm">{{ coluna.etapa.nome_etapa }}</h3>
+          <span class="text-xs bg-slate-200 text-slate-600 rounded-full px-2 py-0.5">{{ coluna.cartoes.length }}</span>
+        </div>
+
+        <div class="p-3 space-y-3 flex-1">
+          @for (cartao of coluna.cartoes; track cartao.id) {
+            <div class="bg-white rounded-lg border border-slate-200 p-3 shadow-xs space-y-2">
+              <div>
+                <p class="text-sm font-semibold text-slate-800">{{ cartao.lead.nome_aluno_candidato }}</p>
+                <p class="text-xs text-slate-500">{{ cartao.lead.nome_responsavel }}</p>
+                @if (cartao.lead.telefone || cartao.lead.email_contato) {
+                  <p class="text-xs text-slate-400">{{ cartao.lead.telefone }} @if (cartao.lead.telefone && cartao.lead.email_contato) { <span>·</span> } {{ cartao.lead.email_contato }}</p>
+                }
+              </div>
+
+              <span class="inline-block text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{{ cartao.lead.origem_lead }}</span>
+
+              @if (cartao.aluno_gerado_id) {
+                <p class="text-xs text-emerald-600 font-medium">✓ Convertido em aluno — complete a matrícula em Alunos/Turmas.</p>
+              } @else {
+                <div class="flex items-center gap-1.5">
+                  <input type="date" [(ngModel)]="nascimentoPorLead[cartao.lead.id]" [ngModelOptions]="{ standalone: true }"
+                    [placeholder]="cartao.lead.data_nascimento_candidato ?? 'Nascimento'"
+                    class="text-xs border border-slate-300 rounded-lg px-2 py-1 text-slate-700 focus:outline-hidden flex-1" />
+                  <button type="button" (click)="onGuardarNascimento(cartao.lead.id)"
+                    class="text-xs bg-slate-700 hover:bg-slate-800 text-white font-medium py-1 px-2 rounded-lg transition-colors cursor-pointer">
+                    Guardar
+                  </button>
+                </div>
+                @if (cartao.lead.data_nascimento_candidato) {
+                  <p class="text-[10px] text-slate-400">Nascimento: {{ cartao.lead.data_nascimento_candidato }}</p>
+                }
+
+                <select [value]="''" (change)="onMover(cartao.id, $any($event.target).value); $any($event.target).value = ''"
+                  class="w-full text-xs border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden">
+                  <option value="" disabled>Mover para...</option>
+                  @for (etapa of todasEtapas$ | async; track etapa.id) {
+                    @if (etapa.id !== coluna.etapa.id) {
+                      <option [value]="etapa.id">{{ etapa.nome_etapa }}</option>
+                    }
+                  }
+                </select>
+              }
+            </div>
+          } @empty {
+            <p class="text-xs text-slate-400 text-center py-4">Sem oportunidades nesta etapa.</p>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+</div>

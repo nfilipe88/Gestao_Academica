@@ -21,6 +21,8 @@ import { diarioReducer } from './store/diario/diario.reducer';
 import { DiarioEffects } from './store/diario/diario.effects';
 import { financeiroReducer } from './store/financeiro/financeiro.reducer';
 import { FinanceiroEffects } from './store/financeiro/financeiro.effects';
+import { crmReducer } from './store/crm/crm.reducer';
+import { CrmEffects } from './store/crm/crm.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 
@@ -38,8 +40,9 @@ export const appConfig: ApplicationConfig = {
       professores: professoresReducer,
       comunicacoes: comunicacoesReducer,
       diario: diarioReducer,
-      financeiro: financeiroReducer
+      financeiro: financeiroReducer,
+      crm: crmReducer
     }),
-    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects),
+    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects),
   ]
 };

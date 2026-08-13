@@ -14,6 +14,7 @@ import app.database.models_matricula
 import app.database.models_comunicacoes
 import app.database.models_diario
 import app.database.models_financeiro
+import app.database.models_crm
 
 from alembic import context
 

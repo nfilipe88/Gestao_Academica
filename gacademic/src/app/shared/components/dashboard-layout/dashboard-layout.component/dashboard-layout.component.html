@@ -78,6 +78,19 @@
       </a>
 
       @if (isGestorOuSecretaria$ | async) {
+        <!-- CRM: dados de contacto de famílias ainda não matriculadas —
+             GESTOR/SECRETARIA no back-end (exigir_perfil em crm.py). -->
+        <a routerLink="/crm" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="CRM">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5v2.4a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v3.129a.75.75 0 01-1.043.69l-2.25-.964a.75.75 0 01-.457-.69v-2.165a2.25 2.25 0 00-.659-1.591L3.66 9.24a2.25 2.25 0 01-.659-1.591V5.25z" />
+          </svg>
+          @if (!sidebarColapsada) { <span>CRM</span> }
+        </a>
+      }
+
+      @if (isGestorOuSecretaria$ | async) {
         <!-- Financeiro: criar contratos, marcar pagamentos e processar a
              régua de cobrança são GESTOR/SECRETARIA no back-end
              (exigir_perfil em financeiro.py); esconder aqui evita um
