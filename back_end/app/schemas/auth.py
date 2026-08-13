@@ -5,7 +5,7 @@ class RegistoInicial(BaseModel):
     # Dados da Escola (Tenant)
     nome_fantasia: str = Field(..., example="Colégio do Futuro")
     nif: str = Field(..., example="501234567")
-    
+
     # Dados do Gestor (Utilizador)
     nome_gestor: str = Field(..., example="João Silva")
     email_gestor: EmailStr = Field(..., example="joao.silva@colegiofuturo.pt")
