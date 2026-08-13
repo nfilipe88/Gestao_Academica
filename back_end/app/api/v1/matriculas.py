@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
@@ -8,6 +10,7 @@ from app.database.session import obter_sessao_db
 from app.database.models_academico import Turma
 from app.database.models_pessoas import Aluno
 from app.database.models_matricula import Matricula
+from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.core.security import obter_utilizador_atual, exigir_perfil
 
 router = APIRouter(prefix="/api/v1", tags=["Matrículas"])
@@ -17,6 +20,46 @@ router = APIRouter(prefix="/api/v1", tags=["Matrículas"])
 _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 
 ESTADOS_VALIDOS = {"ATIVO", "TRANSFERIDO", "TRANCADO", "EVADIDO"}
+
+
+# ==========================================
+# RN05 do Financeiro (Nível 2) — Bloqueios Legais
+# ==========================================
+# "Por regras governamentais [...] um aluno inadimplente não pode ser
+# impedido de frequentar aulas [...] durante o ano letivo em curso [...]
+# O bloqueio real só ocorre na tentativa de Renovação de Matrícula para
+# o ano seguinte." — por isso o bloqueio vive aqui (criar_matricula),
+# não em lado nenhum do módulo académico do dia a dia (Diário de
+# Classe, etc. continuam sempre acessíveis).
+async def _tem_mensalidade_em_atraso_de_ano_anterior(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, ano_letivo_novo: int) -> bool:
+    """
+    Só bloqueia se isto for de facto uma RENOVAÇÃO: o aluno já teve
+    matrícula num ano letivo anterior, e essa matrícula tem um
+    Contrato_Financeiro com pelo menos uma Fatura_Mensalidade
+    verdadeiramente em atraso (pendente e já passada a data de
+    vencimento) — o cálculo de juros/multa em si (RN02) é irrelevante
+    aqui, só interessa o facto de estar por pagar.
+    """
+    matriculas_anteriores = (await db.execute(
+        select(Matricula.id).where(
+            Matricula.aluno_id == aluno_id,
+            Matricula.tenant_id == tenant_id,
+            Matricula.ano_letivo < ano_letivo_novo,
+        )
+    )).scalars().all()
+    if not matriculas_anteriores:
+        return False
+
+    tem_atraso = (await db.execute(
+        select(func.count()).select_from(FaturaMensalidade)
+        .join(ContratoFinanceiro, ContratoFinanceiro.id == FaturaMensalidade.contrato_id)
+        .where(
+            ContratoFinanceiro.matricula_id.in_(matriculas_anteriores),
+            FaturaMensalidade.status_pagamento == "PENDENTE",
+            FaturaMensalidade.data_vencimento < date.today(),
+        )
+    )).scalar_one()
+    return tem_atraso > 0
 
 # ==========================================
 # SCHEMAS (Pydantic)
@@ -66,6 +109,14 @@ async def criar_matricula(
     )).scalars().first()
     if duplicado:
         raise HTTPException(status_code=400, detail="Este aluno já está matriculado nesta turma neste ano letivo.")
+
+    # RN05 do Financeiro — renovação bloqueada por mensalidade em atraso de ano anterior.
+    if await _tem_mensalidade_em_atraso_de_ano_anterior(db, tenant_id, dados.aluno_id, dados.ano_letivo):
+        raise HTTPException(
+            status_code=403,
+            detail="Renovação de matrícula bloqueada: existem mensalidades em atraso de um ano letivo anterior. "
+                   "Regularize a situação financeira em Financeiro antes de renovar."
+        )
 
     # RN02 - Controlo de Vagas (só conta matrículas ATIVAS)
     total_ativas = (await db.execute(

@@ -612,22 +612,23 @@ async def _efetivar_pagamento_gateway(db: AsyncSession, background_tasks: Backgr
 
 
 # ==========================================
-# G. RÉGUA DE COBRANÇA (RN04) — disparo manual, por agora
+# G. RÉGUA DE COBRANÇA (RN04)
 # ==========================================
-@router.post("/regua-cobranca/processar")
-async def processar_regua_cobranca(
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(_PODE_GERIR)
-):
+async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agendar_email) -> dict:
     """
-    RN04 do documento: 3 dias antes do vencimento, no dia do vencimento
-    e 5 dias de atraso, o responsável recebe um e-mail. Sem um
-    agendador (cron/Celery-beat) nesta fase, este endpoint faz o
-    varrimento sob pedido do Gestor; a chamada é idempotente por
+    Núcleo da RN04, isolado do transporte HTTP para poder ser chamado
+    tanto pelo endpoint manual (POST /regua-cobranca/processar, um
+    tenant, com BackgroundTasks) como pelo scheduler diário
+    (app/core/scheduler.py, todos os tenants ATIVOS, sem request/response
+    à volta). `agendar_email` abstrai essa diferença: recebe
+    (enviar_email, **kwargs) e decide como despachar — via
+    BackgroundTasks.add_task no caso do endpoint, ou a enviar
+    imediatamente no caso do scheduler.
+
+    3 dias antes do vencimento, no dia do vencimento e 5 dias de
+    atraso, o responsável recebe um e-mail; idempotente por
     fatura+etapa (marca *_enviado_em antes de reenviar).
     """
-    tenant_id = utilizador["tenant_id"]
     hoje = date.today()
 
     faturas = (await db.execute(
@@ -648,7 +649,7 @@ async def processar_regua_cobranca(
         rotulo_parcela = f"{fatura.numero_parcela}/{contrato.quantidade_parcelas}"
 
         if dias_para_vencer == 3 and fatura.lembrete_previo_enviado_em is None:
-            background_tasks.add_task(
+            await agendar_email(
                 enviar_email, destinatario=email_responsavel,
                 assunto=f"Mensalidade de {nome_aluno} vence em breve",
                 corpo_html=template_base(
@@ -661,7 +662,7 @@ async def processar_regua_cobranca(
             contagem["lembrete_previo"] += 1
 
         elif dias_para_vencer == 0 and fatura.lembrete_vencimento_enviado_em is None:
-            background_tasks.add_task(
+            await agendar_email(
                 enviar_email, destinatario=email_responsavel,
                 assunto=f"Mensalidade de {nome_aluno} vence hoje",
                 corpo_html=template_base(
@@ -674,7 +675,7 @@ async def processar_regua_cobranca(
 
         elif dias_para_vencer == -5 and fatura.aviso_atraso_enviado_em is None:
             situacao = _calcular_situacao_fatura(fatura)
-            background_tasks.add_task(
+            await agendar_email(
                 enviar_email, destinatario=email_responsavel,
                 assunto=f"Mensalidade de {nome_aluno} em atraso",
                 corpo_html=template_base(
@@ -687,6 +688,24 @@ async def processar_regua_cobranca(
             contagem["aviso_atraso"] += 1
 
     await db.commit()
+    return contagem
+
+
+@router.post("/regua-cobranca/processar")
+async def processar_regua_cobranca(
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """
+    Disparo manual da RN04 para a escola do utilizador — útil para
+    testar/forçar já, mas o job diário em app/core/scheduler.py já
+    corre isto automaticamente para todas as escolas, todos os dias.
+    """
+    async def via_background_tasks(func, **kwargs):
+        background_tasks.add_task(func, **kwargs)
+
+    contagem = await processar_regua_cobranca_do_tenant(db, utilizador["tenant_id"], via_background_tasks)
     return {"mensagem": "Régua de cobrança processada.", "emails_enviados": contagem}
 
 

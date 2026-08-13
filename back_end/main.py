@@ -1,12 +1,26 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import academico, alunos, auth, comunicacoes, crm, diario, financeiro, matriculas, professores, usuarios
+from app.core.scheduler import iniciar_scheduler, parar_scheduler
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Arranca o agendador interno (régua de cobrança diária — RN04) e
+    # desliga-o de forma limpa quando a aplicação termina.
+    iniciar_scheduler()
+    yield
+    parar_scheduler()
+
 
 # Inicialização da aplicação FastAPI
 app = FastAPI(
     title="API - SaaS Gestão Académica",
     description="Motor de regras e APIs da plataforma educacional.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CONFIGURAÇÃO DE CORS (Essencial para o Angular comunicar com a API)
