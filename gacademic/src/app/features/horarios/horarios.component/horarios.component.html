@@ -1,0 +1,154 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Horários</h2>
+    <p class="text-slate-500 text-sm">Grade horária semanal das turmas.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ erro }}
+    </div>
+  }
+
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      {{ mensagem }}
+    </div>
+  }
+
+  @if (podeGerir$ | async) {
+
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <label class="block text-sm font-medium text-slate-600 mb-1">Turma</label>
+      <select [value]="turmaSelecionadaId" (change)="onSelecionarTurma($any($event.target).value)"
+        class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        <option value="">Selecione uma turma</option>
+        @for (turma of turmas$ | async; track turma.id) {
+          <option [value]="turma.id">{{ turma.nome_codigo }}</option>
+        }
+      </select>
+    </div>
+
+    @if (turmaSelecionadaId) {
+
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-slate-800">Grade horária da turma</h3>
+        <button type="button" (click)="mostrarFormulario ? cancelarFormulario() : abrirFormularioNovo()"
+          class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+          {{ mostrarFormulario ? 'Cancelar' : '+ Adicionar Aula' }}
+        </button>
+      </div>
+
+      @if (mostrarFormulario) {
+        <form [formGroup]="form" (ngSubmit)="onSubmit()"
+          class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-600 mb-1">Professor / Disciplina</label>
+            <select formControlName="alocacao_id"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+              <option value="">Selecione</option>
+              @for (alocacao of alocacoesDaTurma(alocacoes$ | async); track alocacao.id) {
+                <option [value]="alocacao.id">{{ alocacao.nome_disciplina }}</option>
+              }
+            </select>
+            @if (alocacoesDaTurma(alocacoes$ | async).length === 0) {
+              <p class="text-xs text-amber-600 mt-1">Nenhuma disciplina alocada a esta turma. Aloca um professor em Professores primeiro.</p>
+            }
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Dia</label>
+            <select formControlName="dia_semana"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+              @for (dia of dias; track dia.valor) {
+                <option [value]="dia.valor">{{ dia.nome }}</option>
+              }
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Início</label>
+            <input type="time" formControlName="hora_inicio"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Fim</label>
+            <input type="time" formControlName="hora_fim"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-600 mb-1">Sala — opcional</label>
+            <input type="text" formControlName="sala" placeholder="Ex: Sala 3"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <button type="submit" [disabled]="form.invalid"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+              {{ horarioEmEdicaoId ? 'Guardar' : 'Adicionar' }}
+            </button>
+          </div>
+        </form>
+      }
+
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        @for (dia of dias; track dia.valor) {
+          <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+            <div class="bg-slate-50 px-3 py-2 border-b border-slate-200">
+              <p class="text-xs font-semibold text-slate-700">{{ dia.nome }}</p>
+            </div>
+            <div class="p-2 space-y-2 min-h-24">
+              @for (slot of slotsDoDia(gradeDaTurma$ | async, dia.valor); track slot.id) {
+                <div class="rounded-lg border border-slate-200 p-2 text-xs">
+                  <p class="font-semibold text-slate-800">{{ formatarHora(slot.hora_inicio) }}–{{ formatarHora(slot.hora_fim) }}</p>
+                  <p class="text-slate-600">{{ slot.nome_disciplina }}</p>
+                  <p class="text-slate-400">{{ slot.nome_professor }}</p>
+                  @if (slot.sala) {
+                    <p class="text-slate-400">{{ slot.sala }}</p>
+                  }
+                  <div class="flex gap-2 mt-1">
+                    <button type="button" (click)="editarSlot(slot)" class="text-blue-600 hover:text-blue-800 cursor-pointer">Editar</button>
+                    <button type="button" (click)="removerSlot(slot.id)" class="text-rose-600 hover:text-rose-800 cursor-pointer">Remover</button>
+                  </div>
+                </div>
+              } @empty {
+                <p class="text-xs text-slate-300 text-center py-4">—</p>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+    }
+
+  } @else {
+
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      @for (dia of dias; track dia.valor) {
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+          <div class="bg-slate-50 px-3 py-2 border-b border-slate-200">
+            <p class="text-xs font-semibold text-slate-700">{{ dia.nome }}</p>
+          </div>
+          <div class="p-2 space-y-2 min-h-24">
+            @for (slot of slotsDoDia(minhaGrade$ | async, dia.valor); track slot.id) {
+              <div class="rounded-lg border border-slate-200 p-2 text-xs">
+                <p class="font-semibold text-slate-800">{{ formatarHora(slot.hora_inicio) }}–{{ formatarHora(slot.hora_fim) }}</p>
+                <p class="text-slate-600">{{ slot.nome_disciplina }}</p>
+                <p class="text-slate-400">{{ slot.nome_turma }}</p>
+                @if (slot.sala) {
+                  <p class="text-slate-400">{{ slot.sala }}</p>
+                }
+              </div>
+            } @empty {
+              <p class="text-xs text-slate-300 text-center py-4">—</p>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    @if ((minhaGrade$ | async)?.length === 0) {
+      <p class="text-sm text-slate-500">Ainda não tens nenhuma aula na grade horária.</p>
+    }
+
+  }
+
+</div>

@@ -73,6 +73,10 @@ export const routes: Routes = [
         path: 'crm',
         loadComponent: () => import('./features/crm/crm.component/crm.component').then((m) => m.CrmComponent)
       },
+      {
+        path: 'horarios',
+        loadComponent: () => import('./features/horarios/horarios.component/horarios.component').then((m) => m.HorariosComponent)
+      },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
