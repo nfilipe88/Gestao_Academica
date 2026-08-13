@@ -18,7 +18,7 @@ from sqlalchemy import select, text
 
 from app.database.session import AsyncSessionLocal
 from app.database.models import Tenant
-from app.api.v1.financeiro import processar_regua_cobranca_do_tenant
+from app.cruds.financeiro import processar_regua_cobranca_do_tenant
 from app.core.email import enviar_email
 
 logger = logging.getLogger("scheduler")
