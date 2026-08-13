@@ -13,6 +13,11 @@ export const selectConsolidado = createSelector(
   (state) => state.consolidado
 );
 
+export const selectPeriodos = createSelector(
+  selectDiarioState,
+  (state) => state.periodos
+);
+
 export const selectDiarioMensagem = createSelector(
   selectDiarioState,
   (state) => state.mensagem

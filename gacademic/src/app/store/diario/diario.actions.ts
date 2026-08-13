@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { AlunoDiario, ConsolidadoTurmaDisciplina, FrequenciaAlunoInput, NotaAlunoInput } from './diario.models';
+import { AlunoDiario, ConsolidadoTurmaDisciplina, FrequenciaAlunoInput, NotaAlunoInput, PeriodoAvaliacao } from './diario.models';
 
 export const carregarAlunosDiario = createAction(
   '[Diario] Carregar Alunos',
@@ -35,6 +35,25 @@ export const carregarConsolidado = createAction(
 export const carregarConsolidadoSucesso = createAction(
   '[Diario] Carregar Consolidado Sucesso',
   props<{ consolidado: ConsolidadoTurmaDisciplina }>()
+);
+
+// RN03 — Períodos de Avaliação (janela de lançamento)
+export const carregarPeriodos = createAction('[Diario] Carregar Periodos');
+export const carregarPeriodosSucesso = createAction(
+  '[Diario] Carregar Periodos Sucesso',
+  props<{ periodos: PeriodoAvaliacao[] }>()
+);
+export const criarPeriodo = createAction(
+  '[Diario] Criar Periodo',
+  props<{ nome: string }>()
+);
+export const trancarPeriodo = createAction(
+  '[Diario] Trancar Periodo',
+  props<{ periodo_id: string }>()
+);
+export const reabrirPeriodo = createAction(
+  '[Diario] Reabrir Periodo',
+  props<{ periodo_id: string }>()
 );
 
 export const diarioOperacaoSucesso = createAction(

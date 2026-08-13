@@ -10,13 +10,19 @@ from app.database.session import obter_sessao_db
 from app.database.models_academico import Disciplina, Turma
 from app.database.models_pessoas import Aluno, Professor
 from app.database.models_matricula import Matricula
-from app.database.models_diario import ProfessorTurmaDisciplina, RegistroFrequencia, RegistroNota, RegistroNotaAuditoria
-from app.core.security import obter_utilizador_atual
+from app.database.models_diario import (
+    PeriodoAvaliacao, ProfessorTurmaDisciplina, RegistroFrequencia, RegistroNota, RegistroNotaAuditoria
+)
+from app.core.security import obter_utilizador_atual, exigir_perfil
 
 router = APIRouter(prefix="/api/v1/diario", tags=["Diário de Classe"])
 
 NOTA_MINIMA = Decimal("0.0")
 NOTA_MAXIMA = Decimal("10.0")
+
+# Só Gestor/Secretaria trancam/reabrem períodos de avaliação — lançar
+# notas continua aberto a Professores alocados (_validar_autoria).
+_PODE_GERIR_PERIODOS = exigir_perfil("GESTOR", "SECRETARIA")
 
 # ==========================================
 # VALIDAÇÕES PARTILHADAS
@@ -67,6 +73,23 @@ async def _validar_autoria(db: AsyncSession, utilizador: dict, turma_id: uuid.UU
     if not alocado:
         raise HTTPException(status_code=403, detail="Não lecciona esta disciplina nesta turma.")
 
+
+async def _validar_periodo_aberto(db: AsyncSession, tenant_id, nome_periodo: str):
+    """
+    RN03 - Janela de Lançamento: só bloqueia se a secretaria tiver
+    criado (e trancado) um registo para este nome de período. Um nome
+    sem registo correspondente continua livre — a gestão de períodos é
+    opcional, não um pré-requisito para lançar notas.
+    """
+    periodo = (await db.execute(
+        select(PeriodoAvaliacao).where(PeriodoAvaliacao.tenant_id == tenant_id, PeriodoAvaliacao.nome == nome_periodo)
+    )).scalars().first()
+    if periodo and not periodo.aberto:
+        raise HTTPException(
+            status_code=403,
+            detail=f"O período de avaliação \"{nome_periodo}\" está trancado pela secretaria — já não é possível lançar/alterar notas."
+        )
+
 # ==========================================
 # SCHEMAS (Pydantic)
 # ==========================================
@@ -90,6 +113,9 @@ class NotaLoteCreate(BaseModel):
     tipo_avaliacao: str | None = None
     data_avaliacao: date | None = None
     notas: list[NotaAluno]
+
+class PeriodoAvaliacaoCreate(BaseModel):
+    nome: str
 
 # ==========================================
 # A. CARREGAR A GRADE (Lista de Alunos da Turma)
@@ -200,6 +226,7 @@ async def lancar_notas_lote(
     tenant_id = utilizador["tenant_id"]
     await _validar_turma_disciplina(db, tenant_id, turma_id, disciplina_id)
     await _validar_autoria(db, utilizador, turma_id, disciplina_id)
+    await _validar_periodo_aberto(db, tenant_id, dados.periodo_avaliacao)
 
     matriculas_da_turma = set((await db.execute(
         select(Matricula.id).where(Matricula.turma_id == turma_id, Matricula.tenant_id == tenant_id)
@@ -303,3 +330,74 @@ async def consolidado_turma_disciplina(
         "alunos_abaixo_da_media": alunos_abaixo_da_media,
         "total_faltas": int(total_faltas),
     }
+
+# ==========================================
+# E. PERÍODOS DE AVALIAÇÃO (RN03 — Janela de Lançamento)
+# ==========================================
+@router.get("/periodos")
+async def listar_periodos_avaliacao(
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Lista os períodos geridos pela secretaria (abertos e trancados). Leitura aberta a qualquer utilizador autenticado — o Professor precisa de ver o que está trancado."""
+    periodos = (await db.execute(
+        select(PeriodoAvaliacao).where(PeriodoAvaliacao.tenant_id == utilizador["tenant_id"])
+        .order_by(PeriodoAvaliacao.data_criacao)
+    )).scalars().all()
+    return periodos
+
+
+@router.post("/periodos", status_code=status.HTTP_201_CREATED)
+async def criar_periodo_avaliacao(
+    dados: PeriodoAvaliacaoCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR_PERIODOS)
+):
+    """Regista um período (ex: "1º Bimestre") como geríve — nasce aberto; usar /trancar quando o prazo terminar."""
+    novo_periodo = PeriodoAvaliacao(tenant_id=utilizador["tenant_id"], nome=dados.nome, aberto=True)
+    db.add(novo_periodo)
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Já existe um período de avaliação com este nome.")
+    await db.refresh(novo_periodo)
+    return novo_periodo
+
+
+@router.patch("/periodos/{periodo_id}/trancar")
+async def trancar_periodo_avaliacao(
+    periodo_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR_PERIODOS)
+):
+    """A partir de agora, POST .../notas/lote com este periodo_avaliacao devolve 403."""
+    periodo = (await db.execute(
+        select(PeriodoAvaliacao).where(PeriodoAvaliacao.id == periodo_id, PeriodoAvaliacao.tenant_id == utilizador["tenant_id"])
+    )).scalars().first()
+    if not periodo:
+        raise HTTPException(status_code=404, detail="Período de avaliação não encontrado na sua instituição.")
+
+    periodo.aberto = False
+    periodo.data_fecho = date.today()
+    await db.commit()
+    return {"mensagem": f'Período "{periodo.nome}" trancado com sucesso.'}
+
+
+@router.patch("/periodos/{periodo_id}/reabrir")
+async def reabrir_periodo_avaliacao(
+    periodo_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR_PERIODOS)
+):
+    """Corrige um trancamento feito por engano — volta a permitir lançamentos."""
+    periodo = (await db.execute(
+        select(PeriodoAvaliacao).where(PeriodoAvaliacao.id == periodo_id, PeriodoAvaliacao.tenant_id == utilizador["tenant_id"])
+    )).scalars().first()
+    if not periodo:
+        raise HTTPException(status_code=404, detail="Período de avaliação não encontrado na sua instituição.")
+
+    periodo.aberto = True
+    periodo.data_fecho = None
+    await db.commit()
+    return {"mensagem": f'Período "{periodo.nome}" reaberto com sucesso.'}

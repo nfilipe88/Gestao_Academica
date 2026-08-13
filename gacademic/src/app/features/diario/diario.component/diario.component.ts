@@ -5,9 +5,13 @@ import { Store } from '@ngrx/store';
 import { Subscription, take } from 'rxjs';
 import { carregarAlocacoes } from '../../../store/professores/professores.actions';
 import { selectAlocacoes } from '../../../store/professores/professores.selector';
-import { carregarAlunosDiario, carregarConsolidado, lancarFrequencias, lancarNotas } from '../../../store/diario/diario.actions';
+import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import {
-  selectAlunosDiario, selectConsolidado, selectDiarioError, selectDiarioMensagem
+  carregarAlunosDiario, carregarConsolidado, carregarPeriodos, criarPeriodo,
+  lancarFrequencias, lancarNotas, reabrirPeriodo, trancarPeriodo
+} from '../../../store/diario/diario.actions';
+import {
+  selectAlunosDiario, selectConsolidado, selectDiarioError, selectDiarioMensagem, selectPeriodos
 } from '../../../store/diario/diario.selector';
 
 @Component({
@@ -24,8 +28,13 @@ export class DiarioComponent implements OnInit, OnDestroy {
   alocacoes$ = this.store.select(selectAlocacoes);
   alunos$ = this.store.select(selectAlunosDiario);
   consolidado$ = this.store.select(selectConsolidado);
+  periodos$ = this.store.select(selectPeriodos);
   erro$ = this.store.select(selectDiarioError);
   mensagem$ = this.store.select(selectDiarioMensagem);
+  podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
+
+  mostrarFormularioPeriodo = false;
+  periodoForm = this.fb.group({ nome: ['', Validators.required] });
 
   aba: 'chamada' | 'notas' | 'consolidado' = 'chamada';
 
@@ -71,6 +80,7 @@ export class DiarioComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.store.dispatch(carregarAlocacoes());
+    this.store.dispatch(carregarPeriodos());
   }
 
   ngOnDestroy() {
@@ -141,6 +151,25 @@ export class DiarioComponent implements OnInit, OnDestroy {
       data_avaliacao: data_avaliacao || null,
       notas
     }));
+  }
+
+  alternarFormularioPeriodo() {
+    this.mostrarFormularioPeriodo = !this.mostrarFormularioPeriodo;
+    this.periodoForm.reset();
+  }
+
+  onSubmitPeriodo() {
+    if (this.periodoForm.invalid) return;
+    this.store.dispatch(criarPeriodo({ nome: this.periodoForm.value.nome! }));
+    this.mostrarFormularioPeriodo = false;
+  }
+
+  onTrancarPeriodo(periodoId: string) {
+    this.store.dispatch(trancarPeriodo({ periodo_id: periodoId }));
+  }
+
+  onReabrirPeriodo(periodoId: string) {
+    this.store.dispatch(reabrirPeriodo({ periodo_id: periodoId }));
   }
 
   onVerConsolidado() {

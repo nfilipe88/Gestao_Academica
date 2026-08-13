@@ -63,6 +63,35 @@ class RegistroNota(Base):
         UniqueConstraint("matricula_id", "disciplina_id", "periodo_avaliacao", name="uq_nota_matricula_disciplina_periodo"),
     )
 
+class PeriodoAvaliacao(Base):
+    """
+    RN03 do Diário de Classe: "janela de lançamento". A secretaria
+    define prazos (ex: "1º Bimestre fecha dia 30/04") — enquanto
+    aberto=True, lançar notas nesse periodo_avaliacao é permitido;
+    depois de trancado, POST .../notas/lote passa a devolver 403.
+
+    Não é obrigatório existir um registo aqui para cada
+    periodo_avaliacao usado em RegistroNota — o documento não define
+    isto como pré-requisito, só como algo que a secretaria PODE
+    trancar. Por isso um nome sem registo correspondente aqui
+    continua livre (comportamento anterior a esta funcionalidade,
+    preservado para não quebrar o fluxo já existente).
+    """
+    __tablename__ = "periodo_avaliacao"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+
+    nome: Mapped[str] = mapped_column(String(50), nullable=False)  # tem de bater certo com RegistroNota.periodo_avaliacao
+    aberto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    data_fecho: Mapped[date | None] = mapped_column(Date, nullable=True)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "nome", name="uq_periodo_avaliacao_tenant_nome"),
+    )
+
+
 class RegistroNotaAuditoria(Base):
     """RN04: sempre que uma nota já existente é alterada, fica aqui o rasto
     (quem alterou, quando, valor antigo e novo) — não é criado no primeiro

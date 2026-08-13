@@ -17,6 +17,54 @@
     </div>
   }
 
+  @if (podeGerir$ | async) {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800">Períodos de Avaliação</h3>
+          <p class="text-xs text-slate-500">Tranque um período para impedir professores de lançar/alterar notas depois do prazo.</p>
+        </div>
+        <button type="button" (click)="alternarFormularioPeriodo()"
+          class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+          {{ mostrarFormularioPeriodo ? 'Cancelar' : '+ Novo Período' }}
+        </button>
+      </div>
+
+      @if (mostrarFormularioPeriodo) {
+        <form [formGroup]="periodoForm" (ngSubmit)="onSubmitPeriodo()" class="flex gap-2 mb-4">
+          <input type="text" formControlName="nome" placeholder="Ex: 1º Bimestre"
+            class="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          <button type="submit" [disabled]="periodoForm.invalid"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+            Criar
+          </button>
+        </form>
+      }
+
+      <div class="flex flex-wrap gap-2">
+        @for (periodo of periodos$ | async; track periodo.id) {
+          <div class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-1.5">
+            <span class="text-sm text-slate-700">{{ periodo.nome }}</span>
+            <span class="text-xs font-medium py-0.5 px-2 rounded-full"
+              [class.bg-emerald-100]="periodo.aberto" [class.text-emerald-700]="periodo.aberto"
+              [class.bg-rose-100]="!periodo.aberto" [class.text-rose-700]="!periodo.aberto">
+              {{ periodo.aberto ? 'Aberto' : 'Trancado' }}
+            </span>
+            @if (periodo.aberto) {
+              <button type="button" (click)="onTrancarPeriodo(periodo.id)"
+                class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Trancar</button>
+            } @else {
+              <button type="button" (click)="onReabrirPeriodo(periodo.id)"
+                class="text-xs text-emerald-600 hover:text-emerald-800 font-medium cursor-pointer">Reabrir</button>
+            }
+          </div>
+        } @empty {
+          <p class="text-xs text-slate-400">Nenhum período criado — os professores podem usar qualquer nome livremente até criares um aqui.</p>
+        }
+      </div>
+    </div>
+  }
+
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
     <label class="block text-sm font-medium text-slate-600 mb-1">Turma / Disciplina</label>
     <select [value]="alocacaoSelecionadaId" (change)="onSelecionarAlocacao($any($event.target).value)"
@@ -118,8 +166,13 @@
         <form [formGroup]="notasForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-600 mb-1">Período de avaliação</label>
-            <input type="text" formControlName="periodo_avaliacao" placeholder="Ex: 1º Trimestre"
+            <input type="text" formControlName="periodo_avaliacao" placeholder="Ex: 1º Trimestre" list="lista-periodos"
               class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            <datalist id="lista-periodos">
+              @for (periodo of periodos$ | async; track periodo.id) {
+                <option [value]="periodo.nome">{{ periodo.aberto ? 'Aberto' : 'Trancado' }}</option>
+              }
+            </datalist>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-600 mb-1">Tipo de avaliação — opcional</label>

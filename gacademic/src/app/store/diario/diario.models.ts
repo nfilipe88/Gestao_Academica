@@ -24,3 +24,10 @@ export interface NotaAlunoInput {
   matricula_id: string;
   valor_nota: number;
 }
+
+export interface PeriodoAvaliacao {
+  id: string;
+  nome: string;
+  aberto: boolean;
+  data_fecho: string | null;
+}

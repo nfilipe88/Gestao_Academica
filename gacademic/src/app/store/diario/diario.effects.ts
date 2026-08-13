@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import * as DiarioActions from './diario.actions';
-import { AlunoDiario, ConsolidadoTurmaDisciplina } from './diario.models';
+import { AlunoDiario, ConsolidadoTurmaDisciplina, PeriodoAvaliacao } from './diario.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -86,6 +86,63 @@ export class DiarioEffects {
           })))
         );
       })
+    )
+  );
+
+  carregarPeriodos$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DiarioActions.carregarPeriodos),
+      switchMap(() => this.http.get<PeriodoAvaliacao[]>('/api/v1/diario/periodos').pipe(
+        map(periodos => DiarioActions.carregarPeriodosSucesso({ periodos })),
+        catchError(err => of(DiarioActions.diarioOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os períodos de avaliação.'
+        })))
+      ))
+    )
+  );
+
+  criarPeriodo$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DiarioActions.criarPeriodo),
+      switchMap(action => this.http.post('/api/v1/diario/periodos', { nome: action.nome }).pipe(
+        switchMap(() => [
+          DiarioActions.carregarPeriodos(),
+          DiarioActions.diarioOperacaoSucesso({ mensagem: 'Período de avaliação criado.' })
+        ]),
+        catchError(err => of(DiarioActions.diarioOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar o período de avaliação.'
+        })))
+      ))
+    )
+  );
+
+  trancarPeriodo$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DiarioActions.trancarPeriodo),
+      switchMap(action => this.http.patch<{ mensagem: string }>(`/api/v1/diario/periodos/${action.periodo_id}/trancar`, {}).pipe(
+        switchMap(resp => [
+          DiarioActions.carregarPeriodos(),
+          DiarioActions.diarioOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(DiarioActions.diarioOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível trancar o período de avaliação.'
+        })))
+      ))
+    )
+  );
+
+  reabrirPeriodo$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DiarioActions.reabrirPeriodo),
+      switchMap(action => this.http.patch<{ mensagem: string }>(`/api/v1/diario/periodos/${action.periodo_id}/reabrir`, {}).pipe(
+        switchMap(resp => [
+          DiarioActions.carregarPeriodos(),
+          DiarioActions.diarioOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(DiarioActions.diarioOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível reabrir o período de avaliação.'
+        })))
+      ))
     )
   );
 }
