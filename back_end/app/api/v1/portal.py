@@ -57,3 +57,13 @@ async def obter_financeiro_do_educando(
     e com o mesmo controlo de posse aplicado aqui (ver cruds/financeiro.py).
     """
     return await crud_portal.obter_financeiro_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)
+
+
+@router.get("/educandos/{aluno_id}/tarefas")
+async def listar_tarefas_do_educando(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Trabalhos/tarefas do educando (prazo, status de entrega e nota, quando já avaliado)."""
+    return await crud_portal.listar_tarefas_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)

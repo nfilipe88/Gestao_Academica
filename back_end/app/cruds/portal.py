@@ -21,6 +21,7 @@ from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.cruds import financeiro as crud_financeiro
 from app.cruds import horarios as crud_horarios
+from app.cruds import tarefas as crud_tarefas
 
 
 # ==========================================
@@ -208,3 +209,14 @@ async def obter_financeiro_do_educando(db: AsyncSession, tenant_id, utilizador: 
         },
         "faturas": faturas,
     }
+
+
+# ==========================================
+# E. TRABALHOS/TAREFAS DO EDUCANDO
+# ==========================================
+async def listar_tarefas_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> list[dict]:
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
+    if not matricula:
+        return []
+    return await crud_tarefas.listar_tarefas_do_aluno(db, tenant_id, matricula.id)
