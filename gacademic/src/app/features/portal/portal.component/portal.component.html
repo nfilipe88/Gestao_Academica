@@ -40,6 +40,12 @@
         [class.border-transparent]="aba !== 'boletim'" [class.text-slate-500]="aba !== 'boletim'">
         Boletim
       </button>
+      <button type="button" (click)="aba = 'trabalhos'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'trabalhos'" [class.text-blue-600]="aba === 'trabalhos'"
+        [class.border-transparent]="aba !== 'trabalhos'" [class.text-slate-500]="aba !== 'trabalhos'">
+        Trabalhos
+      </button>
       <button type="button" (click)="aba = 'financeiro'"
         class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
         [class.border-blue-600]="aba === 'financeiro'" [class.text-blue-600]="aba === 'financeiro'"
@@ -112,6 +118,43 @@
             }
           </div>
         }
+      </div>
+    }
+
+    @if (aba === 'trabalhos') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <div class="space-y-3">
+          @for (tarefa of tarefas$ | async; track tarefa.tarefa_id) {
+            <div class="border border-slate-200 rounded-lg p-4">
+              <div class="flex items-start justify-between flex-wrap gap-2">
+                <div>
+                  <h4 class="text-sm font-semibold text-slate-800">{{ tarefa.titulo }}</h4>
+                  <p class="text-xs text-slate-500">{{ tarefa.nome_disciplina }} — {{ tarefa.nome_turma }} · Prazo: {{ tarefa.data_entrega }}</p>
+                  @if (tarefa.descricao) {
+                    <p class="text-xs text-slate-500 mt-1">{{ tarefa.descricao }}</p>
+                  }
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="text-xs font-medium py-1 px-3 rounded-full"
+                    [class.bg-slate-100]="tarefa.status === 'PENDENTE'" [class.text-slate-600]="tarefa.status === 'PENDENTE'"
+                    [class.bg-emerald-100]="tarefa.status === 'ENTREGUE'" [class.text-emerald-700]="tarefa.status === 'ENTREGUE'"
+                    [class.bg-amber-100]="tarefa.status === 'ENTREGUE_ATRASADO'" [class.text-amber-700]="tarefa.status === 'ENTREGUE_ATRASADO'"
+                    [class.bg-rose-100]="tarefa.status === 'NAO_ENTREGUE'" [class.text-rose-700]="tarefa.status === 'NAO_ENTREGUE'">
+                    {{ tarefa.status === 'PENDENTE' ? 'Por avaliar' : tarefa.status === 'ENTREGUE' ? 'Entregue' : tarefa.status === 'ENTREGUE_ATRASADO' ? 'Entregue (atrasado)' : 'Não entregue' }}
+                  </span>
+                  @if (tarefa.nota !== null) {
+                    <span class="text-sm font-bold text-slate-800">{{ tarefa.nota }} / {{ tarefa.valor_maximo }}</span>
+                  }
+                </div>
+              </div>
+              @if (tarefa.observacoes) {
+                <p class="text-xs text-slate-500 mt-2 italic">"{{ tarefa.observacoes }}"</p>
+              }
+            </div>
+          } @empty {
+            <p class="text-sm text-slate-500 text-center py-6">Ainda não há trabalhos atribuídos.</p>
+          }
+        </div>
       </div>
     }
 

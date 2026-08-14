@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as PortalActions from './portal.actions';
-import { Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal } from './portal.models';
+import { Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal, TarefaEducando } from './portal.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -59,6 +59,20 @@ export class PortalEffects {
         map(financeiro => PortalActions.carregarFinanceiroDoEducandoSucesso({ financeiro })),
         catchError(err => of(PortalActions.portalOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar o financeiro deste educando.'
+        })))
+      ))
+    )
+  );
+
+  carregarTarefasDoEducando$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.carregarTarefasDoEducando),
+      switchMap(action => this.http.get<TarefaEducando[]>(
+        `/api/v1/portal/educandos/${action.aluno_id}/tarefas`
+      ).pipe(
+        map(tarefas => PortalActions.carregarTarefasDoEducandoSucesso({ tarefas })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os trabalhos/tarefas deste educando.'
         })))
       ))
     )

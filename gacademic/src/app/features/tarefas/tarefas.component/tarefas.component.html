@@ -1,0 +1,177 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Trabalhos / Tarefas</h2>
+    <p class="text-slate-500 text-sm">Atribua trabalhos com prazo e avalie a entrega de cada aluno.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+    <label class="block text-sm font-medium text-slate-600 mb-1">Turma / Disciplina</label>
+    <select [value]="alocacaoSelecionadaId" (change)="onSelecionarAlocacao($any($event.target).value)"
+      class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+      <option value="">Selecione uma turma/disciplina</option>
+      @for (alocacao of alocacoes$ | async; track alocacao.id) {
+        <option [value]="alocacao.id">{{ alocacao.nome_disciplina }} — {{ alocacao.nome_turma }}</option>
+      }
+    </select>
+    @if ((alocacoes$ | async)?.length === 0) {
+      <p class="text-sm text-amber-600 mt-2">
+        Ainda não tens nenhuma turma/disciplina alocada. Fala com o Gestor/Secretaria para te alocarem em Professores.
+      </p>
+    }
+  </div>
+
+  @if (turmaSelecionadaId && disciplinaSelecionadaId) {
+
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-slate-800">Trabalhos atribuídos</h3>
+      <button type="button" (click)="alternarFormularioTarefa()"
+        class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+        {{ mostrarFormularioTarefa ? 'Cancelar' : '+ Novo Trabalho' }}
+      </button>
+    </div>
+
+    @if (mostrarFormularioTarefa) {
+      <form [formGroup]="tarefaForm" (ngSubmit)="onSubmitTarefa()"
+        class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Título</label>
+          <input type="text" formControlName="titulo" placeholder="Ex: Lista de exercícios 1"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Descrição — opcional</label>
+          <textarea formControlName="descricao" rows="2"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Data de entrega</label>
+            <input type="date" formControlName="data_entrega"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Valor máximo</label>
+            <input type="number" min="0.01" step="0.5" formControlName="valor_maximo"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Período de avaliação — opcional</label>
+            <input type="text" formControlName="periodo_avaliacao" placeholder="Ex: 1º Trimestre" list="lista-periodos-tarefas"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            <datalist id="lista-periodos-tarefas">
+              @for (periodo of periodos$ | async; track periodo.id) {
+                <option [value]="periodo.nome">{{ periodo.aberto ? 'Aberto' : 'Trancado' }}</option>
+              }
+            </datalist>
+          </div>
+        </div>
+        <button type="submit" [disabled]="tarefaForm.invalid"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+          Criar Trabalho
+        </button>
+      </form>
+    }
+
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+            <th class="py-3 px-6 font-medium">Título</th>
+            <th class="py-3 px-6 font-medium">Prazo</th>
+            <th class="py-3 px-6 font-medium text-right">Valor máximo</th>
+            <th class="py-3 px-6 font-medium">Período</th>
+            <th class="py-3 px-6 font-medium text-right">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (tarefa of tarefas$ | async; track tarefa.id) {
+            <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <td class="py-3 px-6 text-slate-800 font-medium">{{ tarefa.titulo }}</td>
+              <td class="py-3 px-6 text-slate-600">{{ tarefa.data_entrega }}</td>
+              <td class="py-3 px-6 text-slate-600 text-right">{{ tarefa.valor_maximo }}</td>
+              <td class="py-3 px-6 text-slate-500 text-sm">{{ tarefa.periodo_avaliacao || '—' }}</td>
+              <td class="py-3 px-6 text-right">
+                <button type="button" (click)="onAbrirTarefa(tarefa.id)"
+                  class="text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
+                  Avaliar
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5" class="py-6 text-center text-slate-500">Nenhum trabalho atribuído ainda.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (tarefaDetalhe$ | async; as tarefa) {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h4 class="text-sm font-semibold text-slate-800">{{ tarefa.titulo }}</h4>
+            <p class="text-xs text-slate-500">Prazo: {{ tarefa.data_entrega }} · Valor máximo: {{ tarefa.valor_maximo }}</p>
+          </div>
+          <button type="button" (click)="onFecharTarefa()" class="text-sm text-slate-500 hover:text-slate-700 cursor-pointer">Fechar</button>
+        </div>
+
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-600 text-sm">
+              <th class="py-2 pr-3 font-medium">Aluno</th>
+              <th class="py-2 pr-3 font-medium">Status</th>
+              <th class="py-2 pr-3 font-medium text-right">Nota</th>
+              <th class="py-2 pr-3 font-medium">Observações</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (av of tarefa.avaliacoes; track av.matricula_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-800">{{ av.nome_aluno }}</td>
+                <td class="py-2 pr-3">
+                  <select (change)="onStatusChange(av.matricula_id, $any($event.target).value)"
+                    class="text-sm border border-slate-300 rounded-lg px-2 py-1 text-slate-700 focus:outline-hidden">
+                    @for (opcao of statusOpcoes; track opcao.valor) {
+                      <option [value]="opcao.valor" [selected]="(avaliacoesPorAluno[av.matricula_id]?.status || 'PENDENTE') === opcao.valor">{{ opcao.nome }}</option>
+                    }
+                  </select>
+                </td>
+                <td class="py-2 pr-3 text-right">
+                  <input type="number" min="0" [max]="tarefa.valor_maximo" step="0.1"
+                    [value]="avaliacoesPorAluno[av.matricula_id]?.nota"
+                    (input)="onNotaChange(av.matricula_id, $any($event.target).value)"
+                    class="w-20 border border-slate-300 rounded-lg px-2 py-1 text-sm text-slate-800 text-right focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </td>
+                <td class="py-2 pr-3">
+                  <input type="text" [value]="avaliacoesPorAluno[av.matricula_id]?.observacoes"
+                    (input)="onObservacoesChange(av.matricula_id, $any($event.target).value)"
+                    placeholder="Feedback opcional"
+                    class="w-full border border-slate-300 rounded-lg px-2 py-1 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="py-6 text-center text-slate-500">Nenhum aluno matriculado nesta turma.</td></tr>
+            }
+          </tbody>
+        </table>
+
+        <button type="button" (click)="onGuardarAvaliacoes(tarefa.id)"
+          class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-6 rounded-lg transition-colors cursor-pointer">
+          Guardar Avaliações
+        </button>
+      </div>
+    }
+
+  } @else {
+    <p class="text-sm text-slate-500">Seleciona uma turma/disciplina acima para começar.</p>
+  }
+
+</div>

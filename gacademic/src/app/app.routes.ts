@@ -85,6 +85,10 @@ export const routes: Routes = [
         path: 'admin',
         loadComponent: () => import('./features/admin/admin.component/admin.component').then((m) => m.AdminComponent)
       },
+      {
+        path: 'tarefas',
+        loadComponent: () => import('./features/tarefas/tarefas.component/tarefas.component').then((m) => m.TarefasComponent)
+      },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

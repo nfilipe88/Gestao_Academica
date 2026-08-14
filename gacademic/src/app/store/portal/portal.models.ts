@@ -55,3 +55,17 @@ export interface FinanceiroEducando {
   } | null;
   faturas: FaturaMensalidade[];
 }
+
+// Alinhado com cruds/tarefas.py::listar_tarefas_do_aluno.
+export interface TarefaEducando {
+  tarefa_id: string;
+  titulo: string;
+  descricao: string | null;
+  data_entrega: string;
+  valor_maximo: number;
+  nome_turma: string;
+  nome_disciplina: string;
+  status: 'PENDENTE' | 'ENTREGUE' | 'ENTREGUE_ATRASADO' | 'NAO_ENTREGUE';
+  nota: number | null;
+  observacoes: string | null;
+}

@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal } from './portal.models';
+import { Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal, TarefaEducando } from './portal.models';
 
 export const carregarMeusEducandos = createAction('[Portal] Carregar Meus Educandos');
 export const carregarMeusEducandosSucesso = createAction(
@@ -32,6 +32,15 @@ export const carregarFinanceiroDoEducando = createAction(
 export const carregarFinanceiroDoEducandoSucesso = createAction(
   '[Portal] Carregar Financeiro Do Educando Sucesso',
   props<{ financeiro: FinanceiroEducando }>()
+);
+
+export const carregarTarefasDoEducando = createAction(
+  '[Portal] Carregar Tarefas Do Educando',
+  props<{ aluno_id: string }>()
+);
+export const carregarTarefasDoEducandoSucesso = createAction(
+  '[Portal] Carregar Tarefas Do Educando Sucesso',
+  props<{ tarefas: TarefaEducando[] }>()
 );
 
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,

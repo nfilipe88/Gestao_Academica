@@ -8,11 +8,12 @@ import { selectUsuario } from '../../../store/auth/auth.selectors';
 import { capturarPagamento, financeiroOperacaoSucesso, gerarCobranca } from '../../../store/financeiro/financeiro.actions';
 import { selectUltimaCobranca } from '../../../store/financeiro/financeiro.selector';
 import {
-  carregarBoletimDoEducando, carregarFinanceiroDoEducando, carregarHorarioDoEducando, carregarMeusEducandos
+  carregarBoletimDoEducando, carregarFinanceiroDoEducando, carregarHorarioDoEducando,
+  carregarMeusEducandos, carregarTarefasDoEducando
 } from '../../../store/portal/portal.actions';
 import {
   selectBoletimDoEducando, selectFinanceiroDoEducando, selectHorarioDoEducando,
-  selectMeusEducandos, selectPortalError
+  selectMeusEducandos, selectPortalError, selectTarefasDoEducando
 } from '../../../store/portal/portal.selector';
 import { HorarioAulaPortal } from '../../../store/portal/portal.models';
 
@@ -43,12 +44,13 @@ export class PortalComponent implements OnInit {
   horario$ = this.store.select(selectHorarioDoEducando);
   boletim$ = this.store.select(selectBoletimDoEducando);
   financeiro$ = this.store.select(selectFinanceiroDoEducando);
+  tarefas$ = this.store.select(selectTarefasDoEducando);
   erro$ = this.store.select(selectPortalError);
 
   dias = DIAS_DA_SEMANA;
 
   educandoSelecionadoId: string | null = null;
-  aba: 'horario' | 'boletim' | 'financeiro' = 'horario';
+  aba: 'horario' | 'boletim' | 'trabalhos' | 'financeiro' = 'horario';
 
   ngOnInit() {
     this.store.dispatch(carregarMeusEducandos());
@@ -88,6 +90,7 @@ export class PortalComponent implements OnInit {
     this.store.dispatch(carregarHorarioDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarBoletimDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarFinanceiroDoEducando({ aluno_id: alunoId }));
+    this.store.dispatch(carregarTarefasDoEducando({ aluno_id: alunoId }));
   }
 
   slotsDoDia(horarios: HorarioAulaPortal[] | null, dia: number): HorarioAulaPortal[] {
