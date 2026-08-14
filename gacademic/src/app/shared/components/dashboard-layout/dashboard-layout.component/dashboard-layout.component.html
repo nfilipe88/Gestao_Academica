@@ -22,6 +22,21 @@
 
     <nav class="flex-1 px-3 space-y-1 mt-2">
 
+      @if (isAlunoOuResponsavel$ | async) {
+        <!-- ALUNO/RESPONSAVEL só têm o Portal — os módulos internos
+             abaixo (Cursos, Turmas, Alunos, ...) devolvem 403 para
+             estes perfis (exigir_perfil_staff no back-end). -->
+        <a routerLink="/portal" routerLinkActive="bg-slate-800 text-blue-400"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Portal">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75V21a.75.75 0 00.75.75H9.75v-6a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v6h4.5a.75.75 0 00.75-.75V9.75M8.25 21h8.25" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Portal</span> }
+        </a>
+      } @else {
+
       <a routerLink="/dashboard" routerLinkActive="bg-slate-800 text-blue-400"
         [routerLinkActiveOptions]="{ exact: true }"
         class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
@@ -131,6 +146,7 @@
       <!-- "Administração" removido daqui até existir a rota /admin/configuracoes.
            Um link para uma rota inexistente cai no wildcard e devolve
            silenciosamente ao dashboard, o que parecia um botão avariado. -->
+      }
     </nav>
 
     <div class="p-3 border-t border-slate-800">

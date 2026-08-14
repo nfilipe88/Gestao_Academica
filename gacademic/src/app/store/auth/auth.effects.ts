@@ -84,13 +84,17 @@ export class AuthEffects {
   // Sem isto, o login tinha sucesso (token gravado, store atualizada)
   // mas o ecrã ficava parado em /login: nada disparava a navegação.
   // Se o login veio de um redirecionamento (ver auth.guard.ts), volta
-  // ao destino original em vez de ir sempre para /dashboard.
+  // ao destino original em vez de ir sempre para /dashboard. ALUNO/
+  // RESPONSAVEL não têm acesso a /dashboard (é montado com dados de
+  // módulos internos vedados a estes perfis — ver exigir_perfil_staff
+  // no back-end) — vão antes para /portal.
   redirecionarAposLogin$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AuthActions.loginSuccess),
-      tap(() => {
+      tap(({ usuario }) => {
         const returnUrl = this.router.parseUrl(this.router.url).queryParams['returnUrl'];
-        this.router.navigateByUrl(returnUrl || '/dashboard');
+        const destinoPorOmissao = ['ALUNO', 'RESPONSAVEL'].includes(usuario.perfil_acesso) ? '/portal' : '/dashboard';
+        this.router.navigateByUrl(returnUrl || destinoPorOmissao);
       })
     ),
     { dispatch: false }

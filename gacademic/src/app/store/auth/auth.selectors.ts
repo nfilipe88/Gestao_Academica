@@ -40,3 +40,12 @@ export const selectIsGestorOuSecretaria = createSelector(
   selectAuthState,
   (state) => state.usuario?.perfil_acesso === 'GESTOR' || state.usuario?.perfil_acesso === 'SECRETARIA'
 );
+
+// Portal do Aluno/Responsável: estes logins só têm acesso à sua própria
+// visão de leitura (app/api/v1/portal.py) — nenhum dos módulos internos
+// (Académico, Alunos, Diário, Horários, Comunicações, CRM, Financeiro,
+// Professores) os deixa entrar (ver exigir_perfil_staff no back-end).
+export const selectIsAlunoOuResponsavel = createSelector(
+  selectAuthState,
+  (state) => state.usuario?.perfil_acesso === 'ALUNO' || state.usuario?.perfil_acesso === 'RESPONSAVEL'
+);

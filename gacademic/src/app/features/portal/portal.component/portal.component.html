@@ -1,0 +1,193 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Portal</h2>
+    <p class="text-slate-500 text-sm">
+      @if (usuario$ | async; as usuario) { Olá, {{ usuario.nome_completo }}. } Consulte o horário, as notas e as faturas dos seus educandos.
+    </p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+    <label class="block text-sm font-medium text-slate-600 mb-1">Educando</label>
+    <select [value]="educandoSelecionadoId" (change)="onSelecionarEducando($any($event.target).value)"
+      class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+      <option value="">Selecione</option>
+      @for (educando of educandos$ | async; track educando.aluno_id) {
+        <option [value]="educando.aluno_id">{{ educando.nome_completo }} — {{ educando.nome_turma || 'sem turma atual' }}</option>
+      }
+    </select>
+    @if ((educandos$ | async)?.length === 0) {
+      <p class="text-sm text-amber-600 mt-2">Ainda não há nenhum aluno associado a este login.</p>
+    }
+  </div>
+
+  @if (educandoSelecionadoId) {
+
+    <div class="flex gap-1 border-b border-slate-200">
+      <button type="button" (click)="aba = 'horario'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'horario'" [class.text-blue-600]="aba === 'horario'"
+        [class.border-transparent]="aba !== 'horario'" [class.text-slate-500]="aba !== 'horario'">
+        Horário
+      </button>
+      <button type="button" (click)="aba = 'boletim'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'boletim'" [class.text-blue-600]="aba === 'boletim'"
+        [class.border-transparent]="aba !== 'boletim'" [class.text-slate-500]="aba !== 'boletim'">
+        Boletim
+      </button>
+      <button type="button" (click)="aba = 'financeiro'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'financeiro'" [class.text-blue-600]="aba === 'financeiro'"
+        [class.border-transparent]="aba !== 'financeiro'" [class.text-slate-500]="aba !== 'financeiro'">
+        Financeiro
+      </button>
+    </div>
+
+    @if (aba === 'horario') {
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        @for (dia of dias; track dia.valor) {
+          <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+            <div class="bg-slate-50 px-3 py-2 border-b border-slate-200">
+              <p class="text-xs font-semibold text-slate-700">{{ dia.nome }}</p>
+            </div>
+            <div class="p-2 space-y-2 min-h-24">
+              @for (slot of slotsDoDia(horario$ | async, dia.valor); track slot.id) {
+                <div class="rounded-lg border border-slate-200 p-2 text-xs">
+                  <p class="font-semibold text-slate-800">{{ formatarHora(slot.hora_inicio) }}–{{ formatarHora(slot.hora_fim) }}</p>
+                  <p class="text-slate-600">{{ slot.nome_disciplina }}</p>
+                  <p class="text-slate-400">{{ slot.nome_professor }}</p>
+                  @if (slot.sala) { <p class="text-slate-400">{{ slot.sala }}</p> }
+                </div>
+              } @empty {
+                <p class="text-xs text-slate-300 text-center py-4">—</p>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    @if (aba === 'boletim') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        @if (boletim$ | async; as boletim) {
+          <div class="space-y-4">
+            @for (disciplina of boletim.disciplinas; track disciplina.disciplina_id) {
+              <div class="border border-slate-200 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <h4 class="text-sm font-semibold text-slate-800">{{ disciplina.nome_disciplina }}</h4>
+                  <span class="text-xs text-slate-500">
+                    {{ disciplina.total_faltas }} falta(s) em {{ disciplina.total_aulas }} aula(s)
+                  </span>
+                </div>
+                <table class="w-full text-left text-sm">
+                  <thead>
+                    <tr class="text-slate-500 text-xs">
+                      <th class="py-1 pr-3 font-medium">Período</th>
+                      <th class="py-1 pr-3 font-medium">Tipo</th>
+                      <th class="py-1 pr-3 font-medium">Data</th>
+                      <th class="py-1 pr-3 font-medium text-right">Nota</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (nota of disciplina.notas; track $index) {
+                      <tr class="border-t border-slate-100">
+                        <td class="py-1 pr-3 text-slate-700">{{ nota.periodo_avaliacao }}</td>
+                        <td class="py-1 pr-3 text-slate-500">{{ nota.tipo_avaliacao || '—' }}</td>
+                        <td class="py-1 pr-3 text-slate-500">{{ nota.data_avaliacao || '—' }}</td>
+                        <td class="py-1 pr-3 text-right font-semibold text-slate-800">{{ nota.valor_nota }}</td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="4" class="py-2 text-center text-slate-400">Sem notas lançadas.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @empty {
+              <p class="text-sm text-slate-500 text-center py-6">Ainda não há notas ou frequência lançadas.</p>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @if (aba === 'financeiro') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        @if (financeiro$ | async; as financeiro) {
+          @if (financeiro.contrato) {
+            <div class="mb-4 text-sm text-slate-600">
+              Valor total anual: <span class="font-semibold text-slate-800">{{ financeiro.contrato.valor_total_anual }}€</span>
+              em {{ financeiro.contrato.quantidade_parcelas }} parcela(s).
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 text-slate-600 text-sm">
+                    <th class="py-3 px-4 font-medium">Parcela</th>
+                    <th class="py-3 px-4 font-medium">Vencimento</th>
+                    <th class="py-3 px-4 font-medium text-right">Valor atualizado</th>
+                    <th class="py-3 px-4 font-medium">Status</th>
+                    <th class="py-3 px-4 font-medium text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (fatura of financeiro.faturas; track fatura.id) {
+                    <tr class="border-b border-slate-100">
+                      <td class="py-3 px-4 text-slate-800 font-medium">{{ fatura.numero_parcela }}/{{ financeiro.contrato.quantidade_parcelas }}</td>
+                      <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento }}</td>
+                      <td class="py-3 px-4 text-right" [class.text-rose-600]="fatura.status_efetivo === 'ATRASADO'" [class.font-semibold]="fatura.status_efetivo === 'ATRASADO'">
+                        {{ fatura.valor_atualizado }}€
+                        @if (fatura.status_efetivo === 'ATRASADO') {
+                          <span class="block text-xs text-rose-400">+{{ fatura.juros_aplicados }}€ juros, +{{ fatura.multa_aplicada }}€ multa ({{ fatura.dias_atraso }}d)</span>
+                        }
+                      </td>
+                      <td class="py-3 px-4">
+                        <span class="text-xs font-medium py-1 px-3 rounded-full"
+                          [class.bg-emerald-100]="fatura.status_efetivo === 'PAGO'" [class.text-emerald-700]="fatura.status_efetivo === 'PAGO'"
+                          [class.bg-rose-100]="fatura.status_efetivo === 'ATRASADO'" [class.text-rose-700]="fatura.status_efetivo === 'ATRASADO'"
+                          [class.bg-amber-100]="fatura.status_efetivo === 'NEGOCIADO'" [class.text-amber-700]="fatura.status_efetivo === 'NEGOCIADO'"
+                          [class.bg-slate-100]="fatura.status_efetivo === 'PENDENTE' || fatura.status_efetivo === 'CANCELADO'"
+                          [class.text-slate-600]="fatura.status_efetivo === 'PENDENTE' || fatura.status_efetivo === 'CANCELADO'">
+                          {{ fatura.status_efetivo }}
+                        </span>
+                      </td>
+                      <td class="py-3 px-4 text-right">
+                        @if (fatura.status_efetivo !== 'PAGO' && fatura.status_efetivo !== 'CANCELADO') {
+                          @if (fatura.transacoes_ativas.length > 0) {
+                            <a [href]="fatura.transacoes_ativas[0].approve_url" target="_blank" rel="noopener"
+                              class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-lg transition-colors">
+                              Continuar pagamento PayPal
+                            </a>
+                          } @else {
+                            <button type="button" (click)="onPagarComPayPal(fatura.id, financeiro.contrato.id)"
+                              class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
+                              Pagar com PayPal
+                            </button>
+                          }
+                        } @else if (fatura.status_efetivo === 'PAGO') {
+                          <span class="text-xs text-slate-400">{{ fatura.forma_pagamento }}</span>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr><td colspan="5" class="py-6 text-center text-slate-500">Sem faturas geradas.</td></tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="text-sm text-slate-500 text-center py-6">Ainda não existe contrato financeiro para este educando.</p>
+          }
+        }
+      </div>
+    }
+
+  } @else {
+    <p class="text-sm text-slate-500">Selecione um educando acima para começar.</p>
+  }
+
+</div>

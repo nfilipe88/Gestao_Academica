@@ -25,6 +25,8 @@ import { crmReducer } from './store/crm/crm.reducer';
 import { CrmEffects } from './store/crm/crm.effects';
 import { horariosReducer } from './store/horarios/horarios.reducer';
 import { HorariosEffects } from './store/horarios/horarios.effects';
+import { portalReducer } from './store/portal/portal.reducer';
+import { PortalEffects } from './store/portal/portal.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 
@@ -44,8 +46,9 @@ export const appConfig: ApplicationConfig = {
       diario: diarioReducer,
       financeiro: financeiroReducer,
       crm: crmReducer,
-      horarios: horariosReducer
+      horarios: horariosReducer,
+      portal: portalReducer
     }),
-    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects),
+    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects),
   ]
 };

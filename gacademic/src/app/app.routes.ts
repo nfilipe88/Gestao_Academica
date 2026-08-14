@@ -77,6 +77,10 @@ export const routes: Routes = [
         path: 'horarios',
         loadComponent: () => import('./features/horarios/horarios.component/horarios.component').then((m) => m.HorariosComponent)
       },
+      {
+        path: 'portal',
+        loadComponent: () => import('./features/portal/portal.component/portal.component').then((m) => m.PortalComponent)
+      },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
