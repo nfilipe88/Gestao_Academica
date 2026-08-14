@@ -5,7 +5,7 @@ import uuid
 from app.database.session import obter_sessao_db
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core.email import enviar_email, template_base
-from app.schemas.alunos import AlunoCreate, ResponsavelCreate, VincularResponsavel
+from app.schemas.alunos import AlunoCreate, CriarAcessoRequest, ResponsavelCreate, VincularResponsavel
 from app.cruds import alunos as crud_alunos
 
 router = APIRouter(prefix="/api/v1", tags=["Alunos e Responsáveis"])
@@ -97,3 +97,28 @@ async def listar_responsaveis_do_aluno(
 ):
     """Lista os responsáveis vinculados a um aluno específico."""
     return await crud_alunos.listar_responsaveis_do_aluno(db, utilizador["tenant_id"], aluno_id)
+
+# ==========================================
+# ACESSO AO PORTAL (login próprio para Aluno/Responsável)
+# ==========================================
+@router.post("/alunos/{aluno_id}/criar-acesso", status_code=status.HTTP_201_CREATED)
+async def criar_acesso_aluno(
+    aluno_id: uuid.UUID,
+    dados: CriarAcessoRequest,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Concede ao aluno login próprio no Portal (leitura do seu horário/boletim/financeiro)."""
+    novo_usuario = await crud_alunos.criar_acesso_aluno(db, utilizador["tenant_id"], aluno_id, dados)
+    return {"mensagem": "Acesso ao Portal criado com sucesso.", "usuario_id": novo_usuario.id}
+
+@router.post("/responsaveis/{responsavel_id}/criar-acesso", status_code=status.HTTP_201_CREATED)
+async def criar_acesso_responsavel(
+    responsavel_id: uuid.UUID,
+    dados: CriarAcessoRequest,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Concede ao responsável login próprio no Portal (ver/pagar as faturas dos seus educandos)."""
+    novo_usuario = await crud_alunos.criar_acesso_responsavel(db, utilizador["tenant_id"], responsavel_id, dados)
+    return {"mensagem": "Acesso ao Portal criado com sucesso.", "usuario_id": novo_usuario.id}

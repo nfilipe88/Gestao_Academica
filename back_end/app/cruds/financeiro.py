@@ -84,6 +84,57 @@ def calcular_situacao_fatura(fatura: FaturaMensalidade) -> dict:
     }
 
 
+# ==========================================
+# CONTROLO DE ACESSO DO PORTAL (RESPONSÁVEL/ALUNO)
+# ==========================================
+# GESTOR/SECRETARIA/PROFESSOR continuam a ver tudo da escola (como já
+# acontecia antes do Portal existir) — as funções abaixo só restringem
+# quando o utilizador autenticado é um login de RESPONSAVEL ou ALUNO,
+# que só pode ler/pagar o que pertence aos seus próprios educandos.
+async def _aluno_ids_permitidos_no_portal(db: AsyncSession, tenant_id, utilizador: dict) -> set[uuid.UUID] | None:
+    """None = sem restrição. Devolve um set (possivelmente vazio) só para RESPONSAVEL/ALUNO."""
+    perfil = utilizador.get("perfil_acesso")
+    if perfil == "ALUNO":
+        aluno_id = (await db.execute(
+            select(Aluno.id).where(Aluno.usuario_id == utilizador["usuario_id"], Aluno.tenant_id == tenant_id)
+        )).scalar_one_or_none()
+        return {aluno_id} if aluno_id else set()
+    if perfil == "RESPONSAVEL":
+        responsavel_id = (await db.execute(
+            select(ResponsavelFinanceiroLegal.id).where(
+                ResponsavelFinanceiroLegal.usuario_id == utilizador["usuario_id"],
+                ResponsavelFinanceiroLegal.tenant_id == tenant_id,
+            )
+        )).scalar_one_or_none()
+        if not responsavel_id:
+            return set()
+        ids = (await db.execute(
+            select(AlunoResponsavel.aluno_id).where(AlunoResponsavel.responsavel_id == responsavel_id)
+        )).scalars().all()
+        return set(ids)
+    return None
+
+
+async def _garantir_acesso_via_matricula(db: AsyncSession, tenant_id, utilizador: dict, matricula_id: uuid.UUID) -> None:
+    permitidos = await _aluno_ids_permitidos_no_portal(db, tenant_id, utilizador)
+    if permitidos is None:
+        return
+    aluno_id = (await db.execute(
+        select(Matricula.aluno_id).where(Matricula.id == matricula_id, Matricula.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if aluno_id is None or aluno_id not in permitidos:
+        raise HTTPException(status_code=403, detail="Sem acesso a este aluno.")
+
+
+async def _garantir_acesso_via_fatura(db: AsyncSession, tenant_id, utilizador: dict, fatura: FaturaMensalidade) -> None:
+    contrato = (await db.execute(
+        select(ContratoFinanceiro).where(ContratoFinanceiro.id == fatura.contrato_id, ContratoFinanceiro.tenant_id == tenant_id)
+    )).scalars().first()
+    if not contrato:
+        raise HTTPException(status_code=404, detail="Contrato financeiro não encontrado na sua instituição.")
+    await _garantir_acesso_via_matricula(db, tenant_id, utilizador, contrato.matricula_id)
+
+
 def _serializar_transacao(transacao: TransacaoGateway) -> dict:
     return {
         "transacao_id": transacao.id,
@@ -226,8 +277,10 @@ async def criar_contrato(db: AsyncSession, tenant_id, dados: ContratoCreate) -> 
 # ==========================================
 # C. CONSULTAR O CONTRATO DE UMA MATRÍCULA
 # ==========================================
-async def obter_contrato_da_matricula(db: AsyncSession, tenant_id, matricula_id: uuid.UUID) -> ContratoFinanceiro:
+async def obter_contrato_da_matricula(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, utilizador: dict) -> ContratoFinanceiro:
     """Devolve o contrato financeiro já assinado desta matrícula (404 se ainda não existir)."""
+    await _garantir_acesso_via_matricula(db, tenant_id, utilizador, matricula_id)
+
     contrato = (await db.execute(
         select(ContratoFinanceiro).where(
             ContratoFinanceiro.matricula_id == matricula_id,
@@ -242,13 +295,14 @@ async def obter_contrato_da_matricula(db: AsyncSession, tenant_id, matricula_id:
 # ==========================================
 # D. EXTRATO — TODAS AS PARCELAS DE UM CONTRATO
 # ==========================================
-async def listar_faturas_do_contrato(db: AsyncSession, tenant_id, contrato_id: uuid.UUID) -> list[dict]:
+async def listar_faturas_do_contrato(db: AsyncSession, tenant_id, contrato_id: uuid.UUID, utilizador: dict) -> list[dict]:
     """Extrato financeiro completo do ano letivo — usado no Histórico Financeiro."""
     contrato = (await db.execute(
         select(ContratoFinanceiro).where(ContratoFinanceiro.id == contrato_id, ContratoFinanceiro.tenant_id == tenant_id)
     )).scalars().first()
     if not contrato:
         raise HTTPException(status_code=404, detail="Contrato financeiro não encontrado na sua instituição.")
+    await _garantir_acesso_via_matricula(db, tenant_id, utilizador, contrato.matricula_id)
 
     faturas = (await db.execute(
         select(FaturaMensalidade)
@@ -275,12 +329,13 @@ async def listar_faturas_do_contrato(db: AsyncSession, tenant_id, contrato_id: u
 # ==========================================
 # E. DETALHE DE UMA FATURA (com juros/multa em tempo real)
 # ==========================================
-async def obter_fatura(db: AsyncSession, tenant_id, fatura_id: uuid.UUID) -> dict:
+async def obter_fatura(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, utilizador: dict) -> dict:
     fatura = (await db.execute(
         select(FaturaMensalidade).where(FaturaMensalidade.id == fatura_id, FaturaMensalidade.tenant_id == tenant_id)
     )).scalars().first()
     if not fatura:
         raise HTTPException(status_code=404, detail="Fatura não encontrada na sua instituição.")
+    await _garantir_acesso_via_fatura(db, tenant_id, utilizador, fatura)
 
     transacoes_ativas = (await db.execute(
         select(TransacaoGateway).where(
@@ -348,7 +403,7 @@ async def marcar_fatura_paga(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, 
 # ==========================================
 # G1. GERAR/EMITIR COBRANÇA (PayPal)
 # ==========================================
-async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dados: GerarCobrancaRequest) -> dict:
+async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dados: GerarCobrancaRequest, utilizador: dict) -> dict:
     """
     Pede ao gateway (por agora só PayPal) os dados de pagamento de uma
     fatura. Idempotente: se já houver uma cobrança do mesmo método em
@@ -366,6 +421,7 @@ async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dado
     )).scalars().first()
     if not fatura:
         raise HTTPException(status_code=404, detail="Fatura não encontrada na sua instituição.")
+    await _garantir_acesso_via_fatura(db, tenant_id, utilizador, fatura)
     if fatura.status_pagamento in ("PAGO", "CANCELADO"):
         raise HTTPException(status_code=400, detail="Esta fatura já está paga ou cancelada.")
 
@@ -446,7 +502,7 @@ async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dado
 # ==========================================
 # G2. CAPTURAR PAGAMENTO (após o responsável aprovar no PayPal)
 # ==========================================
-async def capturar_pagamento(db: AsyncSession, tenant_id, dados: CapturarPagamentoRequest, agendar_email) -> str:
+async def capturar_pagamento(db: AsyncSession, tenant_id, dados: CapturarPagamentoRequest, agendar_email, utilizador: dict) -> str:
     """
     Chamado pelo front-end assim que o PayPal redireciona de volta com
     sucesso (?paypal_retorno=sucesso&token=<order_id>). Efetiva a
@@ -462,6 +518,11 @@ async def capturar_pagamento(db: AsyncSession, tenant_id, dados: CapturarPagamen
     )).scalars().first()
     if not transacao:
         raise HTTPException(status_code=404, detail="Transação não encontrada na sua instituição.")
+    fatura_da_transacao = (await db.execute(
+        select(FaturaMensalidade).where(FaturaMensalidade.id == transacao.fatura_id, FaturaMensalidade.tenant_id == tenant_id)
+    )).scalars().first()
+    if fatura_da_transacao:
+        await _garantir_acesso_via_fatura(db, tenant_id, utilizador, fatura_da_transacao)
     if transacao.status == "PAGO":
         return "PAGO"
 

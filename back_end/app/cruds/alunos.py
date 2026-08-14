@@ -9,8 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import uuid
 
+from app.database.models import Usuario
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
-from app.schemas.alunos import AlunoCreate, ResponsavelCreate, VincularResponsavel
+from app.core.security import gerar_hash_senha
+from app.schemas.alunos import AlunoCreate, CriarAcessoRequest, ResponsavelCreate, VincularResponsavel
 
 
 async def criar_aluno(db: AsyncSession, tenant_id, dados: AlunoCreate) -> Aluno:
@@ -108,3 +110,66 @@ async def listar_responsaveis_do_aluno(db: AsyncSession, tenant_id, aluno_id: uu
         select(AlunoResponsavel).where(AlunoResponsavel.aluno_id == aluno_id, AlunoResponsavel.tenant_id == tenant_id)
     )
     return resultado.scalars().all()
+
+
+# ==========================================
+# ACESSO AO PORTAL (login próprio para Aluno/Responsável)
+# ==========================================
+async def _criar_acesso(db: AsyncSession, tenant_id, dados: CriarAcessoRequest, perfil_acesso: str, nome_completo: str) -> Usuario:
+    """Cria o Usuario (perfil_acesso=ALUNO/RESPONSAVEL) que o registo de Aluno/Responsável vai passar a referenciar."""
+    email_existente = await db.execute(select(Usuario).where(Usuario.email == dados.email))
+    if email_existente.scalars().first():
+        raise HTTPException(status_code=400, detail="Este email já está em uso.")
+
+    novo_usuario = Usuario(
+        tenant_id=tenant_id,
+        nome_completo=nome_completo,
+        email=dados.email,
+        senha_hash=gerar_hash_senha(dados.palavra_passe),
+        perfil_acesso=perfil_acesso,
+    )
+    db.add(novo_usuario)
+    await db.flush()
+    return novo_usuario
+
+
+async def criar_acesso_aluno(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, dados: CriarAcessoRequest) -> Usuario:
+    aluno = (await db.execute(
+        select(Aluno).where(Aluno.id == aluno_id, Aluno.tenant_id == tenant_id)
+    )).scalars().first()
+    if not aluno:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado na sua instituição.")
+    if aluno.usuario_id:
+        raise HTTPException(status_code=400, detail="Este aluno já tem acesso ao Portal.")
+
+    try:
+        novo_usuario = await _criar_acesso(db, tenant_id, dados, "ALUNO", aluno.nome_completo)
+        aluno.usuario_id = novo_usuario.id
+        await db.commit()
+    except HTTPException:
+        await db.rollback()
+        raise
+    await db.refresh(novo_usuario)
+    return novo_usuario
+
+
+async def criar_acesso_responsavel(db: AsyncSession, tenant_id, responsavel_id: uuid.UUID, dados: CriarAcessoRequest) -> Usuario:
+    responsavel = (await db.execute(
+        select(ResponsavelFinanceiroLegal).where(
+            ResponsavelFinanceiroLegal.id == responsavel_id, ResponsavelFinanceiroLegal.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not responsavel:
+        raise HTTPException(status_code=404, detail="Responsável não encontrado na sua instituição.")
+    if responsavel.usuario_id:
+        raise HTTPException(status_code=400, detail="Este responsável já tem acesso ao Portal.")
+
+    try:
+        novo_usuario = await _criar_acesso(db, tenant_id, dados, "RESPONSAVEL", responsavel.nome_completo)
+        responsavel.usuario_id = novo_usuario.id
+        await db.commit()
+    except HTTPException:
+        await db.rollback()
+        raise
+    await db.refresh(novo_usuario)
+    return novo_usuario

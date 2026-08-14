@@ -15,11 +15,13 @@ router = APIRouter(prefix="/api/v1/financeiro", tags=["Financeiro"])
 # mais abaixo). Registado em main.py como qualquer outro router.
 router_webhooks = APIRouter(prefix="/api/v1/webhooks", tags=["Webhooks"])
 
-# Só Gestor/Secretaria criam/gerem contratos e mexem em pagamentos — o
+# Só Gestor/Secretaria criam contratos e marcam pagamentos manuais — o
 # mesmo padrão RBAC usado em matrículas/académico. Leitura (extrato,
-# detalhe da fatura) fica aberta a qualquer utilizador autenticado da
-# escola (o Portal do Responsável/Aluno, quando existir, vai precisar
-# de ler sem ser Gestor).
+# detalhe da fatura) e o fluxo de pagamento PayPal (gerar-cobranca/
+# capturar) ficam abertos a qualquer utilizador autenticado da escola —
+# é o que o Portal do Responsável/Aluno usa; a restrição de "só pode
+# ver/pagar os seus próprios educandos" vive no crud
+# (_garantir_acesso_via_matricula/_via_fatura em cruds/financeiro.py).
 _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 
 
@@ -63,7 +65,7 @@ async def obter_contrato_da_matricula(
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
     """Devolve o contrato financeiro já assinado desta matrícula (404 se ainda não existir)."""
-    return await crud_financeiro.obter_contrato_da_matricula(db, utilizador["tenant_id"], matricula_id)
+    return await crud_financeiro.obter_contrato_da_matricula(db, utilizador["tenant_id"], matricula_id, utilizador)
 
 # ==========================================
 # D. EXTRATO — TODAS AS PARCELAS DE UM CONTRATO
@@ -75,7 +77,7 @@ async def listar_faturas_do_contrato(
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
     """Extrato financeiro completo do ano letivo — usado no Histórico Financeiro."""
-    return await crud_financeiro.listar_faturas_do_contrato(db, utilizador["tenant_id"], contrato_id)
+    return await crud_financeiro.listar_faturas_do_contrato(db, utilizador["tenant_id"], contrato_id, utilizador)
 
 # ==========================================
 # E. DETALHE DE UMA FATURA (com juros/multa em tempo real)
@@ -86,7 +88,7 @@ async def obter_fatura(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
-    return await crud_financeiro.obter_fatura(db, utilizador["tenant_id"], fatura_id)
+    return await crud_financeiro.obter_fatura(db, utilizador["tenant_id"], fatura_id, utilizador)
 
 # ==========================================
 # F. MARCAR FATURA COMO PAGA (via manual — Secretaria)
@@ -115,7 +117,7 @@ async def gerar_cobranca(
     # Responsável, quando existir, vai chamar isto sem ser Gestor/Secretaria.
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
-    return await crud_financeiro.gerar_cobranca(db, utilizador["tenant_id"], fatura_id, dados)
+    return await crud_financeiro.gerar_cobranca(db, utilizador["tenant_id"], fatura_id, dados, utilizador)
 
 # ==========================================
 # G2. CAPTURAR PAGAMENTO (após o responsável aprovar no PayPal)
@@ -134,7 +136,7 @@ async def capturar_pagamento(
     segurança caso o utilizador feche a janela antes disto correr.
     """
     agendar_email = await _via_background_tasks(background_tasks)
-    status_pagamento = await crud_financeiro.capturar_pagamento(db, utilizador["tenant_id"], dados, agendar_email)
+    status_pagamento = await crud_financeiro.capturar_pagamento(db, utilizador["tenant_id"], dados, agendar_email, utilizador)
     mensagem = "Pagamento já tinha sido confirmado." if status_pagamento == "PAGO" else "Pagamento confirmado com sucesso."
     return {"mensagem": mensagem, "status": status_pagamento}
 
