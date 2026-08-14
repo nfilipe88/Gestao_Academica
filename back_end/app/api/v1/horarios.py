@@ -4,14 +4,16 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
-from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.horarios import HorarioAulaCreate, HorarioAulaUpdate
 from app.cruds import horarios as crud_horarios
 
 router = APIRouter(prefix="/api/v1/horarios", tags=["Horários"])
 
 # Só Gestor/Secretaria montam a grade horária — leitura fica aberta a
-# qualquer utilizador autenticado (Professor precisa de ver a sua).
+# qualquer funcionário da escola (GESTOR/SECRETARIA/PROFESSOR, Professor
+# precisa de ver a sua). ALUNO/RESPONSAVEL usam antes o Portal
+# (app/api/v1/portal.py), que já filtra pelos seus próprios educandos.
 _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 
 # ==========================================
@@ -21,7 +23,7 @@ _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 async def listar_grade_da_turma(
     turma_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Grade horária semanal de uma turma."""
     return await crud_horarios.listar_grade_da_turma(db, utilizador["tenant_id"], turma_id)
@@ -38,7 +40,7 @@ async def listar_grade_do_professor(
 @router.get("/minha-grade")
 async def listar_minha_grade(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Grade horária semanal do professor autenticado."""
     return await crud_horarios.listar_minha_grade(db, utilizador)

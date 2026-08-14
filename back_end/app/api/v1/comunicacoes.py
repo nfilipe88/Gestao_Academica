@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
-from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.core.email import enviar_email, template_base
 from app.schemas.comunicacoes import ComunicadoCreate
 from app.cruds import comunicacoes as crud_comunicacoes
@@ -42,7 +42,7 @@ async def criar_comunicado(
 @router.get("")
 async def listar_comunicados(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista o histórico de comunicados/convocatórias enviados pela escola."""
     return await crud_comunicacoes.listar_comunicados(db, utilizador["tenant_id"])

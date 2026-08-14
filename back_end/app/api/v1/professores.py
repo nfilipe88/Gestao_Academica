@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.database.session import obter_sessao_db
-from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.core.email import enviar_email, template_base
 from app.schemas.professores import AlocacaoCreate, ProfessorCreate
 from app.cruds import professores as crud_professores
@@ -54,7 +54,7 @@ async def criar_professor(
 @router.get("")
 async def listar_professores(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista os professores da escola do utilizador logado."""
     return await crud_professores.listar_professores(db, utilizador["tenant_id"])
@@ -76,7 +76,7 @@ async def alocar_professor(
 @router.get("/alocacoes/minhas")
 async def listar_minhas_alocacoes(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """
     Lista as alocações (turma+disciplina) do professor autenticado — usadas

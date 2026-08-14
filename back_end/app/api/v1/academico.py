@@ -4,12 +4,13 @@ from typing import Optional
 import uuid
 
 from app.database.session import obter_sessao_db
-from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.academico import CursoCreate, DisciplinaCreate, GradeCurricularCreate, SerieAnoCreate, TurmaCreate
 from app.cruds import academico as crud_academico
 
 # Quem pode criar/alterar a estrutura académica (RBAC) — leitura fica
-# aberta a qualquer utilizador autenticado da escola.
+# aberta a qualquer funcionário da escola (exigir_perfil_staff).
+# ALUNO/RESPONSAVEL usam antes o Portal (app/api/v1/portal.py).
 _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 
 router = APIRouter(prefix="/api/v1/academico", tags=["Módulo Académico"])
@@ -29,7 +30,7 @@ async def criar_curso(
 @router.get("/cursos")
 async def listar_cursos(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista os cursos da escola do utilizador logado."""
     return await crud_academico.listar_cursos(db, utilizador["tenant_id"])
@@ -53,7 +54,7 @@ async def criar_serie_ano(
 async def listar_series(
     curso_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista as Séries/Anos da escola do utilizador logado, opcionalmente filtradas por curso."""
     return await crud_academico.listar_series(db, utilizador["tenant_id"], curso_id)
@@ -74,7 +75,7 @@ async def criar_turma(
 @router.get("/turmas")
 async def listar_turmas(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista as turmas da escola do utilizador logado."""
     return await crud_academico.listar_turmas(db, utilizador["tenant_id"])
@@ -94,7 +95,7 @@ async def criar_disciplina(
 @router.get("/disciplinas")
 async def listar_disciplinas(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista as disciplinas da escola do utilizador logado."""
     return await crud_academico.listar_disciplinas(db, utilizador["tenant_id"])
@@ -116,7 +117,7 @@ async def adicionar_disciplina_a_serie(
 async def listar_grade_curricular(
     serie_ano_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista a grade curricular da escola, opcionalmente filtrada por série/ano."""
     return await crud_academico.listar_grade_curricular(db, utilizador["tenant_id"], serie_ano_id)

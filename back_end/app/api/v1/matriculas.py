@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.database.session import obter_sessao_db
-from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.matriculas import MatriculaCreate, MatriculaStatusUpdate
 from app.cruds import matriculas as crud_matriculas
 
@@ -33,7 +33,7 @@ async def listar_matriculas_da_turma(
     turma_id: uuid.UUID,
     status_matricula: str | None = None,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista os alunos matriculados numa turma. ?status_matricula=ATIVO filtra só os ativos."""
     return await crud_matriculas.listar_matriculas_da_turma(db, utilizador["tenant_id"], turma_id, status_matricula)
@@ -59,7 +59,7 @@ async def atualizar_status_matricula(
 async def listar_matriculas_do_aluno(
     aluno_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Mostra todas as turmas e anos letivos pelos quais o aluno já passou na escola."""
     return await crud_matriculas.listar_matriculas_do_aluno(db, utilizador["tenant_id"], aluno_id)

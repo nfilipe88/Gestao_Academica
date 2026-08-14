@@ -84,3 +84,16 @@ def exigir_perfil(*perfis_permitidos: str):
             )
         return utilizador
     return verificar
+
+
+# Usado no lugar de obter_utilizador_atual nas leituras "abertas a
+# qualquer utilizador autenticado" de módulos de uso interno (Académico,
+# Alunos, Comunicações, Diário, Horários, Matrículas, Professores) — até
+# ao Portal (ALUNO/RESPONSAVEL) existir, "qualquer autenticado" só podia
+# significar "qualquer funcionário da escola", porque só GESTOR/
+# SECRETARIA/PROFESSOR tinham login. Agora que ALUNO/RESPONSAVEL também
+# podem autenticar-se, isto deixou de ser verdade: essas leituras
+# devolvem dados de outras famílias/turmas, para além dos próprios
+# educandos. O Portal (app/api/v1/portal.py, app/cruds/portal.py) é o
+# único sítio onde ALUNO/RESPONSAVEL leem os seus próprios dados.
+exigir_perfil_staff = exigir_perfil("GESTOR", "SECRETARIA", "PROFESSOR")

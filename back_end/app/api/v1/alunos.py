@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.database.session import obter_sessao_db
-from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.core.email import enviar_email, template_base
 from app.schemas.alunos import AlunoCreate, CriarAcessoRequest, ResponsavelCreate, VincularResponsavel
 from app.cruds import alunos as crud_alunos
@@ -11,7 +11,8 @@ from app.cruds import alunos as crud_alunos
 router = APIRouter(prefix="/api/v1", tags=["Alunos e Responsáveis"])
 
 # Quem pode cadastrar/vincular alunos e responsáveis (RBAC) — leitura
-# fica aberta a qualquer utilizador autenticado da escola.
+# fica aberta a qualquer funcionário da escola (exigir_perfil_staff).
+# ALUNO/RESPONSAVEL usam antes o Portal (app/api/v1/portal.py).
 _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 
 # ==========================================
@@ -29,7 +30,7 @@ async def criar_aluno(
 @router.get("/alunos")
 async def listar_alunos(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista os alunos da escola do utilizador logado."""
     return await crud_alunos.listar_alunos(db, utilizador["tenant_id"])
@@ -49,7 +50,7 @@ async def criar_responsavel(
 @router.get("/responsaveis")
 async def listar_responsaveis(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista os responsáveis da escola do utilizador logado."""
     return await crud_alunos.listar_responsaveis(db, utilizador["tenant_id"])
@@ -93,7 +94,7 @@ async def vincular_responsavel(
 async def listar_responsaveis_do_aluno(
     aluno_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista os responsáveis vinculados a um aluno específico."""
     return await crud_alunos.listar_responsaveis_do_aluno(db, utilizador["tenant_id"], aluno_id)

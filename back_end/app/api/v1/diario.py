@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.database.session import obter_sessao_db
-from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.diario import FrequenciaLoteCreate, NotaLoteCreate, PeriodoAvaliacaoCreate
 from app.cruds import diario as crud_diario
 
@@ -21,7 +21,7 @@ async def listar_alunos_da_turma_disciplina(
     turma_id: uuid.UUID,
     disciplina_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Lista os alunos matriculados (ATIVO) para montar a tabela de chamada/notas."""
     return await crud_diario.listar_alunos_da_turma_disciplina(db, utilizador, turma_id, disciplina_id)
@@ -35,7 +35,7 @@ async def lancar_frequencias_lote(
     disciplina_id: uuid.UUID,
     dados: FrequenciaLoteCreate,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Recebe a presença/faltas de toda a turma para uma aula, numa única chamada."""
     total = await crud_diario.lancar_frequencias_lote(db, utilizador, turma_id, disciplina_id, dados)
@@ -50,7 +50,7 @@ async def lancar_notas_lote(
     disciplina_id: uuid.UUID,
     dados: NotaLoteCreate,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Upsert das notas de toda a turma para um período de avaliação (RN02/RN03/RN04)."""
     total = await crud_diario.lancar_notas_lote(db, utilizador, turma_id, disciplina_id, dados)
@@ -65,7 +65,7 @@ async def consolidado_turma_disciplina(
     disciplina_id: uuid.UUID,
     periodo_avaliacao: str | None = None,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Média da turma, alunos abaixo da média e total de faltas — para o professor bater o olho antes do conselho de turma."""
     return await crud_diario.consolidado_turma_disciplina(db, utilizador, turma_id, disciplina_id, periodo_avaliacao)
@@ -76,9 +76,9 @@ async def consolidado_turma_disciplina(
 @router.get("/periodos")
 async def listar_periodos_avaliacao(
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(exigir_perfil_staff)
 ):
-    """Lista os períodos geridos pela secretaria (abertos e trancados). Leitura aberta a qualquer utilizador autenticado — o Professor precisa de ver o que está trancado."""
+    """Lista os períodos geridos pela secretaria (abertos e trancados). Leitura aberta a qualquer funcionário da escola — o Professor precisa de ver o que está trancado."""
     return await crud_diario.listar_periodos_avaliacao(db, utilizador["tenant_id"])
 
 @router.post("/periodos", status_code=status.HTTP_201_CREATED)

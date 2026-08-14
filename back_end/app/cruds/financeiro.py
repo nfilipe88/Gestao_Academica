@@ -450,25 +450,35 @@ async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dado
         select(ContratoFinanceiro).where(ContratoFinanceiro.id == fatura.contrato_id)
     )).scalars().first()
     aluno_nome = None
+    aluno_id = None
     if contrato:
-        aluno_nome = (await db.execute(
-            select(Aluno.nome_completo).join(Matricula, Matricula.aluno_id == Aluno.id)
+        linha_aluno = (await db.execute(
+            select(Aluno.id, Aluno.nome_completo).join(Matricula, Matricula.aluno_id == Aluno.id)
             .where(Matricula.id == contrato.matricula_id)
-        )).scalar_one_or_none()
+        )).first()
+        if linha_aluno:
+            aluno_id, aluno_nome = linha_aluno
 
-    # matricula_id vai na URL de retorno para a página conseguir repor a
-    # seleção de aluno/matrícula depois do PayPal redirecionar de volta
-    # (o formulário fica "vazio" nesse ponto — é uma navegação nova).
-    matricula_id = contrato.matricula_id if contrato else None
-    sufixo_retorno = f"&matricula_id={matricula_id}" if matricula_id else ""
+    # matricula_id (staff) ou aluno_id (Portal) vão na URL de retorno para
+    # a página conseguir repor a seleção depois do PayPal redirecionar de
+    # volta (o formulário fica "vazio" nesse ponto — é uma navegação nova).
+    # Quem paga (Gestor/Secretaria vs. Responsável/Aluno) decide também
+    # para que página do front-end o PayPal deve voltar.
+    if utilizador.get("perfil_acesso") in ("ALUNO", "RESPONSAVEL"):
+        pagina_retorno = "portal"
+        sufixo_retorno = f"&aluno_id={aluno_id}" if aluno_id else ""
+    else:
+        pagina_retorno = "financeiro"
+        matricula_id = contrato.matricula_id if contrato else None
+        sufixo_retorno = f"&matricula_id={matricula_id}" if matricula_id else ""
 
     try:
         order = await paypal.criar_order(
             valor=str(valor_cobrado),
             referencia=str(fatura.id),
             descricao=f"Parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas if contrato else '?'} — {aluno_nome or ''}",
-            return_url=f"{FRONTEND_URL}/financeiro?paypal_retorno=sucesso{sufixo_retorno}",
-            cancel_url=f"{FRONTEND_URL}/financeiro?paypal_retorno=cancelado{sufixo_retorno}",
+            return_url=f"{FRONTEND_URL}/{pagina_retorno}?paypal_retorno=sucesso{sufixo_retorno}",
+            cancel_url=f"{FRONTEND_URL}/{pagina_retorno}?paypal_retorno=cancelado{sufixo_retorno}",
         )
     except paypal.PayPalNaoConfigurado as exc:
         raise HTTPException(status_code=503, detail=str(exc))
