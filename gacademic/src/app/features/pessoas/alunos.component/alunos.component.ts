@@ -5,9 +5,11 @@ import { Store } from '@ngrx/store';
 import { combineLatest, map } from 'rxjs';
 import {
   carregarAlunos, carregarResponsaveis, carregarResponsaveisDoAluno,
-  criarAluno, criarResponsavel, vincularResponsavel
+  criarAcessoAluno, criarAcessoResponsavel, criarAluno, criarResponsavel, vincularResponsavel
 } from '../../../store/alunos/alunos.actions';
-import { selectAlunos, selectAlunosError, selectResponsaveis, selectVinculos } from '../../../store/alunos/alunos.selector';
+import {
+  selectAlunos, selectAlunosError, selectAlunosMensagem, selectResponsaveis, selectVinculos
+} from '../../../store/alunos/alunos.selector';
 
 @Component({
   selector: 'app-alunos.component',
@@ -20,10 +22,11 @@ export class AlunosComponent implements OnInit {
   private store = inject(Store);
 
   erro$ = this.store.select(selectAlunosError);
+  mensagem$ = this.store.select(selectAlunosMensagem);
   responsaveis$ = this.store.select(selectResponsaveis);
 
-  // Cada aluno já com os seus responsáveis vinculados (nome resolvido a
-  // partir de responsavel_id — a API só devolve o vínculo em si).
+  // Cada aluno já com os seus responsáveis vinculados (nome e usuario_id
+  // resolvidos a partir de responsavel_id — a API só devolve o vínculo em si).
   alunos$ = combineLatest([
     this.store.select(selectAlunos),
     this.store.select(selectVinculos),
@@ -33,12 +36,25 @@ export class AlunosComponent implements OnInit {
       ...aluno,
       vinculos: vinculos
         .filter(v => v.aluno_id === aluno.id)
-        .map(v => ({
-          ...v,
-          nomeResponsavel: responsaveis.find(r => r.id === v.responsavel_id)?.nome_completo ?? '—'
-        }))
+        .map(v => {
+          const responsavel = responsaveis.find(r => r.id === v.responsavel_id);
+          return {
+            ...v,
+            nomeResponsavel: responsavel?.nome_completo ?? '—',
+            usuarioIdResponsavel: responsavel?.usuario_id ?? null
+          };
+        })
     })))
   );
+
+  // Qual aluno/responsável está com o mini-formulário de "Criar acesso ao
+  // Portal" aberto — só um de cada vez, identificado por "aluno:<id>" ou
+  // "responsavel:<id>".
+  acessoFormAbertoPara: string | null = null;
+  acessoForm = this.fb.group({
+    email: ['', [Validators.required, Validators.email]],
+    palavra_passe: ['', [Validators.required, Validators.minLength(8)]]
+  });
 
   // Qual aluno está com o painel de Responsáveis aberto (só um de cada vez).
   alunoExpandidoId: string | null = null;
@@ -125,5 +141,24 @@ export class AlunosComponent implements OnInit {
       responsavel_financeiro: !!responsavel_financeiro
     }));
     this.vincularForm.reset({ responsavel_financeiro: false });
+  }
+
+  alternarFormularioAcesso(chave: string) {
+    this.acessoFormAbertoPara = this.acessoFormAbertoPara === chave ? null : chave;
+    this.acessoForm.reset();
+  }
+
+  onCriarAcessoAluno(alunoId: string) {
+    if (this.acessoForm.invalid) return;
+    const { email, palavra_passe } = this.acessoForm.value;
+    this.store.dispatch(criarAcessoAluno({ aluno_id: alunoId, email: email!, palavra_passe: palavra_passe! }));
+    this.acessoFormAbertoPara = null;
+  }
+
+  onCriarAcessoResponsavel(responsavelId: string) {
+    if (this.acessoForm.invalid) return;
+    const { email, palavra_passe } = this.acessoForm.value;
+    this.store.dispatch(criarAcessoResponsavel({ responsavel_id: responsavelId, email: email!, palavra_passe: palavra_passe! }));
+    this.acessoFormAbertoPara = null;
   }
 }

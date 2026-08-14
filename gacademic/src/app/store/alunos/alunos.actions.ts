@@ -37,6 +37,20 @@ export const vincularResponsavel = createAction(
   props<{ aluno_id: string, responsavel_id: string, tipo_parentesco: string, responsavel_financeiro: boolean }>()
 );
 
+// --- Acesso ao Portal (login próprio para Aluno/Responsável) ---
+export const criarAcessoAluno = createAction(
+  '[Alunos] Criar Acesso Aluno',
+  props<{ aluno_id: string, email: string, palavra_passe: string }>()
+);
+export const criarAcessoResponsavel = createAction(
+  '[Alunos] Criar Acesso Responsavel',
+  props<{ responsavel_id: string, email: string, palavra_passe: string }>()
+);
+export const alunosOperacaoSucesso = createAction(
+  '[Alunos] Operacao Sucesso',
+  props<{ mensagem: string }>()
+);
+
 // Ação genérica de falha (mesmo padrão do módulo académico): sem isto, um
 // erro HTTP dentro de um effect fica por apanhar e mata esse effect para
 // o resto da sessão.

@@ -6,6 +6,7 @@ export interface AlunosState {
   alunos: Aluno[];
   responsaveis: Responsavel[];
   vinculos: AlunoResponsavelVinculo[];
+  mensagem: string | null;
   erro: string | null;
 }
 
@@ -13,6 +14,7 @@ export const initialState: AlunosState = {
   alunos: [],
   responsaveis: [],
   vinculos: [],
+  mensagem: null,
   erro: null
 };
 
@@ -21,7 +23,8 @@ export const alunosReducer = createReducer(
   on(AlunosActions.carregarAlunos, AlunosActions.criarAluno,
      AlunosActions.carregarResponsaveis, AlunosActions.criarResponsavel,
      AlunosActions.carregarResponsaveisDoAluno, AlunosActions.vincularResponsavel,
-    (state) => ({ ...state, erro: null })
+     AlunosActions.criarAcessoAluno, AlunosActions.criarAcessoResponsavel,
+    (state) => ({ ...state, erro: null, mensagem: null })
   ),
   on(AlunosActions.carregarAlunosSucesso, (state, { alunos }) => ({ ...state, alunos })),
   on(AlunosActions.carregarResponsaveisSucesso, (state, { responsaveis }) => ({ ...state, responsaveis })),
@@ -31,5 +34,6 @@ export const alunosReducer = createReducer(
     ...state,
     vinculos: [...state.vinculos.filter(v => v.aluno_id !== aluno_id), ...vinculos]
   })),
+  on(AlunosActions.alunosOperacaoSucesso, (state, { mensagem }) => ({ ...state, mensagem })),
   on(AlunosActions.alunosOperacaoFalhou, (state, { erro }) => ({ ...state, erro }))
 );

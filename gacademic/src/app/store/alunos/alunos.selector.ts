@@ -18,6 +18,11 @@ export const selectVinculos = createSelector(
   (state) => state.vinculos
 );
 
+export const selectAlunosMensagem = createSelector(
+  selectAlunosState,
+  (state) => state.mensagem
+);
+
 export const selectAlunosError = createSelector(
   selectAlunosState,
   (state) => state.erro

@@ -99,4 +99,41 @@ export class AlunosEffects {
       ))
     )
   );
+
+  // --- ACESSO AO PORTAL (login próprio para Aluno/Responsável) ---
+  criarAcessoAluno$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AlunosActions.criarAcessoAluno),
+      switchMap(action => this.http.post<{ mensagem: string }>(`/api/v1/alunos/${action.aluno_id}/criar-acesso`, {
+        email: action.email,
+        palavra_passe: action.palavra_passe
+      }).pipe(
+        switchMap(resp => [
+          AlunosActions.carregarAlunos(),
+          AlunosActions.alunosOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(AlunosActions.alunosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar o acesso ao Portal para este aluno.'
+        })))
+      ))
+    )
+  );
+
+  criarAcessoResponsavel$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AlunosActions.criarAcessoResponsavel),
+      switchMap(action => this.http.post<{ mensagem: string }>(`/api/v1/responsaveis/${action.responsavel_id}/criar-acesso`, {
+        email: action.email,
+        palavra_passe: action.palavra_passe
+      }).pipe(
+        switchMap(resp => [
+          AlunosActions.carregarResponsaveis(),
+          AlunosActions.alunosOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(AlunosActions.alunosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar o acesso ao Portal para este responsável.'
+        })))
+      ))
+    )
+  );
 }

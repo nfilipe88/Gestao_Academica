@@ -11,6 +11,12 @@
     </div>
   }
 
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      {{ mensagem }}
+    </div>
+  }
+
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
@@ -123,14 +129,62 @@
           <td colspan="4" class="px-6 pb-4 pt-1">
             <div class="pl-3 border-l-2 border-blue-200 space-y-3">
 
+              <!-- Acesso ao Portal do próprio aluno -->
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-500">Portal do aluno:</span>
+                @if (aluno.usuario_id) {
+                  <span class="text-xs bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">Acesso ativo</span>
+                } @else {
+                  <button type="button" (click)="alternarFormularioAcesso('aluno:' + aluno.id)"
+                    class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
+                    {{ acessoFormAbertoPara === 'aluno:' + aluno.id ? 'Cancelar' : '+ Criar acesso' }}
+                  </button>
+                }
+              </div>
+              @if (acessoFormAbertoPara === 'aluno:' + aluno.id) {
+                <form [formGroup]="acessoForm" (ngSubmit)="onCriarAcessoAluno(aluno.id)" class="flex flex-wrap gap-2 items-center">
+                  <input type="email" formControlName="email" placeholder="E-mail de login"
+                    class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                  <input type="password" formControlName="palavra_passe" placeholder="Palavra-passe (min. 8)"
+                    class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                  <button type="submit" [disabled]="acessoForm.invalid"
+                    class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors">
+                    Criar
+                  </button>
+                </form>
+              }
+
               @if (aluno.vinculos.length > 0) {
                 <ul class="space-y-1.5">
                   @for (vinculo of aluno.vinculos; track vinculo.id) {
-                    <li class="text-sm text-slate-700 flex items-center gap-2">
-                      <span class="font-medium">{{ vinculo.nomeResponsavel }}</span>
-                      <span class="text-xs text-slate-500">({{ vinculo.tipo_parentesco }})</span>
-                      @if (vinculo.responsavel_financeiro) {
-                        <span class="text-xs bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">Financeiro</span>
+                    <li class="text-sm text-slate-700">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-medium">{{ vinculo.nomeResponsavel }}</span>
+                        <span class="text-xs text-slate-500">({{ vinculo.tipo_parentesco }})</span>
+                        @if (vinculo.responsavel_financeiro) {
+                          <span class="text-xs bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">Financeiro</span>
+                        }
+                        <span class="text-xs text-slate-400">·</span>
+                        @if (vinculo.usuarioIdResponsavel) {
+                          <span class="text-xs bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">Portal ativo</span>
+                        } @else {
+                          <button type="button" (click)="alternarFormularioAcesso('responsavel:' + vinculo.responsavel_id)"
+                            class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
+                            {{ acessoFormAbertoPara === 'responsavel:' + vinculo.responsavel_id ? 'Cancelar' : '+ Criar acesso ao Portal' }}
+                          </button>
+                        }
+                      </div>
+                      @if (acessoFormAbertoPara === 'responsavel:' + vinculo.responsavel_id) {
+                        <form [formGroup]="acessoForm" (ngSubmit)="onCriarAcessoResponsavel(vinculo.responsavel_id)" class="flex flex-wrap gap-2 items-center mt-1.5">
+                          <input type="email" formControlName="email" placeholder="E-mail de login"
+                            class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                          <input type="password" formControlName="palavra_passe" placeholder="Palavra-passe (min. 8)"
+                            class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                          <button type="submit" [disabled]="acessoForm.invalid"
+                            class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors">
+                            Criar
+                          </button>
+                        </form>
                       }
                     </li>
                   }
