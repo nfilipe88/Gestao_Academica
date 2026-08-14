@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1 import academico, alunos, auth, comunicacoes, crm, diario, financeiro, horarios, matriculas, portal, professores, usuarios
+from app.api.v1 import academico, admin, alunos, auth, comunicacoes, crm, diario, financeiro, horarios, matriculas, portal, professores, usuarios
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 
 
@@ -53,6 +53,7 @@ app.include_router(crm.router)
 app.include_router(crm.router_publico)
 app.include_router(horarios.router)
 app.include_router(portal.router)
+app.include_router(admin.router)
 app.include_router(usuarios.router)
 
 @app.get("/api/v1/health")
