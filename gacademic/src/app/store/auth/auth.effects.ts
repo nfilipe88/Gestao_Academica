@@ -87,13 +87,19 @@ export class AuthEffects {
   // ao destino original em vez de ir sempre para /dashboard. ALUNO/
   // RESPONSAVEL não têm acesso a /dashboard (é montado com dados de
   // módulos internos vedados a estes perfis — ver exigir_perfil_staff
-  // no back-end) — vão antes para /portal.
+  // no back-end) — vão antes para /portal. SUPER_ADMIN, pelo mesmo
+  // motivo, vai para /admin.
   redirecionarAposLogin$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AuthActions.loginSuccess),
       tap(({ usuario }) => {
         const returnUrl = this.router.parseUrl(this.router.url).queryParams['returnUrl'];
-        const destinoPorOmissao = ['ALUNO', 'RESPONSAVEL'].includes(usuario.perfil_acesso) ? '/portal' : '/dashboard';
+        let destinoPorOmissao = '/dashboard';
+        if (['ALUNO', 'RESPONSAVEL'].includes(usuario.perfil_acesso)) {
+          destinoPorOmissao = '/portal';
+        } else if (usuario.perfil_acesso === 'SUPER_ADMIN') {
+          destinoPorOmissao = '/admin';
+        }
         this.router.navigateByUrl(returnUrl || destinoPorOmissao);
       })
     ),

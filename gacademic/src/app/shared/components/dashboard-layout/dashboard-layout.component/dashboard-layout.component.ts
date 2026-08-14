@@ -2,7 +2,7 @@ import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { logout } from '../../../../store/auth/auth.actions';
-import { selectIsAlunoOuResponsavel, selectIsGestor, selectIsGestorOuSecretaria } from '../../../../store/auth/auth.selectors';
+import { selectIsAlunoOuResponsavel, selectIsGestor, selectIsGestorOuSecretaria, selectIsSuperAdmin } from '../../../../store/auth/auth.selectors';
 import { Store } from '@ngrx/store';
 
 @Component({
@@ -16,6 +16,7 @@ export class DashboardLayoutComponent {
   isGestor$ = this.store.select(selectIsGestor);
   isGestorOuSecretaria$ = this.store.select(selectIsGestorOuSecretaria);
   isAlunoOuResponsavel$ = this.store.select(selectIsAlunoOuResponsavel);
+  isSuperAdmin$ = this.store.select(selectIsSuperAdmin);
 
   sidebarColapsada = false;
 

@@ -49,3 +49,11 @@ export const selectIsAlunoOuResponsavel = createSelector(
   selectAuthState,
   (state) => state.usuario?.perfil_acesso === 'ALUNO' || state.usuario?.perfil_acesso === 'RESPONSAVEL'
 );
+
+// Painel Super Admin: gere as instituições (tenants) em si, não os
+// dados académicos de nenhuma — não tem acesso a nenhum módulo interno
+// (ver exigir_perfil_staff no back-end).
+export const selectIsSuperAdmin = createSelector(
+  selectAuthState,
+  (state) => state.usuario?.perfil_acesso === 'SUPER_ADMIN'
+);

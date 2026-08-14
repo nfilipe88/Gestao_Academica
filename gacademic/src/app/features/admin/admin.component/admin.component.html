@@ -1,0 +1,78 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Painel Super Admin</h2>
+    <p class="text-slate-500 text-sm">Instituições (escolas) registadas na plataforma.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+            <th class="py-3 px-6 font-medium">Instituição</th>
+            <th class="py-3 px-6 font-medium">NIF</th>
+            <th class="py-3 px-6 font-medium">Criada em</th>
+            <th class="py-3 px-6 font-medium text-right">Utilizadores</th>
+            <th class="py-3 px-6 font-medium text-right">Alunos</th>
+            <th class="py-3 px-6 font-medium text-right">Professores</th>
+            <th class="py-3 px-6 font-medium">Estado</th>
+            <th class="py-3 px-6 font-medium text-right">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (tenant of tenants$ | async; track tenant.id) {
+            <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <td class="py-3 px-6 text-slate-800 font-medium">{{ tenant.nome_fantasia }}</td>
+              <td class="py-3 px-6 text-slate-600">{{ tenant.nif }}</td>
+              <td class="py-3 px-6 text-slate-600">{{ tenant.data_criacao | date: 'dd/MM/yyyy' }}</td>
+              <td class="py-3 px-6 text-slate-600 text-right">{{ tenant.total_usuarios }}</td>
+              <td class="py-3 px-6 text-slate-600 text-right">{{ tenant.total_alunos }}</td>
+              <td class="py-3 px-6 text-slate-600 text-right">{{ tenant.total_professores }}</td>
+              <td class="py-3 px-6">
+                <span class="text-xs font-medium py-1 px-3 rounded-full"
+                  [class.bg-emerald-100]="tenant.status === 'ATIVO'" [class.text-emerald-700]="tenant.status === 'ATIVO'"
+                  [class.bg-rose-100]="tenant.status === 'SUSPENSO'" [class.text-rose-700]="tenant.status === 'SUSPENSO'">
+                  {{ tenant.status }}
+                </span>
+              </td>
+              <td class="py-3 px-6 text-right">
+                @if (tenantAConfirmarId === tenant.id) {
+                  <div class="flex items-center justify-end gap-2">
+                    <span class="text-xs text-slate-500">Confirmar?</span>
+                    <button type="button" (click)="onAlternarStatus(tenant.id, tenant.status)"
+                      class="text-xs font-medium py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer">
+                      Sim
+                    </button>
+                    <button type="button" (click)="cancelarConfirmacao()"
+                      class="text-xs font-medium py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer">
+                      Cancelar
+                    </button>
+                  </div>
+                } @else {
+                  <button type="button" (click)="pedirConfirmacao(tenant.id)"
+                    class="text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
+                    [class.bg-rose-100]="tenant.status === 'ATIVO'" [class.text-rose-700]="tenant.status === 'ATIVO'" [class.hover:bg-rose-200]="tenant.status === 'ATIVO'"
+                    [class.bg-emerald-100]="tenant.status === 'SUSPENSO'" [class.text-emerald-700]="tenant.status === 'SUSPENSO'" [class.hover:bg-emerald-200]="tenant.status === 'SUSPENSO'">
+                    {{ tenant.status === 'ATIVO' ? 'Suspender' : 'Reativar' }}
+                  </button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="8" class="py-8 text-center text-slate-500">Nenhuma instituição registada na plataforma.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>

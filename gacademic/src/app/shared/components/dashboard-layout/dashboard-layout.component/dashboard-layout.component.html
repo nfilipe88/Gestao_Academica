@@ -22,7 +22,19 @@
 
     <nav class="flex-1 px-3 space-y-1 mt-2">
 
-      @if (isAlunoOuResponsavel$ | async) {
+      @if (isSuperAdmin$ | async) {
+        <!-- SUPER_ADMIN só gere instituições — nenhum módulo interno de
+             nenhuma escola (exigir_perfil_staff no back-end). -->
+        <a routerLink="/admin" routerLinkActive="bg-slate-800 text-blue-400"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Painel Super Admin">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Instituições</span> }
+        </a>
+      } @else if (isAlunoOuResponsavel$ | async) {
         <!-- ALUNO/RESPONSAVEL só têm o Portal — os módulos internos
              abaixo (Cursos, Turmas, Alunos, ...) devolvem 403 para
              estes perfis (exigir_perfil_staff no back-end). -->
