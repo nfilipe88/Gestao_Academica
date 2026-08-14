@@ -1,0 +1,133 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Indicadores</h2>
+    <p class="text-slate-500 text-sm">Visão executiva da instituição — ocupação, desempenho, financeiro e CRM.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+
+  @if (indicadores$ | async; as dados) {
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Alunos ativos</p>
+        <p class="text-3xl font-bold text-slate-800 mt-1">{{ dados.academico.total_alunos_ativos }}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Ocupação de vagas</p>
+        <p class="text-3xl font-bold text-slate-800 mt-1">{{ dados.academico.taxa_ocupacao_geral }}%</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Inadimplência</p>
+        <p class="text-3xl font-bold mt-1" [class.text-rose-600]="dados.financeiro.taxa_inadimplencia > 0" [class.text-slate-800]="dados.financeiro.taxa_inadimplencia === 0">
+          {{ dados.financeiro.taxa_inadimplencia }}%
+        </p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Receita do mês</p>
+        <p class="text-3xl font-bold text-emerald-600 mt-1">{{ dados.financeiro.receita_recebida_mes_atual }}€</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Conversão CRM</p>
+        <p class="text-3xl font-bold text-slate-800 mt-1">{{ dados.crm.taxa_conversao }}%</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Ocupação por turma</h3>
+        <div class="space-y-3">
+          @for (turma of dados.academico.ocupacao_por_turma; track turma.turma_id) {
+            <div>
+              <div class="flex items-center justify-between text-sm mb-1">
+                <span class="text-slate-700 font-medium">{{ turma.nome_turma }}</span>
+                <span class="text-slate-500">{{ turma.matriculados }} / {{ turma.vagas_maximas }} ({{ turma.taxa_ocupacao }}%)</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2">
+                <div class="bg-blue-500 h-2 rounded-full" [style.width.%]="turma.taxa_ocupacao"></div>
+              </div>
+            </div>
+          } @empty {
+            <p class="text-sm text-slate-500">Nenhuma turma registada.</p>
+          }
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Desempenho médio por turma</h3>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-sm">
+              <th class="py-2 pr-3 font-medium">Turma</th>
+              <th class="py-2 pr-3 font-medium text-right">Média</th>
+              <th class="py-2 pr-3 font-medium text-right">Alunos avaliados</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (turma of dados.desempenho_por_turma; track turma.turma_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-700">{{ turma.nome_turma }}</td>
+                <td class="py-2 pr-3 text-right font-semibold" [class.text-rose-600]="turma.media !== null && turma.media < 5" [class.text-slate-800]="turma.media === null || turma.media >= 5">
+                  {{ turma.media ?? '—' }}
+                </td>
+                <td class="py-2 pr-3 text-right text-slate-500">{{ turma.total_alunos_avaliados }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-4 text-center text-slate-500">Ainda não há notas lançadas.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Financeiro</h3>
+        <dl class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <dt class="text-slate-500">Faturas em aberto</dt>
+            <dd class="text-slate-800 font-semibold text-lg">{{ dados.financeiro.total_faturas_em_aberto }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Faturas atrasadas</dt>
+            <dd class="text-rose-600 font-semibold text-lg">{{ dados.financeiro.total_faturas_atrasadas }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Valor total em atraso</dt>
+            <dd class="text-rose-600 font-semibold text-lg">{{ dados.financeiro.valor_total_em_atraso }}€</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Contratos ativos</dt>
+            <dd class="text-slate-800 font-semibold text-lg">{{ dados.financeiro.total_contratos_ativos }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Funil do CRM</h3>
+        <div class="space-y-3">
+          @for (etapa of dados.crm.funil; track etapa.etapa_id) {
+            <div class="flex items-center justify-between text-sm">
+              <span class="flex items-center gap-2 text-slate-700">
+                {{ etapa.nome_etapa }}
+                @if (etapa.eh_etapa_ganho) {
+                  <span class="text-xs bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">Ganho</span>
+                }
+              </span>
+              <span class="font-semibold text-slate-800">{{ etapa.total }}</span>
+            </div>
+          } @empty {
+            <p class="text-sm text-slate-500">Nenhuma etapa configurada.</p>
+          }
+          <p class="text-xs text-slate-400 pt-2 border-t border-slate-100">
+            {{ dados.crm.total_leads }} lead(s) no total · {{ dados.crm.total_convertidos }} convertido(s)
+          </p>
+        </div>
+      </div>
+
+    </div>
+  }
+
+</div>

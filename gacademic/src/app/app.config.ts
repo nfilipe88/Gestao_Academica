@@ -31,6 +31,8 @@ import { adminReducer } from './store/admin/admin.reducer';
 import { AdminEffects } from './store/admin/admin.effects';
 import { tarefasReducer } from './store/tarefas/tarefas.reducer';
 import { TarefasEffects } from './store/tarefas/tarefas.effects';
+import { indicadoresReducer } from './store/indicadores/indicadores.reducer';
+import { IndicadoresEffects } from './store/indicadores/indicadores.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 
@@ -53,8 +55,9 @@ export const appConfig: ApplicationConfig = {
       horarios: horariosReducer,
       portal: portalReducer,
       admin: adminReducer,
-      tarefas: tarefasReducer
+      tarefas: tarefasReducer,
+      indicadores: indicadoresReducer
     }),
-    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects, AdminEffects, TarefasEffects),
+    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects, AdminEffects, TarefasEffects, IndicadoresEffects),
   ]
 };
