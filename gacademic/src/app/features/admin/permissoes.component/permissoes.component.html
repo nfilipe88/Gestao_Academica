@@ -1,0 +1,117 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Mapa de Permissões</h2>
+    <p class="text-slate-500 text-sm">O que cada perfil pode fazer, módulo a módulo — construído a partir das regras de acesso do back-end e confirmado com sessão real em cada perfil.</p>
+  </div>
+
+  <!-- Legenda -->
+  <div class="flex flex-wrap gap-2">
+    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full py-1 px-3">
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Total — cria, edita, apaga
+    </span>
+    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full py-1 px-3">
+      <span class="w-2 h-2 rounded-full bg-amber-500"></span> Parcial — só o que lhe pertence
+    </span>
+    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full py-1 px-3">
+      <span class="w-2 h-2 rounded-full bg-slate-400"></span> Leitura — só consulta
+    </span>
+    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 bg-white border border-slate-200 rounded-full py-1 px-3">
+      <span class="w-2 h-2 rounded-full bg-slate-200"></span> — sem acesso
+    </span>
+  </div>
+
+  <!-- Cartões de resumo por perfil -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Super Admin</span>
+      <h3 class="text-sm font-semibold text-slate-800 mt-2">Dono da plataforma</h3>
+      <p class="text-xs text-slate-500 mt-1 leading-relaxed">Gere as instituições em si — suspende, reativa, decide transferências de alunos entre escolas. Não vê dados académicos de nenhuma escola.</p>
+    </div>
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Gestor</span>
+      <h3 class="text-sm font-semibold text-slate-800 mt-2">Acesso total à sua escola</h3>
+      <p class="text-xs text-slate-500 mt-1 leading-relaxed">É o único que configura a instituição (IBAN, moeda, contacto) e cria contas de Professor. Fora isso, o mesmo alcance da Secretaria.</p>
+    </div>
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Secretaria</span>
+      <h3 class="text-sm font-semibold text-slate-800 mt-2">Operação do dia-a-dia</h3>
+      <p class="text-xs text-slate-500 mt-1 leading-relaxed">Matrículas, financeiro, CRM, documentos — quase tudo o que o Gestor faz, exceto criar Professores e configurar a instituição.</p>
+    </div>
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Professor</span>
+      <h3 class="text-sm font-semibold text-slate-800 mt-2">Vê tudo, mexe no seu</h3>
+      <p class="text-xs text-slate-500 mt-1 leading-relaxed">Consulta a escola toda em leitura, mas só lança notas, frequência e comunica nas turmas/disciplinas que lecciona. Sem Financeiro, CRM ou Indicadores.</p>
+    </div>
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Aluno / Responsável</span>
+      <h3 class="text-sm font-semibold text-slate-800 mt-2">Só o Portal</h3>
+      <p class="text-xs text-slate-500 mt-1 leading-relaxed">O seu boletim, horário, mensalidades e pedidos de documentos — ou os dos seus educandos. Nenhum módulo interno da escola.</p>
+    </div>
+  </div>
+
+  <!-- Matriz -->
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wide">
+            <th class="py-3 px-6 font-semibold">Módulo</th>
+            @for (perfil of perfis; track perfil.id) {
+              <th class="py-3 px-4 font-semibold text-center">{{ perfil.label }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (linha of modulos; track linha.modulo) {
+            <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <td class="py-2.5 px-6 text-slate-800 font-medium text-sm whitespace-nowrap">{{ linha.modulo }}</td>
+              @for (perfil of perfis; track perfil.id) {
+                <td class="py-2.5 px-4 text-center">
+                  @if (labelNivel(perfil.id, linha) === '—') {
+                    <span class="text-slate-300 text-sm">—</span>
+                  } @else {
+                    <span class="text-xs font-medium py-1 px-2.5 rounded-full" [ngClass]="classeNivel(perfil.id, linha)">
+                      {{ labelNivel(perfil.id, linha) }}
+                    </span>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Notas -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
+      <h3 class="text-sm font-semibold text-slate-800 mb-3">Onde está o "Parcial"</h3>
+      <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
+        <li><strong class="text-slate-700">Diário / Trabalhos:</strong> o Professor só lança notas e frequência nas turmas+disciplinas onde tem alocação registada.</li>
+        <li><strong class="text-slate-700">Comunicações:</strong> o Professor não tem a opção "Toda a escola" — só turma ou aluno individual.</li>
+        <li><strong class="text-slate-700">Documentos:</strong> a Secretaria gere pedidos mas não os Preços (só Gestor); o Professor só vê os pedidos endereçados a si.</li>
+        <li><strong class="text-slate-700">Transferências:</strong> Gestor/Secretaria só pedem a transferência — decidir (aprovar/rejeitar) é exclusivo do Super Admin, por ser entre escolas diferentes.</li>
+        <li><strong class="text-slate-700">Professores:</strong> a Secretaria aloca turma/disciplina, mas só o Gestor cria a conta de acesso.</li>
+      </ul>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
+      <h3 class="text-sm font-semibold text-slate-800 mb-3">Como isto é garantido</h3>
+      <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
+        <li>Cada pedido ao back-end passa por uma verificação de perfil antes de tocar em qualquer dado — o front-end só reflete essa regra, nunca decide sozinho.</li>
+        <li>Dados de escrita ficam ainda mais restritos: mesmo dentro de "Total", uma ação só é aceite se o registo pertencer à mesma instituição de quem pede.</li>
+        <li>O isolamento entre escolas (multi-tenant) é reforçado a dois níveis — no código da aplicação e diretamente na base de dados.</li>
+      </ul>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
+      <h3 class="text-sm font-semibold text-slate-800 mb-3">A caminho</h3>
+      <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
+        <li>Estes seis perfis são atualmente fixos e partilhados por todas as escolas da plataforma.</li>
+        <li>Perfis personalizados por escola — por exemplo, uma "Tesouraria" com acesso só ao Financeiro — estão planeados para uma fase futura.</li>
+        <li>Quando existirem, este mapa passará a refletir também os perfis que cada escola criar, não só os seis fixos.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>

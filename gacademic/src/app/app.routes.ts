@@ -2,6 +2,7 @@ import { DashboardHomeComponent } from './features/academico/dashboard-home.comp
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
+import { superAdminGuard } from './core/guards/super-admin.guard';
 
 export const routes: Routes = [
     // ==========================================
@@ -84,6 +85,11 @@ export const routes: Routes = [
       {
         path: 'admin',
         loadComponent: () => import('./features/admin/admin.component/admin.component').then((m) => m.AdminComponent)
+      },
+      {
+        path: 'admin/permissoes',
+        canActivate: [superAdminGuard],
+        loadComponent: () => import('./features/admin/permissoes.component/permissoes.component').then((m) => m.PermissoesComponent)
       },
       {
         path: 'tarefas',
