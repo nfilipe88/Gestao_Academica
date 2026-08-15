@@ -2,6 +2,7 @@ import { createAction, props } from '@ngrx/store';
 import {
   CobrancaDocumentoGerada, PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola
 } from './documentos.models';
+import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
 // --- Preços (Gestor) ---
 export const carregarPrecos = createAction('[Documentos] Carregar Precos');
@@ -19,10 +20,16 @@ export const criarSolicitacaoEmissao = createAction(
 );
 
 export const carregarMinhasSolicitacoesEmissao = createAction('[Documentos] Carregar Minhas Solicitacoes Emissao');
-export const carregarSolicitacoesEmissaoStaff = createAction('[Documentos] Carregar Solicitacoes Emissao Staff');
+export const carregarSolicitacoesEmissaoStaff = createAction(
+  '[Documentos] Carregar Solicitacoes Emissao Staff',
+  props<{ page?: number, page_size?: number }>()
+);
+// `paginacao` só vem preenchida quando a origem é a listagem staff
+// (paginada no back-end) — a variante "minhas" (Aluno/Responsável)
+// devolve sempre a lista completa, sem envelope de paginação.
 export const carregarSolicitacoesEmissaoSucesso = createAction(
   '[Documentos] Carregar Solicitacoes Emissao Sucesso',
-  props<{ solicitacoes: SolicitacaoDocumentoEmissao[] }>()
+  props<{ solicitacoes: SolicitacaoDocumentoEmissao[], paginacao?: EstadoPaginacao }>()
 );
 
 export const gerarCobrancaDocumento = createAction('[Documentos] Gerar Cobranca Documento', props<{ solicitacao_id: string }>());
@@ -38,10 +45,13 @@ export const criarSolicitacaoEscola = createAction(
   '[Documentos] Criar Solicitacao Escola',
   props<{ destinatario_tipo: string, destinatario_id: string, titulo: string, descricao: string }>()
 );
-export const carregarSolicitacoesEscolaStaff = createAction('[Documentos] Carregar Solicitacoes Escola Staff');
+export const carregarSolicitacoesEscolaStaff = createAction(
+  '[Documentos] Carregar Solicitacoes Escola Staff',
+  props<{ page?: number, page_size?: number }>()
+);
 export const carregarSolicitacoesEscolaStaffSucesso = createAction(
   '[Documentos] Carregar Solicitacoes Escola Staff Sucesso',
-  props<{ solicitacoes: SolicitacaoDocumentoEscola[] }>()
+  props<{ solicitacoes: SolicitacaoDocumentoEscola[], paginacao: EstadoPaginacao }>()
 );
 
 // Pedidos da escola dirigidos ao próprio login (ALUNO/RESPONSAVEL/PROFESSOR)

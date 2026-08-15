@@ -3,6 +3,7 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as DocumentosActions from './documentos.actions';
 import { CobrancaDocumentoGerada, PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola } from './documentos.models';
+import { PaginaResultado } from '../../shared/models/paginacao.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -72,8 +73,13 @@ export class DocumentosEffects {
   carregarSolicitacoesEmissaoStaff$ = createEffect(() =>
     this.actions$.pipe(
       ofType(DocumentosActions.carregarSolicitacoesEmissaoStaff),
-      switchMap(() => this.http.get<SolicitacaoDocumentoEmissao[]>('/api/v1/documentos/solicitacoes').pipe(
-        map(solicitacoes => DocumentosActions.carregarSolicitacoesEmissaoSucesso({ solicitacoes })),
+      switchMap(action => this.http.get<PaginaResultado<SolicitacaoDocumentoEmissao>>('/api/v1/documentos/solicitacoes', {
+        params: { page: action.page ?? 1, page_size: action.page_size ?? 25 }
+      }).pipe(
+        map(resp => DocumentosActions.carregarSolicitacoesEmissaoSucesso({
+          solicitacoes: resp.items,
+          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+        })),
         catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar os pedidos de documentos.'
         })))
@@ -123,7 +129,7 @@ export class DocumentosEffects {
         `/api/v1/documentos/solicitacoes/${action.solicitacao_id}/entregar-fisico`, { observacoes: action.observacoes ?? null }
       ).pipe(
         switchMap(() => [
-          DocumentosActions.carregarSolicitacoesEmissaoStaff(),
+          DocumentosActions.carregarSolicitacoesEmissaoStaff({}),
           DocumentosActions.documentosOperacaoSucesso({ mensagem: 'Entrega registada.' })
         ]),
         catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
@@ -140,7 +146,7 @@ export class DocumentosEffects {
         `/api/v1/documentos/solicitacoes/${action.solicitacao_id}/cancelar`, {}
       ).pipe(
         switchMap(() => [
-          DocumentosActions.carregarSolicitacoesEmissaoStaff(),
+          DocumentosActions.carregarSolicitacoesEmissaoStaff({}),
           DocumentosActions.documentosOperacaoSucesso({ mensagem: 'Pedido cancelado.' })
         ]),
         catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
@@ -158,7 +164,7 @@ export class DocumentosEffects {
         titulo: action.titulo, descricao: action.descricao,
       }).pipe(
         switchMap(() => [
-          DocumentosActions.carregarSolicitacoesEscolaStaff(),
+          DocumentosActions.carregarSolicitacoesEscolaStaff({}),
           DocumentosActions.documentosOperacaoSucesso({ mensagem: 'Pedido enviado.' })
         ]),
         catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
@@ -171,8 +177,13 @@ export class DocumentosEffects {
   carregarSolicitacoesEscolaStaff$ = createEffect(() =>
     this.actions$.pipe(
       ofType(DocumentosActions.carregarSolicitacoesEscolaStaff),
-      switchMap(() => this.http.get<SolicitacaoDocumentoEscola[]>('/api/v1/documentos/pedidos-escola').pipe(
-        map(solicitacoes => DocumentosActions.carregarSolicitacoesEscolaStaffSucesso({ solicitacoes })),
+      switchMap(action => this.http.get<PaginaResultado<SolicitacaoDocumentoEscola>>('/api/v1/documentos/pedidos-escola', {
+        params: { page: action.page ?? 1, page_size: action.page_size ?? 25 }
+      }).pipe(
+        map(resp => DocumentosActions.carregarSolicitacoesEscolaStaffSucesso({
+          solicitacoes: resp.items,
+          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+        })),
         catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar os pedidos feitos aos alunos/professores.'
         })))
@@ -216,7 +227,7 @@ export class DocumentosEffects {
         `/api/v1/documentos/pedidos-escola/${action.solicitacao_id}/concluir`, {}
       ).pipe(
         switchMap(() => [
-          DocumentosActions.carregarSolicitacoesEscolaStaff(),
+          DocumentosActions.carregarSolicitacoesEscolaStaff({}),
           DocumentosActions.documentosOperacaoSucesso({ mensagem: 'Pedido concluído.' })
         ]),
         catchError(err => of(DocumentosActions.documentosOperacaoFalhou({

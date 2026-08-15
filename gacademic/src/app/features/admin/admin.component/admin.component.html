@@ -96,6 +96,9 @@
         </tbody>
       </table>
     </div>
+    @if (paginacaoTenants$ | async; as paginacao) {
+      <app-paginacao [estado]="paginacao" (paginaChange)="onPaginaTenants($event)" (tamanhoChange)="onTamanhoTenants($event)"></app-paginacao>
+    }
   </div>
 
   <div>
@@ -162,6 +165,9 @@
           }
         </tbody>
       </table>
+      @if (paginacaoTransferencias$ | async; as paginacao) {
+        <app-paginacao [estado]="paginacao" (paginaChange)="onPaginaTransferencias($event)" (tamanhoChange)="onTamanhoTransferencias($event)"></app-paginacao>
+      }
     </div>
   </div>
 

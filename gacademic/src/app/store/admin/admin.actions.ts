@@ -1,10 +1,14 @@
 import { createAction, props } from '@ngrx/store';
 import { StatusTenant, TenantResumo } from './admin.models';
+import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
-export const carregarTenants = createAction('[Admin] Carregar Tenants');
+export const carregarTenants = createAction(
+  '[Admin] Carregar Tenants',
+  props<{ page?: number, page_size?: number }>()
+);
 export const carregarTenantsSucesso = createAction(
   '[Admin] Carregar Tenants Sucesso',
-  props<{ tenants: TenantResumo[] }>()
+  props<{ tenants: TenantResumo[], paginacao: EstadoPaginacao }>()
 );
 
 export const atualizarStatusTenant = createAction(

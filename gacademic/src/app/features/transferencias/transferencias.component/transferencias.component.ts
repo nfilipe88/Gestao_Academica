@@ -6,12 +6,13 @@ import { carregarAlunos } from '../../../store/alunos/alunos.actions';
 import { selectAlunos } from '../../../store/alunos/alunos.selector';
 import * as TransferenciasActions from '../../../store/transferencias/transferencias.actions';
 import {
-  selectSolicitacoesTransferencia, selectTransferenciasError, selectTransferenciasMensagem
+  selectPaginacaoTransferencias, selectSolicitacoesTransferencia, selectTransferenciasError, selectTransferenciasMensagem
 } from '../../../store/transferencias/transferencias.selector';
+import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 @Component({
   selector: 'app-transferencias.component',
-  imports: [AsyncPipe, DatePipe, FormsModule],
+  imports: [AsyncPipe, DatePipe, FormsModule, PaginacaoComponent],
   templateUrl: './transferencias.component.html',
   styleUrl: './transferencias.component.css',
 })
@@ -20,6 +21,7 @@ export class TransferenciasComponent implements OnInit {
 
   alunos$ = this.store.select(selectAlunos);
   solicitacoes$ = this.store.select(selectSolicitacoesTransferencia);
+  paginacao$ = this.store.select(selectPaginacaoTransferencias);
   mensagem$ = this.store.select(selectTransferenciasMensagem);
   erro$ = this.store.select(selectTransferenciasError);
 
@@ -28,13 +30,27 @@ export class TransferenciasComponent implements OnInit {
   novoNifDestino = '';
   novoMotivo = '';
 
+  pagina = 1;
+  tamanho = 25;
+
   ngOnInit() {
-    this.store.dispatch(TransferenciasActions.carregarMinhasSolicitacoes());
+    this.store.dispatch(TransferenciasActions.carregarMinhasSolicitacoes({ page: this.pagina, page_size: this.tamanho }));
     // page_size no máximo permitido (100): isto povoa um <select>, não
     // uma tabela paginada — uma escola com mais de 100 alunos só vê os
     // 100 primeiros aqui (limitação conhecida, fora do âmbito desta
     // passagem; precisaria de um combo com pesquisa/autocomplete).
     this.store.dispatch(carregarAlunos({ page_size: 100 }));
+  }
+
+  onPagina(pagina: number) {
+    this.pagina = pagina;
+    this.store.dispatch(TransferenciasActions.carregarMinhasSolicitacoes({ page: pagina, page_size: this.tamanho }));
+  }
+
+  onTamanho(tamanho: number) {
+    this.tamanho = tamanho;
+    this.pagina = 1;
+    this.store.dispatch(TransferenciasActions.carregarMinhasSolicitacoes({ page: 1, page_size: tamanho }));
   }
 
   onSubmit() {

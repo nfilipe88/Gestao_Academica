@@ -11,16 +11,18 @@ import { carregarProfessores } from '../../../store/professores/professores.acti
 import { selectProfessores } from '../../../store/professores/professores.selector';
 import * as DocumentosActions from '../../../store/documentos/documentos.actions';
 import {
-  selectDocumentosError, selectDocumentosMensagem, selectMinhasSolicitacoesEscola, selectPrecosDocumento,
+  selectDocumentosError, selectDocumentosMensagem, selectMinhasSolicitacoesEscola,
+  selectPaginacaoSolicitacoesEmissao, selectPaginacaoSolicitacoesEscolaStaff, selectPrecosDocumento,
   selectSolicitacoesEmissao, selectSolicitacoesEscolaStaff
 } from '../../../store/documentos/documentos.selector';
 import { DestinatarioEscola } from '../../../store/documentos/documentos.models';
+import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 type Aba = 'emissao' | 'precos' | 'pedidos-escola' | 'minhas-respostas';
 
 @Component({
   selector: 'app-documentos.component',
-  imports: [AsyncPipe, CurrencyPipe, DatePipe, FormsModule],
+  imports: [AsyncPipe, CurrencyPipe, DatePipe, FormsModule, PaginacaoComponent],
   templateUrl: './documentos.component.html',
   styleUrl: './documentos.component.css',
 })
@@ -31,7 +33,9 @@ export class DocumentosComponent implements OnInit {
   perfil$ = this.store.select(selectPerfilAcesso);
   precos$ = this.store.select(selectPrecosDocumento);
   solicitacoesEmissao$ = this.store.select(selectSolicitacoesEmissao);
+  paginacaoSolicitacoesEmissao$ = this.store.select(selectPaginacaoSolicitacoesEmissao);
   solicitacoesEscolaStaff$ = this.store.select(selectSolicitacoesEscolaStaff);
+  paginacaoSolicitacoesEscolaStaff$ = this.store.select(selectPaginacaoSolicitacoesEscolaStaff);
   minhasSolicitacoesEscola$ = this.store.select(selectMinhasSolicitacoesEscola);
   alunos$ = this.store.select(selectAlunos);
   professores$ = this.store.select(selectProfessores);
@@ -58,6 +62,11 @@ export class DocumentosComponent implements OnInit {
 
   souGestorOuSecretaria = false;
 
+  paginaEmissao = 1;
+  tamanhoEmissao = 25;
+  paginaEscola = 1;
+  tamanhoEscola = 25;
+
   ngOnInit() {
     // GESTOR/SECRETARIA gerem pedidos de emissão e pedidos-à-escola
     // (exigir_perfil no back-end); um PROFESSOR só vê "Pedidos que me
@@ -65,8 +74,8 @@ export class DocumentosComponent implements OnInit {
     this.perfil$.pipe(take(1)).subscribe(perfil => {
       this.souGestorOuSecretaria = perfil === 'GESTOR' || perfil === 'SECRETARIA';
       if (this.souGestorOuSecretaria) {
-        this.store.dispatch(DocumentosActions.carregarSolicitacoesEmissaoStaff());
-        this.store.dispatch(DocumentosActions.carregarSolicitacoesEscolaStaff());
+        this.store.dispatch(DocumentosActions.carregarSolicitacoesEmissaoStaff({ page: this.paginaEmissao, page_size: this.tamanhoEmissao }));
+        this.store.dispatch(DocumentosActions.carregarSolicitacoesEscolaStaff({ page: this.paginaEscola, page_size: this.tamanhoEscola }));
         // page_size no máximo: povoam <select>, ver nota em transferencias.component.ts
         this.store.dispatch(carregarAlunos({ page_size: 100 }));
         this.store.dispatch(carregarProfessores({ page_size: 100 }));
@@ -77,6 +86,28 @@ export class DocumentosComponent implements OnInit {
       }
     });
     this.store.dispatch(DocumentosActions.carregarMinhasSolicitacoesEscola());
+  }
+
+  onPaginaEmissao(pagina: number) {
+    this.paginaEmissao = pagina;
+    this.store.dispatch(DocumentosActions.carregarSolicitacoesEmissaoStaff({ page: pagina, page_size: this.tamanhoEmissao }));
+  }
+
+  onTamanhoEmissao(tamanho: number) {
+    this.tamanhoEmissao = tamanho;
+    this.paginaEmissao = 1;
+    this.store.dispatch(DocumentosActions.carregarSolicitacoesEmissaoStaff({ page: 1, page_size: tamanho }));
+  }
+
+  onPaginaEscola(pagina: number) {
+    this.paginaEscola = pagina;
+    this.store.dispatch(DocumentosActions.carregarSolicitacoesEscolaStaff({ page: pagina, page_size: this.tamanhoEscola }));
+  }
+
+  onTamanhoEscola(tamanho: number) {
+    this.tamanhoEscola = tamanho;
+    this.paginaEscola = 1;
+    this.store.dispatch(DocumentosActions.carregarSolicitacoesEscolaStaff({ page: 1, page_size: tamanho }));
   }
 
   irParaAba(aba: Aba) {

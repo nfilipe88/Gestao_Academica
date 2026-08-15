@@ -3,6 +3,7 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as AdminActions from './admin.actions';
 import { TenantResumo } from './admin.models';
+import { PaginaResultado } from '../../shared/models/paginacao.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -13,8 +14,13 @@ export class AdminEffects {
   carregarTenants$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AdminActions.carregarTenants),
-      switchMap(() => this.http.get<TenantResumo[]>('/api/v1/admin/tenants').pipe(
-        map(tenants => AdminActions.carregarTenantsSucesso({ tenants })),
+      switchMap(action => this.http.get<PaginaResultado<TenantResumo>>('/api/v1/admin/tenants', {
+        params: { page: action.page ?? 1, page_size: action.page_size ?? 25 }
+      }).pipe(
+        map(resp => AdminActions.carregarTenantsSucesso({
+          tenants: resp.items,
+          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+        })),
         catchError(err => of(AdminActions.adminOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar as instituições.'
         })))
@@ -29,7 +35,7 @@ export class AdminEffects {
         `/api/v1/admin/tenants/${action.tenant_id}/status`, { status: action.status }
       ).pipe(
         switchMap(resp => [
-          AdminActions.carregarTenants(),
+          AdminActions.carregarTenants({}),
           AdminActions.adminOperacaoSucesso({ mensagem: resp.mensagem })
         ]),
         catchError(err => of(AdminActions.adminOperacaoFalhou({
@@ -46,7 +52,7 @@ export class AdminEffects {
         `/api/v1/admin/tenants/${action.tenant_id}/validade-licenca`, { data_validade_licenca: action.data_validade_licenca }
       ).pipe(
         switchMap(resp => [
-          AdminActions.carregarTenants(),
+          AdminActions.carregarTenants({}),
           AdminActions.adminOperacaoSucesso({ mensagem: resp.mensagem })
         ]),
         catchError(err => of(AdminActions.adminOperacaoFalhou({
@@ -63,7 +69,7 @@ export class AdminEffects {
         '/api/v1/admin/validade-licenca/processar', {}
       ).pipe(
         switchMap(resp => [
-          AdminActions.carregarTenants(),
+          AdminActions.carregarTenants({}),
           AdminActions.adminOperacaoSucesso({
             mensagem: `${resp.mensagem} (${resp.suspensos} suspensa(s), ${resp.alertados} alertada(s)).`
           })

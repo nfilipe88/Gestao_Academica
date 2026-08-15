@@ -98,6 +98,9 @@
           }
         </tbody>
       </table>
+      @if (paginacaoSolicitacoesEmissao$ | async; as paginacao) {
+        <app-paginacao [estado]="paginacao" (paginaChange)="onPaginaEmissao($event)" (tamanhoChange)="onTamanhoEmissao($event)"></app-paginacao>
+      }
     </div>
   }
 
@@ -226,6 +229,9 @@
           }
         </tbody>
       </table>
+      @if (paginacaoSolicitacoesEscolaStaff$ | async; as paginacao) {
+        <app-paginacao [estado]="paginacao" (paginaChange)="onPaginaEscola($event)" (tamanhoChange)="onTamanhoEscola($event)"></app-paginacao>
+      }
     </div>
   }
 
