@@ -41,6 +41,13 @@ export const authReducer = createReducer(
     isAuthenticated: false,
     erro: null
   })),
+  on(AuthActions.sessaoExpirada, (state) => ({
+    ...state,
+    token: null,
+    usuario: null,
+    isAuthenticated: false,
+    erro: 'A sua sessão expirou. Inicie sessão novamente.'
+  })),
   // Nova ação para restaurar os dados quando o utilizador faz "F5"
   on(AuthActions.restoreAuth, (state, { token, usuario }) => ({
     ...state,

@@ -106,9 +106,12 @@ export class AuthEffects {
     { dispatch: false }
   );
 
+  // Reage também a sessaoExpirada (authGuard/jwtInterceptor) — mesma
+  // limpeza de sessão, só muda a mensagem mostrada no ecrã de login
+  // (ver reducer).
   clearAuthData$ = createEffect(() =>
     this.actions$.pipe(
-      ofType(AuthActions.logout),
+      ofType(AuthActions.logout, AuthActions.sessaoExpirada),
       tap(() => {
         if (isPlatformBrowser(this.platformId)) {
           localStorage.removeItem('saas_access_token');
@@ -121,7 +124,7 @@ export class AuthEffects {
 
   redirecionarAposLogout$ = createEffect(() =>
     this.actions$.pipe(
-      ofType(AuthActions.logout),
+      ofType(AuthActions.logout, AuthActions.sessaoExpirada),
       tap(() => this.router.navigateByUrl('/login'))
     ),
     { dispatch: false }

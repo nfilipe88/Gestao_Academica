@@ -3,6 +3,8 @@ import { inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { selectToken } from '../../store/auth/auth.selectors';
+import { sessaoExpirada } from '../../store/auth/auth.actions';
+import { tokenExpirado } from '../utils/jwt-utils';
 import { map, take } from 'rxjs';
 
 export const authGuard: CanActivateFn = (route, state) => {
@@ -23,18 +25,31 @@ export const authGuard: CanActivateFn = (route, state) => {
       if (isPlatformBrowser(platformId)) {
         tokenLocal = localStorage.getItem('saas_access_token');
       }
-      
-      if (token || tokenLocal) {
+
+      const tokenAtual = token || tokenLocal;
+
+      // Um token presente mas expirado NÃO passa: sem isto, um utilizador
+      // com sessão expirada continuava a navegar livremente pelo menu
+      // (o guard só via "existe token", nunca "ainda é válido") e só
+      // descobria o problema quando um pedido à API falhasse. Verificar
+      // aqui bloqueia a navegação logo no clique.
+      if (tokenAtual && !tokenExpirado(tokenAtual)) {
         return true; // Tem passe livre
       }
 
-      // Se não tem token, é expulso para o ecrã de login, mas guardamos
-      // o destino pretendido em returnUrl. Sem isto, um F5/link direto
-      // numa rota protegida (ex.: /cursos) perde-se sempre: o SSR não
-      // consegue ler o localStorage no primeiro pedido, por isso este
-      // guard nega no servidor, e o utilizador acaba sempre em
-      // /dashboard assim que o guestGuard confirma a sessão no browser
-      // (ver guest.guard.ts).
+      if (tokenAtual) {
+        // Existe um token, mas já expirou — limpa a sessão (localStorage
+        // + store) e mostra "sessão expirada" no ecrã de login.
+        store.dispatch(sessaoExpirada());
+      }
+
+      // Se não tem token (ou acabou de ser limpo acima), é expulso para o
+      // ecrã de login, mas guardamos o destino pretendido em returnUrl.
+      // Sem isto, um F5/link direto numa rota protegida (ex.: /cursos)
+      // perde-se sempre: o SSR não consegue ler o localStorage no
+      // primeiro pedido, por isso este guard nega no servidor, e o
+      // utilizador acaba sempre em /dashboard assim que o guestGuard
+      // confirma a sessão no browser (ver guest.guard.ts).
       return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
     })
   );

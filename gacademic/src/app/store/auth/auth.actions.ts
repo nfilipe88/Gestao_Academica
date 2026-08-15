@@ -16,6 +16,12 @@ export const loginSuccess = createAction(
 
 export const logout = createAction('[Auth] Logout do Utilizador');
 
+// Disparada pelo authGuard (token já expirado antes de navegar) ou pelo
+// jwtInterceptor (um 401 chegou a meio da sessão, ex.: token expirou
+// enquanto o utilizador estava parado numa página) — ao contrário de
+// logout(), fica com uma mensagem para mostrar no ecrã de login.
+export const sessaoExpirada = createAction('[Auth] Sessão Expirada');
+
 // Ação disparada pelo componente de ecrã
 export const iniciarLogin = createAction(
   '[Auth Página] Iniciar Tentativa de Login',

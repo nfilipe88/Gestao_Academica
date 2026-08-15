@@ -3,6 +3,7 @@ import { inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { selectToken } from '../../store/auth/auth.selectors';
+import { tokenExpirado } from '../utils/jwt-utils';
 import { map, take } from 'rxjs';
 
 export const guestGuard: CanActivateFn = (route, state) => {
@@ -22,7 +23,13 @@ export const guestGuard: CanActivateFn = (route, state) => {
         tokenLocal = localStorage.getItem('saas_access_token');
       }
 
-      if (token || tokenLocal) {
+      const tokenAtual = token || tokenLocal;
+
+      // Um token expirado não conta como "já logado" — sem isto, quem
+      // chega ao /login com uma sessão expirada era mandado de volta
+      // para /dashboard, que por sua vez o devolvia ao /login (via
+      // authGuard), um ciclo desnecessário.
+      if (tokenAtual && !tokenExpirado(tokenAtual)) {
         // Já está logado? Volta ao destino original (returnUrl), se
         // veio de um redirecionamento do authGuard; senão vai para o
         // dashboard por omissão.
