@@ -1,7 +1,7 @@
 import { AsyncPipe, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Store } from '@ngrx/store';
 import { take } from 'rxjs';
 import { selectPerfilAcesso } from '../../../store/auth/auth.selectors';
@@ -13,12 +13,12 @@ import * as DocumentosActions from '../../../store/documentos/documentos.actions
 import {
   selectDocumentosError, selectDocumentosMensagem, selectMinhasSolicitacoesEscola,
   selectPaginacaoSolicitacoesEmissao, selectPaginacaoSolicitacoesEscolaStaff, selectPrecosDocumento,
-  selectSolicitacoesEmissao, selectSolicitacoesEscolaStaff
+  selectSolicitacoesEmissao, selectSolicitacoesEscolaStaff, selectTemplatesDocumento
 } from '../../../store/documentos/documentos.selector';
-import { DestinatarioEscola } from '../../../store/documentos/documentos.models';
+import { DestinatarioEscola, TemplateDocumento, VARIAVEIS_TEMPLATE } from '../../../store/documentos/documentos.models';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
-type Aba = 'emissao' | 'precos' | 'pedidos-escola' | 'minhas-respostas';
+type Aba = 'emissao' | 'precos' | 'modelos' | 'pedidos-escola' | 'minhas-respostas';
 
 @Component({
   selector: 'app-documentos.component',
@@ -32,6 +32,8 @@ export class DocumentosComponent implements OnInit {
 
   perfil$ = this.store.select(selectPerfilAcesso);
   precos$ = this.store.select(selectPrecosDocumento);
+  templates$ = this.store.select(selectTemplatesDocumento);
+  readonly variaveisTemplate = VARIAVEIS_TEMPLATE;
   solicitacoesEmissao$ = this.store.select(selectSolicitacoesEmissao);
   paginacaoSolicitacoesEmissao$ = this.store.select(selectPaginacaoSolicitacoesEmissao);
   solicitacoesEscolaStaff$ = this.store.select(selectSolicitacoesEscolaStaff);
@@ -114,12 +116,88 @@ export class DocumentosComponent implements OnInit {
     this.aba = aba;
     if (aba === 'precos') {
       this.store.dispatch(DocumentosActions.carregarPrecos());
+    } else if (aba === 'modelos') {
+      this.store.dispatch(DocumentosActions.carregarTemplates());
     }
   }
 
   // --- Preços ---
   onGuardarPreco(tipo_documento: string, preco: number, ativo: boolean) {
     this.store.dispatch(DocumentosActions.atualizarPreco({ tipo_documento, preco, ativo }));
+  }
+
+  // --- Modelos de documentos (layout próprio por escola) ---
+  // Só um editor aberto de cada vez (mesmo padrão de solicitacaoAEntregar/respostaAberta acima).
+  templateEmEdicaoTipo: string | null = null;
+  corpoEmEdicao = '';
+  erroPreVisualizacao: string | null = null;
+
+  // Strings simples interpoladas em vez de {{ }} literais escritos
+  // diretamente no template: Angular decodifica entidades HTML como
+  // &#123;&#123; para "{{" ANTES de procurar bindings, por isso
+  // escrever "&#123;&#123; aluno_nome &#125;&#125;" no HTML era
+  // interpretado como um binding real a uma propriedade
+  // "aluno_nome" (que não existe) — daqui vinha o TS2339 no build.
+  // Uma propriedade de string normal não sofre esse problema: o valor
+  // interpolado nunca é reanalisado por bindings.
+  readonly exemploSintaxeVariavel = '{{ nome_da_variavel }}';
+  readonly exemploPlaceholderTemplate = '<p>Certifico que {{ aluno_nome }} estuda na turma {{ turma_nome }} no ano {{ ano_letivo }}.</p>';
+
+  onIniciarEdicaoTemplate(template: TemplateDocumento) {
+    this.templateEmEdicaoTipo = template.tipo_documento;
+    this.corpoEmEdicao = template.corpo_html ?? '';
+    this.erroPreVisualizacao = null;
+  }
+
+  onCancelarEdicaoTemplate() {
+    this.templateEmEdicaoTipo = null;
+    this.erroPreVisualizacao = null;
+  }
+
+  onGuardarTemplate() {
+    if (!this.templateEmEdicaoTipo || !this.corpoEmEdicao.trim()) return;
+    this.store.dispatch(DocumentosActions.guardarTemplate({ tipo_documento: this.templateEmEdicaoTipo, corpo_html: this.corpoEmEdicao }));
+    this.templateEmEdicaoTipo = null;
+  }
+
+  onReporPadrao(tipo_documento: string) {
+    this.store.dispatch(DocumentosActions.reporTemplatePadrao({ tipo_documento }));
+    if (this.templateEmEdicaoTipo === tipo_documento) this.templateEmEdicaoTipo = null;
+  }
+
+  // Pré-visualiza o texto ainda por guardar (não o que já está no
+  // store) — o Gestor quer ver o efeito do que está a escrever, antes
+  // de decidir guardar. Mesmo truque de separador pré-aberto que
+  // onVerPdf usa (evita bloqueio de pop-up); erro de validação vem
+  // como Blob (responseType:'blob' aplica-se à resposta toda, mesmo a
+  // de erro), por isso é preciso ler o texto do blob para extrair a
+  // mensagem em vez de usar err.error.detail diretamente.
+  onPreVisualizarTemplate() {
+    if (!this.templateEmEdicaoTipo || !this.corpoEmEdicao.trim()) return;
+    const tipo = this.templateEmEdicaoTipo;
+    this.erroPreVisualizacao = null;
+    const aba = window.open('', '_blank');
+    this.http.post(`/api/v1/documentos/templates/${tipo}/pre-visualizar`, { corpo_html: this.corpoEmEdicao }, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        if (aba) aba.location.href = url;
+      },
+      error: (err: HttpErrorResponse) => {
+        if (aba) aba.close();
+        const corpoErro = err.error;
+        if (corpoErro instanceof Blob) {
+          corpoErro.text().then(texto => {
+            try {
+              this.erroPreVisualizacao = JSON.parse(texto).detail ?? 'Não foi possível pré-visualizar o modelo.';
+            } catch {
+              this.erroPreVisualizacao = 'Não foi possível pré-visualizar o modelo.';
+            }
+          });
+        } else {
+          this.erroPreVisualizacao = 'Não foi possível pré-visualizar o modelo.';
+        }
+      }
+    });
   }
 
   // --- Pedidos de emissão (staff) ---

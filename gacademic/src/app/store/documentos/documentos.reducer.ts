@@ -1,10 +1,13 @@
 import { createReducer, on } from '@ngrx/store';
 import * as DocumentosActions from './documentos.actions';
-import { CobrancaDocumentoGerada, PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola } from './documentos.models';
+import {
+  CobrancaDocumentoGerada, PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola, TemplateDocumento
+} from './documentos.models';
 import { EstadoPaginacao, PAGINACAO_INICIAL } from '../../shared/models/paginacao.models';
 
 export interface DocumentosState {
   precos: PrecoDocumento[];
+  templates: TemplateDocumento[];
   solicitacoesEmissao: SolicitacaoDocumentoEmissao[];
   paginacaoSolicitacoesEmissao: EstadoPaginacao;
   ultimaCobranca: CobrancaDocumentoGerada | null;
@@ -17,6 +20,7 @@ export interface DocumentosState {
 
 export const initialState: DocumentosState = {
   precos: [],
+  templates: [],
   solicitacoesEmissao: [],
   paginacaoSolicitacoesEmissao: PAGINACAO_INICIAL,
   ultimaCobranca: null,
@@ -31,6 +35,13 @@ export const documentosReducer = createReducer(
   initialState,
 
   on(DocumentosActions.carregarPrecosSucesso, (state, { precos }) => ({ ...state, precos, erro: null })),
+
+  on(DocumentosActions.carregarTemplatesSucesso, (state, { templates }) => ({ ...state, templates, erro: null })),
+  on(DocumentosActions.templateAtualizado, (state, { template }) => ({
+    ...state,
+    templates: state.templates.map(t => t.tipo_documento === template.tipo_documento ? template : t),
+    erro: null,
+  })),
 
   on(DocumentosActions.carregarSolicitacoesEmissaoSucesso, (state, { solicitacoes, paginacao }) => ({
     ...state, solicitacoesEmissao: solicitacoes,

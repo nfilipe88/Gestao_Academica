@@ -1,6 +1,6 @@
 import { createAction, props } from '@ngrx/store';
 import {
-  CobrancaDocumentoGerada, PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola
+  CobrancaDocumentoGerada, PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola, TemplateDocumento
 } from './documentos.models';
 import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
@@ -12,6 +12,24 @@ export const atualizarPreco = createAction(
   '[Documentos] Atualizar Preco',
   props<{ tipo_documento: string, preco: number, ativo: boolean }>()
 );
+
+// --- Layouts personalizados por escola (Gestor) ---
+export const carregarTemplates = createAction('[Documentos] Carregar Templates');
+export const carregarTemplatesSucesso = createAction('[Documentos] Carregar Templates Sucesso', props<{ templates: TemplateDocumento[] }>());
+
+export const guardarTemplate = createAction(
+  '[Documentos] Guardar Template',
+  props<{ tipo_documento: string, corpo_html: string }>()
+);
+export const reporTemplatePadrao = createAction('[Documentos] Repor Template Padrao', props<{ tipo_documento: string }>());
+// Sucesso de guardar/repor: atualiza só a entrada desse tipo na lista.
+export const templateAtualizado = createAction('[Documentos] Template Atualizado', props<{ template: TemplateDocumento }>());
+
+// Pré-visualização não guarda nada — o PDF é tratado no componente
+// (mesmo padrão de onVerPdf: pede via HttpClient, abre num separador
+// já aberto no clique). Ação só para reportar erro de validação do
+// Jinja2 sem passar pelo fluxo genérico de "guardar falhou".
+export const templatePreVisualizacaoFalhou = createAction('[Documentos] Template Pre-visualizacao Falhou', props<{ erro: string }>());
 
 // --- Pedidos de emissão (Aluno/Responsável -> Escola) ---
 export const criarSolicitacaoEmissao = createAction(

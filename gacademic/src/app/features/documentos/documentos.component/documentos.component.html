@@ -25,6 +25,11 @@
         class="px-4 py-2 text-sm font-medium rounded-t-lg cursor-pointer"
         [class.text-blue-600]="aba === 'precos'" [class.border-b-2]="aba === 'precos'" [class.border-blue-600]="aba === 'precos'"
         [class.text-slate-500]="aba !== 'precos'">Preços</button>
+
+      <button type="button" (click)="irParaAba('modelos')"
+        class="px-4 py-2 text-sm font-medium rounded-t-lg cursor-pointer"
+        [class.text-blue-600]="aba === 'modelos'" [class.border-b-2]="aba === 'modelos'" [class.border-blue-600]="aba === 'modelos'"
+        [class.text-slate-500]="aba !== 'modelos'">Modelos de Documentos</button>
     }
 
     @if (souGestorOuSecretaria) {
@@ -136,6 +141,83 @@
           }
         </tbody>
       </table>
+    </div>
+  }
+
+  <!-- ABA: Modelos de Documentos (layout próprio por escola) -->
+  @if (aba === 'modelos') {
+    <div class="space-y-4">
+      <p class="text-slate-500 text-sm">
+        Personalize o corpo de cada tipo de documento com o layout da sua escola. O cabeçalho, a assinatura
+        e o rodapé continuam normalizados pela plataforma — só o texto/tabela do meio é seu.
+      </p>
+
+      <div class="grid gap-4">
+        @for (t of (templates$ | async); track t.tipo_documento) {
+          <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="font-semibold text-slate-800">{{ t.nome }}</h4>
+                <p class="text-xs mt-0.5">
+                  @if (t.personalizado) {
+                    <span class="text-emerald-600 font-medium">Layout personalizado</span>
+                    @if (t.atualizado_em) { <span class="text-slate-400"> — atualizado em {{ t.atualizado_em | date:'dd/MM/yyyy HH:mm' }}</span> }
+                  } @else {
+                    <span class="text-slate-400">A usar o modelo padrão da plataforma</span>
+                  }
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                @if (templateEmEdicaoTipo !== t.tipo_documento) {
+                  <button type="button" (click)="onIniciarEdicaoTemplate(t)"
+                    class="text-xs font-medium py-1.5 px-3 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors cursor-pointer">
+                    {{ t.personalizado ? 'Editar' : 'Personalizar' }}
+                  </button>
+                }
+                @if (t.personalizado) {
+                  <button type="button" (click)="onReporPadrao(t.tipo_documento)"
+                    class="text-xs font-medium py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer">
+                    Repor padrão
+                  </button>
+                }
+              </div>
+            </div>
+
+            @if (templateEmEdicaoTipo === t.tipo_documento) {
+              <div class="mt-4 space-y-3">
+                <div class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
+                  <strong>Variáveis disponíveis:</strong>
+                  {{ variaveisTemplate[t.tipo_documento].join(' · ') }}
+                  — use <code class="bg-white px-1 rounded">{{ exemploSintaxeVariavel }}</code> no HTML abaixo.
+                </div>
+
+                <textarea [(ngModel)]="corpoEmEdicao" rows="10" spellcheck="false"
+                  [placeholder]="exemploPlaceholderTemplate"
+                  class="w-full border border-slate-300 rounded-lg px-4 py-3 text-slate-800 font-mono text-xs leading-relaxed"></textarea>
+
+                @if (erroPreVisualizacao) {
+                  <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erroPreVisualizacao }}</div>
+                }
+
+                <div class="flex gap-2">
+                  <button type="button" (click)="onPreVisualizarTemplate()"
+                    class="text-sm font-medium py-2 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer">
+                    Pré-visualizar
+                  </button>
+                  <button type="button" (click)="onGuardarTemplate()" [disabled]="!corpoEmEdicao.trim()"
+                    class="text-sm font-medium py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-colors cursor-pointer">
+                    Guardar
+                  </button>
+                  <button type="button" (click)="onCancelarEdicaoTemplate()"
+                    class="text-sm text-slate-400 hover:text-slate-600 py-2 px-2 cursor-pointer">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
     </div>
   }
 

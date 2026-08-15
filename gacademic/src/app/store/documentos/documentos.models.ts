@@ -50,3 +50,24 @@ export interface SolicitacaoDocumentoEscola {
   respondido_em: string | null;
   data_solicitacao: string;
 }
+
+// Layout HTML próprio da escola para um tipo de documento — ver
+// app/database/models_documentos.py::TemplateDocumentoPersonalizado.
+export interface TemplateDocumento {
+  tipo_documento: TipoDocumento;
+  nome: string;
+  personalizado: boolean;
+  corpo_html: string | null;
+  atualizado_em: string | null;
+}
+
+// Variáveis Jinja2 disponíveis em cada tipo de documento — ver
+// _CONTEXTOS_AMOSTRA em app/cruds/documentos.py (têm de espelhar
+// exatamente isto, incluindo a forma dos objetos em listas).
+export const VARIAVEIS_TEMPLATE: Record<TipoDocumento, string[]> = {
+  CERTIFICADO: ['aluno_nome', 'numero_documento', 'turma_nome', 'ano_letivo'],
+  DECLARACAO: ['aluno_nome', 'numero_documento', 'turma_nome', 'ano_letivo'],
+  BOLETIM: ['aluno_nome', 'turma_nome', 'ano_letivo', 'notas (lista: disciplina, periodo, tipo, valor)'],
+  HISTORICO_ESCOLAR: ['aluno_nome', 'numero_documento', 'data_nascimento', 'anos (lista: ano_letivo, turma_nome, status_matricula, notas)'],
+  OUTRO: ['aluno_nome', 'descricao'],
+};

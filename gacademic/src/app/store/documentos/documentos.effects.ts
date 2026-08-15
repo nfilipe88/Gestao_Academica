@@ -2,7 +2,9 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as DocumentosActions from './documentos.actions';
-import { CobrancaDocumentoGerada, PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola } from './documentos.models';
+import {
+  CobrancaDocumentoGerada, PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola, TemplateDocumento
+} from './documentos.models';
 import { PaginaResultado } from '../../shared/models/paginacao.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
@@ -35,6 +37,52 @@ export class DocumentosEffects {
         ]),
         catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível atualizar o preço.'
+        })))
+      ))
+    )
+  );
+
+  carregarTemplates$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DocumentosActions.carregarTemplates),
+      switchMap(() => this.http.get<TemplateDocumento[]>('/api/v1/documentos/templates').pipe(
+        map(templates => DocumentosActions.carregarTemplatesSucesso({ templates })),
+        catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os modelos de documentos.'
+        })))
+      ))
+    )
+  );
+
+  guardarTemplate$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DocumentosActions.guardarTemplate),
+      switchMap(action => this.http.put<TemplateDocumento>(
+        `/api/v1/documentos/templates/${action.tipo_documento}`, { corpo_html: action.corpo_html }
+      ).pipe(
+        switchMap(template => [
+          DocumentosActions.templateAtualizado({ template }),
+          DocumentosActions.documentosOperacaoSucesso({ mensagem: 'Modelo guardado com sucesso.' })
+        ]),
+        catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível guardar o modelo.'
+        })))
+      ))
+    )
+  );
+
+  reporTemplatePadrao$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DocumentosActions.reporTemplatePadrao),
+      switchMap(action => this.http.delete<TemplateDocumento>(
+        `/api/v1/documentos/templates/${action.tipo_documento}`
+      ).pipe(
+        switchMap(template => [
+          DocumentosActions.templateAtualizado({ template }),
+          DocumentosActions.documentosOperacaoSucesso({ mensagem: 'Modelo padrão da plataforma reposto.' })
+        ]),
+        catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível repor o modelo padrão.'
         })))
       ))
     )
