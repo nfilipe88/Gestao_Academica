@@ -37,6 +37,8 @@ import { notificacoesReducer } from './store/notificacoes/notificacoes.reducer';
 import { NotificacoesEffects } from './store/notificacoes/notificacoes.effects';
 import { documentosReducer } from './store/documentos/documentos.reducer';
 import { DocumentosEffects } from './store/documentos/documentos.effects';
+import { transferenciasReducer } from './store/transferencias/transferencias.reducer';
+import { TransferenciasEffects } from './store/transferencias/transferencias.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 
@@ -62,8 +64,9 @@ export const appConfig: ApplicationConfig = {
       tarefas: tarefasReducer,
       indicadores: indicadoresReducer,
       notificacoes: notificacoesReducer,
-      documentos: documentosReducer
+      documentos: documentosReducer,
+      transferencias: transferenciasReducer
     }),
-    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects, AdminEffects, TarefasEffects, IndicadoresEffects, NotificacoesEffects, DocumentosEffects),
+    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects, AdminEffects, TarefasEffects, IndicadoresEffects, NotificacoesEffects, DocumentosEffects, TransferenciasEffects),
   ]
 };

@@ -94,6 +94,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/documentos/documentos.component/documentos.component').then((m) => m.DocumentosComponent)
       },
       {
+        path: 'transferencias',
+        loadComponent: () => import('./features/transferencias/transferencias.component/transferencias.component').then((m) => m.TransferenciasComponent)
+      },
+      {
         path: 'indicadores',
         loadComponent: () => import('./features/indicadores/indicadores.component/indicadores.component').then((m) => m.IndicadoresComponent)
       },

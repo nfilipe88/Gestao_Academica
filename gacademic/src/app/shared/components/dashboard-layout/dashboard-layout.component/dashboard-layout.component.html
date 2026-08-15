@@ -173,6 +173,20 @@
         </a>
       }
 
+      @if (isGestorOuSecretaria$ | async) {
+        <!-- Transferência de alunos: pedir é GESTOR/SECRETARIA no
+             back-end (exigir_perfil em transferencias.py) — a aprovação
+             fica só no Painel Super Admin. -->
+        <a routerLink="/transferencias" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Transferência de Alunos">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-9L21 3m0 0l-4.5 4.5M21 3v13.5" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Transf. de Alunos</span> }
+        </a>
+      }
+
       @if (isGestor$ | async) {
         <!-- Só o Gestor pode criar contas de Professor (RBAC no back-end
              já bloqueia o resto; isto é só para não mostrar um ecrã que
