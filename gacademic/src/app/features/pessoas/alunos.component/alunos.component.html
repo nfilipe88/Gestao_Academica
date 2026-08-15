@@ -226,6 +226,9 @@
         }
       </tbody>
     </table>
+    @if (paginacaoAlunos$ | async; as paginacao) {
+      <app-paginacao [estado]="paginacao" (paginaChange)="onPaginaAlunos($event)" (tamanhoChange)="onTamanhoAlunos($event)"></app-paginacao>
+    }
   </div>
 
 </div>

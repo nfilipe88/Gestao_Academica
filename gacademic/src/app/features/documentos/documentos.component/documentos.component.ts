@@ -67,9 +67,10 @@ export class DocumentosComponent implements OnInit {
       if (this.souGestorOuSecretaria) {
         this.store.dispatch(DocumentosActions.carregarSolicitacoesEmissaoStaff());
         this.store.dispatch(DocumentosActions.carregarSolicitacoesEscolaStaff());
-        this.store.dispatch(carregarAlunos());
-        this.store.dispatch(carregarProfessores());
-        this.store.dispatch(carregarResponsaveis());
+        // page_size no máximo: povoam <select>, ver nota em transferencias.component.ts
+        this.store.dispatch(carregarAlunos({ page_size: 100 }));
+        this.store.dispatch(carregarProfessores({ page_size: 100 }));
+        this.store.dispatch(carregarResponsaveis({ page_size: 100 }));
       } else {
         // Professor: começa direto na aba que lhe interessa.
         this.aba = 'minhas-respostas';

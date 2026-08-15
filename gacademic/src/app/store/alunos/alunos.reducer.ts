@@ -1,10 +1,13 @@
 import { createReducer, on } from '@ngrx/store';
 import * as AlunosActions from './alunos.actions';
 import { Aluno, AlunoResponsavelVinculo, Responsavel } from './alunos.models';
+import { EstadoPaginacao, PAGINACAO_INICIAL } from '../../shared/models/paginacao.models';
 
 export interface AlunosState {
   alunos: Aluno[];
+  paginacaoAlunos: EstadoPaginacao;
   responsaveis: Responsavel[];
+  paginacaoResponsaveis: EstadoPaginacao;
   vinculos: AlunoResponsavelVinculo[];
   mensagem: string | null;
   erro: string | null;
@@ -12,7 +15,9 @@ export interface AlunosState {
 
 export const initialState: AlunosState = {
   alunos: [],
+  paginacaoAlunos: PAGINACAO_INICIAL,
   responsaveis: [],
+  paginacaoResponsaveis: PAGINACAO_INICIAL,
   vinculos: [],
   mensagem: null,
   erro: null
@@ -26,8 +31,8 @@ export const alunosReducer = createReducer(
      AlunosActions.criarAcessoAluno, AlunosActions.criarAcessoResponsavel,
     (state) => ({ ...state, erro: null, mensagem: null })
   ),
-  on(AlunosActions.carregarAlunosSucesso, (state, { alunos }) => ({ ...state, alunos })),
-  on(AlunosActions.carregarResponsaveisSucesso, (state, { responsaveis }) => ({ ...state, responsaveis })),
+  on(AlunosActions.carregarAlunosSucesso, (state, { alunos, paginacao }) => ({ ...state, alunos, paginacaoAlunos: paginacao })),
+  on(AlunosActions.carregarResponsaveisSucesso, (state, { responsaveis, paginacao }) => ({ ...state, responsaveis, paginacaoResponsaveis: paginacao })),
   // Substitui só os vínculos deste aluno (os de outros alunos já
   // carregados ficam como estavam).
   on(AlunosActions.carregarResponsaveisDoAlunoSucesso, (state, { aluno_id, vinculos }) => ({

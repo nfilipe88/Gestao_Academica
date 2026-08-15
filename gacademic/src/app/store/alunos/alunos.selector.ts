@@ -8,9 +8,19 @@ export const selectAlunos = createSelector(
   (state) => state.alunos
 );
 
+export const selectPaginacaoAlunos = createSelector(
+  selectAlunosState,
+  (state) => state.paginacaoAlunos
+);
+
 export const selectResponsaveis = createSelector(
   selectAlunosState,
   (state) => state.responsaveis
+);
+
+export const selectPaginacaoResponsaveis = createSelector(
+  selectAlunosState,
+  (state) => state.paginacaoResponsaveis
 );
 
 export const selectVinculos = createSelector(

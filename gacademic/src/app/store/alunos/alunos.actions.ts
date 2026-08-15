@@ -1,11 +1,19 @@
 import { createAction, props } from '@ngrx/store';
 import { Aluno, AlunoResponsavelVinculo, Responsavel } from './alunos.models';
+import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
 // --- Alunos ---
-export const carregarAlunos = createAction('[Alunos] Carregar Alunos');
+// page/page_size opcionais: quem só quer "a lista para um <select>"
+// (ex.: Documentos, Transferências) chama sem argumentos e o effect usa
+// os valores por omissão; a página de Alunos (tabela) passa-os
+// explicitamente conforme o utilizador pagina.
+export const carregarAlunos = createAction(
+  '[Alunos] Carregar Alunos',
+  props<{ page?: number, page_size?: number }>()
+);
 export const carregarAlunosSucesso = createAction(
   '[Alunos] Carregar Alunos Sucesso',
-  props<{ alunos: Aluno[] }>()
+  props<{ alunos: Aluno[], paginacao: EstadoPaginacao }>()
 );
 export const criarAluno = createAction(
   '[Alunos] Criar Aluno',
@@ -13,10 +21,13 @@ export const criarAluno = createAction(
 );
 
 // --- Responsáveis ---
-export const carregarResponsaveis = createAction('[Alunos] Carregar Responsaveis');
+export const carregarResponsaveis = createAction(
+  '[Alunos] Carregar Responsaveis',
+  props<{ page?: number, page_size?: number }>()
+);
 export const carregarResponsaveisSucesso = createAction(
   '[Alunos] Carregar Responsaveis Sucesso',
-  props<{ responsaveis: Responsavel[] }>()
+  props<{ responsaveis: Responsavel[], paginacao: EstadoPaginacao }>()
 );
 export const criarResponsavel = createAction(
   '[Alunos] Criar Responsavel',

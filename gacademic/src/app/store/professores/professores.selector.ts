@@ -8,6 +8,11 @@ export const selectProfessores = createSelector(
   (state) => state.professores
 );
 
+export const selectPaginacaoProfessores = createSelector(
+  selectProfessoresState,
+  (state) => state.paginacaoProfessores
+);
+
 export const selectAlocacoes = createSelector(
   selectProfessoresState,
   (state) => state.alocacoes

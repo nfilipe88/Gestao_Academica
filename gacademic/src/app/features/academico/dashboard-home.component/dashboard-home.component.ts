@@ -6,7 +6,7 @@ import { combineLatest, map } from 'rxjs';
 import { carregarCursos, carregarTurmas } from '../../../store/academico/academic.actions';
 import { selectCursos, selectTurmas } from '../../../store/academico/academic.selector';
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
-import { selectAlunos } from '../../../store/alunos/alunos.selector';
+import { selectPaginacaoAlunos } from '../../../store/alunos/alunos.selector';
 import { selectUsuario } from '../../../store/auth/auth.selectors';
 
 @Component({
@@ -23,12 +23,15 @@ export class DashboardHomeComponent implements OnInit {
   resumo$ = combineLatest([
     this.store.select(selectCursos),
     this.store.select(selectTurmas),
-    this.store.select(selectAlunos)
+    // O total real de alunos vem da paginação (state.total), não do
+    // tamanho do array — este só guarda a página atual, e pedimos aqui
+    // só 1 (page_size mínimo) porque só precisamos da contagem.
+    this.store.select(selectPaginacaoAlunos)
   ]).pipe(
-    map(([cursos, turmas, alunos]) => ({
+    map(([cursos, turmas, paginacaoAlunos]) => ({
       totalCursos: cursos.length,
       totalTurmas: turmas.length,
-      totalAlunos: alunos.length,
+      totalAlunos: paginacaoAlunos.total,
       totalVagas: turmas.reduce((soma, turma) => soma + (turma.vagas_maximas ?? 0), 0),
       cursosRecentes: cursos.slice(-5).reverse()
     }))
@@ -37,9 +40,11 @@ export class DashboardHomeComponent implements OnInit {
   ngOnInit() {
     // O ecrã de Cursos/Turmas/Alunos também despacha isto, mas o
     // dashboard pode ser a primeira página aberta (ex.: logo após o
-    // login), por isso carrega os dados aqui também.
+    // login), por isso carrega os dados aqui também. page_size mínimo
+    // (10) — só precisamos do total (state.paginacaoAlunos.total),
+    // não da lista em si.
     this.store.dispatch(carregarCursos());
     this.store.dispatch(carregarTurmas());
-    this.store.dispatch(carregarAlunos());
+    this.store.dispatch(carregarAlunos({ page_size: 10 }));
   }
 }

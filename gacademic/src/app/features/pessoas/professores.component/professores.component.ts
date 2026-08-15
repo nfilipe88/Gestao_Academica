@@ -6,11 +6,12 @@ import { combineLatest, map } from 'rxjs';
 import { carregarCursos, carregarDisciplinas, carregarSeries, carregarTurmas } from '../../../store/academico/academic.actions';
 import { selectDisciplinas, selectTurmas } from '../../../store/academico/academic.selector';
 import { carregarAlocacoes, carregarProfessores, criarAlocacao, criarProfessor } from '../../../store/professores/professores.actions';
-import { selectAlocacoes, selectProfessores, selectProfessoresError } from '../../../store/professores/professores.selector';
+import { selectAlocacoes, selectPaginacaoProfessores, selectProfessores, selectProfessoresError } from '../../../store/professores/professores.selector';
+import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 @Component({
   selector: 'app-professores.component',
-  imports: [ReactiveFormsModule, CommonModule, AsyncPipe],
+  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, PaginacaoComponent],
   templateUrl: './professores.component.html',
   styleUrl: './professores.component.css',
 })
@@ -21,6 +22,7 @@ export class ProfessoresComponent implements OnInit {
   erro$ = this.store.select(selectProfessoresError);
   turmas$ = this.store.select(selectTurmas);
   disciplinas$ = this.store.select(selectDisciplinas);
+  paginacaoProfessores$ = this.store.select(selectPaginacaoProfessores);
 
   // Cada professor já com as suas alocações (turma + disciplina) juntas.
   professores$ = combineLatest([
@@ -48,14 +50,28 @@ export class ProfessoresComponent implements OnInit {
     disciplina_id: ['', Validators.required]
   });
 
+  paginaProfessores = 1;
+  tamanhoProfessores = 25;
+
   ngOnInit() {
-    this.store.dispatch(carregarProfessores());
+    this.store.dispatch(carregarProfessores({ page: this.paginaProfessores, page_size: this.tamanhoProfessores }));
     this.store.dispatch(carregarAlocacoes());
     // Precisamos das turmas e disciplinas para os <select> de alocação.
     this.store.dispatch(carregarTurmas());
     this.store.dispatch(carregarDisciplinas());
     this.store.dispatch(carregarCursos());
     this.store.dispatch(carregarSeries());
+  }
+
+  onPaginaProfessores(pagina: number) {
+    this.paginaProfessores = pagina;
+    this.store.dispatch(carregarProfessores({ page: pagina, page_size: this.tamanhoProfessores }));
+  }
+
+  onTamanhoProfessores(tamanho: number) {
+    this.tamanhoProfessores = tamanho;
+    this.paginaProfessores = 1;
+    this.store.dispatch(carregarProfessores({ page: 1, page_size: tamanho }));
   }
 
   alternarFormulario() {

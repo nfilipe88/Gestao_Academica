@@ -124,6 +124,9 @@
         }
       </tbody>
     </table>
+    @if (paginacaoComunicados$ | async; as paginacao) {
+      <app-paginacao [estado]="paginacao" (paginaChange)="onPaginaComunicados($event)" (tamanhoChange)="onTamanhoComunicados($event)"></app-paginacao>
+    }
   </div>
 
 </div>

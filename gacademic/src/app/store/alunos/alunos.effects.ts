@@ -3,6 +3,7 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as AlunosActions from './alunos.actions';
 import { Aluno, AlunoResponsavelVinculo, Responsavel } from './alunos.models';
+import { PaginaResultado } from '../../shared/models/paginacao.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -14,8 +15,13 @@ export class AlunosEffects {
   carregarAlunos$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AlunosActions.carregarAlunos),
-      switchMap(() => this.http.get<Aluno[]>('/api/v1/alunos').pipe(
-        map(alunos => AlunosActions.carregarAlunosSucesso({ alunos })),
+      switchMap(action => this.http.get<PaginaResultado<Aluno>>('/api/v1/alunos', {
+        params: { page: action.page ?? 1, page_size: action.page_size ?? 25 }
+      }).pipe(
+        map(resp => AlunosActions.carregarAlunosSucesso({
+          alunos: resp.items,
+          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+        })),
         catchError(err => of(AlunosActions.alunosOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar os alunos.'
         })))
@@ -32,7 +38,7 @@ export class AlunosEffects {
         data_nascimento: action.data_nascimento,
         numero_documento: action.numero_documento
       }).pipe(
-        map(() => AlunosActions.carregarAlunos()), // Atualiza a lista após criar
+        map(() => AlunosActions.carregarAlunos({})), // Atualiza a lista após criar
         catchError(err => of(AlunosActions.alunosOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível criar o aluno.'
         })))
@@ -44,8 +50,13 @@ export class AlunosEffects {
   carregarResponsaveis$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AlunosActions.carregarResponsaveis),
-      switchMap(() => this.http.get<Responsavel[]>('/api/v1/responsaveis').pipe(
-        map(responsaveis => AlunosActions.carregarResponsaveisSucesso({ responsaveis })),
+      switchMap(action => this.http.get<PaginaResultado<Responsavel>>('/api/v1/responsaveis', {
+        params: { page: action.page ?? 1, page_size: action.page_size ?? 25 }
+      }).pipe(
+        map(resp => AlunosActions.carregarResponsaveisSucesso({
+          responsaveis: resp.items,
+          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+        })),
         catchError(err => of(AlunosActions.alunosOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar os responsáveis.'
         })))
@@ -62,7 +73,7 @@ export class AlunosEffects {
         numero_documento: action.numero_documento,
         email: action.email
       }).pipe(
-        map(() => AlunosActions.carregarResponsaveis()), // Atualiza a lista após criar
+        map(() => AlunosActions.carregarResponsaveis({})), // Atualiza a lista após criar
         catchError(err => of(AlunosActions.alunosOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível criar o responsável.'
         })))
@@ -109,7 +120,7 @@ export class AlunosEffects {
         palavra_passe: action.palavra_passe
       }).pipe(
         switchMap(resp => [
-          AlunosActions.carregarAlunos(),
+          AlunosActions.carregarAlunos({}),
           AlunosActions.alunosOperacaoSucesso({ mensagem: resp.mensagem })
         ]),
         catchError(err => of(AlunosActions.alunosOperacaoFalhou({
@@ -127,7 +138,7 @@ export class AlunosEffects {
         palavra_passe: action.palavra_passe
       }).pipe(
         switchMap(resp => [
-          AlunosActions.carregarResponsaveis(),
+          AlunosActions.carregarResponsaveis({}),
           AlunosActions.alunosOperacaoSucesso({ mensagem: resp.mensagem })
         ]),
         catchError(err => of(AlunosActions.alunosOperacaoFalhou({

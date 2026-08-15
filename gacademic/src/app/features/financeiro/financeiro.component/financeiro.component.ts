@@ -61,7 +61,7 @@ export class FinanceiroComponent implements OnInit {
   pagamentoCanceladoLocalmente = false;
 
   ngOnInit() {
-    this.store.dispatch(carregarAlunos());
+    this.store.dispatch(carregarAlunos({ page_size: 100 })); // povoa um <select>, ver nota em transferencias.component.ts
 
     // Depois do PayPal redirecionar de volta (ver return_url/cancel_url
     // gerados em POST /financeiro/faturas/{id}/gerar-cobranca), a página

@@ -1,10 +1,14 @@
 import { createAction, props } from '@ngrx/store';
 import { Alocacao, Professor } from './professores.models';
+import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
-export const carregarProfessores = createAction('[Professores] Carregar Professores');
+export const carregarProfessores = createAction(
+  '[Professores] Carregar Professores',
+  props<{ page?: number, page_size?: number }>()
+);
 export const carregarProfessoresSucesso = createAction(
   '[Professores] Carregar Professores Sucesso',
-  props<{ professores: Professor[] }>()
+  props<{ professores: Professor[], paginacao: EstadoPaginacao }>()
 );
 export const criarProfessor = createAction(
   '[Professores] Criar Professor',

@@ -107,7 +107,7 @@ export class TurmasComponent implements OnInit {
     this.store.dispatch(carregarCursos());
     this.store.dispatch(carregarSeries());
     this.store.dispatch(carregarTurmas());
-    this.store.dispatch(carregarAlunos());
+    this.store.dispatch(carregarAlunos({ page_size: 100 })); // povoa um <select>, ver nota em transferencias.component.ts
   }
 
   alternarFormulario() {

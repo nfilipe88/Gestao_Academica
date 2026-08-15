@@ -30,7 +30,11 @@ export class TransferenciasComponent implements OnInit {
 
   ngOnInit() {
     this.store.dispatch(TransferenciasActions.carregarMinhasSolicitacoes());
-    this.store.dispatch(carregarAlunos());
+    // page_size no máximo permitido (100): isto povoa um <select>, não
+    // uma tabela paginada — uma escola com mais de 100 alunos só vê os
+    // 100 primeiros aqui (limitação conhecida, fora do âmbito desta
+    // passagem; precisaria de um combo com pesquisa/autocomplete).
+    this.store.dispatch(carregarAlunos({ page_size: 100 }));
   }
 
   onSubmit() {

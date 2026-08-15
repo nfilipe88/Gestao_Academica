@@ -1,0 +1,33 @@
+<div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 text-sm">
+  <div class="flex items-center gap-2 text-slate-500">
+    <span>Mostrar</span>
+    <select (change)="onMudarTamanho($event)"
+      class="border border-slate-300 rounded-lg px-2 py-1 text-slate-700">
+      @for (tamanho of tamanhos; track tamanho) {
+        <option [value]="tamanho" [selected]="tamanho === estado.page_size">{{ tamanho }}</option>
+      }
+    </select>
+    <span>por página</span>
+  </div>
+
+  <div class="flex items-center gap-4">
+    <span class="text-slate-500">
+      @if (estado.total > 0) {
+        {{ inicio }}–{{ fim }} de {{ estado.total }}
+      } @else {
+        Sem resultados
+      }
+    </span>
+    <div class="flex items-center gap-1">
+      <button type="button" (click)="onAnterior()" [disabled]="estado.page <= 1"
+        class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors cursor-pointer">
+        Anterior
+      </button>
+      <span class="px-2 text-slate-500">{{ estado.page }} / {{ estado.total_pages || 1 }}</span>
+      <button type="button" (click)="onSeguinte()" [disabled]="estado.page >= estado.total_pages"
+        class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors cursor-pointer">
+        Seguinte
+      </button>
+    </div>
+  </div>
+</div>

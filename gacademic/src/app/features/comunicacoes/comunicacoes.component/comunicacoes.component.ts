@@ -10,11 +10,12 @@ import { selectAlunos } from '../../../store/alunos/alunos.selector';
 import { selectPerfilAcesso } from '../../../store/auth/auth.selectors';
 import { carregarComunicados, criarComunicado } from '../../../store/comunicacoes/comunicacoes.actions';
 import { DESTINATARIOS_COMUNICADO, TIPOS_COMUNICADO } from '../../../store/comunicacoes/comunicacoes.models';
-import { selectComunicacoesError, selectComunicados } from '../../../store/comunicacoes/comunicacoes.selector';
+import { selectComunicacoesError, selectComunicados, selectPaginacaoComunicados } from '../../../store/comunicacoes/comunicacoes.selector';
+import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 @Component({
   selector: 'app-comunicacoes.component',
-  imports: [ReactiveFormsModule, CommonModule, AsyncPipe],
+  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, PaginacaoComponent],
   templateUrl: './comunicacoes.component.html',
   styleUrl: './comunicacoes.component.css',
 })
@@ -29,6 +30,7 @@ export class ComunicacoesComponent implements OnInit {
   perfilAcesso$ = this.store.select(selectPerfilAcesso);
   turmas$ = this.store.select(selectTurmas);
   alunos$ = this.store.select(selectAlunos);
+  paginacaoComunicados$ = this.store.select(selectPaginacaoComunicados);
 
   // Junta cada comunicado com o nome legível do destinatário (a API só
   // devolve o id da turma/aluno, não o nome).
@@ -57,12 +59,26 @@ export class ComunicacoesComponent implements OnInit {
     destinatario_aluno_id: ['']
   });
 
+  paginaComunicados = 1;
+  tamanhoComunicados = 25;
+
   ngOnInit() {
-    this.store.dispatch(carregarComunicados());
+    this.store.dispatch(carregarComunicados({ page: this.paginaComunicados, page_size: this.tamanhoComunicados }));
     // Precisamos das turmas e alunos para os <select> de destinatário e
     // para mostrar o nome de cada um na lista de histórico.
     this.store.dispatch(carregarTurmas());
-    this.store.dispatch(carregarAlunos());
+    this.store.dispatch(carregarAlunos({ page_size: 100 })); // povoa um <select>, ver nota em transferencias.component.ts
+  }
+
+  onPaginaComunicados(pagina: number) {
+    this.paginaComunicados = pagina;
+    this.store.dispatch(carregarComunicados({ page: pagina, page_size: this.tamanhoComunicados }));
+  }
+
+  onTamanhoComunicados(tamanho: number) {
+    this.tamanhoComunicados = tamanho;
+    this.paginaComunicados = 1;
+    this.store.dispatch(carregarComunicados({ page: 1, page_size: tamanho }));
   }
 
   alternarFormulario() {

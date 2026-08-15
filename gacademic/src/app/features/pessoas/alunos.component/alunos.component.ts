@@ -8,12 +8,14 @@ import {
   criarAcessoAluno, criarAcessoResponsavel, criarAluno, criarResponsavel, vincularResponsavel
 } from '../../../store/alunos/alunos.actions';
 import {
-  selectAlunos, selectAlunosError, selectAlunosMensagem, selectResponsaveis, selectVinculos
+  selectAlunos, selectAlunosError, selectAlunosMensagem, selectPaginacaoAlunos,
+  selectResponsaveis, selectVinculos
 } from '../../../store/alunos/alunos.selector';
+import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 @Component({
   selector: 'app-alunos.component',
-  imports: [ReactiveFormsModule, CommonModule, AsyncPipe],
+  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, PaginacaoComponent],
   templateUrl: './alunos.component.html',
   styleUrl: './alunos.component.css',
 })
@@ -24,6 +26,7 @@ export class AlunosComponent implements OnInit {
   erro$ = this.store.select(selectAlunosError);
   mensagem$ = this.store.select(selectAlunosMensagem);
   responsaveis$ = this.store.select(selectResponsaveis);
+  paginacaoAlunos$ = this.store.select(selectPaginacaoAlunos);
 
   // Cada aluno já com os seus responsáveis vinculados (nome e usuario_id
   // resolvidos a partir de responsavel_id — a API só devolve o vínculo em si).
@@ -82,9 +85,32 @@ export class AlunosComponent implements OnInit {
     responsavel_financeiro: [false]
   });
 
+  // Página/tamanho atuais da tabela de Alunos, guardados aqui para os
+  // reenviarmos ao criar um novo registo (o effect volta sempre à
+  // página 1, mas se o utilizador tinha escolhido "50 por página" isso
+  // deve manter-se).
+  paginaAlunos = 1;
+  tamanhoAlunos = 25;
+
   ngOnInit() {
-    this.store.dispatch(carregarAlunos());
-    this.store.dispatch(carregarResponsaveis());
+    this.store.dispatch(carregarAlunos({ page: this.paginaAlunos, page_size: this.tamanhoAlunos }));
+    // Responsáveis não tem tabela própria nesta página — só povoa o
+    // <select> de "vincular responsável" — por isso pede o máximo
+    // permitido (100) em vez de paginar (limitação conhecida para
+    // escolas com mais de 100 responsáveis, ver nota em
+    // transferencias.component.ts).
+    this.store.dispatch(carregarResponsaveis({ page_size: 100 }));
+  }
+
+  onPaginaAlunos(pagina: number) {
+    this.paginaAlunos = pagina;
+    this.store.dispatch(carregarAlunos({ page: pagina, page_size: this.tamanhoAlunos }));
+  }
+
+  onTamanhoAlunos(tamanho: number) {
+    this.tamanhoAlunos = tamanho;
+    this.paginaAlunos = 1;
+    this.store.dispatch(carregarAlunos({ page: 1, page_size: tamanho }));
   }
 
   alternarFormularioAluno() {

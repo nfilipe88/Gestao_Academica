@@ -1,10 +1,14 @@
 import { createAction, props } from '@ngrx/store';
 import { Comunicado } from './comunicacoes.models';
+import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
-export const carregarComunicados = createAction('[Comunicacoes] Carregar Comunicados');
+export const carregarComunicados = createAction(
+  '[Comunicacoes] Carregar Comunicados',
+  props<{ page?: number, page_size?: number }>()
+);
 export const carregarComunicadosSucesso = createAction(
   '[Comunicacoes] Carregar Comunicados Sucesso',
-  props<{ comunicados: Comunicado[] }>()
+  props<{ comunicados: Comunicado[], paginacao: EstadoPaginacao }>()
 );
 
 export const criarComunicado = createAction(

@@ -8,6 +8,11 @@ export const selectComunicados = createSelector(
   (state) => state.comunicados
 );
 
+export const selectPaginacaoComunicados = createSelector(
+  selectComunicacoesState,
+  (state) => state.paginacaoComunicados
+);
+
 export const selectComunicacoesError = createSelector(
   selectComunicacoesState,
   (state) => state.erro
