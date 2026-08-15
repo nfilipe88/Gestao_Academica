@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
@@ -29,11 +29,13 @@ async def criar_aluno(
 
 @router.get("/alunos")
 async def listar_alunos(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
 ):
-    """Lista os alunos da escola do utilizador logado."""
-    return await crud_alunos.listar_alunos(db, utilizador["tenant_id"])
+    """Lista os alunos da escola do utilizador logado, paginados."""
+    return await crud_alunos.listar_alunos(db, utilizador["tenant_id"], page, page_size)
 
 # ==========================================
 # ROTAS PARA RESPONSÁVEIS
@@ -49,11 +51,13 @@ async def criar_responsavel(
 
 @router.get("/responsaveis")
 async def listar_responsaveis(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
 ):
-    """Lista os responsáveis da escola do utilizador logado."""
-    return await crud_alunos.listar_responsaveis(db, utilizador["tenant_id"])
+    """Lista os responsáveis da escola do utilizador logado, paginados."""
+    return await crud_alunos.listar_responsaveis(db, utilizador["tenant_id"], page, page_size)
 
 # ==========================================
 # VÍNCULO ALUNO <-> RESPONSÁVEL

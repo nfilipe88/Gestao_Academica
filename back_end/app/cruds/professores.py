@@ -13,6 +13,7 @@ from app.database.models_academico import Disciplina, Turma
 from app.database.models_pessoas import Professor
 from app.database.models_diario import ProfessorTurmaDisciplina
 from app.core.security import gerar_hash_senha
+from app.core.paginacao import paginar_linhas
 from app.schemas.professores import AlocacaoCreate, ProfessorCreate
 
 
@@ -52,13 +53,15 @@ async def criar_professor(db: AsyncSession, tenant_id, dados: ProfessorCreate) -
     return novo_professor, novo_usuario
 
 
-async def listar_professores(db: AsyncSession, tenant_id) -> list[dict]:
-    resultado = await db.execute(
+async def listar_professores(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+    query = (
         select(Professor, Usuario.nome_completo, Usuario.email)
         .join(Usuario, Usuario.id == Professor.usuario_id)
         .where(Professor.tenant_id == tenant_id)
+        .order_by(Usuario.nome_completo)
     )
-    return [
+    pagina = await paginar_linhas(db, query, page, page_size)
+    pagina["items"] = [
         {
             "id": professor.id,
             "usuario_id": professor.usuario_id,
@@ -67,8 +70,9 @@ async def listar_professores(db: AsyncSession, tenant_id) -> list[dict]:
             "formacao_academica": professor.formacao_academica,
             "data_criacao": professor.data_criacao,
         }
-        for professor, nome_completo, email in resultado.all()
+        for professor, nome_completo, email in pagina["items"]
     ]
+    return pagina
 
 
 # ==========================================

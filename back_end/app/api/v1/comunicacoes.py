@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
@@ -41,8 +41,10 @@ async def criar_comunicado(
 
 @router.get("")
 async def listar_comunicados(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
 ):
-    """Lista o histórico de comunicados/convocatórias enviados pela escola."""
-    return await crud_comunicacoes.listar_comunicados(db, utilizador["tenant_id"])
+    """Lista o histórico de comunicados/convocatórias enviados pela escola, paginado."""
+    return await crud_comunicacoes.listar_comunicados(db, utilizador["tenant_id"], page, page_size)

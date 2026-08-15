@@ -12,6 +12,7 @@ import uuid
 from app.database.models import Usuario
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.core.security import gerar_hash_senha
+from app.core.paginacao import paginar
 from app.schemas.alunos import AlunoCreate, CriarAcessoRequest, ResponsavelCreate, VincularResponsavel
 
 
@@ -77,9 +78,9 @@ async def criar_aluno(db: AsyncSession, tenant_id, dados: AlunoCreate) -> Aluno:
     return novo_aluno
 
 
-async def listar_alunos(db: AsyncSession, tenant_id) -> list[Aluno]:
-    resultado = await db.execute(select(Aluno).where(Aluno.tenant_id == tenant_id))
-    return resultado.scalars().all()
+async def listar_alunos(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+    query = select(Aluno).where(Aluno.tenant_id == tenant_id).order_by(Aluno.nome_completo)
+    return await paginar(db, query, page, page_size)
 
 
 async def criar_responsavel(db: AsyncSession, tenant_id, dados: ResponsavelCreate) -> ResponsavelFinanceiroLegal:
@@ -96,11 +97,9 @@ async def criar_responsavel(db: AsyncSession, tenant_id, dados: ResponsavelCreat
     return novo_responsavel
 
 
-async def listar_responsaveis(db: AsyncSession, tenant_id) -> list[ResponsavelFinanceiroLegal]:
-    resultado = await db.execute(
-        select(ResponsavelFinanceiroLegal).where(ResponsavelFinanceiroLegal.tenant_id == tenant_id)
-    )
-    return resultado.scalars().all()
+async def listar_responsaveis(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+    query = select(ResponsavelFinanceiroLegal).where(ResponsavelFinanceiroLegal.tenant_id == tenant_id).order_by(ResponsavelFinanceiroLegal.nome_completo)
+    return await paginar(db, query, page, page_size)
 
 
 async def vincular_responsavel(

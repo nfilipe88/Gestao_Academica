@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
@@ -53,11 +53,13 @@ async def criar_professor(
 
 @router.get("")
 async def listar_professores(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
 ):
-    """Lista os professores da escola do utilizador logado."""
-    return await crud_professores.listar_professores(db, utilizador["tenant_id"])
+    """Lista os professores da escola do utilizador logado, paginados."""
+    return await crud_professores.listar_professores(db, utilizador["tenant_id"], page, page_size)
 
 # ==========================================
 # ALOCAÇÃO (Professor <-> Turma <-> Disciplina)

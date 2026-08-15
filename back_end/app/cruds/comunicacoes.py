@@ -18,6 +18,7 @@ from app.database.models_comunicacoes import Comunicado
 from app.database.models_diario import ProfessorTurmaDisciplina
 from app.schemas.comunicacoes import ComunicadoCreate
 from app.cruds import notificacoes as crud_notificacoes
+from app.core.paginacao import paginar_linhas
 
 TIPOS_VALIDOS = {"COMUNICADO", "CONVOCATORIA"}
 DESTINATARIOS_VALIDOS = {"TURMA", "ALUNO", "ESCOLA"}
@@ -276,15 +277,16 @@ async def criar_comunicado(db: AsyncSession, utilizador: dict, dados: Comunicado
     return novo_comunicado, emails
 
 
-async def listar_comunicados(db: AsyncSession, tenant_id) -> list[dict]:
-    """Lista o histórico de comunicados/convocatórias enviados pela escola."""
-    resultado = await db.execute(
+async def listar_comunicados(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+    """Lista o histórico de comunicados/convocatórias enviados pela escola, paginado."""
+    query = (
         select(Comunicado, Usuario.nome_completo)
         .outerjoin(Usuario, Usuario.id == Comunicado.autor_id)
         .where(Comunicado.tenant_id == tenant_id)
         .order_by(Comunicado.data_envio.desc())
     )
-    return [
+    pagina = await paginar_linhas(db, query, page, page_size)
+    pagina["items"] = [
         {
             "id": comunicado.id,
             "autor_nome": autor_nome or "—",
@@ -297,5 +299,6 @@ async def listar_comunicados(db: AsyncSession, tenant_id) -> list[dict]:
             "total_destinatarios": comunicado.total_destinatarios,
             "data_envio": comunicado.data_envio,
         }
-        for comunicado, autor_nome in resultado.all()
+        for comunicado, autor_nome in pagina["items"]
     ]
+    return pagina
