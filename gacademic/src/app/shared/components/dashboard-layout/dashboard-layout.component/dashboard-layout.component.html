@@ -1,9 +1,9 @@
 <div class="flex h-screen bg-slate-100">
 
-  <aside class="bg-slate-900 text-white flex flex-col transition-all duration-200 overflow-hidden"
+  <aside class="bg-slate-900 text-white flex flex-col transition-all duration-200 overflow-x-hidden min-h-0"
     [class.w-64]="!sidebarColapsada" [class.w-20]="sidebarColapsada">
 
-    <div class="p-4 flex items-center" [class.justify-between]="!sidebarColapsada" [class.justify-center]="sidebarColapsada">
+    <div class="p-4 flex items-center shrink-0" [class.justify-between]="!sidebarColapsada" [class.justify-center]="sidebarColapsada">
       @if (!sidebarColapsada) {
         <h1 class="text-xl font-bold text-blue-500 truncate">SaaS Académico</h1>
       }
@@ -20,7 +20,7 @@
       </button>
     </div>
 
-    <nav class="flex-1 px-3 space-y-1 mt-2">
+    <nav class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 space-y-1 mt-2">
 
       @if (isSuperAdmin$ | async) {
         <!-- SUPER_ADMIN só gere instituições — nenhum módulo interno de
@@ -207,7 +207,7 @@
       }
     </nav>
 
-    <div class="p-3 border-t border-slate-800">
+    <div class="p-3 border-t border-slate-800 shrink-0">
       <button (click)="onLogout()" type="button"
         class="w-full flex items-center gap-3 text-left text-rose-400 hover:text-rose-300 py-2 px-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
         [class.justify-center]="sidebarColapsada" title="Sair do Sistema">
