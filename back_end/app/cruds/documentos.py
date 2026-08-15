@@ -17,7 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import Tenant, Usuario
 from app.database.models_academico import Disciplina, Turma
 from app.database.models_diario import RegistroNota
-from app.database.models_documentos import PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola
+from app.database.models_documentos import (
+    PrecoDocumento, SolicitacaoDocumentoEmissao, SolicitacaoDocumentoEscola, TemplateDocumentoPersonalizado
+)
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, Professor, ResponsavelFinanceiroLegal
 from app.core import documentos_pdf, paypal
@@ -27,6 +29,7 @@ from app.cruds import notificacoes as crud_notificacoes
 from app.schemas.documentos import (
     EntregarFisicoRequest, PrecoDocumentoUpdate, ResponderSolicitacaoEscolaRequest,
     SolicitacaoDocumentoEmissaoCreate, SolicitacaoDocumentoEscolaCreate,
+    TemplateDocumentoPreview, TemplateDocumentoUpdate,
 )
 
 load_dotenv()
@@ -83,6 +86,128 @@ async def atualizar_preco(db: AsyncSession, tenant_id, tipo_documento: str, dado
         db.add(preco)
     await db.commit()
     return {"tipo_documento": tipo_documento, "nome": NOMES_TIPO_DOCUMENTO[tipo_documento], "preco": preco.preco, "ativo": preco.ativo}
+
+
+# ==========================================
+# A2. LAYOUTS PERSONALIZADOS POR ESCOLA (Gestor)
+# ==========================================
+# Dados fictícios usados para validar/pré-visualizar um template, sem
+# tocar em dados reais de nenhum aluno — têm de espelhar exatamente a
+# forma dos contextos que _construir_contexto_pdf() monta para cada
+# tipo (ver abaixo), para que "funciona na pré-visualização" signifique
+# mesmo "funciona na emissão real".
+_CONTEXTOS_AMOSTRA = {
+    "CERTIFICADO": {"aluno_nome": "Maria Exemplo da Silva", "numero_documento": "000000000LA000", "turma_nome": "10ª A", "ano_letivo": 2026},
+    "DECLARACAO": {"aluno_nome": "Maria Exemplo da Silva", "numero_documento": "000000000LA000", "turma_nome": "10ª A", "ano_letivo": 2026},
+    "BOLETIM": {
+        "aluno_nome": "Maria Exemplo da Silva", "turma_nome": "10ª A", "ano_letivo": 2026,
+        "notas": [
+            {"disciplina": "Matemática", "periodo": "1º Trimestre", "tipo": "Teste", "valor": 15},
+            {"disciplina": "Português", "periodo": "1º Trimestre", "tipo": "Teste", "valor": 14},
+        ],
+    },
+    "HISTORICO_ESCOLAR": {
+        "aluno_nome": "Maria Exemplo da Silva", "numero_documento": "000000000LA000", "data_nascimento": "01/01/2010",
+        "anos": [
+            {
+                "ano_letivo": 2025, "turma_nome": "9ª A", "status_matricula": "TRANSFERIDO",
+                "notas": [{"disciplina": "Matemática", "periodo": "Anual", "valor": 16}],
+            },
+            {
+                "ano_letivo": 2026, "turma_nome": "10ª A", "status_matricula": "ATIVO",
+                "notas": [{"disciplina": "Matemática", "periodo": "1º Trimestre", "valor": 15}],
+            },
+        ],
+    },
+    "OUTRO": {"aluno_nome": "Maria Exemplo da Silva", "descricao": "Descrição de exemplo do documento pedido."},
+}
+_ESCOLA_AMOSTRA = {"nome": "Nome da Escola (pré-visualização)", "razao_social": "", "nif": ""}
+
+
+def _serializar_template(tipo: str, personalizado: TemplateDocumentoPersonalizado | None) -> dict:
+    return {
+        "tipo_documento": tipo,
+        "nome": NOMES_TIPO_DOCUMENTO[tipo],
+        "personalizado": personalizado is not None,
+        "corpo_html": personalizado.corpo_html if personalizado else None,
+        "atualizado_em": personalizado.atualizado_em if personalizado else None,
+    }
+
+
+async def listar_templates(db: AsyncSession, tenant_id) -> list[dict]:
+    """Devolve os 5 tipos sempre, indicando se cada um tem (ou não) um layout próprio ativo."""
+    existentes = {
+        t.tipo_documento: t
+        for t in (await db.execute(
+            select(TemplateDocumentoPersonalizado).where(
+                TemplateDocumentoPersonalizado.tenant_id == tenant_id, TemplateDocumentoPersonalizado.ativo == True  # noqa: E712
+            )
+        )).scalars().all()
+    }
+    return [_serializar_template(tipo, existentes.get(tipo)) for tipo in sorted(TIPOS_DOCUMENTO)]
+
+
+async def guardar_template(db: AsyncSession, tenant_id, usuario_id, tipo_documento: str, dados: TemplateDocumentoUpdate) -> dict:
+    if tipo_documento not in TIPOS_DOCUMENTO:
+        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO))}.")
+    if not dados.corpo_html or not dados.corpo_html.strip():
+        raise HTTPException(status_code=400, detail="O layout não pode estar vazio.")
+
+    # Valida a sintaxe/segurança do template com dados de amostra ANTES
+    # de guardar — evita gravar um template partido que só se
+    # descobriria quando um aluno tentasse descarregar o documento real
+    # (nesse ponto o gerador já teria feito fallback silencioso, ver
+    # documentos_pdf.gerar_pdf_documento).
+    try:
+        documentos_pdf.renderizar_corpo_personalizado(dados.corpo_html, _CONTEXTOS_AMOSTRA[tipo_documento])
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Layout inválido: {exc}")
+
+    existente = (await db.execute(
+        select(TemplateDocumentoPersonalizado).where(
+            TemplateDocumentoPersonalizado.tenant_id == tenant_id, TemplateDocumentoPersonalizado.tipo_documento == tipo_documento
+        )
+    )).scalars().first()
+    if existente:
+        existente.corpo_html = dados.corpo_html
+        existente.ativo = True
+        existente.atualizado_por_usuario_id = usuario_id
+        existente.atualizado_em = datetime.now(timezone.utc)
+    else:
+        existente = TemplateDocumentoPersonalizado(
+            tenant_id=tenant_id, tipo_documento=tipo_documento, corpo_html=dados.corpo_html, atualizado_por_usuario_id=usuario_id
+        )
+        db.add(existente)
+    await db.commit()
+    await db.refresh(existente)
+    return _serializar_template(tipo_documento, existente)
+
+
+async def repor_template_padrao(db: AsyncSession, tenant_id, tipo_documento: str) -> dict:
+    if tipo_documento not in TIPOS_DOCUMENTO:
+        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO))}.")
+
+    existente = (await db.execute(
+        select(TemplateDocumentoPersonalizado).where(
+            TemplateDocumentoPersonalizado.tenant_id == tenant_id, TemplateDocumentoPersonalizado.tipo_documento == tipo_documento
+        )
+    )).scalars().first()
+    if existente:
+        await db.delete(existente)
+        await db.commit()
+    return _serializar_template(tipo_documento, None)
+
+
+async def pre_visualizar_template(db: AsyncSession, tenant_id, tipo_documento: str, dados: TemplateDocumentoPreview) -> bytes:
+    if tipo_documento not in TIPOS_DOCUMENTO:
+        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO))}.")
+    try:
+        return documentos_pdf.gerar_pdf_documento(
+            tipo_documento, _ESCOLA_AMOSTRA, _CONTEXTOS_AMOSTRA[tipo_documento],
+            corpo_html_personalizado=dados.corpo_html, exigir_personalizado=True
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Não foi possível pré-visualizar: {exc}")
 
 
 # ==========================================
@@ -337,7 +462,18 @@ async def gerar_pdf_solicitacao(db: AsyncSession, tenant_id, solicitacao_id: uui
         raise HTTPException(status_code=400, detail="O documento só pode ser gerado depois de confirmado o pagamento.")
 
     escola, contexto = await _construir_contexto_pdf(db, tenant_id, solicitacao)
-    pdf_bytes = documentos_pdf.gerar_pdf_documento(solicitacao.tipo_documento, escola, contexto)
+
+    template_personalizado = (await db.execute(
+        select(TemplateDocumentoPersonalizado).where(
+            TemplateDocumentoPersonalizado.tenant_id == tenant_id,
+            TemplateDocumentoPersonalizado.tipo_documento == solicitacao.tipo_documento,
+            TemplateDocumentoPersonalizado.ativo == True,  # noqa: E712
+        )
+    )).scalars().first()
+    pdf_bytes = documentos_pdf.gerar_pdf_documento(
+        solicitacao.tipo_documento, escola, contexto,
+        corpo_html_personalizado=template_personalizado.corpo_html if template_personalizado else None
+    )
 
     # Download digital pelo próprio aluno/responsável marca a entrega como
     # concluída automaticamente; staff a gerar para imprimir (formato

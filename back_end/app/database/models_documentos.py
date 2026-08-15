@@ -63,6 +63,37 @@ class SolicitacaoDocumentoEmissao(Base):
     data_conclusao: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class TemplateDocumentoPersonalizado(Base):
+    """
+    Layout HTML próprio de uma escola para um tipo de documento —
+    substitui apenas o "corpo" gerado por app/core/documentos_pdf.py; o
+    cabeçalho/rodapé/assinatura do envelope continuam a ser os
+    normalizados da plataforma (mantém a identidade da escola nesses
+    blocos e evita PDFs partidos por CSS de página incompleto).
+
+    Renderizado num ambiente Jinja2 "sandboxed" (SandboxedEnvironment,
+    ver app/core/documentos_pdf.py) porque o HTML vem de um Gestor, não
+    do código-fonte — sem isso um template com
+    `{{ self.__init__.__globals__ }}` conseguiria ler segredos do
+    processo (SSTI).
+    """
+    __tablename__ = "template_documento_personalizado"
+    __table_args__ = (UniqueConstraint("tenant_id", "tipo_documento", name="uq_template_documento_tenant_tipo"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+
+    # CERTIFICADO, DECLARACAO, HISTORICO_ESCOLAR, BOLETIM, OUTRO
+    tipo_documento: Mapped[str] = mapped_column(String(30), nullable=False)
+    corpo_html: Mapped[str] = mapped_column(Text, nullable=False)
+    # Permite desativar sem perder o texto (voltar ao padrão e conseguir
+    # reativar depois), em vez de apagar logo a linha.
+    ativo: Mapped[bool] = mapped_column(default=True, nullable=False)
+
+    atualizado_por_usuario_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
 class SolicitacaoDocumentoEscola(Base):
     """Pedido da escola a um Aluno, Responsável ou Professor."""
     __tablename__ = "solicitacao_documento_escola"

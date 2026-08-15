@@ -9,6 +9,7 @@ from app.cruds import documentos as crud_documentos
 from app.schemas.documentos import (
     EntregarFisicoRequest, PrecoDocumentoUpdate, ResponderSolicitacaoEscolaRequest,
     SolicitacaoDocumentoEmissaoCreate, SolicitacaoDocumentoEscolaCreate,
+    TemplateDocumentoPreview, TemplateDocumentoUpdate,
 )
 
 router = APIRouter(prefix="/api/v1/documentos", tags=["Solicitações de Documentos"])
@@ -32,6 +33,42 @@ async def atualizar_preco(
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR_PRECOS)
 ):
     return await crud_documentos.atualizar_preco(db, utilizador["tenant_id"], tipo_documento, dados)
+
+
+# ==========================================
+# A2. LAYOUTS PERSONALIZADOS POR ESCOLA
+# ==========================================
+@router.get("/templates")
+async def listar_templates(db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR_PRECOS)):
+    return await crud_documentos.listar_templates(db, utilizador["tenant_id"])
+
+
+@router.put("/templates/{tipo_documento}")
+async def guardar_template(
+    tipo_documento: str, dados: TemplateDocumentoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR_PRECOS)
+):
+    return await crud_documentos.guardar_template(db, utilizador["tenant_id"], utilizador["usuario_id"], tipo_documento, dados)
+
+
+@router.delete("/templates/{tipo_documento}")
+async def repor_template_padrao(
+    tipo_documento: str,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR_PRECOS)
+):
+    return await crud_documentos.repor_template_padrao(db, utilizador["tenant_id"], tipo_documento)
+
+
+@router.post("/templates/{tipo_documento}/pre-visualizar")
+async def pre_visualizar_template(
+    tipo_documento: str, dados: TemplateDocumentoPreview,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR_PRECOS)
+):
+    pdf_bytes = await crud_documentos.pre_visualizar_template(db, utilizador["tenant_id"], tipo_documento, dados)
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="pre-visualizacao.pdf"'}
+    )
 
 
 # ==========================================

@@ -34,3 +34,11 @@ class SolicitacaoDocumentoEscolaCreate(BaseModel):
 
 class ResponderSolicitacaoEscolaRequest(BaseModel):
     resposta_texto: str
+
+
+class TemplateDocumentoUpdate(BaseModel):
+    corpo_html: str
+
+
+class TemplateDocumentoPreview(BaseModel):
+    corpo_html: str
