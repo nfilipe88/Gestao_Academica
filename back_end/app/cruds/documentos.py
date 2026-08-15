@@ -327,6 +327,7 @@ async def gerar_cobranca_documento(db: AsyncSession, tenant_id, solicitacao_id: 
         raise HTTPException(status_code=400, detail="Esta solicitação já não está pendente de pagamento.")
 
     aluno = (await db.execute(select(Aluno).where(Aluno.id == solicitacao.aluno_id))).scalars().first()
+    moeda = (await db.execute(select(Tenant.moeda).where(Tenant.id == tenant_id))).scalar_one_or_none() or "EUR"
 
     try:
         order = await paypal.criar_order(
@@ -335,6 +336,7 @@ async def gerar_cobranca_documento(db: AsyncSession, tenant_id, solicitacao_id: 
             descricao=f"{NOMES_TIPO_DOCUMENTO.get(solicitacao.tipo_documento, solicitacao.tipo_documento)} — {aluno.nome_completo if aluno else ''}",
             return_url=f"{FRONTEND_URL}/portal?paypal_retorno=sucesso&aluno_id={solicitacao.aluno_id}&tab=documentos",
             cancel_url=f"{FRONTEND_URL}/portal?paypal_retorno=cancelado&aluno_id={solicitacao.aluno_id}&tab=documentos",
+            moeda=moeda,
         )
     except paypal.PayPalNaoConfigurado as exc:
         raise HTTPException(status_code=503, detail=str(exc))
@@ -395,7 +397,13 @@ async def _construir_contexto_pdf(db: AsyncSession, tenant_id, solicitacao: Soli
         raise HTTPException(status_code=404, detail="Aluno não encontrado.")
 
     tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
-    escola = {"nome": tenant.nome_fantasia if tenant else "", "razao_social": tenant.razao_social if tenant else "", "nif": tenant.nif if tenant else ""}
+    escola = {
+        "nome": tenant.nome_fantasia if tenant else "",
+        "razao_social": tenant.razao_social if tenant else "",
+        "nif": tenant.nif if tenant else "",
+        "morada": tenant.morada if tenant else None,
+        "contacto": " · ".join(filter(None, [tenant.telefone_contacto, tenant.email_contacto])) if tenant else None,
+    }
 
     if solicitacao.tipo_documento in ("CERTIFICADO", "DECLARACAO"):
         matricula_atual = (await db.execute(

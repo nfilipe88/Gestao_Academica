@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database.models import Tenant
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.database.models_matricula import Matricula
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade, TransacaoGateway
@@ -516,6 +517,8 @@ async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dado
         matricula_id = contrato.matricula_id if contrato else None
         sufixo_retorno = f"&matricula_id={matricula_id}" if matricula_id else ""
 
+    moeda = (await db.execute(select(Tenant.moeda).where(Tenant.id == tenant_id))).scalar_one_or_none() or "EUR"
+
     try:
         order = await paypal.criar_order(
             valor=str(valor_cobrado),
@@ -523,6 +526,7 @@ async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dado
             descricao=f"Parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas if contrato else '?'} — {aluno_nome or ''}",
             return_url=f"{FRONTEND_URL}/{pagina_retorno}?paypal_retorno=sucesso{sufixo_retorno}",
             cancel_url=f"{FRONTEND_URL}/{pagina_retorno}?paypal_retorno=cancelado{sufixo_retorno}",
+            moeda=moeda,
         )
     except paypal.PayPalNaoConfigurado as exc:
         raise HTTPException(status_code=503, detail=str(exc))

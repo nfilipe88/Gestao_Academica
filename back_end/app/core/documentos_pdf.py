@@ -66,6 +66,8 @@ _ENVELOPE = Template("""
   <div class="cabecalho">
     <h1>{{ escola_nome }}</h1>
     <p>{{ escola_razao_social }}{% if escola_nif %} — NIF {{ escola_nif }}{% endif %}</p>
+    {% if escola_morada %}<p>{{ escola_morada }}</p>{% endif %}
+    {% if escola_contacto %}<p>{{ escola_contacto }}</p>{% endif %}
   </div>
 
   <div class="titulo-documento">{{ titulo_documento }}</div>
@@ -187,7 +189,7 @@ def gerar_pdf_documento(
     corpo_html_personalizado: str | None = None, exigir_personalizado: bool = False
 ) -> bytes:
     """
-    escola: {"nome": ..., "razao_social": ..., "nif": ...}
+    escola: {"nome": ..., "razao_social": ..., "nif": ..., "morada": ..., "contacto": ...}
     contexto: dados específicos do tipo de documento (ver cada _corpo_*).
     corpo_html_personalizado: se o tenant tiver um layout próprio ativo
     para este tipo_documento (ver cruds/documentos.py), substitui o
@@ -222,6 +224,8 @@ def gerar_pdf_documento(
         escola_nome=escola.get("nome") or "",
         escola_razao_social=escola.get("razao_social") or "",
         escola_nif=escola.get("nif") or "",
+        escola_morada=escola.get("morada") or "",
+        escola_contacto=escola.get("contacto") or "",
         titulo_documento=_TITULOS.get(tipo_documento, "Documento Escolar"),
         corpo_html=corpo_html,
         data_emissao=hoje.strftime("%d/%m/%Y") if isinstance(hoje, date) else str(hoje),

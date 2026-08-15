@@ -63,11 +63,17 @@ async def _obter_token_acesso() -> str:
         return resposta.json()["access_token"]
 
 
-async def criar_order(valor: str, referencia: str, descricao: str, return_url: str, cancel_url: str) -> dict:
+async def criar_order(valor: str, referencia: str, descricao: str, return_url: str, cancel_url: str, moeda: str = "EUR") -> dict:
     """
     Cria uma PayPal Order (intent=CAPTURE) para o valor indicado (string
     com 2 casas decimais, ex: "511.65"). Devolve o payload bruto da
     resposta do PayPal — quem chama extrai o id e o link "approve".
+
+    moeda: código ISO 4217 configurado pela escola (ver
+    app/database/models.py::Tenant.moeda). Já validado no schema
+    Pydantic (ConfiguracaoTenantUpdate) contra a lista de moedas que a
+    PayPal Orders API realmente aceita — chegar aqui com um código
+    inválido só pode acontecer por corrupção direta da BD.
     """
     token = await _obter_token_acesso()
     async with httpx.AsyncClient(timeout=15) as client:
@@ -79,7 +85,7 @@ async def criar_order(valor: str, referencia: str, descricao: str, return_url: s
                 "purchase_units": [{
                     "reference_id": referencia,
                     "description": descricao[:127],
-                    "amount": {"currency_code": "EUR", "value": valor},
+                    "amount": {"currency_code": moeda, "value": valor},
                 }],
                 "application_context": {
                     "brand_name": "SaaS Gestão Académica",
