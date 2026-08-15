@@ -1,0 +1,54 @@
+<div class="relative">
+  <button type="button" (click)="alternarPainel()"
+    class="relative p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+    title="Notificações">
+    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+
+    @if ((totalNaoLidas$ | async); as totalNaoLidas) {
+      @if (totalNaoLidas > 0) {
+        <span class="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+          {{ totalNaoLidas > 9 ? '9+' : totalNaoLidas }}
+        </span>
+      }
+    }
+  </button>
+
+  @if (painelAberto) {
+    <div class="absolute right-0 mt-2 w-96 max-w-[90vw] bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <h3 class="font-semibold text-slate-800 text-sm">Notificações</h3>
+        @if ((totalNaoLidas$ | async); as totalNaoLidas) {
+          @if (totalNaoLidas > 0) {
+            <button type="button" (click)="marcarTodasComoLidas($event)"
+              class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
+              Marcar todas como lidas
+            </button>
+          }
+        }
+      </div>
+
+      <div class="max-h-96 overflow-y-auto">
+        @if ((notificacoes$ | async); as notificacoes) {
+          @if (notificacoes.length === 0) {
+            <p class="text-sm text-slate-400 text-center py-8 px-4">Sem notificações por agora.</p>
+          } @else {
+            @for (notificacao of notificacoes; track notificacao.id) {
+              <button type="button" (click)="abrirNotificacao(notificacao)"
+                class="w-full text-left px-4 py-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors cursor-pointer flex gap-2.5"
+                [class.bg-blue-50]="!notificacao.lida">
+                <span class="mt-1.5 w-2 h-2 rounded-full shrink-0" [class.bg-blue-600]="!notificacao.lida" [class.bg-transparent]="notificacao.lida"></span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-medium text-slate-800 truncate">{{ notificacao.titulo }}</span>
+                  <span class="block text-xs text-slate-500 line-clamp-2 mt-0.5">{{ notificacao.mensagem }}</span>
+                  <span class="block text-[11px] text-slate-400 mt-1">{{ notificacao.data_criacao | date:'dd/MM/yyyy HH:mm' }}</span>
+                </span>
+              </button>
+            }
+          }
+        }
+      </div>
+    </div>
+  }
+</div>

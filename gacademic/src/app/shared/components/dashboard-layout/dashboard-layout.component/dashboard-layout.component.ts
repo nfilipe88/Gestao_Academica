@@ -4,10 +4,11 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { logout } from '../../../../store/auth/auth.actions';
 import { selectIsAlunoOuResponsavel, selectIsGestor, selectIsGestorOuSecretaria, selectIsSuperAdmin } from '../../../../store/auth/auth.selectors';
 import { Store } from '@ngrx/store';
+import { NotificacoesSinoComponent } from '../../notificacoes-sino/notificacoes-sino.component/notificacoes-sino.component';
 
 @Component({
   selector: 'app-dashboard-layout.component',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, AsyncPipe],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, AsyncPipe, NotificacoesSinoComponent],
   templateUrl: './dashboard-layout.component.html',
   styleUrl: './dashboard-layout.component.css',
 })
