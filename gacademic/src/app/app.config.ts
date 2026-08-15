@@ -39,6 +39,8 @@ import { documentosReducer } from './store/documentos/documentos.reducer';
 import { DocumentosEffects } from './store/documentos/documentos.effects';
 import { transferenciasReducer } from './store/transferencias/transferencias.reducer';
 import { TransferenciasEffects } from './store/transferencias/transferencias.effects';
+import { configuracoesReducer } from './store/configuracoes/configuracoes.reducer';
+import { ConfiguracoesEffects } from './store/configuracoes/configuracoes.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 
@@ -65,8 +67,9 @@ export const appConfig: ApplicationConfig = {
       indicadores: indicadoresReducer,
       notificacoes: notificacoesReducer,
       documentos: documentosReducer,
-      transferencias: transferenciasReducer
+      transferencias: transferenciasReducer,
+      configuracoes: configuracoesReducer
     }),
-    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects, AdminEffects, TarefasEffects, IndicadoresEffects, NotificacoesEffects, DocumentosEffects, TransferenciasEffects),
+    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects, AdminEffects, TarefasEffects, IndicadoresEffects, NotificacoesEffects, DocumentosEffects, TransferenciasEffects, ConfiguracoesEffects),
   ]
 };

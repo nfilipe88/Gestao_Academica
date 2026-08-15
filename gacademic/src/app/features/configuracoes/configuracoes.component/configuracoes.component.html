@@ -1,0 +1,96 @@
+<div class="space-y-6 max-w-2xl">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Configurações da Escola</h2>
+    <p class="text-slate-500 text-sm">Dados usados nas cobranças, nos documentos emitidos e em toda a plataforma.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="onGuardar()" class="space-y-6">
+
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+      <h3 class="text-sm font-semibold text-slate-800">Cobranças</h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">IBAN de destino</label>
+          <input type="text" formControlName="iban" placeholder="AO06 0000 0000 0000 0000 0000 0"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          <p class="text-xs text-slate-400 mt-1">Referência para transferência bancária — informativo, não é usado pelo PayPal.</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Moeda</label>
+          <select formControlName="moeda"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            @for (m of moedasSuportadas; track m) {
+              <option [value]="m">{{ m }}</option>
+            }
+          </select>
+          <p class="text-xs text-slate-400 mt-1">Usada em todos os preços da plataforma e nas cobranças PayPal — restrita às moedas que o PayPal aceita.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+      <h3 class="text-sm font-semibold text-slate-800">Contacto</h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Telefone</label>
+          <input type="text" formControlName="telefone_contacto" placeholder="+244 900 000 000"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">E-mail</label>
+          <input type="email" formControlName="email_contacto" placeholder="secretaria@escola.co.ao"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          @if (form.controls.email_contacto.invalid && form.controls.email_contacto.dirty) {
+            <p class="text-xs text-rose-600 mt-1">E-mail inválido.</p>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+      <h3 class="text-sm font-semibold text-slate-800">Endereço</h3>
+      <p class="text-xs text-slate-400 -mt-2">Aparece no cabeçalho dos documentos emitidos (certificados, declarações, ...).</p>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Morada</label>
+        <input type="text" formControlName="morada" placeholder="Rua, número, bairro"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Cidade</label>
+          <input type="text" formControlName="cidade"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Código postal</label>
+          <input type="text" formControlName="codigo_postal"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">País</label>
+          <input type="text" formControlName="pais"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" [disabled]="form.invalid"
+      class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+      Guardar Configurações
+    </button>
+  </form>
+
+</div>

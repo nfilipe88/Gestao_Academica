@@ -169,7 +169,7 @@
         @if (financeiro$ | async; as financeiro) {
           @if (financeiro.contrato) {
             <div class="mb-4 text-sm text-slate-600">
-              Valor total anual: <span class="font-semibold text-slate-800">{{ financeiro.contrato.valor_total_anual }}€</span>
+              Valor total anual: <span class="font-semibold text-slate-800">{{ financeiro.contrato.valor_total_anual | currency:((moeda$ | async) ?? undefined) }}</span>
               em {{ financeiro.contrato.quantidade_parcelas }} parcela(s).
             </div>
             <div class="overflow-x-auto">
@@ -189,9 +189,9 @@
                       <td class="py-3 px-4 text-slate-800 font-medium">{{ fatura.numero_parcela }}/{{ financeiro.contrato.quantidade_parcelas }}</td>
                       <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento }}</td>
                       <td class="py-3 px-4 text-right" [class.text-rose-600]="fatura.status_efetivo === 'ATRASADO'" [class.font-semibold]="fatura.status_efetivo === 'ATRASADO'">
-                        {{ fatura.valor_atualizado }}€
+                        {{ fatura.valor_atualizado | currency:((moeda$ | async) ?? undefined) }}
                         @if (fatura.status_efetivo === 'ATRASADO') {
-                          <span class="block text-xs text-rose-400">+{{ fatura.juros_aplicados }}€ juros, +{{ fatura.multa_aplicada }}€ multa ({{ fatura.dias_atraso }}d)</span>
+                          <span class="block text-xs text-rose-400">+{{ fatura.juros_aplicados | currency:((moeda$ | async) ?? undefined) }} juros, +{{ fatura.multa_aplicada | currency:((moeda$ | async) ?? undefined) }} multa ({{ fatura.dias_atraso }}d)</span>
                         }
                       </td>
                       <td class="py-3 px-4">
@@ -253,7 +253,7 @@
               <select [(ngModel)]="novoDocumentoTipo" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800">
                 @for (p of (precosDocumento$ | async); track p.tipo_documento) {
                   @if (p.ativo) {
-                    <option [value]="p.tipo_documento">{{ p.nome }} — {{ p.preco | number:'1.2-2' }}€</option>
+                    <option [value]="p.tipo_documento">{{ p.nome }} — {{ p.preco | currency:((moeda$ | async) ?? undefined) }}</option>
                   }
                 }
               </select>
@@ -295,7 +295,7 @@
                 <tr>
                   <td class="px-4 py-3 font-medium text-slate-800">{{ s.nome_tipo_documento }}{{ s.descricao_outro ? ' — ' + s.descricao_outro : '' }}</td>
                   <td class="px-4 py-3">{{ s.formato_entrega === 'DIGITAL' ? 'Digital' : 'Física' }}</td>
-                  <td class="px-4 py-3">{{ s.preco | number:'1.2-2' }}€</td>
+                  <td class="px-4 py-3">{{ s.preco | currency:((moeda$ | async) ?? undefined) }}</td>
                   <td class="px-4 py-3">
                     <span class="px-2 py-0.5 rounded-full text-xs font-medium"
                       [class.bg-amber-100]="s.status === 'PENDENTE_PAGAMENTO'" [class.text-amber-700]="s.status === 'PENDENTE_PAGAMENTO'"

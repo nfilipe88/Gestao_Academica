@@ -28,7 +28,7 @@
       </div>
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
         <p class="text-sm text-slate-500">Receita do mês</p>
-        <p class="text-3xl font-bold text-emerald-600 mt-1">{{ dados.financeiro.receita_recebida_mes_atual }}€</p>
+        <p class="text-3xl font-bold text-emerald-600 mt-1">{{ dados.financeiro.receita_recebida_mes_atual | currency:((moeda$ | async) ?? undefined) }}</p>
       </div>
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
         <p class="text-sm text-slate-500">Conversão CRM</p>
@@ -96,7 +96,7 @@
           </div>
           <div>
             <dt class="text-slate-500">Valor total em atraso</dt>
-            <dd class="text-rose-600 font-semibold text-lg">{{ dados.financeiro.valor_total_em_atraso }}€</dd>
+            <dd class="text-rose-600 font-semibold text-lg">{{ dados.financeiro.valor_total_em_atraso | currency:((moeda$ | async) ?? undefined) }}</dd>
           </div>
           <div>
             <dt class="text-slate-500">Contratos ativos</dt>

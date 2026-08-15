@@ -7,6 +7,7 @@ import { filter, take } from 'rxjs';
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
 import { selectAlunos } from '../../../store/alunos/alunos.selector';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
+import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
 import {
   capturarPagamento, carregarContratoDaMatricula, carregarMatriculasDoAluno, carregarResponsaveisDaMatricula,
   criarContrato, gerarCobranca, marcarFaturaPaga, processarReguaCobranca
@@ -39,6 +40,7 @@ export class FinanceiroComponent implements OnInit {
   erro$ = this.store.select(selectFinanceiroError);
   mensagem$ = this.store.select(selectFinanceiroMensagem);
   podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
+  moeda$ = this.store.select(selectMoeda);
 
   formasPagamento = FORMAS_PAGAMENTO;
 

@@ -7,6 +7,7 @@ import { Actions, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { filter, take } from 'rxjs';
 import { selectUsuario } from '../../../store/auth/auth.selectors';
+import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
 import { capturarPagamento, financeiroOperacaoSucesso, gerarCobranca } from '../../../store/financeiro/financeiro.actions';
 import { selectUltimaCobranca } from '../../../store/financeiro/financeiro.selector';
 import {
@@ -60,6 +61,7 @@ export class PortalComponent implements OnInit {
   solicitacoesDocumento$ = this.store.select(selectSolicitacoesEmissao);
   minhasSolicitacoesEscola$ = this.store.select(selectMinhasSolicitacoesEscola);
   erroDocumentos$ = this.store.select(selectDocumentosError);
+  moeda$ = this.store.select(selectMoeda);
 
   dias = DIAS_DA_SEMANA;
 

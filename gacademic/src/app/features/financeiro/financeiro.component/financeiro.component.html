@@ -90,7 +90,7 @@
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-sm font-medium text-slate-600 mb-1">Valor total anual (€)</label>
+                <label class="block text-sm font-medium text-slate-600 mb-1">Valor total anual ({{ moeda$ | async }})</label>
                 <input type="number" min="0.01" step="0.01" formControlName="valor_total_anual"
                   class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
               </div>
@@ -126,7 +126,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-2">
           <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <p class="text-sm text-slate-500">Valor total anual</p>
-            <p class="text-xl font-bold text-slate-800 mt-1">{{ contrato.valor_total_anual }}€</p>
+            <p class="text-xl font-bold text-slate-800 mt-1">{{ contrato.valor_total_anual | currency:((moeda$ | async) ?? undefined) }}</p>
           </div>
           <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <p class="text-sm text-slate-500">Parcelas</p>
@@ -160,11 +160,11 @@
               <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                 <td class="py-3 px-4 text-slate-800 font-medium">{{ fatura.numero_parcela }}/{{ contrato.quantidade_parcelas }}</td>
                 <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento }}</td>
-                <td class="py-3 px-4 text-slate-600 text-right">{{ fatura.valor_original }}€</td>
+                <td class="py-3 px-4 text-slate-600 text-right">{{ fatura.valor_original | currency:((moeda$ | async) ?? undefined) }}</td>
                 <td class="py-3 px-4 text-right" [class.text-rose-600]="fatura.status_efetivo === 'ATRASADO'" [class.font-semibold]="fatura.status_efetivo === 'ATRASADO'">
-                  {{ fatura.valor_atualizado }}€
+                  {{ fatura.valor_atualizado | currency:((moeda$ | async) ?? undefined) }}
                   @if (fatura.status_efetivo === 'ATRASADO') {
-                    <span class="block text-xs text-rose-400">+{{ fatura.juros_aplicados }}€ juros, +{{ fatura.multa_aplicada }}€ multa ({{ fatura.dias_atraso }}d)</span>
+                    <span class="block text-xs text-rose-400">+{{ fatura.juros_aplicados | currency:((moeda$ | async) ?? undefined) }} juros, +{{ fatura.multa_aplicada | currency:((moeda$ | async) ?? undefined) }} multa ({{ fatura.dias_atraso }}d)</span>
                   }
                 </td>
                 <td class="py-3 px-4">

@@ -3,6 +3,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { carregarIndicadores } from '../../../store/indicadores/indicadores.actions';
 import { selectIndicadores, selectIndicadoresError } from '../../../store/indicadores/indicadores.selector';
+import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
 
 @Component({
   selector: 'app-indicadores.component',
@@ -15,6 +16,7 @@ export class IndicadoresComponent implements OnInit {
 
   indicadores$ = this.store.select(selectIndicadores);
   erro$ = this.store.select(selectIndicadoresError);
+  moeda$ = this.store.select(selectMoeda);
 
   ngOnInit() {
     this.store.dispatch(carregarIndicadores());

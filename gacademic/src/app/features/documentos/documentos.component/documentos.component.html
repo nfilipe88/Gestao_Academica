@@ -66,7 +66,7 @@
               <td class="px-4 py-3 font-medium text-slate-800">{{ s.aluno_nome }}</td>
               <td class="px-4 py-3">{{ s.nome_tipo_documento }}{{ s.descricao_outro ? ' — ' + s.descricao_outro : '' }}</td>
               <td class="px-4 py-3">{{ s.formato_entrega === 'DIGITAL' ? 'Digital' : 'Física' }}</td>
-              <td class="px-4 py-3">{{ s.preco | currency:'EUR' }}</td>
+              <td class="px-4 py-3">{{ s.preco | currency:((moeda$ | async) ?? undefined) }}</td>
               <td class="px-4 py-3">
                 <span class="px-2 py-0.5 rounded-full text-xs font-medium"
                   [class.bg-amber-100]="s.status === 'PENDENTE_PAGAMENTO'" [class.text-amber-700]="s.status === 'PENDENTE_PAGAMENTO'"
@@ -116,7 +116,7 @@
         <thead class="bg-slate-50 text-slate-500 text-left">
           <tr>
             <th class="px-4 py-3">Documento</th>
-            <th class="px-4 py-3">Preço (€)</th>
+            <th class="px-4 py-3">Preço ({{ moeda$ | async }})</th>
             <th class="px-4 py-3">Disponível para pedido</th>
             <th class="px-4 py-3"></th>
           </tr>

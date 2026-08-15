@@ -101,6 +101,10 @@ export const routes: Routes = [
         path: 'indicadores',
         loadComponent: () => import('./features/indicadores/indicadores.component/indicadores.component').then((m) => m.IndicadoresComponent)
       },
+      {
+        path: 'configuracoes',
+        loadComponent: () => import('./features/configuracoes/configuracoes.component/configuracoes.component').then((m) => m.ConfiguracoesComponent)
+      },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

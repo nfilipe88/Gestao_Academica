@@ -17,6 +17,7 @@ import {
   selectSolicitacoesEmissao, selectSolicitacoesEscolaStaff, selectTemplatesDocumento
 } from '../../../store/documentos/documentos.selector';
 import { DestinatarioEscola, TemplateDocumento, VARIAVEIS_TEMPLATE } from '../../../store/documentos/documentos.models';
+import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 type Aba = 'emissao' | 'precos' | 'modelos' | 'pedidos-escola' | 'minhas-respostas';
@@ -46,6 +47,7 @@ export class DocumentosComponent implements OnInit {
   responsaveis$ = this.store.select(selectResponsaveis);
   mensagem$ = this.store.select(selectDocumentosMensagem);
   erro$ = this.store.select(selectDocumentosError);
+  moeda$ = this.store.select(selectMoeda);
 
   aba: Aba = 'emissao';
 
