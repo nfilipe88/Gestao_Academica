@@ -18,6 +18,7 @@ import {
 } from '../../../store/documentos/documentos.selector';
 import { DestinatarioEscola, TemplateDocumento, VARIAVEIS_TEMPLATE } from '../../../store/documentos/documentos.models';
 import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
+import { abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 type Aba = 'emissao' | 'precos' | 'modelos' | 'pedidos-escola' | 'minhas-respostas';
@@ -196,10 +197,7 @@ export class DocumentosComponent implements OnInit {
     this.erroPreVisualizacao = null;
     const aba = window.open('', '_blank');
     this.http.post(`/api/v1/documentos/templates/${tipo}/pre-visualizar`, { corpo_html: this.corpoEmEdicao }, { responseType: 'blob' }).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        if (aba) aba.location.href = url;
-      },
+      next: (blob) => abrirOuTransferirBlob(aba, blob, `pre-visualizacao-${tipo.toLowerCase()}.pdf`),
       error: (err: HttpErrorResponse) => {
         if (aba) aba.close();
         const corpoErro = err.error;
@@ -238,14 +236,14 @@ export class DocumentosComponent implements OnInit {
   // HttpClient/jwt.interceptor), por isso vai dar sempre 401. Em vez
   // disso, pedimos o PDF via HttpClient e abrimos o blob resultante
   // numa aba já aberta de forma síncrona no clique (evita o bloqueio de
-  // pop-up, mesmo truque do fluxo PayPal).
+  // pop-up, mesmo truque do fluxo PayPal). Se mesmo assim o browser
+  // tiver bloqueado essa aba (window.open devolve null com alguma
+  // frequência, mesmo dentro de um clique genuíno), cai para download
+  // forçado em vez de não fazer nada — ver core/utils/abrir-em-nova-aba.ts.
   onVerPdf(solicitacaoId: string) {
     const aba = window.open('', '_blank');
     this.http.get(`/api/v1/documentos/solicitacoes/${solicitacaoId}/pdf`, { responseType: 'blob' }).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        if (aba) aba.location.href = url;
-      },
+      next: (blob) => abrirOuTransferirBlob(aba, blob, `documento-${solicitacaoId}.pdf`),
       error: () => { if (aba) aba.close(); }
     });
   }

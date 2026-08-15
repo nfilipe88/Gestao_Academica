@@ -16,6 +16,7 @@ import {
   selectContrato, selectContratoCarregado, selectFaturas, selectFinanceiroError,
   selectFinanceiroMensagem, selectMatriculasDoAluno, selectResponsaveisElegiveis, selectUltimaCobranca
 } from '../../../store/financeiro/financeiro.selector';
+import { abrirOuNavegar } from '../../../core/utils/abrir-em-nova-aba';
 
 const FORMAS_PAGAMENTO = ['MANUAL', 'DINHEIRO', 'TRANSFERENCIA', 'MBWAY', 'OUTRO'];
 
@@ -148,8 +149,8 @@ export class FinanceiroComponent implements OnInit {
       take(1)
     ).subscribe(cobranca => {
       const approveUrl = cobranca?.dados_pagamento?.approve_url;
-      if (aba && approveUrl) {
-        aba.location.href = approveUrl;
+      if (approveUrl) {
+        abrirOuNavegar(aba, approveUrl);
       } else if (aba) {
         aba.close();
       }

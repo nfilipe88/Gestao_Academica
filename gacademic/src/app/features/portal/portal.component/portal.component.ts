@@ -25,6 +25,7 @@ import {
   selectSolicitacoesEmissao, selectUltimaCobrancaDocumento
 } from '../../../store/documentos/documentos.selector';
 import { SolicitacaoDocumentoEmissao } from '../../../store/documentos/documentos.models';
+import { abrirOuNavegar, abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
 
 // 1=Segunda ... 7=Domingo (ISO 8601), igual ao módulo Horários.
 const DIAS_DA_SEMANA = [
@@ -154,8 +155,8 @@ export class PortalComponent implements OnInit {
       take(1)
     ).subscribe(cobranca => {
       const approveUrl = cobranca?.dados_pagamento?.approve_url;
-      if (aba && approveUrl) {
-        aba.location.href = approveUrl;
+      if (approveUrl) {
+        abrirOuNavegar(aba, approveUrl);
       } else if (aba) {
         aba.close();
       }
@@ -197,8 +198,8 @@ export class PortalComponent implements OnInit {
       take(1)
     ).subscribe(cobranca => {
       const approveUrl = cobranca?.dados_pagamento?.approve_url;
-      if (aba && approveUrl) {
-        aba.location.href = approveUrl;
+      if (approveUrl) {
+        abrirOuNavegar(aba, approveUrl);
       } else if (aba) {
         aba.close();
       }
@@ -212,10 +213,7 @@ export class PortalComponent implements OnInit {
   onVerPdfDocumento(solicitacaoId: string) {
     const aba = window.open('', '_blank');
     this.http.get(`/api/v1/documentos/solicitacoes/${solicitacaoId}/pdf`, { responseType: 'blob' }).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        if (aba) aba.location.href = url;
-      },
+      next: (blob) => abrirOuTransferirBlob(aba, blob, `documento-${solicitacaoId}.pdf`),
       error: () => { if (aba) aba.close(); }
     });
   }
