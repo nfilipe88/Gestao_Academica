@@ -144,7 +144,9 @@ def _serializar_transacao(transacao: TransacaoGateway) -> dict:
     }
 
 
-def serializar_fatura(fatura: FaturaMensalidade, transacoes_ativas: list[TransacaoGateway] | None = None) -> dict:
+def serializar_fatura(
+    fatura: FaturaMensalidade, transacoes_ativas: list[TransacaoGateway] | None = None, pode_pagar: bool = True
+) -> dict:
     situacao = calcular_situacao_fatura(fatura)
     return {
         "id": fatura.id,
@@ -158,7 +160,33 @@ def serializar_fatura(fatura: FaturaMensalidade, transacoes_ativas: list[Transac
         "forma_pagamento": fatura.forma_pagamento,
         **situacao,
         "transacoes_ativas": [_serializar_transacao(t) for t in (transacoes_ativas or [])],
+        # RN08: só se pode pagar/cobrar a parcela mais antiga ainda
+        # pendente do contrato — nunca saltar parcelas. Para faturas já
+        # resolvidas (PAGO/CANCELADO/NEGOCIADO) isto não se aplica.
+        "pode_pagar": pode_pagar,
     }
+
+
+async def _pode_pagar_fatura(db: AsyncSession, tenant_id, fatura: FaturaMensalidade) -> bool:
+    """RN08: verdadeiro se não houver nenhuma parcela anterior (numero_parcela menor) do mesmo contrato ainda PENDENTE."""
+    if fatura.status_pagamento != "PENDENTE":
+        return True
+    parcela_anterior_em_aberto = (await db.execute(
+        select(FaturaMensalidade.id).where(
+            FaturaMensalidade.contrato_id == fatura.contrato_id,
+            FaturaMensalidade.numero_parcela < fatura.numero_parcela,
+            FaturaMensalidade.status_pagamento == "PENDENTE"
+        ).limit(1)
+    )).scalar_one_or_none()
+    return parcela_anterior_em_aberto is None
+
+
+async def _garantir_ordem_parcela(db: AsyncSession, tenant_id, fatura: FaturaMensalidade) -> None:
+    if not await _pode_pagar_fatura(db, tenant_id, fatura):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Só pode pagar/cobrar as parcelas em ordem — existe uma parcela anterior (antes da {fatura.numero_parcela}ª) ainda pendente."
+        )
 
 
 # ==========================================
@@ -323,7 +351,20 @@ async def listar_faturas_do_contrato(db: AsyncSession, tenant_id, contrato_id: u
     for t in transacoes:
         transacoes_por_fatura.setdefault(t.fatura_id, []).append(t)
 
-    return [serializar_fatura(fatura, transacoes_por_fatura.get(fatura.id)) for fatura in faturas]
+    # RN08: dentro desta lista (já ordenada por numero_parcela) só a
+    # primeira PENDENTE é pagável — não precisa de outra query por fatura.
+    primeira_pendente_vista = False
+    faturas_serializadas = []
+    for fatura in faturas:
+        if fatura.status_pagamento != "PENDENTE":
+            pode_pagar = True
+        elif not primeira_pendente_vista:
+            pode_pagar = True
+            primeira_pendente_vista = True
+        else:
+            pode_pagar = False
+        faturas_serializadas.append(serializar_fatura(fatura, transacoes_por_fatura.get(fatura.id), pode_pagar))
+    return faturas_serializadas
 
 
 # ==========================================
@@ -345,7 +386,8 @@ async def obter_fatura(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, utiliz
         )
     )).scalars().all()
 
-    return serializar_fatura(fatura, transacoes_ativas)
+    pode_pagar = await _pode_pagar_fatura(db, tenant_id, fatura)
+    return serializar_fatura(fatura, transacoes_ativas, pode_pagar)
 
 
 # ==========================================
@@ -368,6 +410,7 @@ async def marcar_fatura_paga(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, 
         raise HTTPException(status_code=400, detail="Esta fatura já está marcada como paga.")
     if fatura.status_pagamento == "CANCELADO":
         raise HTTPException(status_code=400, detail="Esta fatura está cancelada e não pode ser marcada como paga.")
+    await _garantir_ordem_parcela(db, tenant_id, fatura)
 
     situacao = calcular_situacao_fatura(fatura)
     valor_pago = dados.valor_pago if dados.valor_pago is not None else situacao["valor_atualizado"]
@@ -424,6 +467,7 @@ async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dado
     await _garantir_acesso_via_fatura(db, tenant_id, utilizador, fatura)
     if fatura.status_pagamento in ("PAGO", "CANCELADO"):
         raise HTTPException(status_code=400, detail="Esta fatura já está paga ou cancelada.")
+    await _garantir_ordem_parcela(db, tenant_id, fatura)
 
     # Idempotência: reaproveita uma cobrança do mesmo método já em aberto.
     existente = (await db.execute(

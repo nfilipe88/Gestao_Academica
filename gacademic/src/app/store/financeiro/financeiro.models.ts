@@ -56,6 +56,9 @@ export interface FaturaMensalidade {
   valor_pago_realizado: number | null;
   forma_pagamento: string | null;
   transacoes_ativas: TransacaoAtiva[];
+  // RN08: só a parcela mais antiga ainda pendente do contrato é pagável
+  // — nunca é possível saltar parcelas.
+  pode_pagar: boolean;
 }
 
 export interface CobrancaGerada {

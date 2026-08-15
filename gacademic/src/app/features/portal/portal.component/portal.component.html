@@ -200,7 +200,11 @@
                       </td>
                       <td class="py-3 px-4 text-right">
                         @if (fatura.status_efetivo !== 'PAGO' && fatura.status_efetivo !== 'CANCELADO') {
-                          @if (fatura.transacoes_ativas.length > 0) {
+                          @if (!fatura.pode_pagar) {
+                            <span class="text-xs text-slate-400" title="Pague as parcelas anteriores primeiro — as parcelas têm de ser pagas em ordem.">
+                              Aguarda parcela(s) anterior(es)
+                            </span>
+                          } @else if (fatura.transacoes_ativas.length > 0) {
                             <a [href]="fatura.transacoes_ativas[0].approve_url" target="_blank" rel="noopener"
                               class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-lg transition-colors">
                               Continuar pagamento PayPal
