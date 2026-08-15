@@ -90,6 +90,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/tarefas/tarefas.component/tarefas.component').then((m) => m.TarefasComponent)
       },
       {
+        path: 'documentos',
+        loadComponent: () => import('./features/documentos/documentos.component/documentos.component').then((m) => m.DocumentosComponent)
+      },
+      {
         path: 'indicadores',
         loadComponent: () => import('./features/indicadores/indicadores.component/indicadores.component').then((m) => m.IndicadoresComponent)
       },

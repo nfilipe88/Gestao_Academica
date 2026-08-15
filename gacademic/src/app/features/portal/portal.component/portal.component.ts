@@ -1,5 +1,7 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Actions, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
@@ -16,6 +18,12 @@ import {
   selectMeusEducandos, selectPortalError, selectTarefasDoEducando
 } from '../../../store/portal/portal.selector';
 import { HorarioAulaPortal } from '../../../store/portal/portal.models';
+import * as DocumentosActions from '../../../store/documentos/documentos.actions';
+import {
+  selectDocumentosError, selectMinhasSolicitacoesEscola, selectPrecosDocumento,
+  selectSolicitacoesEmissao, selectUltimaCobrancaDocumento
+} from '../../../store/documentos/documentos.selector';
+import { SolicitacaoDocumentoEmissao } from '../../../store/documentos/documentos.models';
 
 // 1=Segunda ... 7=Domingo (ISO 8601), igual ao módulo Horários.
 const DIAS_DA_SEMANA = [
@@ -29,7 +37,7 @@ const DIAS_DA_SEMANA = [
 
 @Component({
   selector: 'app-portal.component',
-  imports: [CommonModule, AsyncPipe],
+  imports: [CommonModule, AsyncPipe, FormsModule],
   templateUrl: './portal.component.html',
   styleUrl: './portal.component.css',
 })
@@ -38,6 +46,7 @@ export class PortalComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private actions$ = inject(Actions);
+  private http = inject(HttpClient);
 
   usuario$ = this.store.select(selectUsuario);
   educandos$ = this.store.select(selectMeusEducandos);
@@ -47,27 +56,52 @@ export class PortalComponent implements OnInit {
   tarefas$ = this.store.select(selectTarefasDoEducando);
   erro$ = this.store.select(selectPortalError);
 
+  precosDocumento$ = this.store.select(selectPrecosDocumento);
+  solicitacoesDocumento$ = this.store.select(selectSolicitacoesEmissao);
+  minhasSolicitacoesEscola$ = this.store.select(selectMinhasSolicitacoesEscola);
+  erroDocumentos$ = this.store.select(selectDocumentosError);
+
   dias = DIAS_DA_SEMANA;
 
   educandoSelecionadoId: string | null = null;
-  aba: 'horario' | 'boletim' | 'trabalhos' | 'financeiro' = 'horario';
+  aba: 'horario' | 'boletim' | 'trabalhos' | 'financeiro' | 'documentos' = 'horario';
+
+  // Formulário "Novo pedido de documento"
+  novoDocumentoTipo = 'CERTIFICADO';
+  novoDocumentoFormato: 'DIGITAL' | 'FISICA' = 'DIGITAL';
+  novoDocumentoDescricaoOutro = '';
+
+  // Resposta a pedido da escola
+  respostaEscolaAberta: string | null = null;
+  textoRespostaEscola = '';
 
   ngOnInit() {
     this.store.dispatch(carregarMeusEducandos());
+    this.store.dispatch(DocumentosActions.carregarPrecos());
+    this.store.dispatch(DocumentosActions.carregarMinhasSolicitacoesEmissao());
+    this.store.dispatch(DocumentosActions.carregarMinhasSolicitacoesEscola());
 
     // Depois do PayPal redirecionar de volta (return_url gerado em
-    // POST /financeiro/faturas/{id}/gerar-cobranca, apontado para cá
-    // quando quem paga é RESPONSAVEL/ALUNO), a página recarrega do
-    // zero — o aluno_id vem na própria URL para repormos a seleção.
+    // POST /financeiro/faturas/{id}/gerar-cobranca ou em
+    // POST /documentos/solicitacoes/{id}/gerar-cobranca, apontados para
+    // cá quando quem paga é RESPONSAVEL/ALUNO), a página recarrega do
+    // zero — o aluno_id (e, para documentos, tab=documentos) vêm na
+    // própria URL para repormos a seleção.
     const params = this.route.snapshot.queryParamMap;
     const alunoId = params.get('aluno_id');
     const retorno = params.get('paypal_retorno');
     const token = params.get('token'); // PayPal chama o order_id de "token" no redirecionamento
+    const tab = params.get('tab');
 
     if (alunoId) {
       this.onSelecionarEducando(alunoId);
     }
-    if (retorno === 'sucesso' && token && alunoId) {
+    if (tab === 'documentos') {
+      this.aba = 'documentos';
+    }
+    if (retorno === 'sucesso' && token && tab === 'documentos') {
+      this.store.dispatch(DocumentosActions.capturarPagamentoDocumento({ order_id: token }));
+    } else if (retorno === 'sucesso' && token && alunoId) {
       this.financeiro$.pipe(filter(f => !!f?.contrato), take(1)).subscribe(financeiro => {
         this.store.dispatch(capturarPagamento({ order_id: token, contrato_id: financeiro!.contrato!.id }));
         // capturarPagamento$ só atualiza store/financeiro, não
@@ -131,5 +165,68 @@ export class PortalComponent implements OnInit {
         this.store.dispatch(carregarFinanceiroDoEducando({ aluno_id: this.educandoSelecionadoId }));
       }
     });
+  }
+
+  // --- Documentos ---
+  documentosDoEducando(solicitacoes: SolicitacaoDocumentoEmissao[] | null) {
+    if (!solicitacoes || !this.educandoSelecionadoId) return [];
+    return solicitacoes.filter(s => s.aluno_id === this.educandoSelecionadoId);
+  }
+
+  onCriarSolicitacaoDocumento() {
+    if (!this.educandoSelecionadoId) return;
+    this.store.dispatch(DocumentosActions.criarSolicitacaoEmissao({
+      tipo_documento: this.novoDocumentoTipo, formato_entrega: this.novoDocumentoFormato,
+      descricao_outro: this.novoDocumentoTipo === 'OUTRO' ? this.novoDocumentoDescricaoOutro : undefined,
+      aluno_id: this.educandoSelecionadoId,
+    }));
+    this.novoDocumentoDescricaoOutro = '';
+  }
+
+  onPagarDocumentoComPayPal(solicitacaoId: string) {
+    // Mesmo padrão de onPagarComPayPal: abre a aba já no clique para o
+    // browser não bloquear como pop-up (a approve_url só chega depois,
+    // de forma assíncrona).
+    const aba = window.open('', '_blank');
+    this.store.dispatch(DocumentosActions.gerarCobrancaDocumento({ solicitacao_id: solicitacaoId }));
+
+    this.store.select(selectUltimaCobrancaDocumento).pipe(
+      filter(cobranca => !!cobranca && cobranca.solicitacao_id === solicitacaoId),
+      take(1)
+    ).subscribe(cobranca => {
+      const approveUrl = cobranca?.dados_pagamento?.approve_url;
+      if (aba && approveUrl) {
+        aba.location.href = approveUrl;
+      } else if (aba) {
+        aba.close();
+      }
+    });
+  }
+
+  // Ver nota equivalente em documentos.component.ts::onVerPdf — um <a
+  // href> normal não envia o Bearer token (não passa pelo
+  // HttpClient/jwt.interceptor), por isso o PDF tem de ser pedido via
+  // HttpClient e aberto como blob.
+  onVerPdfDocumento(solicitacaoId: string) {
+    const aba = window.open('', '_blank');
+    this.http.get(`/api/v1/documentos/solicitacoes/${solicitacaoId}/pdf`, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        if (aba) aba.location.href = url;
+      },
+      error: () => { if (aba) aba.close(); }
+    });
+  }
+
+  // --- Pedidos da escola (respondo eu, ALUNO/RESPONSAVEL) ---
+  onAbrirRespostaEscola(solicitacaoId: string) {
+    this.respostaEscolaAberta = solicitacaoId;
+    this.textoRespostaEscola = '';
+  }
+
+  onEnviarRespostaEscola(solicitacaoId: string) {
+    if (!this.textoRespostaEscola.trim()) return;
+    this.store.dispatch(DocumentosActions.responderSolicitacaoEscola({ solicitacao_id: solicitacaoId, resposta_texto: this.textoRespostaEscola }));
+    this.respostaEscolaAberta = null;
   }
 }

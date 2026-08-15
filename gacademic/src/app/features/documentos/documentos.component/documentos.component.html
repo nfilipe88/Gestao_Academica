@@ -1,0 +1,274 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Solicitações de Documentos</h2>
+    <p class="text-slate-500 text-sm">Pedidos de emissão de documentos e pedidos da escola a alunos/responsáveis/professores.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  <div class="flex gap-1 border-b border-slate-200">
+    @if (souGestorOuSecretaria) {
+      <button type="button" (click)="irParaAba('emissao')"
+        class="px-4 py-2 text-sm font-medium rounded-t-lg cursor-pointer"
+        [class.text-blue-600]="aba === 'emissao'" [class.border-b-2]="aba === 'emissao'" [class.border-blue-600]="aba === 'emissao'"
+        [class.text-slate-500]="aba !== 'emissao'">Pedidos de Emissão</button>
+    }
+
+    @if ((perfil$ | async) === 'GESTOR') {
+      <button type="button" (click)="irParaAba('precos')"
+        class="px-4 py-2 text-sm font-medium rounded-t-lg cursor-pointer"
+        [class.text-blue-600]="aba === 'precos'" [class.border-b-2]="aba === 'precos'" [class.border-blue-600]="aba === 'precos'"
+        [class.text-slate-500]="aba !== 'precos'">Preços</button>
+    }
+
+    @if (souGestorOuSecretaria) {
+      <button type="button" (click)="irParaAba('pedidos-escola')"
+        class="px-4 py-2 text-sm font-medium rounded-t-lg cursor-pointer"
+        [class.text-blue-600]="aba === 'pedidos-escola'" [class.border-b-2]="aba === 'pedidos-escola'" [class.border-blue-600]="aba === 'pedidos-escola'"
+        [class.text-slate-500]="aba !== 'pedidos-escola'">Pedidos à Escola</button>
+    }
+
+    <button type="button" (click)="irParaAba('minhas-respostas')"
+      class="px-4 py-2 text-sm font-medium rounded-t-lg cursor-pointer"
+      [class.text-blue-600]="aba === 'minhas-respostas'" [class.border-b-2]="aba === 'minhas-respostas'" [class.border-blue-600]="aba === 'minhas-respostas'"
+      [class.text-slate-500]="aba !== 'minhas-respostas'">Pedidos que me Fizeram</button>
+  </div>
+
+  <!-- ABA: Pedidos de Emissão -->
+  @if (aba === 'emissao') {
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-left">
+          <tr>
+            <th class="px-4 py-3">Aluno</th>
+            <th class="px-4 py-3">Documento</th>
+            <th class="px-4 py-3">Formato</th>
+            <th class="px-4 py-3">Preço</th>
+            <th class="px-4 py-3">Estado</th>
+            <th class="px-4 py-3">Pedido em</th>
+            <th class="px-4 py-3">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (s of (solicitacoesEmissao$ | async); track s.id) {
+            <tr>
+              <td class="px-4 py-3 font-medium text-slate-800">{{ s.aluno_nome }}</td>
+              <td class="px-4 py-3">{{ s.nome_tipo_documento }}{{ s.descricao_outro ? ' — ' + s.descricao_outro : '' }}</td>
+              <td class="px-4 py-3">{{ s.formato_entrega === 'DIGITAL' ? 'Digital' : 'Física' }}</td>
+              <td class="px-4 py-3">{{ s.preco | currency:'EUR' }}</td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                  [class.bg-amber-100]="s.status === 'PENDENTE_PAGAMENTO'" [class.text-amber-700]="s.status === 'PENDENTE_PAGAMENTO'"
+                  [class.bg-blue-100]="s.status === 'PAGO'" [class.text-blue-700]="s.status === 'PAGO'"
+                  [class.bg-emerald-100]="s.status === 'ENTREGUE'" [class.text-emerald-700]="s.status === 'ENTREGUE'"
+                  [class.bg-slate-100]="s.status === 'CANCELADO'" [class.text-slate-500]="s.status === 'CANCELADO'">
+                  {{ s.status }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-slate-500">{{ s.data_solicitacao | date:'dd/MM/yyyy' }}</td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-2 items-center">
+                  @if (s.status === 'PAGO' || s.status === 'ENTREGUE') {
+                    <button type="button" (click)="onVerPdf(s.id)" class="text-blue-600 hover:text-blue-800 text-xs font-medium cursor-pointer">Ver PDF</button>
+                  }
+                  @if (s.status === 'PAGO' && s.formato_entrega === 'FISICA') {
+                    @if (solicitacaoAEntregar === s.id) {
+                      <input type="text" [(ngModel)]="observacoesEntrega" placeholder="Observações (opcional)"
+                        class="border border-slate-300 rounded px-2 py-1 text-xs" />
+                      <button type="button" (click)="onConfirmarEntrega(s.id)" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium cursor-pointer">Confirmar</button>
+                      <button type="button" (click)="solicitacaoAEntregar = null" class="text-slate-400 hover:text-slate-600 text-xs cursor-pointer">Cancelar</button>
+                    } @else {
+                      <button type="button" (click)="onAbrirEntrega(s.id)" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium cursor-pointer">Marcar entregue</button>
+                    }
+                  }
+                  @if (s.status === 'PENDENTE_PAGAMENTO' || s.status === 'PAGO') {
+                    <button type="button" (click)="onCancelarSolicitacaoEmissao(s.id)" class="text-rose-500 hover:text-rose-700 text-xs cursor-pointer">Cancelar</button>
+                  }
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Sem pedidos de documentos.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- ABA: Preços -->
+  @if (aba === 'precos') {
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-left">
+          <tr>
+            <th class="px-4 py-3">Documento</th>
+            <th class="px-4 py-3">Preço (€)</th>
+            <th class="px-4 py-3">Disponível para pedido</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (p of (precos$ | async); track p.tipo_documento) {
+            <tr>
+              <td class="px-4 py-3 font-medium text-slate-800">{{ p.nome }}</td>
+              <td class="px-4 py-3">
+                <input type="number" min="0" step="0.5" [value]="p.preco" #precoInput
+                  class="w-28 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-800" />
+              </td>
+              <td class="px-4 py-3">
+                <input type="checkbox" [checked]="p.ativo" #ativoInput class="w-4 h-4" />
+              </td>
+              <td class="px-4 py-3">
+                <button type="button"
+                  (click)="onGuardarPreco(p.tipo_documento, precoInput.valueAsNumber, ativoInput.checked)"
+                  class="text-blue-600 hover:text-blue-800 text-xs font-medium cursor-pointer">Guardar</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- ABA: Pedidos à Escola (criar + gerir) -->
+  @if (aba === 'pedidos-escola') {
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-slate-800">Pedidos feitos a alunos, responsáveis e professores</h3>
+      <button type="button" (click)="mostrarFormularioPedido = !mostrarFormularioPedido"
+        class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+        {{ mostrarFormularioPedido ? 'Cancelar' : '+ Novo Pedido' }}
+      </button>
+    </div>
+
+    @if (mostrarFormularioPedido) {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Pedir a</label>
+            <select [ngModel]="novoPedidoTipo" (ngModelChange)="onMudarTipoDestinatario($event)"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800">
+              <option value="ALUNO">Aluno</option>
+              <option value="RESPONSAVEL">Responsável</option>
+              <option value="PROFESSOR">Professor</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Destinatário</label>
+            <select [(ngModel)]="novoPedidoDestinatarioId" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800">
+              <option value="">Selecione...</option>
+              @if (novoPedidoTipo === 'ALUNO') {
+                @for (a of (alunos$ | async); track a.id) { <option [value]="a.id">{{ a.nome_completo }}</option> }
+              } @else if (novoPedidoTipo === 'RESPONSAVEL') {
+                @for (r of (responsaveis$ | async); track r.id) { <option [value]="r.id">{{ r.nome_completo }}</option> }
+              } @else {
+                @for (p of (professores$ | async); track p.id) { <option [value]="p.id">{{ p.nome_completo }}</option> }
+              }
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Título</label>
+          <input type="text" [(ngModel)]="novoPedidoTitulo" placeholder="Ex: Cópia do Cartão de Cidadão"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Descrição</label>
+          <textarea [(ngModel)]="novoPedidoDescricao" rows="2"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800"></textarea>
+        </div>
+        <button type="button" (click)="onSubmitNovoPedido()"
+          [disabled]="!novoPedidoDestinatarioId || !novoPedidoTitulo || !novoPedidoDescricao"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+          Enviar Pedido
+        </button>
+      </div>
+    }
+
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-left">
+          <tr>
+            <th class="px-4 py-3">Destinatário</th>
+            <th class="px-4 py-3">Título</th>
+            <th class="px-4 py-3">Estado</th>
+            <th class="px-4 py-3">Resposta</th>
+            <th class="px-4 py-3">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (s of (solicitacoesEscolaStaff$ | async); track s.id) {
+            <tr>
+              <td class="px-4 py-3 font-medium text-slate-800">{{ s.destinatario_nome }} <span class="text-slate-400 text-xs">({{ s.destinatario_tipo }})</span></td>
+              <td class="px-4 py-3">{{ s.titulo }}</td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                  [class.bg-amber-100]="s.status === 'PENDENTE'" [class.text-amber-700]="s.status === 'PENDENTE'"
+                  [class.bg-blue-100]="s.status === 'RESPONDIDO'" [class.text-blue-700]="s.status === 'RESPONDIDO'"
+                  [class.bg-emerald-100]="s.status === 'CONCLUIDO'" [class.text-emerald-700]="s.status === 'CONCLUIDO'">
+                  {{ s.status }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-slate-600 max-w-xs">{{ s.resposta_texto || '—' }}</td>
+              <td class="px-4 py-3">
+                @if (s.status === 'RESPONDIDO') {
+                  <button type="button" (click)="onConcluirPedidoEscola(s.id)" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium cursor-pointer">Concluir</button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Sem pedidos feitos.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- ABA: Pedidos que a escola me fez (Professor, principalmente) -->
+  @if (aba === 'minhas-respostas') {
+    <div class="space-y-4">
+      @for (s of (minhasSolicitacoesEscola$ | async); track s.id) {
+        <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
+          <div class="flex items-center justify-between">
+            <h4 class="font-semibold text-slate-800">{{ s.titulo }}</h4>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+              [class.bg-amber-100]="s.status === 'PENDENTE'" [class.text-amber-700]="s.status === 'PENDENTE'"
+              [class.bg-blue-100]="s.status === 'RESPONDIDO'" [class.text-blue-700]="s.status === 'RESPONDIDO'"
+              [class.bg-emerald-100]="s.status === 'CONCLUIDO'" [class.text-emerald-700]="s.status === 'CONCLUIDO'">
+              {{ s.status }}
+            </span>
+          </div>
+          <p class="text-sm text-slate-600 mt-1">{{ s.descricao }}</p>
+          <p class="text-xs text-slate-400 mt-1">{{ s.data_solicitacao | date:'dd/MM/yyyy' }}</p>
+
+          @if (s.status === 'PENDENTE') {
+            @if (respostaAberta === s.id) {
+              <div class="mt-3 space-y-2">
+                <textarea [(ngModel)]="textoResposta" rows="2" placeholder="Escreva a sua resposta..."
+                  class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800"></textarea>
+                <div class="flex gap-2">
+                  <button type="button" (click)="onEnviarResposta(s.id)" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg cursor-pointer">Enviar</button>
+                  <button type="button" (click)="respostaAberta = null" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">Cancelar</button>
+                </div>
+              </div>
+            } @else {
+              <button type="button" (click)="onAbrirResposta(s.id)" class="mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">Responder</button>
+            }
+          } @else if (s.resposta_texto) {
+            <p class="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 mt-3">
+              <span class="font-medium">A sua resposta:</span> {{ s.resposta_texto }}
+            </p>
+          }
+        </div>
+      } @empty {
+        <p class="text-center text-slate-400 py-8">Sem pedidos da escola.</p>
+      }
+    </div>
+  }
+
+</div>
