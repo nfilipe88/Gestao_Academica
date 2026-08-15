@@ -18,48 +18,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models_academico import Disciplina, Turma
 from app.database.models_diario import RegistroFrequencia, RegistroNota
 from app.database.models_matricula import Matricula
-from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
+from app.database.models_pessoas import Aluno
+from app.cruds import alunos as crud_alunos
 from app.cruds import financeiro as crud_financeiro
 from app.cruds import horarios as crud_horarios
 from app.cruds import tarefas as crud_tarefas
 
-
-# ==========================================
-# RESOLUÇÃO DE ACESSO (que aluno_id este login pode ver)
-# ==========================================
-async def _resolver_meus_alunos(db: AsyncSession, tenant_id, utilizador: dict) -> list[uuid.UUID]:
-    perfil = utilizador.get("perfil_acesso")
-    if perfil == "ALUNO":
-        aluno_id = (await db.execute(
-            select(Aluno.id).where(Aluno.usuario_id == utilizador["usuario_id"], Aluno.tenant_id == tenant_id)
-        )).scalar_one_or_none()
-        return [aluno_id] if aluno_id else []
-    if perfil == "RESPONSAVEL":
-        responsavel_id = (await db.execute(
-            select(ResponsavelFinanceiroLegal.id).where(
-                ResponsavelFinanceiroLegal.usuario_id == utilizador["usuario_id"],
-                ResponsavelFinanceiroLegal.tenant_id == tenant_id,
-            )
-        )).scalar_one_or_none()
-        if not responsavel_id:
-            return []
-        ids = (await db.execute(
-            select(AlunoResponsavel.aluno_id).where(AlunoResponsavel.responsavel_id == responsavel_id)
-        )).scalars().all()
-        return list(ids)
-    return []
-
-
-async def _garantir_aluno_permitido(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> Aluno:
-    permitidos = await _resolver_meus_alunos(db, tenant_id, utilizador)
-    if aluno_id not in permitidos:
-        raise HTTPException(status_code=403, detail="Sem acesso a este aluno.")
-    aluno = (await db.execute(
-        select(Aluno).where(Aluno.id == aluno_id, Aluno.tenant_id == tenant_id)
-    )).scalars().first()
-    if not aluno:
-        raise HTTPException(status_code=404, detail="Aluno não encontrado na sua instituição.")
-    return aluno
+# Resolução de acesso ("que aluno_id este login pode ver") vive em
+# cruds/alunos.py — também é precisa em Documentos (pedidos do
+# aluno/responsável), por isso deixou de estar duplicada aqui.
+_resolver_meus_alunos = crud_alunos.resolver_meus_alunos
+_garantir_aluno_permitido = crud_alunos.garantir_aluno_permitido
 
 
 async def _obter_matricula_atual(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) -> Matricula | None:
