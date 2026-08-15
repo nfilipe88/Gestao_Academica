@@ -3,6 +3,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Store } from '@ngrx/store';
+import { Actions, ofType } from '@ngrx/effects';
 import { take } from 'rxjs';
 import { selectPerfilAcesso } from '../../../store/auth/auth.selectors';
 import { carregarAlunos, carregarResponsaveis } from '../../../store/alunos/alunos.actions';
@@ -29,6 +30,7 @@ type Aba = 'emissao' | 'precos' | 'modelos' | 'pedidos-escola' | 'minhas-respost
 export class DocumentosComponent implements OnInit {
   private store = inject(Store);
   private http = inject(HttpClient);
+  private actions$ = inject(Actions);
 
   perfil$ = this.store.select(selectPerfilAcesso);
   precos$ = this.store.select(selectPrecosDocumento);
@@ -154,10 +156,24 @@ export class DocumentosComponent implements OnInit {
     this.erroPreVisualizacao = null;
   }
 
+  // Guardar pode falhar (template inválido/SSTI bloqueado pelo
+  // sandbox, ver documentos_pdf.py) — fechar o editor de forma
+  // otimista faria o Gestor perder o texto que escreveu mesmo quando
+  // o erro aparece no banner do topo, sem ligação óbvia ao cartão que
+  // estava a editar. Em vez disso, só fecha quando o efeito confirma
+  // sucesso (templateAtualizado); em caso de falha o editor e o texto
+  // ficam tal como estavam, para o Gestor corrigir e tentar de novo.
   onGuardarTemplate() {
     if (!this.templateEmEdicaoTipo || !this.corpoEmEdicao.trim()) return;
     this.store.dispatch(DocumentosActions.guardarTemplate({ tipo_documento: this.templateEmEdicaoTipo, corpo_html: this.corpoEmEdicao }));
-    this.templateEmEdicaoTipo = null;
+    this.actions$.pipe(
+      ofType(DocumentosActions.templateAtualizado, DocumentosActions.documentosOperacaoFalhou),
+      take(1)
+    ).subscribe(action => {
+      if (action.type === DocumentosActions.templateAtualizado.type) {
+        this.templateEmEdicaoTipo = null;
+      }
+    });
   }
 
   onReporPadrao(tipo_documento: string) {
