@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import List
-from sqlalchemy import String, ForeignKey, DateTime, text
+from sqlalchemy import Date, String, ForeignKey, DateTime, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -15,6 +15,12 @@ class Tenant(Base):
     razao_social: Mapped[str] = mapped_column(String(255), nullable=True)
     nif: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="ATIVO")
+    # Validade da licença de acesso à plataforma — nullable (sem data
+    # definida = sem expiração automática, ex.: o tenant interno da
+    # plataforma). Gerido pelo Super Admin; job diário do scheduler
+    # alerta a aproximar-se e suspende automaticamente ao expirar (ver
+    # app/core/scheduler.py::job_validade_licenca_diaria).
+    data_validade_licenca: Mapped[date | None] = mapped_column(Date, nullable=True)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     # Relacionamento

@@ -19,6 +19,7 @@ from sqlalchemy import select, text
 from app.database.session import AsyncSessionLocal
 from app.database.models import Tenant
 from app.cruds.financeiro import processar_regua_cobranca_do_tenant
+from app.cruds.admin import processar_validade_licencas
 from app.core.email import enviar_email
 
 logger = logging.getLogger("scheduler")
@@ -59,6 +60,27 @@ async def job_regua_de_cobranca_diaria() -> dict:
     return resumo
 
 
+async def job_validade_licenca_diaria() -> dict:
+    """
+    RN do Super Admin: escolas com data_validade_licenca definida são
+    alertadas (in-app + e-mail) nos DIAS_ALERTA_LICENCA dias antes de
+    expirar, e suspensas automaticamente (status=SUSPENSO) assim que a
+    data passa — sem exigir que o Super Admin se lembre de agir.
+    """
+    async with AsyncSessionLocal() as db:
+        try:
+            resumo = await processar_validade_licencas(db, _enviar_email_direto)
+        except Exception:
+            logger.exception("Falha ao processar a validade das licenças.")
+            return {"suspensos": 0, "alertados": 0}
+
+    logger.info(
+        "Validade de licenças diária concluída: %d escola(s) suspensa(s), %d alerta(s) enviado(s).",
+        resumo["suspensos"], resumo["alertados"]
+    )
+    return resumo
+
+
 def iniciar_scheduler() -> AsyncIOScheduler:
     """Chamado uma vez, no arranque da aplicação (ver main.py)."""
     global _scheduler
@@ -74,8 +96,17 @@ def iniciar_scheduler() -> AsyncIOScheduler:
         id="regua_cobranca_diaria",
         replace_existing=True,
     )
+    # 07:00 — antes da régua de cobrança, para uma escola recém-suspensa
+    # por licença expirada já não disparar lembretes de mensalidade no
+    # mesmo dia.
+    _scheduler.add_job(
+        job_validade_licenca_diaria,
+        trigger=CronTrigger(hour=7, minute=0),
+        id="validade_licenca_diaria",
+        replace_existing=True,
+    )
     _scheduler.start()
-    logger.info("Scheduler iniciado — régua de cobrança agendada para as 08:00 todos os dias.")
+    logger.info("Scheduler iniciado — validade de licenças às 07:00 e régua de cobrança às 08:00, todos os dias.")
     return _scheduler
 
 
