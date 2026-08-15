@@ -171,7 +171,8 @@ export class DiarioEffects {
         `/api/v1/diario/turmas/${action.turma_id}/disciplinas/${action.disciplina_id}/avaliacoes`,
         {
           periodo_avaliacao: action.periodo_avaliacao, titulo: action.titulo,
-          tipo_avaliacao: action.tipo_avaliacao, peso: action.peso, data_avaliacao: action.data_avaliacao
+          tipo_avaliacao: action.tipo_avaliacao, peso: action.peso, data_avaliacao: action.data_avaliacao,
+          objetivo_aprendizagem_id: action.objetivo_aprendizagem_id
         }
       ).pipe(
         switchMap(() => [
@@ -190,7 +191,10 @@ export class DiarioEffects {
       ofType(DiarioActions.atualizarAvaliacao),
       switchMap(action => this.http.patch<Avaliacao>(
         `/api/v1/diario/avaliacoes/${action.avaliacao_id}`,
-        { titulo: action.titulo, tipo_avaliacao: action.tipo_avaliacao, peso: action.peso, data_avaliacao: action.data_avaliacao }
+        {
+          titulo: action.titulo, tipo_avaliacao: action.tipo_avaliacao, peso: action.peso, data_avaliacao: action.data_avaliacao,
+          objetivo_aprendizagem_id: action.objetivo_aprendizagem_id
+        }
       ).pipe(
         switchMap(() => [
           DiarioActions.carregarAvaliacoes({ turma_id: action.turma_id, disciplina_id: action.disciplina_id, periodo_avaliacao: action.periodo_avaliacao }),

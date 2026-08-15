@@ -1,8 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import * as AcademicoActions from './academic.actions';
-import { Curso, Disciplina, GradeCurricular, SerieAno, Turma } from './academic.models';
+import { Curso, Disciplina, GradeCurricular, ObjetivoAprendizagem, SerieAno, Turma } from './academic.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -146,6 +146,41 @@ export class AcademicoEffects {
         map(() => AcademicoActions.carregarGradeCurricular()),
         catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível adicionar a disciplina à série.'
+        })))
+      ))
+    )
+  );
+
+  // --- OBJETIVOS DE APRENDIZAGEM ---
+  carregarObjetivosAprendizagem$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.carregarObjetivosAprendizagem),
+      switchMap(action => {
+        let params = new HttpParams();
+        if (action.disciplina_id) {
+          params = params.set('disciplina_id', action.disciplina_id);
+        }
+        return this.http.get<ObjetivoAprendizagem[]>('/api/v1/academico/objetivos-aprendizagem', { params }).pipe(
+          map(objetivos => AcademicoActions.carregarObjetivosAprendizagemSucesso({ objetivos })),
+          catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+            erro: err.error?.detail || 'Não foi possível carregar os objetivos de aprendizagem.'
+          })))
+        );
+      })
+    )
+  );
+
+  criarObjetivoAprendizagem$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.criarObjetivoAprendizagem),
+      switchMap(action => this.http.post('/api/v1/academico/objetivos-aprendizagem', {
+        disciplina_id: action.disciplina_id,
+        nome: action.nome,
+        descricao: action.descricao
+      }).pipe(
+        map(() => AcademicoActions.carregarObjetivosAprendizagem({})),
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar o objetivo de aprendizagem.'
         })))
       ))
     )

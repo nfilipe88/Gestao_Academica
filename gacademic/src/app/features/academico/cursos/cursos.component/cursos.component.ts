@@ -5,11 +5,12 @@ import { Store } from '@ngrx/store';
 import { combineLatest, map } from 'rxjs';
 import {
   adicionarDisciplinaASerie, carregarCursos, carregarDisciplinas, carregarGradeCurricular,
-  carregarSeries, criarCurso, criarDisciplina, criarSerieAno
+  carregarObjetivosAprendizagem, carregarSeries, criarCurso, criarDisciplina, criarObjetivoAprendizagem, criarSerieAno
 } from '../../../../store/academico/academic.actions';
 import {
-  selectAcademicoError, selectCursos, selectDisciplinas, selectGradeCurricular, selectSeries
+  selectAcademicoError, selectCursos, selectDisciplinas, selectGradeCurricular, selectObjetivosAprendizagem, selectSeries
 } from '../../../../store/academico/academic.selector';
+import { ObjetivoAprendizagem } from '../../../../store/academico/academic.models';
 import { selectIsGestorOuSecretaria } from '../../../../store/auth/auth.selectors';
 
 @Component({
@@ -24,6 +25,7 @@ export class CursosComponent implements OnInit {
 
   erro$ = this.store.select(selectAcademicoError);
   disciplinas$ = this.store.select(selectDisciplinas);
+  objetivos$ = this.store.select(selectObjetivosAprendizagem);
 
   // Criar/editar cursos, séries, grade curricular e disciplinas =
   // GESTOR ou SECRETARIA (ver _PODE_GERIR em academico.py).
@@ -76,12 +78,21 @@ export class CursosComponent implements OnInit {
     disciplina_id: ['', Validators.required]
   });
 
+  // Qual disciplina (na tabela "Disciplinas" no fundo da página) está
+  // com o painel de Objetivos de Aprendizagem aberto (só uma de cada vez).
+  disciplinaExpandidaId: string | null = null;
+  objetivoForm = this.fb.group({
+    nome: ['', Validators.required],
+    descricao: ['']
+  });
+
   ngOnInit() {
     // Ao abrir o ecrã, pede à Store para ir buscar os dados ao Back-end
     this.store.dispatch(carregarCursos());
     this.store.dispatch(carregarSeries());
     this.store.dispatch(carregarDisciplinas());
     this.store.dispatch(carregarGradeCurricular());
+    this.store.dispatch(carregarObjetivosAprendizagem({}));
   }
 
   alternarFormulario() {
@@ -140,5 +151,26 @@ export class CursosComponent implements OnInit {
       this.disciplinaForm.reset();
       this.mostrarFormularioDisciplina = false;
     }
+  }
+
+  alternarDisciplinaExpandida(disciplinaId: string) {
+    this.disciplinaExpandidaId = this.disciplinaExpandidaId === disciplinaId ? null : disciplinaId;
+    this.objetivoForm.reset();
+  }
+
+  objetivosDaDisciplina(objetivos: ObjetivoAprendizagem[] | null, disciplinaId: string): ObjetivoAprendizagem[] {
+    if (!objetivos) return [];
+    return objetivos.filter(o => o.disciplina_id === disciplinaId);
+  }
+
+  onSubmitObjetivo(disciplinaId: string) {
+    if (this.objetivoForm.invalid) return;
+    const { nome, descricao } = this.objetivoForm.value;
+    this.store.dispatch(criarObjetivoAprendizagem({
+      disciplina_id: disciplinaId,
+      nome: nome!,
+      descricao: descricao || null
+    }));
+    this.objetivoForm.reset();
   }
 }

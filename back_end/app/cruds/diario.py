@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 import uuid
 
-from app.database.models_academico import Disciplina, Turma
+from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turma
 from app.database.models_pessoas import Aluno, Professor
 from app.database.models_matricula import Matricula
 from app.database.models_diario import (
@@ -372,6 +372,22 @@ def _validar_tipo_avaliacao(tipo: str):
         )
 
 
+async def _validar_objetivo_aprendizagem(db: AsyncSession, tenant_id, disciplina_id: uuid.UUID, objetivo_id: uuid.UUID | None):
+    """Se indicado, o objetivo tem de existir e pertencer à mesma disciplina da avaliação — não faz sentido uma prova de Matemática apontar para um objetivo de Ciências."""
+    if objetivo_id is None:
+        return
+    objetivo = (await db.execute(
+        select(ObjetivoAprendizagem).where(
+            ObjetivoAprendizagem.id == objetivo_id,
+            ObjetivoAprendizagem.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not objetivo:
+        raise HTTPException(status_code=404, detail="Objetivo de aprendizagem não encontrado na sua instituição.")
+    if objetivo.disciplina_id != disciplina_id:
+        raise HTTPException(status_code=400, detail="Este objetivo de aprendizagem pertence a outra disciplina.")
+
+
 async def _obter_avaliacao(db: AsyncSession, tenant_id, avaliacao_id: uuid.UUID) -> Avaliacao:
     avaliacao = (await db.execute(
         select(Avaliacao).where(Avaliacao.id == avaliacao_id, Avaliacao.tenant_id == tenant_id)
@@ -472,6 +488,7 @@ async def criar_avaliacao(db: AsyncSession, utilizador: dict, turma_id: uuid.UUI
     _validar_tipo_avaliacao(dados.tipo_avaliacao)
     if dados.peso <= 0:
         raise HTTPException(status_code=400, detail="O peso da avaliação tem de ser maior que zero.")
+    await _validar_objetivo_aprendizagem(db, tenant_id, disciplina_id, dados.objetivo_aprendizagem_id)
 
     nova = Avaliacao(
         tenant_id=tenant_id,
@@ -482,6 +499,7 @@ async def criar_avaliacao(db: AsyncSession, utilizador: dict, turma_id: uuid.UUI
         tipo_avaliacao=dados.tipo_avaliacao,
         peso=dados.peso,
         data_avaliacao=dados.data_avaliacao,
+        objetivo_aprendizagem_id=dados.objetivo_aprendizagem_id,
         criado_por_usuario_id=utilizador["usuario_id"]
     )
     db.add(nova)
@@ -498,12 +516,14 @@ async def atualizar_avaliacao(db: AsyncSession, utilizador: dict, avaliacao_id: 
     _validar_tipo_avaliacao(dados.tipo_avaliacao)
     if dados.peso <= 0:
         raise HTTPException(status_code=400, detail="O peso da avaliação tem de ser maior que zero.")
+    await _validar_objetivo_aprendizagem(db, tenant_id, avaliacao.disciplina_id, dados.objetivo_aprendizagem_id)
 
     peso_mudou = avaliacao.peso != dados.peso
     avaliacao.titulo = dados.titulo.strip()
     avaliacao.tipo_avaliacao = dados.tipo_avaliacao
     avaliacao.peso = dados.peso
     avaliacao.data_avaliacao = dados.data_avaliacao
+    avaliacao.objetivo_aprendizagem_id = dados.objetivo_aprendizagem_id
 
     if peso_mudou:
         # O peso entra na fórmula da nota final — quem já tinha nota

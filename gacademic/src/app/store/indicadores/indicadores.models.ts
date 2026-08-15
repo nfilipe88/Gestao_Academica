@@ -45,9 +45,24 @@ export interface FunilCrm {
   taxa_conversao: number;
 }
 
+// Eficiência de aprendizagem por tópico do currículo (ex.: "Células"
+// em Ciências) — só inclui objetivos com pelo menos uma nota lançada.
+// Ver cruds/indicadores.py::obter_eficiencia_por_objetivo.
+export interface EficienciaObjetivo {
+  disciplina_id: string;
+  nome_disciplina: string;
+  objetivo_id: string;
+  nome_objetivo: string;
+  media_objetivo: number;
+  media_disciplina: number | null;
+  total_notas: number;
+  abaixo_da_media: boolean;
+}
+
 export interface Indicadores {
   academico: ResumoAcademico;
   desempenho_por_turma: DesempenhoTurma[];
+  eficiencia_por_objetivo: EficienciaObjetivo[];
   financeiro: ResumoFinanceiro;
   crm: FunilCrm;
 }

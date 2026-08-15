@@ -224,7 +224,17 @@
                   <input type="date" formControlName="data_avaliacao"
                     class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
                 </div>
-                <div class="md:col-span-4">
+                <div class="md:col-span-2">
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Objetivo de aprendizagem — opcional</label>
+                  <select formControlName="objetivo_aprendizagem_id"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <option value="">Nenhum (não entra no relatório de eficiência)</option>
+                    @for (objetivo of objetivosDaDisciplina(objetivos$ | async); track objetivo.id) {
+                      <option [value]="objetivo.id">{{ objetivo.nome }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="md:col-span-2 flex items-end">
                   <button type="submit" [disabled]="avaliacaoForm.invalid"
                     class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
                     {{ avaliacaoEmEdicaoId ? 'Guardar Alterações' : 'Adicionar Avaliação' }}
@@ -247,6 +257,11 @@
                       <span class="text-xs text-slate-400">peso {{ avaliacao.peso }}%</span>
                       @if (avaliacao.data_avaliacao) {
                         <span class="text-xs text-slate-400">{{ avaliacao.data_avaliacao | date: 'dd/MM/yyyy' }}</span>
+                      }
+                      @if (nomeObjetivo(objetivos$ | async, avaliacao.objetivo_aprendizagem_id); as nomeObj) {
+                        <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {{ nomeObj }}
+                        </span>
                       }
                     </div>
                     <div class="flex items-center gap-3">

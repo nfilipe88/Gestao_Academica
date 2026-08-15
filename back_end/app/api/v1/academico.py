@@ -5,7 +5,9 @@ import uuid
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
-from app.schemas.academico import CursoCreate, DisciplinaCreate, GradeCurricularCreate, SerieAnoCreate, TurmaCreate
+from app.schemas.academico import (
+    CursoCreate, DisciplinaCreate, GradeCurricularCreate, ObjetivoAprendizagemCreate, SerieAnoCreate, TurmaCreate
+)
 from app.cruds import academico as crud_academico
 
 # Quem pode criar/alterar a estrutura académica (RBAC) — leitura fica
@@ -121,3 +123,27 @@ async def listar_grade_curricular(
 ):
     """Lista a grade curricular da escola, opcionalmente filtrada por série/ano."""
     return await crud_academico.listar_grade_curricular(db, utilizador["tenant_id"], serie_ano_id)
+
+# ==========================================
+# ROTAS PARA OBJETIVOS DE APRENDIZAGEM
+# ==========================================
+# Catálogo por disciplina (ex.: "Células" em Ciências) — cada Avaliacao
+# do Diário de Classe pode apontar para um destes, para o Painel de
+# Indicadores conseguir medir a eficiência por tópico.
+@router.post("/objetivos-aprendizagem", status_code=status.HTTP_201_CREATED)
+async def criar_objetivo_aprendizagem(
+    dados: ObjetivoAprendizagemCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Cria um objetivo de aprendizagem associado a uma disciplina da escola do utilizador logado."""
+    return await crud_academico.criar_objetivo_aprendizagem(db, utilizador["tenant_id"], dados)
+
+@router.get("/objetivos-aprendizagem")
+async def listar_objetivos_aprendizagem(
+    disciplina_id: Optional[uuid.UUID] = None,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Lista os objetivos de aprendizagem da escola, opcionalmente filtrados por disciplina."""
+    return await crud_academico.listar_objetivos_aprendizagem(db, utilizador["tenant_id"], disciplina_id)

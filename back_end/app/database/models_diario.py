@@ -100,6 +100,14 @@ class Avaliacao(Base):
     peso: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=100)  # peso relativo dentro do período — não precisa somar 100 (normalizado no cálculo)
     data_avaliacao: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # Opcional: a que tópico do currículo esta avaliação corresponde
+    # (ex.: "Células"). Sem isto a avaliação continua a contar para a
+    # nota final do período normalmente — só fica de fora do relatório
+    # de eficiência por objetivo em Indicadores.
+    objetivo_aprendizagem_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("objetivo_aprendizagem.id", ondelete="SET NULL"), nullable=True
+    )
+
     criado_por_usuario_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 

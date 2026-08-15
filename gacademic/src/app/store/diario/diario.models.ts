@@ -47,6 +47,7 @@ export interface Avaliacao {
   tipo_avaliacao: TipoAvaliacao;
   peso: number;
   data_avaliacao: string | null;
+  objetivo_aprendizagem_id: string | null;
   data_criacao: string;
 }
 

@@ -175,6 +175,7 @@
         <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
           <th class="py-3 px-6 font-medium">Nome</th>
           <th class="py-3 px-6 font-medium text-right">Carga horária</th>
+          <th class="py-3 px-6 font-medium text-right">Objetivos de Aprendizagem</th>
         </tr>
       </thead>
       <tbody>
@@ -182,10 +183,53 @@
         <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
           <td class="py-3 px-6 text-slate-800 font-medium">{{ disciplina.nome }}</td>
           <td class="py-3 px-6 text-right text-slate-600">{{ disciplina.carga_horaria_total || '—' }}</td>
+          <td class="py-3 px-6 text-right">
+            <button type="button" (click)="alternarDisciplinaExpandida(disciplina.id)"
+              class="text-blue-500 hover:text-blue-700 text-sm font-medium cursor-pointer">
+              {{ disciplinaExpandidaId === disciplina.id ? 'Fechar' : 'Ver (' + objetivosDaDisciplina(objetivos$ | async, disciplina.id).length + ')' }}
+            </button>
+          </td>
         </tr>
+        @if (disciplinaExpandidaId === disciplina.id) {
+        <tr class="bg-slate-50/60 border-b border-slate-100">
+          <td colspan="3" class="px-6 pb-4 pt-1">
+            <div class="pl-3 border-l-2 border-blue-200 space-y-3">
+
+              @if (objetivosDaDisciplina(objetivos$ | async, disciplina.id).length > 0) {
+                <ul class="space-y-1.5">
+                  @for (objetivo of objetivosDaDisciplina(objetivos$ | async, disciplina.id); track objetivo.id) {
+                    <li class="text-sm">
+                      <span class="font-medium text-slate-700">{{ objetivo.nome }}</span>
+                      @if (objetivo.descricao) {
+                        <span class="text-slate-500"> — {{ objetivo.descricao }}</span>
+                      }
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="text-sm text-slate-500">Ainda não há objetivos de aprendizagem nesta disciplina.</p>
+              }
+
+              @if (podeGerir$ | async) {
+              <form [formGroup]="objetivoForm" (ngSubmit)="onSubmitObjetivo(disciplina.id)" class="flex flex-wrap gap-2 items-center">
+                <input type="text" formControlName="nome" placeholder="Ex: Células"
+                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                <input type="text" formControlName="descricao" placeholder="Descrição — opcional"
+                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 flex-1 min-w-40 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                <button type="submit" [disabled]="objetivoForm.invalid"
+                  class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors">
+                  + Adicionar
+                </button>
+              </form>
+              }
+
+            </div>
+          </td>
+        </tr>
+        }
         } @empty {
         <tr>
-          <td colspan="2" class="py-8 text-center text-slate-500">
+          <td colspan="3" class="py-8 text-center text-slate-500">
             Nenhuma disciplina registada na sua instituição.
           </td>
         </tr>

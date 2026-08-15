@@ -43,6 +43,7 @@ class AvaliacaoCreate(BaseModel):
     tipo_avaliacao: str  # "CONTINUA" | "PROVA"
     peso: Decimal = Decimal("100")
     data_avaliacao: date | None = None
+    objetivo_aprendizagem_id: uuid.UUID | None = None
 
 
 class AvaliacaoUpdate(BaseModel):
@@ -50,6 +51,7 @@ class AvaliacaoUpdate(BaseModel):
     tipo_avaliacao: str
     peso: Decimal
     data_avaliacao: date | None = None
+    objetivo_aprendizagem_id: uuid.UUID | None = None
 
 
 class NotaAvaliacaoAluno(BaseModel):

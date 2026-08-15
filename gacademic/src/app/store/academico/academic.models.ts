@@ -36,3 +36,16 @@ export interface GradeCurricular {
   serie_ano_id: string;
   disciplina_id: string;
 }
+
+// Tópico do currículo dentro de uma disciplina (ex.: "Células" em
+// Ciências) — ver models_academico.py::ObjetivoAprendizagem. Cada
+// Avaliacao do Diário (ver store/diario/diario.models.ts) pode
+// apontar para um destes, para o Painel de Indicadores conseguir
+// medir a eficiência por tópico, não só por disciplina inteira.
+export interface ObjetivoAprendizagem {
+  id: string;
+  tenant_id: string;
+  disciplina_id: string;
+  nome: string;
+  descricao: string | null;
+}

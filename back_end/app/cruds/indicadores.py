@@ -14,10 +14,10 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models_academico import Turma
+from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turma
 from app.database.models_matricula import Matricula
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
-from app.database.models_diario import RegistroNota
+from app.database.models_diario import Avaliacao, NotaAvaliacao, RegistroNota
 from app.database.models_crm import FunilEtapa, LeadCandidato, OportunidadeCRM
 from app.cruds import financeiro as crud_financeiro
 
@@ -172,12 +172,67 @@ async def obter_funil_crm(db: AsyncSession, tenant_id) -> dict:
 
 
 # ==========================================
-# E. AGREGADO GERAL DO PAINEL
+# E. EFICIÊNCIA POR OBJETIVO DE APRENDIZAGEM
+# ==========================================
+async def obter_eficiencia_por_objetivo(db: AsyncSession, tenant_id) -> list[dict]:
+    """
+    Para cada objetivo de aprendizagem (ex.: "Células" em Ciências) com
+    pelo menos uma nota lançada numa Avaliacao marcada com ele, a média
+    dessas notas comparada com a média geral da disciplina (todas as
+    avaliações da disciplina, com ou sem objetivo associado) — é isto
+    que responde "os alunos aprenderam bem X?" em vez de só "qual a
+    média a Ciências?". Avaliações sem objetivo associado não entram
+    aqui (só contam para a média geral da disciplina).
+    """
+    linhas_objetivo = (await db.execute(
+        select(
+            Disciplina.id, Disciplina.nome,
+            ObjetivoAprendizagem.id, ObjetivoAprendizagem.nome,
+            func.avg(NotaAvaliacao.valor_nota), func.count(NotaAvaliacao.id)
+        )
+        .select_from(NotaAvaliacao)
+        .join(Avaliacao, Avaliacao.id == NotaAvaliacao.avaliacao_id)
+        .join(ObjetivoAprendizagem, ObjetivoAprendizagem.id == Avaliacao.objetivo_aprendizagem_id)
+        .join(Disciplina, Disciplina.id == Avaliacao.disciplina_id)
+        .where(Avaliacao.tenant_id == tenant_id)
+        .group_by(Disciplina.id, Disciplina.nome, ObjetivoAprendizagem.id, ObjetivoAprendizagem.nome)
+        .order_by(Disciplina.nome, ObjetivoAprendizagem.nome)
+    )).all()
+
+    medias_disciplina = dict((await db.execute(
+        select(Avaliacao.disciplina_id, func.avg(NotaAvaliacao.valor_nota))
+        .select_from(NotaAvaliacao)
+        .join(Avaliacao, Avaliacao.id == NotaAvaliacao.avaliacao_id)
+        .where(Avaliacao.tenant_id == tenant_id)
+        .group_by(Avaliacao.disciplina_id)
+    )).all())
+
+    resultado = []
+    for disciplina_id, nome_disciplina, objetivo_id, nome_objetivo, media_objetivo, total_notas in linhas_objetivo:
+        media_disciplina = medias_disciplina.get(disciplina_id)
+        media_objetivo_f = round(float(media_objetivo), 2)
+        media_disciplina_f = round(float(media_disciplina), 2) if media_disciplina is not None else None
+        resultado.append({
+            "disciplina_id": disciplina_id,
+            "nome_disciplina": nome_disciplina,
+            "objetivo_id": objetivo_id,
+            "nome_objetivo": nome_objetivo,
+            "media_objetivo": media_objetivo_f,
+            "media_disciplina": media_disciplina_f,
+            "total_notas": total_notas,
+            "abaixo_da_media": media_disciplina_f is not None and media_objetivo_f < media_disciplina_f,
+        })
+    return resultado
+
+
+# ==========================================
+# F. AGREGADO GERAL DO PAINEL
 # ==========================================
 async def obter_indicadores(db: AsyncSession, tenant_id) -> dict:
     return {
         "academico": await obter_resumo_academico(db, tenant_id),
         "desempenho_por_turma": await obter_desempenho_por_turma(db, tenant_id),
+        "eficiencia_por_objetivo": await obter_eficiencia_por_objetivo(db, tenant_id),
         "financeiro": await obter_resumo_financeiro(db, tenant_id),
         "crm": await obter_funil_crm(db, tenant_id),
     }

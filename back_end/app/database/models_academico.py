@@ -1,5 +1,6 @@
 import uuid
-from sqlalchemy import String, Integer, ForeignKey, UniqueConstraint
+from datetime import datetime
+from sqlalchemy import DateTime, String, Integer, ForeignKey, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.models import Base # A nossa Base declarativa original
 
@@ -72,4 +73,28 @@ class GradeCurricular(Base):
 
     __table_args__ = (
         UniqueConstraint("serie_ano_id", "disciplina_id", name="uq_grade_serie_disciplina"),
+    )
+
+
+class ObjetivoAprendizagem(Base):
+    """Um tópico/objetivo de aprendizagem dentro de uma disciplina (ex.:
+    "Células" em Ciências) — catálogo mantido pela escola (Gestor/
+    Secretaria) para permitir agregar o desempenho dos alunos por
+    assunto, não só pela disciplina inteira. Cada Avaliacao (ver
+    models_diario.py) pode, opcionalmente, apontar para um destes —
+    é essa ligação que o Painel de Indicadores usa para responder
+    "os alunos aprenderam bem X?" em vez de só "qual a média a Ciências?".
+    """
+    __tablename__ = "objetivo_aprendizagem"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    disciplina_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disciplina.id", ondelete="CASCADE"), nullable=False)
+
+    nome: Mapped[str] = mapped_column(String(150), nullable=False)  # Ex: "Células"
+    descricao: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    __table_args__ = (
+        UniqueConstraint("disciplina_id", "nome", name="uq_objetivo_disciplina_nome"),
     )

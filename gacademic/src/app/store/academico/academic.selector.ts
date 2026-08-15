@@ -28,6 +28,11 @@ export const selectGradeCurricular = createSelector(
   (state) => state.gradeCurricular
 );
 
+export const selectObjetivosAprendizagem = createSelector(
+  selectAcademicoState,
+  (state) => state.objetivosAprendizagem
+);
+
 export const selectAcademicoError = createSelector(
   selectAcademicoState,
   (state) => state.erro

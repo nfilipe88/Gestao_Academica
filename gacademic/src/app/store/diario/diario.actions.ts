@@ -73,7 +73,8 @@ export const criarAvaliacao = createAction(
   '[Diario] Criar Avaliacao',
   props<{
     turma_id: string, disciplina_id: string, periodo_avaliacao: string,
-    titulo: string, tipo_avaliacao: TipoAvaliacao, peso: number, data_avaliacao: string | null
+    titulo: string, tipo_avaliacao: TipoAvaliacao, peso: number, data_avaliacao: string | null,
+    objetivo_aprendizagem_id: string | null
   }>()
 );
 
@@ -81,7 +82,8 @@ export const atualizarAvaliacao = createAction(
   '[Diario] Atualizar Avaliacao',
   props<{
     avaliacao_id: string, turma_id: string, disciplina_id: string, periodo_avaliacao: string,
-    titulo: string, tipo_avaliacao: TipoAvaliacao, peso: number, data_avaliacao: string | null
+    titulo: string, tipo_avaliacao: TipoAvaliacao, peso: number, data_avaliacao: string | null,
+    objetivo_aprendizagem_id: string | null
   }>()
 );
 

@@ -28,3 +28,9 @@ class DisciplinaCreate(BaseModel):
 class GradeCurricularCreate(BaseModel):
     serie_ano_id: uuid.UUID
     disciplina_id: uuid.UUID
+
+
+class ObjetivoAprendizagemCreate(BaseModel):
+    disciplina_id: uuid.UUID
+    nome: str
+    descricao: Optional[str] = None

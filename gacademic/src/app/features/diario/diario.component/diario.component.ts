@@ -6,6 +6,9 @@ import { Subscription, take } from 'rxjs';
 import { carregarAlocacoes } from '../../../store/professores/professores.actions';
 import { selectAlocacoes } from '../../../store/professores/professores.selector';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
+import { carregarObjetivosAprendizagem } from '../../../store/academico/academic.actions';
+import { selectObjetivosAprendizagem } from '../../../store/academico/academic.selector';
+import { ObjetivoAprendizagem } from '../../../store/academico/academic.models';
 import {
   apagarAvaliacao, atualizarAvaliacao, carregarAlunosDiario, carregarAvaliacoes, carregarConsolidado,
   carregarNotasAvaliacao, carregarNotasFinais, carregarPeriodos, criarAvaliacao, criarPeriodo,
@@ -36,6 +39,7 @@ export class DiarioComponent implements OnInit, OnDestroy {
   avaliacoes$ = this.store.select(selectAvaliacoes);
   notasAvaliacaoSelecionada$ = this.store.select(selectNotasAvaliacaoSelecionada);
   notasFinais$ = this.store.select(selectNotasFinais);
+  objetivos$ = this.store.select(selectObjetivosAprendizagem);
   erro$ = this.store.select(selectDiarioError);
   mensagem$ = this.store.select(selectDiarioMensagem);
   podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
@@ -59,7 +63,8 @@ export class DiarioComponent implements OnInit, OnDestroy {
     titulo: ['', Validators.required],
     tipo_avaliacao: ['PROVA' as TipoAvaliacao, Validators.required],
     peso: [100, [Validators.required, Validators.min(0.01)]],
-    data_avaliacao: ['']
+    data_avaliacao: [''],
+    objetivo_aprendizagem_id: ['']
   });
   avaliacaoAApagarId: string | null = null;
   avaliacaoExpandidaId: string | null = null;
@@ -158,7 +163,18 @@ export class DiarioComponent implements OnInit, OnDestroy {
       this.periodoNotasCarregado = null;
       this.avaliacaoExpandidaId = null;
       this.store.dispatch(carregarAlunosDiario({ turma_id: alocacao.turma_id, disciplina_id: alocacao.disciplina_id }));
+      this.store.dispatch(carregarObjetivosAprendizagem({ disciplina_id: alocacao.disciplina_id }));
     });
+  }
+
+  objetivosDaDisciplina(objetivos: ObjetivoAprendizagem[] | null): ObjetivoAprendizagem[] {
+    if (!objetivos || !this.disciplinaSelecionadaId) return [];
+    return objetivos.filter(o => o.disciplina_id === this.disciplinaSelecionadaId);
+  }
+
+  nomeObjetivo(objetivos: ObjetivoAprendizagem[] | null, objetivoId: string | null): string | null {
+    if (!objetivoId || !objetivos) return null;
+    return objetivos.find(o => o.id === objetivoId)?.nome ?? null;
   }
 
   onTogglePresenca(matriculaId: string) {
@@ -256,7 +272,7 @@ export class DiarioComponent implements OnInit, OnDestroy {
   alternarFormularioAvaliacao() {
     this.mostrarFormularioAvaliacao = !this.mostrarFormularioAvaliacao;
     this.avaliacaoEmEdicaoId = null;
-    this.avaliacaoForm.reset({ titulo: '', tipo_avaliacao: 'PROVA', peso: 100, data_avaliacao: '' });
+    this.avaliacaoForm.reset({ titulo: '', tipo_avaliacao: 'PROVA', peso: 100, data_avaliacao: '', objetivo_aprendizagem_id: '' });
   }
 
   onEditarAvaliacao(avaliacao: Avaliacao) {
@@ -266,24 +282,27 @@ export class DiarioComponent implements OnInit, OnDestroy {
       titulo: avaliacao.titulo,
       tipo_avaliacao: avaliacao.tipo_avaliacao,
       peso: avaliacao.peso,
-      data_avaliacao: avaliacao.data_avaliacao || ''
+      data_avaliacao: avaliacao.data_avaliacao || '',
+      objetivo_aprendizagem_id: avaliacao.objetivo_aprendizagem_id || ''
     });
   }
 
   onSubmitAvaliacao() {
     if (this.avaliacaoForm.invalid || !this.turmaSelecionadaId || !this.disciplinaSelecionadaId || !this.periodoNotasCarregado) return;
-    const { titulo, tipo_avaliacao, peso, data_avaliacao } = this.avaliacaoForm.value;
+    const { titulo, tipo_avaliacao, peso, data_avaliacao, objetivo_aprendizagem_id } = this.avaliacaoForm.value;
 
     if (this.avaliacaoEmEdicaoId) {
       this.store.dispatch(atualizarAvaliacao({
         avaliacao_id: this.avaliacaoEmEdicaoId,
         turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId, periodo_avaliacao: this.periodoNotasCarregado,
-        titulo: titulo!, tipo_avaliacao: tipo_avaliacao!, peso: peso!, data_avaliacao: data_avaliacao || null
+        titulo: titulo!, tipo_avaliacao: tipo_avaliacao!, peso: peso!, data_avaliacao: data_avaliacao || null,
+        objetivo_aprendizagem_id: objetivo_aprendizagem_id || null
       }));
     } else {
       this.store.dispatch(criarAvaliacao({
         turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId, periodo_avaliacao: this.periodoNotasCarregado,
-        titulo: titulo!, tipo_avaliacao: tipo_avaliacao!, peso: peso!, data_avaliacao: data_avaliacao || null
+        titulo: titulo!, tipo_avaliacao: tipo_avaliacao!, peso: peso!, data_avaliacao: data_avaliacao || null,
+        objetivo_aprendizagem_id: objetivo_aprendizagem_id || null
       }));
     }
     this.mostrarFormularioAvaliacao = false;

@@ -16,8 +16,10 @@ from sqlalchemy import select
 from typing import Optional
 import uuid
 
-from app.database.models_academico import Curso, Disciplina, GradeCurricular, SerieAno, Turma
-from app.schemas.academico import CursoCreate, DisciplinaCreate, GradeCurricularCreate, SerieAnoCreate, TurmaCreate
+from app.database.models_academico import Curso, Disciplina, GradeCurricular, ObjetivoAprendizagem, SerieAno, Turma
+from app.schemas.academico import (
+    CursoCreate, DisciplinaCreate, GradeCurricularCreate, ObjetivoAprendizagemCreate, SerieAnoCreate, TurmaCreate
+)
 
 
 # ==========================================
@@ -149,4 +151,42 @@ async def listar_grade_curricular(db: AsyncSession, tenant_id, serie_ano_id: Opt
     if serie_ano_id:
         query = query.where(GradeCurricular.serie_ano_id == serie_ano_id)
     resultado = await db.execute(query)
+    return resultado.scalars().all()
+
+
+# ==========================================
+# OBJETIVOS DE APRENDIZAGEM (catálogo por disciplina)
+# ==========================================
+# Ex.: em "Ciências" — "Células", "Sistema Solar". Cada Avaliacao (ver
+# cruds/diario.py) pode apontar para um destes, para o Painel de
+# Indicadores conseguir agregar desempenho por tópico, não só por
+# disciplina inteira.
+async def criar_objetivo_aprendizagem(db: AsyncSession, tenant_id, dados: ObjetivoAprendizagemCreate) -> ObjetivoAprendizagem:
+    disciplina = (await db.execute(
+        select(Disciplina).where(Disciplina.id == dados.disciplina_id, Disciplina.tenant_id == tenant_id)
+    )).scalars().first()
+    if not disciplina:
+        raise HTTPException(status_code=404, detail="Disciplina não encontrada na sua instituição.")
+
+    novo_objetivo = ObjetivoAprendizagem(
+        tenant_id=tenant_id,
+        disciplina_id=dados.disciplina_id,
+        nome=dados.nome.strip(),
+        descricao=dados.descricao
+    )
+    db.add(novo_objetivo)
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Já existe um objetivo de aprendizagem com este nome nesta disciplina.")
+    await db.refresh(novo_objetivo)
+    return novo_objetivo
+
+
+async def listar_objetivos_aprendizagem(db: AsyncSession, tenant_id, disciplina_id: Optional[uuid.UUID] = None) -> list[ObjetivoAprendizagem]:
+    query = select(ObjetivoAprendizagem).where(ObjetivoAprendizagem.tenant_id == tenant_id)
+    if disciplina_id:
+        query = query.where(ObjetivoAprendizagem.disciplina_id == disciplina_id)
+    resultado = await db.execute(query.order_by(ObjetivoAprendizagem.nome))
     return resultado.scalars().all()
