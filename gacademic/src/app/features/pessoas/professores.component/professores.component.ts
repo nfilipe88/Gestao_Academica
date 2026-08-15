@@ -5,6 +5,7 @@ import { Store } from '@ngrx/store';
 import { combineLatest, map } from 'rxjs';
 import { carregarCursos, carregarDisciplinas, carregarSeries, carregarTurmas } from '../../../store/academico/academic.actions';
 import { selectDisciplinas, selectTurmas } from '../../../store/academico/academic.selector';
+import { selectIsGestor, selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import { carregarAlocacoes, carregarProfessores, criarAlocacao, criarProfessor } from '../../../store/professores/professores.actions';
 import { selectAlocacoes, selectPaginacaoProfessores, selectProfessores, selectProfessoresError } from '../../../store/professores/professores.selector';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
@@ -23,6 +24,11 @@ export class ProfessoresComponent implements OnInit {
   turmas$ = this.store.select(selectTurmas);
   disciplinas$ = this.store.select(selectDisciplinas);
   paginacaoProfessores$ = this.store.select(selectPaginacaoProfessores);
+
+  // Criar conta de professor = GESTOR apenas (ver POST /professores no
+  // back-end); alocar a turma/disciplina = GESTOR ou SECRETARIA.
+  podeGerir$ = this.store.select(selectIsGestor);
+  podeAlocar$ = this.store.select(selectIsGestorOuSecretaria);
 
   // Cada professor já com as suas alocações (turma + disciplina) juntas.
   professores$ = combineLatest([

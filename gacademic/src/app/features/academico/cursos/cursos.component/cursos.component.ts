@@ -10,6 +10,7 @@ import {
 import {
   selectAcademicoError, selectCursos, selectDisciplinas, selectGradeCurricular, selectSeries
 } from '../../../../store/academico/academic.selector';
+import { selectIsGestorOuSecretaria } from '../../../../store/auth/auth.selectors';
 
 @Component({
   selector: 'app-cursos.component',
@@ -23,6 +24,10 @@ export class CursosComponent implements OnInit {
 
   erro$ = this.store.select(selectAcademicoError);
   disciplinas$ = this.store.select(selectDisciplinas);
+
+  // Criar/editar cursos, séries, grade curricular e disciplinas =
+  // GESTOR ou SECRETARIA (ver _PODE_GERIR em academico.py).
+  podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
 
   // Cada curso já com as suas Séries/Anos agrupadas, e cada série já com
   // as suas disciplinas (grade curricular) — tudo junto aqui no cliente,

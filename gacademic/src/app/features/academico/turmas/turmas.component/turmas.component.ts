@@ -11,6 +11,7 @@ import { selectAlunos } from '../../../../store/alunos/alunos.selector';
 import { atualizarStatusMatricula, carregarMatriculasDaTurma, criarMatricula } from '../../../../store/matriculas/matriculas.actions';
 import { ESTADOS_MATRICULA } from '../../../../store/matriculas/matriculas.models';
 import { selectMatriculasError, selectMatriculasPorTurma } from '../../../../store/matriculas/matriculas.selector';
+import { selectIsGestorOuSecretaria } from '../../../../store/auth/auth.selectors';
 
 @Component({
   selector: 'app-turmas.component',
@@ -28,6 +29,10 @@ export class TurmasComponent implements OnInit {
   erro$ = this.store.select(selectAcademicoError);
   matriculasErro$ = this.store.select(selectMatriculasError);
   alunos$ = this.store.select(selectAlunos);
+
+  // Criar turmas, matricular alunos e alterar status de matrícula =
+  // GESTOR ou SECRETARIA (ver _PODE_GERIR em academico.py/matriculas.py).
+  podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
 
   // Opções do <select>: cada Série/Ano com "Curso — Série" para dar
   // contexto (o back-end só devolve curso_id, não o nome do curso).

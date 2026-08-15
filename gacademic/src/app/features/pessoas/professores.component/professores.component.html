@@ -5,10 +5,12 @@
       <h2 class="text-2xl font-bold text-slate-800">Professores</h2>
       <p class="text-slate-500 text-sm">Crie contas de acesso para os professores da sua instituição.</p>
     </div>
+    @if (podeGerir$ | async) {
     <button type="button" (click)="alternarFormulario()"
       class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
       {{ mostrarFormulario ? 'Cancelar' : '+ Novo' }}
     </button>
+    }
   </div>
 
   @if (erro$ | async; as erro) {
@@ -17,7 +19,7 @@
     </div>
   }
 
-  @if (mostrarFormulario) {
+  @if (mostrarFormulario && (podeGerir$ | async)) {
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
     <h3 class="text-lg font-semibold text-slate-800 mb-4">Novo Professor</h3>
     <form [formGroup]="professorForm" (ngSubmit)="onSubmit()" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -96,6 +98,7 @@
                 <p class="text-sm text-slate-500">Ainda não lecciona nenhuma disciplina/turma.</p>
               }
 
+              @if (podeAlocar$ | async) {
               <form [formGroup]="alocarForm" (ngSubmit)="onAlocar(professor.id)" class="flex flex-wrap gap-2 items-center">
                 <select formControlName="turma_id"
                   class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
@@ -116,6 +119,7 @@
                   + Alocar
                 </button>
               </form>
+              }
 
             </div>
           </td>

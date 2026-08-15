@@ -5,10 +5,12 @@
       <h2 class="text-2xl font-bold text-slate-800">Gestão de Cursos</h2>
       <p class="text-slate-500 text-sm">Adicione e gira as estruturas curriculares da sua instituição.</p>
     </div>
+    @if (podeGerir$ | async) {
     <button type="button" (click)="alternarFormulario()"
       class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
       {{ mostrarFormulario ? 'Cancelar' : '+ Novo' }}
     </button>
+    }
   </div>
 
   @if (erro$ | async; as erro) {
@@ -17,7 +19,7 @@
     </div>
   }
 
-  @if (mostrarFormulario) {
+  @if (mostrarFormulario && (podeGerir$ | async)) {
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
     <h3 class="text-lg font-semibold text-slate-800 mb-4">Novo Curso</h3>
     <form [formGroup]="cursoForm" (ngSubmit)="onSubmit()" class="flex gap-4 items-end">
@@ -82,6 +84,7 @@
                           } @else {
                             <p class="text-xs text-slate-500">Ainda não há disciplinas nesta série.</p>
                           }
+                          @if (podeGerir$ | async) {
                           <form [formGroup]="gradeForm" (ngSubmit)="onSubmitGrade(serie.id)" class="flex gap-2 items-center">
                             <select formControlName="disciplina_id"
                               class="border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
@@ -95,6 +98,7 @@
                               + Adicionar
                             </button>
                           </form>
+                          }
                         </div>
                       }
                     </div>
@@ -104,6 +108,7 @@
                 <p class="text-sm text-slate-500">Ainda não tens séries/anos neste curso (ex: "10º Ano").</p>
               }
 
+              @if (podeGerir$ | async) {
               <form [formGroup]="serieForm" (ngSubmit)="onSubmitSerie(curso.id)" class="flex gap-2 items-center">
                 <input type="text" formControlName="nome" placeholder="Ex: 10º Ano"
                   class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
@@ -112,6 +117,7 @@
                   + Adicionar
                 </button>
               </form>
+              }
 
             </div>
           </td>
@@ -133,13 +139,15 @@
       <h2 class="text-xl font-bold text-slate-800">Disciplinas</h2>
       <p class="text-slate-500 text-sm">Catálogo de matérias da instituição — depois associe-as a uma Série/Ano acima.</p>
     </div>
+    @if (podeGerir$ | async) {
     <button type="button" (click)="alternarFormularioDisciplina()"
       class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
       {{ mostrarFormularioDisciplina ? 'Cancelar' : '+ Novo' }}
     </button>
+    }
   </div>
 
-  @if (mostrarFormularioDisciplina) {
+  @if (mostrarFormularioDisciplina && (podeGerir$ | async)) {
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
     <h3 class="text-lg font-semibold text-slate-800 mb-4">Nova Disciplina</h3>
     <form [formGroup]="disciplinaForm" (ngSubmit)="onSubmitDisciplina()" class="flex gap-4 items-end">

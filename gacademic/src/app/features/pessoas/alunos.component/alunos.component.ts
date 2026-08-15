@@ -11,6 +11,7 @@ import {
   selectAlunos, selectAlunosError, selectAlunosMensagem, selectPaginacaoAlunos,
   selectResponsaveis, selectVinculos
 } from '../../../store/alunos/alunos.selector';
+import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 @Component({
@@ -27,6 +28,10 @@ export class AlunosComponent implements OnInit {
   mensagem$ = this.store.select(selectAlunosMensagem);
   responsaveis$ = this.store.select(selectResponsaveis);
   paginacaoAlunos$ = this.store.select(selectPaginacaoAlunos);
+
+  // Criar/editar alunos, responsáveis, vínculos e acessos ao Portal =
+  // GESTOR ou SECRETARIA (ver _PODE_GERIR em alunos.py).
+  podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
 
   // Cada aluno já com os seus responsáveis vinculados (nome e usuario_id
   // resolvidos a partir de responsavel_id — a API só devolve o vínculo em si).
