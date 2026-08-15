@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
@@ -24,11 +24,12 @@ _PODE_ACEDER = exigir_perfil("SUPER_ADMIN")
 
 @router.get("/tenants")
 async def listar_tenants(
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
     """Lista todas as instituições (tenants) da plataforma, com contagens básicas de uso."""
-    return await crud_admin.listar_tenants(db)
+    return await crud_admin.listar_tenants(db, page, page_size)
 
 
 @router.patch("/tenants/{tenant_id}/status")

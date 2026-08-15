@@ -21,6 +21,7 @@ from app.database.models_documentos import PrecoDocumento, SolicitacaoDocumentoE
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, Professor, ResponsavelFinanceiroLegal
 from app.core import documentos_pdf, paypal
+from app.core.paginacao import paginar, paginar_linhas
 from app.cruds import alunos as crud_alunos
 from app.cruds import notificacoes as crud_notificacoes
 from app.schemas.documentos import (
@@ -182,14 +183,16 @@ async def listar_minhas_solicitacoes_emissao(db: AsyncSession, tenant_id, utiliz
     return [_serializar_emissao(s, nome) for s, nome in resultado]
 
 
-async def listar_solicitacoes_emissao_staff(db: AsyncSession, tenant_id) -> list[dict]:
-    resultado = (await db.execute(
+async def listar_solicitacoes_emissao_staff(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+    query = (
         select(SolicitacaoDocumentoEmissao, Aluno.nome_completo)
         .join(Aluno, Aluno.id == SolicitacaoDocumentoEmissao.aluno_id)
         .where(SolicitacaoDocumentoEmissao.tenant_id == tenant_id)
         .order_by(SolicitacaoDocumentoEmissao.data_solicitacao.desc())
-    )).all()
-    return [_serializar_emissao(s, nome) for s, nome in resultado]
+    )
+    pagina = await paginar_linhas(db, query, page, page_size)
+    pagina["items"] = [_serializar_emissao(s, nome) for s, nome in pagina["items"]]
+    return pagina
 
 
 async def gerar_cobranca_documento(db: AsyncSession, tenant_id, solicitacao_id: uuid.UUID, utilizador: dict) -> dict:
@@ -466,13 +469,12 @@ async def _obter_solicitacao_escola(db: AsyncSession, tenant_id, solicitacao_id:
     return solicitacao
 
 
-async def listar_solicitacoes_escola_staff(db: AsyncSession, tenant_id) -> list[dict]:
-    solicitacoes = (await db.execute(
-        select(SolicitacaoDocumentoEscola).where(SolicitacaoDocumentoEscola.tenant_id == tenant_id).order_by(SolicitacaoDocumentoEscola.data_solicitacao.desc())
-    )).scalars().all()
+async def listar_solicitacoes_escola_staff(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+    query = select(SolicitacaoDocumentoEscola).where(SolicitacaoDocumentoEscola.tenant_id == tenant_id).order_by(SolicitacaoDocumentoEscola.data_solicitacao.desc())
+    pagina = await paginar(db, query, page, page_size)
 
     resultado = []
-    for solicitacao in solicitacoes:
+    for solicitacao in pagina["items"]:
         nome = None
         if solicitacao.destinatario_aluno_id:
             nome = (await db.execute(select(Aluno.nome_completo).where(Aluno.id == solicitacao.destinatario_aluno_id))).scalar_one_or_none()
@@ -483,7 +485,8 @@ async def listar_solicitacoes_escola_staff(db: AsyncSession, tenant_id) -> list[
                 select(Usuario.nome_completo).join(Professor, Professor.usuario_id == Usuario.id).where(Professor.id == solicitacao.destinatario_professor_id)
             )).scalar_one_or_none()
         resultado.append(_serializar_escola(solicitacao, destinatario_nome=nome))
-    return resultado
+    pagina["items"] = resultado
+    return pagina
 
 
 async def _resolver_meu_destinatario_id(db: AsyncSession, tenant_id, utilizador: dict) -> tuple[str, uuid.UUID] | None:

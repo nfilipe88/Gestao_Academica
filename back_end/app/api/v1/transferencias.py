@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
@@ -24,16 +24,18 @@ async def criar_solicitacao(
 
 @router.get("/minhas")
 async def listar_minhas_solicitacoes(
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_PEDIR)
 ):
-    return await crud_transferencias.listar_minhas_solicitacoes(db, utilizador["tenant_id"])
+    return await crud_transferencias.listar_minhas_solicitacoes(db, utilizador["tenant_id"], page, page_size)
 
 
 @router.get("")
 async def listar_solicitacoes_super_admin(
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_DECIDIR)
 ):
-    return await crud_transferencias.listar_solicitacoes_super_admin(db)
+    return await crud_transferencias.listar_solicitacoes_super_admin(db, page, page_size)
 
 
 @router.patch("/{solicitacao_id}/aprovar")

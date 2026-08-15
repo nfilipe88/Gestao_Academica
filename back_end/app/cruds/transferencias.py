@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import Tenant, Usuario
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
+from app.core.paginacao import paginar_linhas
 from app.cruds import notificacoes as crud_notificacoes
 from app.schemas.transferencias import RejeitarTransferenciaRequest, SolicitacaoTransferenciaCreate
 from app.database.models_transferencias import SolicitacaoTransferencia
@@ -109,34 +110,38 @@ async def criar_solicitacao(db: AsyncSession, tenant_id, utilizador: dict, dados
     return _serializar(nova, aluno_nome=aluno.nome_completo, nome_destino=tenant_destino.nome_fantasia)
 
 
-async def listar_minhas_solicitacoes(db: AsyncSession, tenant_id) -> list[dict]:
-    linhas = (await db.execute(
+async def listar_minhas_solicitacoes(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+    query = (
         select(SolicitacaoTransferencia, Aluno.nome_completo, Tenant.nome_fantasia)
         .join(Aluno, Aluno.id == SolicitacaoTransferencia.aluno_id)
         .join(Tenant, Tenant.id == SolicitacaoTransferencia.tenant_destino_id)
         .where(SolicitacaoTransferencia.tenant_id == tenant_id)
         .order_by(SolicitacaoTransferencia.data_solicitacao.desc())
-    )).all()
-    return [_serializar(s, aluno_nome=nome_aluno, nome_destino=nome_destino) for s, nome_aluno, nome_destino in linhas]
+    )
+    pagina = await paginar_linhas(db, query, page, page_size)
+    pagina["items"] = [_serializar(s, aluno_nome=nome_aluno, nome_destino=nome_destino) for s, nome_aluno, nome_destino in pagina["items"]]
+    return pagina
 
 
-async def listar_solicitacoes_super_admin(db: AsyncSession) -> list[dict]:
+async def listar_solicitacoes_super_admin(db: AsyncSession, page: int, page_size: int) -> dict:
     """Cross-tenant deliberado — ver docstring do módulo."""
     OrigemTenant = Tenant
     from sqlalchemy.orm import aliased
     DestinoTenant = aliased(Tenant)
 
-    linhas = (await db.execute(
+    query = (
         select(SolicitacaoTransferencia, Aluno.nome_completo, OrigemTenant.nome_fantasia, DestinoTenant.nome_fantasia)
         .join(Aluno, Aluno.id == SolicitacaoTransferencia.aluno_id)
         .join(OrigemTenant, OrigemTenant.id == SolicitacaoTransferencia.tenant_id)
         .join(DestinoTenant, DestinoTenant.id == SolicitacaoTransferencia.tenant_destino_id)
         .order_by(SolicitacaoTransferencia.data_solicitacao.desc())
-    )).all()
-    return [
+    )
+    pagina = await paginar_linhas(db, query, page, page_size)
+    pagina["items"] = [
         _serializar(s, aluno_nome=nome_aluno, nome_origem=nome_origem, nome_destino=nome_destino)
-        for s, nome_aluno, nome_origem, nome_destino in linhas
+        for s, nome_aluno, nome_origem, nome_destino in pagina["items"]
     ]
+    return pagina
 
 
 async def _obter_solicitacao(db: AsyncSession, solicitacao_id: uuid.UUID) -> SolicitacaoTransferencia:

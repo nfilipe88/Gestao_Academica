@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
@@ -54,9 +54,10 @@ async def listar_minhas_solicitacoes_emissao(
 
 @router.get("/solicitacoes")
 async def listar_solicitacoes_emissao_staff(
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR_STAFF)
 ):
-    return await crud_documentos.listar_solicitacoes_emissao_staff(db, utilizador["tenant_id"])
+    return await crud_documentos.listar_solicitacoes_emissao_staff(db, utilizador["tenant_id"], page, page_size)
 
 
 @router.post("/solicitacoes/{solicitacao_id}/gerar-cobranca")
@@ -116,9 +117,10 @@ async def criar_solicitacao_escola(
 
 @router.get("/pedidos-escola")
 async def listar_solicitacoes_escola_staff(
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR_STAFF)
 ):
-    return await crud_documentos.listar_solicitacoes_escola_staff(db, utilizador["tenant_id"])
+    return await crud_documentos.listar_solicitacoes_escola_staff(db, utilizador["tenant_id"], page, page_size)
 
 
 @router.get("/pedidos-escola/minhas")

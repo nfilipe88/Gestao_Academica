@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import Tenant, Usuario
 from app.database.models_pessoas import Aluno, Professor
 from app.schemas.admin import TenantStatusUpdate, ValidadeLicencaUpdate
+from app.core.paginacao import paginar
 from app.cruds import notificacoes as crud_notificacoes
 
 logger = logging.getLogger("admin")
@@ -33,13 +34,14 @@ NIF_PLATAFORMA = "00000000000"
 DIAS_ALERTA_LICENCA = 7
 
 
-async def listar_tenants(db: AsyncSession) -> list[dict]:
+async def listar_tenants(db: AsyncSession, page: int, page_size: int) -> dict:
     """Todas as instituições da plataforma (exceto o tenant interno), com contagens básicas de uso."""
-    tenants = (await db.execute(
-        select(Tenant).where(Tenant.nif != NIF_PLATAFORMA).order_by(Tenant.data_criacao.desc())
-    )).scalars().all()
+    query = select(Tenant).where(Tenant.nif != NIF_PLATAFORMA).order_by(Tenant.data_criacao.desc())
+    pagina = await paginar(db, query, page, page_size)
+    tenants = pagina["items"]
     if not tenants:
-        return []
+        pagina["items"] = []
+        return pagina
 
     tenant_ids = [t.id for t in tenants]
 
@@ -56,7 +58,7 @@ async def listar_tenants(db: AsyncSession) -> list[dict]:
         .where(Professor.tenant_id.in_(tenant_ids)).group_by(Professor.tenant_id)
     )).all())
 
-    return [
+    pagina["items"] = [
         {
             "id": t.id,
             "nome_fantasia": t.nome_fantasia,
@@ -71,6 +73,7 @@ async def listar_tenants(db: AsyncSession) -> list[dict]:
         }
         for t in tenants
     ]
+    return pagina
 
 
 async def atualizar_status_tenant(db: AsyncSession, tenant_id: uuid.UUID, dados: TenantStatusUpdate) -> Tenant:
