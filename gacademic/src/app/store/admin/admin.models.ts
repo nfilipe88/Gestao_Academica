@@ -8,6 +8,7 @@ export interface TenantResumo {
   razao_social: string | null;
   nif: string;
   status: StatusTenant;
+  data_validade_licenca: string | null; // YYYY-MM-DD
   data_criacao: string;
   total_usuarios: number;
   total_alunos: number;

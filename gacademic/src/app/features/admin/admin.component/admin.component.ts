@@ -2,7 +2,7 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { atualizarStatusTenant, carregarTenants } from '../../../store/admin/admin.actions';
+import { atualizarStatusTenant, atualizarValidadeLicenca, carregarTenants, processarValidadeLicencas } from '../../../store/admin/admin.actions';
 import { selectAdminError, selectAdminMensagem, selectTenants } from '../../../store/admin/admin.selector';
 import { StatusTenant } from '../../../store/admin/admin.models';
 import * as TransferenciasActions from '../../../store/transferencias/transferencias.actions';
@@ -54,6 +54,27 @@ export class AdminComponent implements OnInit {
     const novoStatus: StatusTenant = statusAtual === 'ATIVO' ? 'SUSPENSO' : 'ATIVO';
     this.store.dispatch(atualizarStatusTenant({ tenant_id: tenantId, status: novoStatus }));
     this.tenantAConfirmarId = null;
+  }
+
+  onGuardarValidadeLicenca(tenantId: string, dataValidade: string) {
+    this.store.dispatch(atualizarValidadeLicenca({ tenant_id: tenantId, data_validade_licenca: dataValidade || null }));
+  }
+
+  onProcessarValidadeLicencas() {
+    this.store.dispatch(processarValidadeLicencas());
+  }
+
+  // dias até expirar (negativo = já expirou); null se não houver data
+  // definida. Envolvido num objeto (em vez de devolver o número
+  // diretamente) porque o template usa "@if (...; as dias)", que testa
+  // a expressão por truthiness — um resultado 0 (expira hoje) seria
+  // tratado como "sem valor" e o aviso desaparecia exatamente no dia
+  // em que mais importa mostrá-lo.
+  diasAteExpirar(dataValidade: string | null): { dias: number } | null {
+    if (!dataValidade) return null;
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const validade = new Date(dataValidade + 'T00:00:00');
+    return { dias: Math.round((validade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) };
   }
 
   onAprovarTransferencia(solicitacaoId: string) {

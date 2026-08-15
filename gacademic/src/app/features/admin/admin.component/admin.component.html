@@ -1,8 +1,15 @@
 <div class="space-y-6">
 
-  <div>
-    <h2 class="text-2xl font-bold text-slate-800">Painel Super Admin</h2>
-    <p class="text-slate-500 text-sm">Instituições (escolas) registadas na plataforma.</p>
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-800">Painel Super Admin</h2>
+      <p class="text-slate-500 text-sm">Instituições (escolas) registadas na plataforma.</p>
+    </div>
+    <button type="button" (click)="onProcessarValidadeLicencas()"
+      title="O scheduler já corre isto sozinho todos os dias às 07:00 — use isto só para testar/forçar já."
+      class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+      Processar validade de licenças agora
+    </button>
   </div>
 
   @if (erro$ | async; as erro) {
@@ -25,6 +32,7 @@
             <th class="py-3 px-6 font-medium text-right">Alunos</th>
             <th class="py-3 px-6 font-medium text-right">Professores</th>
             <th class="py-3 px-6 font-medium">Estado</th>
+            <th class="py-3 px-6 font-medium">Validade da Licença</th>
             <th class="py-3 px-6 font-medium text-right">Ação</th>
           </tr>
         </thead>
@@ -43,6 +51,21 @@
                   [class.bg-rose-100]="tenant.status === 'SUSPENSO'" [class.text-rose-700]="tenant.status === 'SUSPENSO'">
                   {{ tenant.status }}
                 </span>
+              </td>
+              <td class="py-3 px-6">
+                <div class="flex items-center gap-2">
+                  <input type="date" [value]="tenant.data_validade_licenca" #validadeInput
+                    class="border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800" />
+                  <button type="button" (click)="onGuardarValidadeLicenca(tenant.id, validadeInput.value)"
+                    class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">Guardar</button>
+                </div>
+                @if (diasAteExpirar(tenant.data_validade_licenca); as info) {
+                  @if (info.dias < 0) {
+                    <p class="text-xs text-rose-600 mt-1">Expirou há {{ -info.dias }} dia(s)</p>
+                  } @else if (info.dias <= 7) {
+                    <p class="text-xs text-amber-600 mt-1">Expira em {{ info.dias }} dia(s)</p>
+                  }
+                }
               </td>
               <td class="py-3 px-6 text-right">
                 @if (tenantAConfirmarId === tenant.id) {

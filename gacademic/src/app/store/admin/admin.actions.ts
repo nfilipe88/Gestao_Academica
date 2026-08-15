@@ -12,6 +12,15 @@ export const atualizarStatusTenant = createAction(
   props<{ tenant_id: string, status: StatusTenant }>()
 );
 
+export const atualizarValidadeLicenca = createAction(
+  '[Admin] Atualizar Validade Licenca',
+  props<{ tenant_id: string, data_validade_licenca: string | null }>()
+);
+
+// Disparo manual do job diário — o scheduler já corre isto sozinho
+// todos os dias às 07:00; isto é só para testar/forçar já.
+export const processarValidadeLicencas = createAction('[Admin] Processar Validade Licencas');
+
 export const adminOperacaoSucesso = createAction(
   '[Admin] Operacao Sucesso',
   props<{ mensagem: string }>()
