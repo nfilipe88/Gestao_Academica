@@ -17,6 +17,7 @@ from app.database.models_matricula import Matricula
 from app.database.models_comunicacoes import Comunicado
 from app.database.models_diario import ProfessorTurmaDisciplina
 from app.schemas.comunicacoes import ComunicadoCreate
+from app.cruds import notificacoes as crud_notificacoes
 
 TIPOS_VALIDOS = {"COMUNICADO", "CONVOCATORIA"}
 DESTINATARIOS_VALIDOS = {"TURMA", "ALUNO", "ESCOLA"}
@@ -127,6 +128,84 @@ async def _resolver_emails_destinatarios(
     return list(emails)
 
 
+async def _resolver_usuarios_destinatarios(
+    db: AsyncSession, tenant_id, destinatario_tipo: str,
+    turma_id: uuid.UUID | None, aluno_id: uuid.UUID | None
+) -> list[uuid.UUID]:
+    """
+    Espelha _resolver_emails_destinatarios, mas devolve usuario_id em vez
+    de e-mails — usado para gerar notificações in-app. Ao contrário do
+    e-mail (só chega aos responsáveis), aqui também inclui o login do
+    próprio aluno quando ele tem acesso ao Portal.
+    """
+    usuario_ids: set[uuid.UUID] = set()
+
+    if destinatario_tipo == "ALUNO":
+        aluno_usuario_id = (await db.execute(
+            select(Aluno.usuario_id).where(Aluno.id == aluno_id, Aluno.tenant_id == tenant_id, Aluno.usuario_id.isnot(None))
+        )).scalars().first()
+        if aluno_usuario_id:
+            usuario_ids.add(aluno_usuario_id)
+
+        resultado = await db.execute(
+            select(ResponsavelFinanceiroLegal.usuario_id)
+            .join(AlunoResponsavel, AlunoResponsavel.responsavel_id == ResponsavelFinanceiroLegal.id)
+            .where(
+                AlunoResponsavel.aluno_id == aluno_id,
+                ResponsavelFinanceiroLegal.tenant_id == tenant_id,
+                ResponsavelFinanceiroLegal.usuario_id.isnot(None)
+            )
+        )
+        usuario_ids.update(usuario_id for (usuario_id,) in resultado.all())
+
+    elif destinatario_tipo == "TURMA":
+        resultado_alunos = await db.execute(
+            select(Aluno.usuario_id)
+            .join(Matricula, Matricula.aluno_id == Aluno.id)
+            .where(
+                Matricula.turma_id == turma_id,
+                Matricula.status_matricula == "ATIVO",
+                Aluno.tenant_id == tenant_id,
+                Aluno.usuario_id.isnot(None)
+            )
+        )
+        usuario_ids.update(usuario_id for (usuario_id,) in resultado_alunos.all())
+
+        resultado_resp = await db.execute(
+            select(ResponsavelFinanceiroLegal.usuario_id)
+            .join(AlunoResponsavel, AlunoResponsavel.responsavel_id == ResponsavelFinanceiroLegal.id)
+            .join(Matricula, Matricula.aluno_id == AlunoResponsavel.aluno_id)
+            .where(
+                Matricula.turma_id == turma_id,
+                Matricula.status_matricula == "ATIVO",
+                ResponsavelFinanceiroLegal.tenant_id == tenant_id,
+                ResponsavelFinanceiroLegal.usuario_id.isnot(None)
+            )
+        )
+        usuario_ids.update(usuario_id for (usuario_id,) in resultado_resp.all())
+
+    elif destinatario_tipo == "ESCOLA":
+        alunos = await db.execute(
+            select(Aluno.usuario_id).where(Aluno.tenant_id == tenant_id, Aluno.usuario_id.isnot(None))
+        )
+        usuario_ids.update(usuario_id for (usuario_id,) in alunos.all())
+
+        responsaveis = await db.execute(
+            select(ResponsavelFinanceiroLegal.usuario_id).where(
+                ResponsavelFinanceiroLegal.tenant_id == tenant_id,
+                ResponsavelFinanceiroLegal.usuario_id.isnot(None)
+            )
+        )
+        usuario_ids.update(usuario_id for (usuario_id,) in responsaveis.all())
+
+        professores = await db.execute(
+            select(Professor.usuario_id).where(Professor.tenant_id == tenant_id)
+        )
+        usuario_ids.update(usuario_id for (usuario_id,) in professores.all())
+
+    return list(usuario_ids)
+
+
 async def criar_comunicado(db: AsyncSession, utilizador: dict, dados: ComunicadoCreate) -> tuple[Comunicado, list[str]]:
     """Cria um Comunicado/Convocatória e devolve também a lista de e-mails a notificar."""
     if dados.tipo not in TIPOS_VALIDOS:
@@ -182,6 +261,18 @@ async def criar_comunicado(db: AsyncSession, utilizador: dict, dados: Comunicado
     db.add(novo_comunicado)
     await db.commit()
     await db.refresh(novo_comunicado)
+
+    usuario_ids = await _resolver_usuarios_destinatarios(
+        db, tenant_id, dados.destinatario_tipo, dados.destinatario_turma_id, dados.destinatario_aluno_id
+    )
+    await crud_notificacoes.criar_notificacoes_em_lote(
+        db, tenant_id, usuario_ids,
+        tipo="COMUNICADO",
+        titulo=f"Novo {dados.tipo.lower()}: {dados.titulo}",
+        mensagem=dados.corpo[:280],
+        link="/comunicacoes"
+    )
+
     return novo_comunicado, emails
 
 

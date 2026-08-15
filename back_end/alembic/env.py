@@ -17,6 +17,7 @@ import app.database.models_financeiro
 import app.database.models_crm
 import app.database.models_horarios
 import app.database.models_tarefas
+import app.database.models_notificacoes
 
 from alembic import context
 
