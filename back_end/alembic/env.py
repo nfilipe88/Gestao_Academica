@@ -19,6 +19,7 @@ import app.database.models_horarios
 import app.database.models_tarefas
 import app.database.models_notificacoes
 import app.database.models_documentos
+import app.database.models_transferencias
 
 from alembic import context
 
