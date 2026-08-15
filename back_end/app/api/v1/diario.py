@@ -4,7 +4,9 @@ import uuid
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
-from app.schemas.diario import FrequenciaLoteCreate, NotaLoteCreate, PeriodoAvaliacaoCreate
+from app.schemas.diario import (
+    AvaliacaoCreate, AvaliacaoUpdate, FrequenciaLoteCreate, NotaAvaliacaoLoteCreate, NotaLoteCreate, PeriodoAvaliacaoCreate
+)
 from app.cruds import diario as crud_diario
 
 router = APIRouter(prefix="/api/v1/diario", tags=["Diário de Classe"])
@@ -109,3 +111,78 @@ async def reabrir_periodo_avaliacao(
     """Corrige um trancamento feito por engano — volta a permitir lançamentos."""
     periodo = await crud_diario.reabrir_periodo_avaliacao(db, utilizador["tenant_id"], periodo_id)
     return {"mensagem": f'Período "{periodo.nome}" reaberto com sucesso.'}
+
+# ==========================================
+# F. AVALIAÇÕES (Provas e Contínuas) + Nota Final Calculada
+# ==========================================
+@router.get("/turmas/{turma_id}/disciplinas/{disciplina_id}/avaliacoes")
+async def listar_avaliacoes(
+    turma_id: uuid.UUID,
+    disciplina_id: uuid.UUID,
+    periodo_avaliacao: str | None = None,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Lista as avaliações (provas/contínuas) de uma turma+disciplina, opcionalmente filtradas por período."""
+    return await crud_diario.listar_avaliacoes(db, utilizador, turma_id, disciplina_id, periodo_avaliacao)
+
+@router.post("/turmas/{turma_id}/disciplinas/{disciplina_id}/avaliacoes", status_code=status.HTTP_201_CREATED)
+async def criar_avaliacao(
+    turma_id: uuid.UUID,
+    disciplina_id: uuid.UUID,
+    dados: AvaliacaoCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Cria uma prova ou avaliação contínua — o Professor precisa de estar alocado a esta turma+disciplina (validado no crud)."""
+    return await crud_diario.criar_avaliacao(db, utilizador, turma_id, disciplina_id, dados)
+
+@router.patch("/avaliacoes/{avaliacao_id}")
+async def atualizar_avaliacao(
+    avaliacao_id: uuid.UUID,
+    dados: AvaliacaoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Edita título/tipo/peso/data — se o peso mudar, a nota final de quem já tinha nota nesta avaliação é recalculada."""
+    return await crud_diario.atualizar_avaliacao(db, utilizador, avaliacao_id, dados)
+
+@router.delete("/avaliacoes/{avaliacao_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def apagar_avaliacao(
+    avaliacao_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Apaga a avaliação e as notas lançadas nela — a nota final do período de quem tinha nota aqui é recalculada."""
+    await crud_diario.apagar_avaliacao(db, utilizador, avaliacao_id)
+
+@router.get("/avaliacoes/{avaliacao_id}/notas")
+async def listar_notas_avaliacao(
+    avaliacao_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Notas já lançadas nesta avaliação — para pré-preencher o formulário ao reabri-la."""
+    return await crud_diario.listar_notas_avaliacao(db, utilizador, avaliacao_id)
+
+@router.post("/avaliacoes/{avaliacao_id}/notas/lote")
+async def lancar_notas_avaliacao_lote(
+    avaliacao_id: uuid.UUID,
+    dados: NotaAvaliacaoLoteCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Upsert das notas de toda a turma nesta avaliação — a nota final do período de cada aluno afetado é recalculada."""
+    total = await crud_diario.lancar_notas_avaliacao_lote(db, utilizador, avaliacao_id, dados)
+    return {"mensagem": "Notas da avaliação registadas com sucesso", "total": total}
+
+@router.get("/turmas/{turma_id}/disciplinas/{disciplina_id}/notas-finais")
+async def listar_notas_finais(
+    turma_id: uuid.UUID,
+    disciplina_id: uuid.UUID,
+    periodo_avaliacao: str,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Nota final de cada aluno da turma neste período — calculada a partir das avaliações, ou manual (lançamentos antigos)."""
+    return await crud_diario.listar_notas_finais(db, utilizador, turma_id, disciplina_id, periodo_avaliacao)

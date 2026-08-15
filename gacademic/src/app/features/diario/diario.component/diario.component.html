@@ -162,58 +162,250 @@
     }
 
     @if (aba === 'notas') {
-      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
-        <form [formGroup]="notasForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Período de avaliação</label>
-            <input type="text" formControlName="periodo_avaliacao" placeholder="Ex: 1º Trimestre" list="lista-periodos"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-            <datalist id="lista-periodos">
-              @for (periodo of periodos$ | async; track periodo.id) {
-                <option [value]="periodo.nome">{{ periodo.aberto ? 'Aberto' : 'Trancado' }}</option>
-              }
-            </datalist>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Tipo de avaliação — opcional</label>
-            <input type="text" formControlName="tipo_avaliacao" placeholder="Ex: Prova Escrita"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Data da avaliação — opcional</label>
-            <input type="date" formControlName="data_avaliacao"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-          </div>
-        </form>
+      <div class="space-y-4">
 
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-slate-200 text-slate-600 text-sm">
-              <th class="py-2 pr-3 font-medium">Aluno</th>
-              <th class="py-2 pr-3 font-medium text-right">Nota (0 a 10)</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (aluno of alunos$ | async; track aluno.matricula_id) {
-              <tr class="border-b border-slate-100">
-                <td class="py-2 pr-3 text-slate-800">{{ aluno.nome_aluno }}</td>
-                <td class="py-2 pr-3 text-right">
-                  <input type="number" min="0" max="10" step="0.1"
-                    [value]="notasPorAluno[aluno.matricula_id]"
-                    (input)="onNotaChange(aluno.matricula_id, $any($event.target).value)"
-                    class="w-24 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 text-right focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-                </td>
-              </tr>
-            } @empty {
-              <tr><td colspan="2" class="py-6 text-center text-slate-500">Nenhum aluno matriculado nesta turma.</td></tr>
+        <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+          <form [formGroup]="notasForm" class="flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-48">
+              <label class="block text-sm font-medium text-slate-600 mb-1">Período de avaliação</label>
+              <input type="text" formControlName="periodo_avaliacao" placeholder="Ex: 1º Trimestre" list="lista-periodos"
+                class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              <datalist id="lista-periodos">
+                @for (periodo of periodos$ | async; track periodo.id) {
+                  <option [value]="periodo.nome">{{ periodo.aberto ? 'Aberto' : 'Trancado' }}</option>
+                }
+              </datalist>
+            </div>
+            <button type="button" (click)="onCarregarPeriodoNotas()" [disabled]="notasForm.get('periodo_avaliacao')?.invalid"
+              class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+              Carregar
+            </button>
+          </form>
+        </div>
+
+        @if (periodoNotasCarregado) {
+
+          <!-- Avaliações (provas e contínuas) -->
+          <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div>
+                <h3 class="text-sm font-semibold text-slate-800">Avaliações — {{ periodoNotasCarregado }}</h3>
+                <p class="text-xs text-slate-500">A nota final é a média ponderada pelo peso de cada avaliação com nota lançada.</p>
+              </div>
+              <button type="button" (click)="alternarFormularioAvaliacao()"
+                class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+                {{ mostrarFormularioAvaliacao ? 'Cancelar' : '+ Nova Avaliação' }}
+              </button>
+            </div>
+
+            @if (mostrarFormularioAvaliacao) {
+              <form [formGroup]="avaliacaoForm" (ngSubmit)="onSubmitAvaliacao()" class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 pb-4 border-b border-slate-100">
+                <div class="md:col-span-2">
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Título</label>
+                  <input type="text" formControlName="titulo" placeholder="Ex: Teste de Células"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+                  <select formControlName="tipo_avaliacao"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    @for (tipo of tiposAvaliacao; track tipo) {
+                      <option [value]="tipo">{{ tipo === 'PROVA' ? 'Prova' : 'Contínua' }}</option>
+                    }
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Peso (%)</label>
+                  <input type="number" min="0.01" step="1" formControlName="peso"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Data — opcional</label>
+                  <input type="date" formControlName="data_avaliacao"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div class="md:col-span-4">
+                  <button type="submit" [disabled]="avaliacaoForm.invalid"
+                    class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                    {{ avaliacaoEmEdicaoId ? 'Guardar Alterações' : 'Adicionar Avaliação' }}
+                  </button>
+                </div>
+              </form>
             }
-          </tbody>
-        </table>
 
-        <button type="button" (click)="onSubmitNotas()" [disabled]="notasForm.invalid"
-          class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
-          Guardar Notas
-        </button>
+            <div class="space-y-2">
+              @for (avaliacao of avaliacoes$ | async; track avaliacao.id) {
+                <div class="border border-slate-200 rounded-lg">
+                  <div class="flex items-center justify-between px-4 py-2.5 flex-wrap gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-xs font-medium py-0.5 px-2 rounded-full"
+                        [class.bg-blue-100]="avaliacao.tipo_avaliacao === 'PROVA'" [class.text-blue-700]="avaliacao.tipo_avaliacao === 'PROVA'"
+                        [class.bg-purple-100]="avaliacao.tipo_avaliacao === 'CONTINUA'" [class.text-purple-700]="avaliacao.tipo_avaliacao === 'CONTINUA'">
+                        {{ avaliacao.tipo_avaliacao === 'PROVA' ? 'Prova' : 'Contínua' }}
+                      </span>
+                      <span class="text-sm font-medium text-slate-800">{{ avaliacao.titulo }}</span>
+                      <span class="text-xs text-slate-400">peso {{ avaliacao.peso }}%</span>
+                      @if (avaliacao.data_avaliacao) {
+                        <span class="text-xs text-slate-400">{{ avaliacao.data_avaliacao | date: 'dd/MM/yyyy' }}</span>
+                      }
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <button type="button" (click)="onAlternarLancamento(avaliacao.id)"
+                        class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
+                        {{ avaliacaoExpandidaId === avaliacao.id ? 'Fechar' : 'Lançar notas' }}
+                      </button>
+                      <button type="button" (click)="onEditarAvaliacao(avaliacao)"
+                        class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Editar</button>
+                      @if (avaliacaoAApagarId === avaliacao.id) {
+                        <span class="text-xs text-rose-600">Apagar?</span>
+                        <button type="button" (click)="onConfirmarApagarAvaliacao(avaliacao.id)"
+                          class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
+                        <button type="button" (click)="onCancelarApagarAvaliacao()"
+                          class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Não</button>
+                      } @else {
+                        <button type="button" (click)="onPedirApagarAvaliacao(avaliacao.id)"
+                          class="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer">Apagar</button>
+                      }
+                    </div>
+                  </div>
+
+                  @if (avaliacaoExpandidaId === avaliacao.id) {
+                    <div class="border-t border-slate-100 px-4 py-3 bg-slate-50/60">
+                      @if (avaliacaoNotasProntas) {
+                        <table class="w-full text-left border-collapse">
+                          <thead>
+                            <tr class="text-slate-600 text-xs">
+                              <th class="py-1.5 pr-3 font-medium">Aluno</th>
+                              <th class="py-1.5 pr-3 font-medium text-right">Nota (0 a 10)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (aluno of alunos$ | async; track aluno.matricula_id) {
+                              <tr class="border-t border-slate-100">
+                                <td class="py-1.5 pr-3 text-sm text-slate-800">{{ aluno.nome_aluno }}</td>
+                                <td class="py-1.5 pr-3 text-right">
+                                  <input type="number" min="0" max="10" step="0.1"
+                                    [value]="notasAvaliacaoPorAluno[aluno.matricula_id]"
+                                    (input)="onNotaAvaliacaoChange(aluno.matricula_id, $any($event.target).value)"
+                                    class="w-24 border border-slate-300 rounded-lg px-3 py-1 text-sm text-slate-800 text-right focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                        <button type="button" (click)="onSubmitNotasAvaliacao(avaliacao.id)"
+                          class="mt-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+                          Guardar Notas
+                        </button>
+                      } @else {
+                        <p class="text-sm text-slate-500">A carregar…</p>
+                      }
+                    </div>
+                  }
+                </div>
+              } @empty {
+                <p class="text-sm text-slate-500">Ainda não há avaliações criadas para este período.</p>
+              }
+            </div>
+          </div>
+
+          <!-- Notas finais do período -->
+          <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+            <h3 class="text-sm font-semibold text-slate-800 mb-1">Notas Finais — {{ periodoNotasCarregado }}</h3>
+            <p class="text-xs text-slate-500 mb-3">
+              @if ((avaliacoes$ | async)?.length) {
+                Calculada automaticamente a partir das avaliações acima.
+              } @else {
+                Sem avaliações lançadas neste período — pode lançar a nota final diretamente abaixo.
+              }
+            </p>
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-600 text-sm">
+                  <th class="py-2 pr-3 font-medium">Aluno</th>
+                  <th class="py-2 pr-3 font-medium text-right">Nota Final</th>
+                  <th class="py-2 pr-3 font-medium text-right">Origem</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (nf of notasFinais$ | async; track nf.matricula_id) {
+                  <tr class="border-b border-slate-100">
+                    <td class="py-2 pr-3 text-slate-800">{{ nf.nome_aluno }}</td>
+                    <td class="py-2 pr-3 text-right font-medium text-slate-800">{{ nf.valor_nota !== null ? (nf.valor_nota | number: '1.1-2') : '—' }}</td>
+                    <td class="py-2 pr-3 text-right">
+                      @if (nf.valor_nota !== null) {
+                        <span class="text-xs font-medium py-0.5 px-2 rounded-full"
+                          [class.bg-emerald-100]="nf.calculada_automaticamente" [class.text-emerald-700]="nf.calculada_automaticamente"
+                          [class.bg-slate-100]="!nf.calculada_automaticamente" [class.text-slate-500]="!nf.calculada_automaticamente">
+                          {{ nf.calculada_automaticamente ? 'Calculada' : 'Manual' }}
+                        </span>
+                      }
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="3" class="py-6 text-center text-slate-500">Nenhum aluno matriculado nesta turma.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Lançamento manual — só faz sentido enquanto não houver avaliações neste período -->
+          @if ((avaliacoes$ | async)?.length === 0) {
+            <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+              <div>
+                <h3 class="text-sm font-semibold text-slate-800">Lançar nota final diretamente</h3>
+                <p class="text-xs text-slate-500">Alternativa rápida para quem não precisa do detalhe de avaliações — assim que criar uma avaliação acima, a nota final passa a ser calculada automaticamente.</p>
+              </div>
+              <form [formGroup]="notasForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-600 mb-1">Tipo de avaliação — opcional</label>
+                  <input type="text" formControlName="tipo_avaliacao" placeholder="Ex: Prova Escrita"
+                    class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-600 mb-1">Data da avaliação — opcional</label>
+                  <input type="date" formControlName="data_avaliacao"
+                    class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+              </form>
+
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 text-slate-600 text-sm">
+                    <th class="py-2 pr-3 font-medium">Aluno</th>
+                    <th class="py-2 pr-3 font-medium text-right">Nota (0 a 10)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (aluno of alunos$ | async; track aluno.matricula_id) {
+                    <tr class="border-b border-slate-100">
+                      <td class="py-2 pr-3 text-slate-800">{{ aluno.nome_aluno }}</td>
+                      <td class="py-2 pr-3 text-right">
+                        <input type="number" min="0" max="10" step="0.1"
+                          [value]="notasPorAluno[aluno.matricula_id]"
+                          (input)="onNotaChange(aluno.matricula_id, $any($event.target).value)"
+                          class="w-24 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 text-right focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr><td colspan="2" class="py-6 text-center text-slate-500">Nenhum aluno matriculado nesta turma.</td></tr>
+                  }
+                </tbody>
+              </table>
+
+              <button type="button" (click)="onSubmitNotas()" [disabled]="notasForm.invalid"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                Guardar Nota Final
+              </button>
+            </div>
+          }
+
+        } @else {
+          <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+            <p class="text-sm text-slate-500">Indica um período de avaliação acima e clica em "Carregar" para ver/lançar avaliações e notas.</p>
+          </div>
+        }
+
       </div>
     }
 

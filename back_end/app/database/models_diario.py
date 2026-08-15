@@ -43,7 +43,20 @@ class RegistroFrequencia(Base):
     )
 
 class RegistroNota(Base):
-    """Diário - Avaliação. Uma nota por aluno, disciplina e período de avaliação."""
+    """Diário - Avaliação. Uma nota por aluno, disciplina e período de avaliação.
+
+    Desde a introdução de Avaliacao/NotaAvaliacao, esta nota passa a
+    poder ser CALCULADA automaticamente (média ponderada pelas
+    avaliações — provas/contínuas — lançadas nesse período) em vez de
+    escrita à mão. `calculada_automaticamente` distingue as duas
+    origens: quando True, o valor é mantido em sincronia por
+    cruds/diario.py::_recalcular_nota_periodo e o lançamento manual
+    direto (lancar_notas_lote) passa a ser recusado para esta
+    combinação matrícula/disciplina/período — ver
+    _validar_sem_avaliacoes. Registos antigos (anteriores a esta
+    funcionalidade) ficam com False e continuam editáveis à mão como
+    sempre foram.
+    """
     __tablename__ = "registro_nota"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -55,12 +68,62 @@ class RegistroNota(Base):
     tipo_avaliacao: Mapped[str] = mapped_column(String(50), nullable=True) # Ex: "Prova Escrita"
     data_avaliacao: Mapped[date] = mapped_column(Date, nullable=True)
     valor_nota: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
+    calculada_automaticamente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
     data_atualizacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (
         # Upsert target: relançar a nota do mesmo aluno/disciplina/período atualiza, não duplica.
         UniqueConstraint("matricula_id", "disciplina_id", "periodo_avaliacao", name="uq_nota_matricula_disciplina_periodo"),
+    )
+
+
+class Avaliacao(Base):
+    """Uma avaliação concreta (prova ou avaliação contínua) dentro de um
+    período, para uma turma+disciplina — ex.: "Teste de Células"
+    (PROVA, peso 60) ou "Trabalho de grupo" (CONTINUA, peso 40).
+
+    A nota final do período em RegistroNota passa a ser a média
+    ponderada (por `peso`) de todas as Avaliacao com nota lançada
+    nesse período — ver cruds/diario.py::_recalcular_nota_periodo.
+    """
+    __tablename__ = "avaliacao"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    turma_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("turma.id", ondelete="CASCADE"), nullable=False)
+    disciplina_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disciplina.id", ondelete="CASCADE"), nullable=False)
+
+    periodo_avaliacao: Mapped[str] = mapped_column(String(50), nullable=False)
+    titulo: Mapped[str] = mapped_column(String(150), nullable=False)  # Ex: "Teste de Células"
+    tipo_avaliacao: Mapped[str] = mapped_column(String(20), nullable=False)  # "CONTINUA" | "PROVA"
+    peso: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=100)  # peso relativo dentro do período — não precisa somar 100 (normalizado no cálculo)
+    data_avaliacao: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    criado_por_usuario_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class NotaAvaliacao(Base):
+    """Nota de um aluno numa Avaliacao concreta. Sempre que uma linha
+    aqui é criada/alterada/apagada, a nota final do período
+    (RegistroNota) desse aluno é recalculada — ver
+    cruds/diario.py::_recalcular_nota_periodo.
+    """
+    __tablename__ = "nota_avaliacao"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    avaliacao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("avaliacao.id", ondelete="CASCADE"), nullable=False)
+    matricula_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matricula.id", ondelete="CASCADE"), nullable=False)
+
+    valor_nota: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+    data_atualizacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"))
+
+    __table_args__ = (
+        # Upsert target: relançar a nota do mesmo aluno na mesma avaliação atualiza, não duplica.
+        UniqueConstraint("avaliacao_id", "matricula_id", name="uq_nota_avaliacao_matricula"),
     )
 
 class PeriodoAvaliacao(Base):

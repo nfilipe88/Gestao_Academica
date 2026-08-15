@@ -1,5 +1,8 @@
 import { createAction, props } from '@ngrx/store';
-import { AlunoDiario, ConsolidadoTurmaDisciplina, FrequenciaAlunoInput, NotaAlunoInput, PeriodoAvaliacao } from './diario.models';
+import {
+  AlunoDiario, Avaliacao, ConsolidadoTurmaDisciplina, FrequenciaAlunoInput,
+  NotaAlunoInput, NotaAvaliacaoInput, NotaFinal, PeriodoAvaliacao, TipoAvaliacao
+} from './diario.models';
 
 export const carregarAlunosDiario = createAction(
   '[Diario] Carregar Alunos',
@@ -54,6 +57,60 @@ export const trancarPeriodo = createAction(
 export const reabrirPeriodo = createAction(
   '[Diario] Reabrir Periodo',
   props<{ periodo_id: string }>()
+);
+
+// Avaliações (provas e contínuas) + nota final calculada
+export const carregarAvaliacoes = createAction(
+  '[Diario] Carregar Avaliacoes',
+  props<{ turma_id: string, disciplina_id: string, periodo_avaliacao: string }>()
+);
+export const carregarAvaliacoesSucesso = createAction(
+  '[Diario] Carregar Avaliacoes Sucesso',
+  props<{ avaliacoes: Avaliacao[] }>()
+);
+
+export const criarAvaliacao = createAction(
+  '[Diario] Criar Avaliacao',
+  props<{
+    turma_id: string, disciplina_id: string, periodo_avaliacao: string,
+    titulo: string, tipo_avaliacao: TipoAvaliacao, peso: number, data_avaliacao: string | null
+  }>()
+);
+
+export const atualizarAvaliacao = createAction(
+  '[Diario] Atualizar Avaliacao',
+  props<{
+    avaliacao_id: string, turma_id: string, disciplina_id: string, periodo_avaliacao: string,
+    titulo: string, tipo_avaliacao: TipoAvaliacao, peso: number, data_avaliacao: string | null
+  }>()
+);
+
+export const apagarAvaliacao = createAction(
+  '[Diario] Apagar Avaliacao',
+  props<{ avaliacao_id: string, turma_id: string, disciplina_id: string, periodo_avaliacao: string }>()
+);
+
+export const carregarNotasAvaliacao = createAction(
+  '[Diario] Carregar Notas Avaliacao',
+  props<{ avaliacao_id: string }>()
+);
+export const carregarNotasAvaliacaoSucesso = createAction(
+  '[Diario] Carregar Notas Avaliacao Sucesso',
+  props<{ notas: NotaAvaliacaoInput[] }>()
+);
+
+export const lancarNotasAvaliacao = createAction(
+  '[Diario] Lancar Notas Avaliacao',
+  props<{ avaliacao_id: string, turma_id: string, disciplina_id: string, periodo_avaliacao: string, notas: NotaAvaliacaoInput[] }>()
+);
+
+export const carregarNotasFinais = createAction(
+  '[Diario] Carregar Notas Finais',
+  props<{ turma_id: string, disciplina_id: string, periodo_avaliacao: string }>()
+);
+export const carregarNotasFinaisSucesso = createAction(
+  '[Diario] Carregar Notas Finais Sucesso',
+  props<{ notasFinais: NotaFinal[] }>()
 );
 
 export const diarioOperacaoSucesso = createAction(

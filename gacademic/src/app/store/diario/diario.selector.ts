@@ -18,6 +18,21 @@ export const selectPeriodos = createSelector(
   (state) => state.periodos
 );
 
+export const selectAvaliacoes = createSelector(
+  selectDiarioState,
+  (state) => state.avaliacoes
+);
+
+export const selectNotasAvaliacaoSelecionada = createSelector(
+  selectDiarioState,
+  (state) => state.notasAvaliacaoSelecionada
+);
+
+export const selectNotasFinais = createSelector(
+  selectDiarioState,
+  (state) => state.notasFinais
+);
+
 export const selectDiarioMensagem = createSelector(
   selectDiarioState,
   (state) => state.mensagem

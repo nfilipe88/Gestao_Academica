@@ -31,3 +31,36 @@ export interface PeriodoAvaliacao {
   aberto: boolean;
   data_fecho: string | null;
 }
+
+export const TIPOS_AVALIACAO = ['CONTINUA', 'PROVA'] as const;
+export type TipoAvaliacao = typeof TIPOS_AVALIACAO[number];
+
+// Uma prova ou avaliação contínua concreta dentro de um período — a
+// nota final do período (ver NotaFinal) passa a ser a média ponderada
+// (por "peso") das avaliações com nota lançada nesse período.
+export interface Avaliacao {
+  id: string;
+  turma_id: string;
+  disciplina_id: string;
+  periodo_avaliacao: string;
+  titulo: string;
+  tipo_avaliacao: TipoAvaliacao;
+  peso: number;
+  data_avaliacao: string | null;
+  data_criacao: string;
+}
+
+export interface NotaAvaliacaoInput {
+  matricula_id: string;
+  valor_nota: number;
+}
+
+// Nota final de um aluno num período — calculada a partir das
+// avaliações (calculada_automaticamente=true) ou lançada diretamente
+// à mão (lançamentos antigos, antes desta funcionalidade existir).
+export interface NotaFinal {
+  matricula_id: string;
+  nome_aluno: string;
+  valor_nota: number | null;
+  calculada_automaticamente: boolean;
+}

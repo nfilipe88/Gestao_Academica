@@ -32,3 +32,30 @@ class NotaLoteCreate(BaseModel):
 
 class PeriodoAvaliacaoCreate(BaseModel):
     nome: str
+
+
+# ==========================================
+# AVALIAÇÕES (provas e contínuas) — ver models_diario.py::Avaliacao
+# ==========================================
+class AvaliacaoCreate(BaseModel):
+    periodo_avaliacao: str
+    titulo: str
+    tipo_avaliacao: str  # "CONTINUA" | "PROVA"
+    peso: Decimal = Decimal("100")
+    data_avaliacao: date | None = None
+
+
+class AvaliacaoUpdate(BaseModel):
+    titulo: str
+    tipo_avaliacao: str
+    peso: Decimal
+    data_avaliacao: date | None = None
+
+
+class NotaAvaliacaoAluno(BaseModel):
+    matricula_id: uuid.UUID
+    valor_nota: Decimal
+
+
+class NotaAvaliacaoLoteCreate(BaseModel):
+    notas: list[NotaAvaliacaoAluno]
