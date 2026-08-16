@@ -22,3 +22,17 @@ export interface HorarioAulaInput {
   hora_fim: string;
   sala: string | null;
 }
+
+// Cruzamento Horário × Diário — ver GET /horarios/aulas-por-lancar.
+export interface AulaPorLancar {
+  data: string; // "YYYY-MM-DD"
+  dia_semana: number;
+  hora_inicio: string;
+  hora_fim: string;
+  turma_id: string;
+  nome_turma: string;
+  disciplina_id: string;
+  nome_disciplina: string;
+  professor_id: string;
+  nome_professor: string;
+}

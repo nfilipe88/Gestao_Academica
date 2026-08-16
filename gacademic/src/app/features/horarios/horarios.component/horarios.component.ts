@@ -1,18 +1,20 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { take } from 'rxjs';
+import { Subscription, take } from 'rxjs';
 import { carregarTurmas } from '../../../store/academico/academic.actions';
 import { selectTurmas } from '../../../store/academico/academic.selector';
 import { carregarAlocacoes } from '../../../store/professores/professores.actions';
 import { selectAlocacoes } from '../../../store/professores/professores.selector';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import {
-  atualizarHorario, carregarGradeDaTurma, carregarMinhaGrade, criarHorario, removerHorario
+  atualizarHorario, carregarAulasPorLancar, carregarGradeDaTurma, carregarGradeDoProfessor,
+  carregarMinhaGrade, criarHorario, limparGradeDoProfessor, removerHorario
 } from '../../../store/horarios/horarios.actions';
 import {
-  selectGradeDaTurma, selectHorariosError, selectHorariosMensagem, selectMinhaGrade
+  selectAulasPorLancar, selectGradeDaTurma, selectGradeDoProfessor, selectHorariosError,
+  selectHorariosMensagem, selectMinhaGrade
 } from '../../../store/horarios/horarios.selector';
 import { HorarioAula } from '../../../store/horarios/horarios.models';
 
@@ -34,14 +36,17 @@ const DIAS_DA_SEMANA = [
   templateUrl: './horarios.component.html',
   styleUrl: './horarios.component.css',
 })
-export class HorariosComponent implements OnInit {
+export class HorariosComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private subscricoes = new Subscription();
 
   turmas$ = this.store.select(selectTurmas);
   alocacoes$ = this.store.select(selectAlocacoes);
   gradeDaTurma$ = this.store.select(selectGradeDaTurma);
   minhaGrade$ = this.store.select(selectMinhaGrade);
+  gradeDoProfessor$ = this.store.select(selectGradeDoProfessor);
+  aulasPorLancar$ = this.store.select(selectAulasPorLancar);
   erro$ = this.store.select(selectHorariosError);
   mensagem$ = this.store.select(selectHorariosMensagem);
   podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
@@ -51,6 +56,7 @@ export class HorariosComponent implements OnInit {
   turmaSelecionadaId = '';
   mostrarFormulario = false;
   horarioEmEdicaoId: string | null = null;
+  mostrarAulasPorLancar = false;
 
   form = this.fb.group({
     alocacao_id: ['', Validators.required],
@@ -64,6 +70,29 @@ export class HorariosComponent implements OnInit {
     this.store.dispatch(carregarTurmas());
     this.store.dispatch(carregarAlocacoes());
     this.store.dispatch(carregarMinhaGrade());
+
+    // Sempre que o professor/disciplina escolhido no formulário muda,
+    // vai buscar a grade horária desse professor — para a "ocupação em
+    // tempo real" (ver template) mostrar logo os horários que ele já
+    // tem marcados, antes de a Secretária tentar gravar um conflito.
+    this.subscricoes.add(
+      this.form.controls.alocacao_id.valueChanges.subscribe(alocacaoId => {
+        if (!alocacaoId) {
+          this.store.dispatch(limparGradeDoProfessor());
+          return;
+        }
+        this.alocacoes$.pipe(take(1)).subscribe(alocacoes => {
+          const alocacao = alocacoes.find(a => a.id === alocacaoId);
+          if (alocacao) {
+            this.store.dispatch(carregarGradeDoProfessor({ professor_id: alocacao.professor_id }));
+          }
+        });
+      })
+    );
+  }
+
+  ngOnDestroy() {
+    this.subscricoes.unsubscribe();
   }
 
   onSelecionarTurma(turmaId: string) {
@@ -87,6 +116,7 @@ export class HorariosComponent implements OnInit {
   abrirFormularioNovo() {
     this.horarioEmEdicaoId = null;
     this.form.reset({ alocacao_id: '', dia_semana: 1, hora_inicio: '08:00', hora_fim: '09:00', sala: '' });
+    this.store.dispatch(limparGradeDoProfessor());
     this.mostrarFormulario = true;
   }
 
@@ -105,6 +135,37 @@ export class HorariosComponent implements OnInit {
   cancelarFormulario() {
     this.mostrarFormulario = false;
     this.horarioEmEdicaoId = null;
+    this.store.dispatch(limparGradeDoProfessor());
+  }
+
+  // Slots já ocupados (do professor ou da turma) no dia escolhido no
+  // formulário, excluindo o próprio slot em edição (senão "colidiria
+  // consigo mesmo") — usado para mostrar a ocupação em tempo real.
+  ocupacaoNoDia(grade: HorarioAula[] | null, dia: number): HorarioAula[] {
+    return this.slotsDoDia(grade, dia).filter(s => s.id !== this.horarioEmEdicaoId);
+  }
+
+  // Dentro da ocupação do dia, só os que realmente se cruzam com o
+  // horário que está a ser preenchido (mesma matemática do back-end) —
+  // usado para distinguir "isto vai bater certo" de "só para saberes,
+  // há outra aula nesse dia" na grelha de ocupação em tempo real.
+  haColisaoDeHorario(slot: HorarioAula): boolean {
+    const inicio = this.form.value.hora_inicio;
+    const fim = this.form.value.hora_fim;
+    if (!inicio || !fim) return false;
+    return this.formatarHora(slot.hora_inicio) < fim && this.formatarHora(slot.hora_fim) > inicio;
+  }
+
+  alternarAulasPorLancar() {
+    this.mostrarAulasPorLancar = !this.mostrarAulasPorLancar;
+    if (this.mostrarAulasPorLancar) {
+      this.store.dispatch(carregarAulasPorLancar());
+    }
+  }
+
+  formatarData(data: string): string {
+    const [ano, mes, dia] = data.split('-');
+    return `${dia}/${mes}/${ano}`;
   }
 
   onSubmit() {

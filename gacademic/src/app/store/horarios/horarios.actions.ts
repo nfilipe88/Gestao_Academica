@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { HorarioAula, HorarioAulaInput } from './horarios.models';
+import { AulaPorLancar, HorarioAula, HorarioAulaInput } from './horarios.models';
 
 // Gestor/Secretaria: grade completa de uma turma.
 export const carregarGradeDaTurma = createAction(
@@ -16,6 +16,28 @@ export const carregarMinhaGrade = createAction('[Horarios] Carregar Minha Grade'
 export const carregarMinhaGradeSucesso = createAction(
   '[Horarios] Carregar Minha Grade Sucesso',
   props<{ horarios: HorarioAula[] }>()
+);
+
+// Gestor/Secretaria: grade de um professor específico — usada para
+// mostrar, em tempo real no formulário, os horários que esse professor
+// já tem ocupados antes de a Secretária tentar gravar (ver
+// horarios.component.ts::onAlocacaoOuDiaChange).
+export const carregarGradeDoProfessor = createAction(
+  '[Horarios] Carregar Grade Do Professor',
+  props<{ professor_id: string }>()
+);
+export const carregarGradeDoProfessorSucesso = createAction(
+  '[Horarios] Carregar Grade Do Professor Sucesso',
+  props<{ horarios: HorarioAula[] }>()
+);
+export const limparGradeDoProfessor = createAction('[Horarios] Limpar Grade Do Professor');
+
+// Cruzamento Horário × Diário — aulas que já deviam ter tido chamada
+// lançada (segundo o Horário) e ainda não têm registo no Diário.
+export const carregarAulasPorLancar = createAction('[Horarios] Carregar Aulas Por Lancar');
+export const carregarAulasPorLancarSucesso = createAction(
+  '[Horarios] Carregar Aulas Por Lancar Sucesso',
+  props<{ aulas: AulaPorLancar[] }>()
 );
 
 export const criarHorario = createAction(

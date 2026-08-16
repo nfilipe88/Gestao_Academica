@@ -26,6 +26,9 @@ import {
   selectASugerirConteudo, selectLmsError, selectLmsMensagem, selectMateriais, selectSugestaoConteudo
 } from '../../../store/lms/lms.selector';
 import { MaterialAula } from '../../../store/lms/lms.models';
+import { carregarGradeDaTurma } from '../../../store/horarios/horarios.actions';
+import { selectGradeDaTurma } from '../../../store/horarios/horarios.selector';
+import { HorarioAula } from '../../../store/horarios/horarios.models';
 
 @Component({
   selector: 'app-diario.component',
@@ -54,6 +57,10 @@ export class DiarioComponent implements OnInit, OnDestroy {
   mensagemLms$ = this.store.select(selectLmsMensagem);
   aSugerirConteudo$ = this.store.select(selectASugerirConteudo);
   private sugestaoConteudo$ = this.store.select(selectSugestaoConteudo);
+  // Grade horária da turma selecionada — usada só para o aviso "aula
+  // fora do horário" na Chamada (ver aulaForaDoHorario), não para gerir
+  // Horários aqui (isso é feito na página própria, /horarios).
+  gradeHorarioDaTurma$ = this.store.select(selectGradeDaTurma);
   podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
 
   tiposAvaliacao = TIPOS_AVALIACAO;
@@ -215,6 +222,7 @@ export class DiarioComponent implements OnInit, OnDestroy {
       this.store.dispatch(carregarAlunosDiario({ turma_id: alocacao.turma_id, disciplina_id: alocacao.disciplina_id }));
       this.store.dispatch(carregarObjetivosAprendizagem({ disciplina_id: alocacao.disciplina_id }));
       this.store.dispatch(carregarMateriais({ turma_id: alocacao.turma_id, disciplina_id: alocacao.disciplina_id }));
+      this.store.dispatch(carregarGradeDaTurma({ turma_id: alocacao.turma_id }));
     });
   }
 
@@ -226,6 +234,30 @@ export class DiarioComponent implements OnInit, OnDestroy {
   nomeObjetivo(objetivos: ObjetivoAprendizagem[] | null, objetivoId: string | null): string | null {
     if (!objetivoId || !objetivos) return null;
     return objetivos.find(o => o.id === objetivoId)?.nome ?? null;
+  }
+
+  // Aviso (não bloqueante) na Chamada: a data escolhida não corresponde
+  // a nenhum dia com aula desta disciplina no Horário desta turma. Só
+  // avisa se a disciplina TIVER algum slot definido no Horário — se a
+  // escola ainda não montou a grade horária, fica calado em vez de
+  // avisar sempre (evitaria ruído constante e inútil).
+  aulaForaDoHorario(grade: HorarioAula[] | null, disciplinaId: string | null, dataAula: string | null | undefined): boolean {
+    if (!grade || !disciplinaId || !dataAula) return false;
+    const slotsDaDisciplina = grade.filter(h => h.disciplina_id === disciplinaId);
+    if (slotsDaDisciplina.length === 0) return false;
+    const diaIso = this.diaSemanaIso(dataAula);
+    return !slotsDaDisciplina.some(h => h.dia_semana === diaIso);
+  }
+
+  nomeDiaSemana(dataAula: string | null | undefined): string {
+    if (!dataAula) return '';
+    const nomes = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    return nomes[new Date(`${dataAula}T00:00:00`).getDay()];
+  }
+
+  private diaSemanaIso(dataAula: string): number {
+    const diaJs = new Date(`${dataAula}T00:00:00`).getDay(); // 0=Domingo ... 6=Sábado
+    return diaJs === 0 ? 7 : diaJs;
   }
 
   onTogglePresenca(matriculaId: string) {

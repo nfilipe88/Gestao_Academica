@@ -13,6 +13,16 @@ export const selectMinhaGrade = createSelector(
   (state) => state.minhaGrade
 );
 
+export const selectGradeDoProfessor = createSelector(
+  selectHorariosState,
+  (state) => state.gradeDoProfessor
+);
+
+export const selectAulasPorLancar = createSelector(
+  selectHorariosState,
+  (state) => state.aulasPorLancar
+);
+
 export const selectHorariosMensagem = createSelector(
   selectHorariosState,
   (state) => state.mensagem

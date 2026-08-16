@@ -1,6 +1,7 @@
 import uuid
+from datetime import date
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
@@ -44,6 +45,20 @@ async def listar_minha_grade(
 ):
     """Grade horária semanal do professor autenticado."""
     return await crud_horarios.listar_minha_grade(db, utilizador)
+
+@router.get("/aulas-por-lancar")
+async def listar_aulas_por_lancar(
+    data_inicio: date | None = Query(None),
+    data_fim: date | None = Query(None),
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """
+    Cruza a grade horária com o Diário: aulas que, segundo o Horário,
+    deviam ter tido chamada lançada num dado dia e ainda não têm nenhum
+    registo de frequência. Por omissão cobre a semana atual até hoje.
+    """
+    return await crud_horarios.listar_aulas_por_lancar(db, utilizador["tenant_id"], data_inicio, data_fim)
 
 # ==========================================
 # GESTÃO DA GRADE (Gestor/Secretaria)

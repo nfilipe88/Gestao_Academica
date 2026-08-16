@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as HorariosActions from './horarios.actions';
-import { HorarioAula } from './horarios.models';
+import { AulaPorLancar, HorarioAula } from './horarios.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -29,6 +29,30 @@ export class HorariosEffects {
         map(horarios => HorariosActions.carregarMinhaGradeSucesso({ horarios })),
         catchError(err => of(HorariosActions.horariosOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar o seu horário.'
+        })))
+      ))
+    )
+  );
+
+  carregarGradeDoProfessor$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(HorariosActions.carregarGradeDoProfessor),
+      switchMap(action => this.http.get<HorarioAula[]>(`/api/v1/horarios/professores/${action.professor_id}`).pipe(
+        map(horarios => HorariosActions.carregarGradeDoProfessorSucesso({ horarios })),
+        catchError(err => of(HorariosActions.horariosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar a grade horária deste professor.'
+        })))
+      ))
+    )
+  );
+
+  carregarAulasPorLancar$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(HorariosActions.carregarAulasPorLancar),
+      switchMap(() => this.http.get<AulaPorLancar[]>('/api/v1/horarios/aulas-por-lancar').pipe(
+        map(aulas => HorariosActions.carregarAulasPorLancarSucesso({ aulas })),
+        catchError(err => of(HorariosActions.horariosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar as aulas por lançar.'
         })))
       ))
     )

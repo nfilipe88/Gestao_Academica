@@ -20,6 +20,36 @@
   @if (podeGerir$ | async) {
 
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800">Aulas por lançar</h3>
+          <p class="text-xs text-slate-500">Cruza o Horário com o Diário — turmas/disciplinas com aula marcada esta semana cuja chamada ainda não foi lançada.</p>
+        </div>
+        <button type="button" (click)="alternarAulasPorLancar()"
+          class="text-sm bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+          {{ mostrarAulasPorLancar ? 'Fechar' : 'Ver aulas por lançar' }}
+        </button>
+      </div>
+
+      @if (mostrarAulasPorLancar) {
+        <div class="mt-4 space-y-2">
+          @for (aula of aulasPorLancar$ | async; track aula.data + aula.turma_id + aula.hora_inicio) {
+            <div class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm">
+              <div>
+                <span class="font-medium text-slate-800">{{ formatarData(aula.data) }}</span>
+                <span class="text-slate-500"> · {{ formatarHora(aula.hora_inicio) }}–{{ formatarHora(aula.hora_fim) }}</span>
+                <span class="text-slate-600"> · {{ aula.nome_disciplina }} — {{ aula.nome_turma }}</span>
+              </div>
+              <span class="text-xs text-slate-500">{{ aula.nome_professor }}</span>
+            </div>
+          } @empty {
+            <p class="text-sm text-slate-500">Nada por lançar — todas as aulas desta semana já têm chamada registada.</p>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
       <label class="block text-sm font-medium text-slate-600 mb-1">Turma</label>
       <select [value]="turmaSelecionadaId" (change)="onSelecionarTurma($any($event.target).value)"
         class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
@@ -86,6 +116,30 @@
               {{ horarioEmEdicaoId ? 'Guardar' : 'Adicionar' }}
             </button>
           </div>
+
+          @if (form.value.alocacao_id) {
+            <div class="md:col-span-5 rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <p class="text-xs font-semibold text-slate-600">Ocupação já marcada neste dia:</p>
+
+              @let ocupacaoProfessor = ocupacaoNoDia(gradeDoProfessor$ | async, $any(form.value.dia_semana));
+              @let ocupacaoTurma = ocupacaoNoDia(gradeDaTurma$ | async, $any(form.value.dia_semana));
+
+              @if (ocupacaoProfessor.length === 0 && ocupacaoTurma.length === 0) {
+                <p class="text-xs text-emerald-600">✓ Sem outras aulas marcadas neste dia, nem para o professor nem para a turma.</p>
+              } @else {
+                @for (slot of ocupacaoProfessor; track slot.id) {
+                  <p class="text-xs" [class.text-rose-700]="haColisaoDeHorario(slot)" [class.text-slate-500]="!haColisaoDeHorario(slot)">
+                    {{ haColisaoDeHorario(slot) ? '⚠ Choca — o' : 'O' }} professor já tem <strong>{{ slot.nome_disciplina }}</strong> ({{ slot.nome_turma }}) das {{ formatarHora(slot.hora_inicio) }} às {{ formatarHora(slot.hora_fim) }}.
+                  </p>
+                }
+                @for (slot of ocupacaoTurma; track slot.id) {
+                  <p class="text-xs" [class.text-rose-700]="haColisaoDeHorario(slot)" [class.text-slate-500]="!haColisaoDeHorario(slot)">
+                    {{ haColisaoDeHorario(slot) ? '⚠ Choca — esta' : 'Esta' }} turma já tem <strong>{{ slot.nome_disciplina }}</strong> ({{ slot.nome_professor }}) das {{ formatarHora(slot.hora_inicio) }} às {{ formatarHora(slot.hora_fim) }}.
+                  </p>
+                }
+              }
+            </div>
+          }
         </form>
       }
 

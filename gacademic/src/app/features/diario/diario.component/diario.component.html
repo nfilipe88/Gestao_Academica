@@ -137,6 +137,12 @@
           </div>
         </form>
 
+        @if (aulaForaDoHorario(gradeHorarioDaTurma$ | async, disciplinaSelecionadaId, chamadaForm.value.data_aula)) {
+          <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            ⚠ Segundo o Horário desta turma, esta disciplina não tem aula à(s) {{ nomeDiaSemana(chamadaForm.value.data_aula) }}-feira. Confirma que a data está certa antes de guardar.
+          </div>
+        }
+
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-slate-200 text-slate-600 text-sm">
