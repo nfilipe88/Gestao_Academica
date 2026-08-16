@@ -5,6 +5,7 @@ import { Store } from '@ngrx/store';
 import * as ConfiguracoesActions from '../../../store/configuracoes/configuracoes.actions';
 import { selectConfiguracao, selectConfiguracoesError, selectConfiguracoesMensagem } from '../../../store/configuracoes/configuracoes.selector';
 import { MOEDAS_SUPORTADAS } from '../../../store/configuracoes/configuracoes.models';
+import { selectIsGestor } from '../../../store/auth/auth.selectors';
 
 @Component({
   selector: 'app-configuracoes.component',
@@ -17,6 +18,13 @@ export class ConfiguracoesComponent implements OnInit {
   private store = inject(Store);
 
   readonly moedasSuportadas = MOEDAS_SUPORTADAS;
+
+  // A leitura (GET /configuracoes) está aberta a qualquer utilizador
+  // autenticado — a moeda é precisa em toda a plataforma, incluindo o
+  // Portal. A escrita é GESTOR only no back-end; aqui escondemos o
+  // formulário para quem não é Gestor, em vez de mostrar um botão
+  // "Guardar" que pareceria funcionar e falharia só ao submeter.
+  podeEditar$ = this.store.select(selectIsGestor);
 
   mensagem$ = this.store.select(selectConfiguracoesMensagem);
   erro$ = this.store.select(selectConfiguracoesError);
