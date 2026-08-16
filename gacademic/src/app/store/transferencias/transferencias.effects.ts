@@ -31,17 +31,21 @@ export class TransferenciasEffects {
   carregarMinhasSolicitacoes$ = createEffect(() =>
     this.actions$.pipe(
       ofType(TransferenciasActions.carregarMinhasSolicitacoes),
-      switchMap(action => this.http.get<PaginaResultado<SolicitacaoTransferencia>>('/api/v1/transferencias/minhas', {
-        params: { page: action.page ?? 1, page_size: action.page_size ?? 25 }
-      }).pipe(
-        map(resp => TransferenciasActions.carregarSolicitacoesSucesso({
-          solicitacoes: resp.items,
-          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
-        })),
-        catchError(err => of(TransferenciasActions.transferenciasOperacaoFalhou({
-          erro: err.error?.detail || 'Não foi possível carregar os pedidos de transferência.'
-        })))
-      ))
+      switchMap(action => {
+        const params: Record<string, string | number> = { page: action.page ?? 1, page_size: action.page_size ?? 25 };
+        if (action.status) params['status'] = action.status;
+        if (action.data_inicio) params['data_inicio'] = action.data_inicio;
+        if (action.data_fim) params['data_fim'] = action.data_fim;
+        return this.http.get<PaginaResultado<SolicitacaoTransferencia>>('/api/v1/transferencias/minhas', { params }).pipe(
+          map(resp => TransferenciasActions.carregarSolicitacoesSucesso({
+            solicitacoes: resp.items,
+            paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+          })),
+          catchError(err => of(TransferenciasActions.transferenciasOperacaoFalhou({
+            erro: err.error?.detail || 'Não foi possível carregar os pedidos de transferência.'
+          })))
+        );
+      })
     )
   );
 

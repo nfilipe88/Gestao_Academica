@@ -55,11 +55,12 @@ async def criar_professor(
 async def listar_professores(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
+    busca: str | None = Query(None, description="Filtra por nome ou e-mail (parcial)."),
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
 ):
-    """Lista os professores da escola do utilizador logado, paginados."""
-    return await crud_professores.listar_professores(db, utilizador["tenant_id"], page, page_size)
+    """Lista os professores da escola do utilizador logado, paginados e opcionalmente filtrados."""
+    return await crud_professores.listar_professores(db, utilizador["tenant_id"], page, page_size, busca)
 
 # ==========================================
 # ALOCAÇÃO (Professor <-> Turma <-> Disciplina)

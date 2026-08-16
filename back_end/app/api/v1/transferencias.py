@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,9 +26,12 @@ async def criar_solicitacao(
 @router.get("/minhas")
 async def listar_minhas_solicitacoes(
     page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+    status: str | None = Query(None), data_inicio: date | None = Query(None), data_fim: date | None = Query(None),
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_PEDIR)
 ):
-    return await crud_transferencias.listar_minhas_solicitacoes(db, utilizador["tenant_id"], page, page_size)
+    return await crud_transferencias.listar_minhas_solicitacoes(
+        db, utilizador["tenant_id"], page, page_size, status, data_inicio, data_fim
+    )
 
 
 @router.get("")

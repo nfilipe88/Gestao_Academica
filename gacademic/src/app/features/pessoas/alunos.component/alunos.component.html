@@ -105,6 +105,30 @@
 
   </div>
 
+  <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+    <form [formGroup]="filtroForm" class="flex flex-wrap items-end gap-3">
+      <div class="flex-1 min-w-48">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+        <input type="text" formControlName="busca" placeholder="Nome, matrícula ou nº de documento"
+          class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Nascido(a) entre</label>
+        <input type="date" formControlName="data_nascimento_inicio"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+        <input type="date" formControlName="data_nascimento_fim"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <button type="button" (click)="limparFiltros()"
+        class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
+        Limpar
+      </button>
+    </form>
+  </div>
+
   <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
     <table class="w-full text-left border-collapse">
       <thead>

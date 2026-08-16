@@ -143,6 +143,35 @@
         </div>
       </div>
 
+      <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+        <form [formGroup]="filtroFaturasForm" class="flex flex-wrap items-end gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+            <select formControlName="status"
+              class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+              <option value="">Todos</option>
+              @for (estado of estadosFatura; track estado) {
+                <option [value]="estado">{{ estado }}</option>
+              }
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Vencimento entre</label>
+            <input type="date" formControlName="data_vencimento_inicio"
+              class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+            <input type="date" formControlName="data_vencimento_fim"
+              class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <button type="button" (click)="limparFiltroFaturas()"
+            class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
+            Limpar
+          </button>
+        </form>
+      </div>
+
       <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
         <table class="w-full text-left border-collapse">
           <thead>
@@ -156,7 +185,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (fatura of faturas$ | async; track fatura.id) {
+            @for (fatura of faturasFiltradas$ | async; track fatura.id) {
               <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                 <td class="py-3 px-4 text-slate-800 font-medium">{{ fatura.numero_parcela }}/{{ contrato.quantidade_parcelas }}</td>
                 <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento }}</td>

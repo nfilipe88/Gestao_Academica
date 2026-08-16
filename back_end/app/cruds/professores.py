@@ -5,7 +5,7 @@ O envio de e-mail de boas-vindas ao Professor fica na camada de API
 """
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import or_, select
 import uuid
 
 from app.database.models import Usuario
@@ -53,13 +53,16 @@ async def criar_professor(db: AsyncSession, tenant_id, dados: ProfessorCreate) -
     return novo_professor, novo_usuario
 
 
-async def listar_professores(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+async def listar_professores(db: AsyncSession, tenant_id, page: int, page_size: int, busca: str | None = None) -> dict:
     query = (
         select(Professor, Usuario.nome_completo, Usuario.email)
         .join(Usuario, Usuario.id == Professor.usuario_id)
         .where(Professor.tenant_id == tenant_id)
-        .order_by(Usuario.nome_completo)
     )
+    if busca:
+        termo = f"%{busca.strip()}%"
+        query = query.where(or_(Usuario.nome_completo.ilike(termo), Usuario.email.ilike(termo)))
+    query = query.order_by(Usuario.nome_completo)
     pagina = await paginar_linhas(db, query, page, page_size)
     pagina["items"] = [
         {

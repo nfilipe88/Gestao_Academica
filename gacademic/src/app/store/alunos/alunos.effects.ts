@@ -15,17 +15,21 @@ export class AlunosEffects {
   carregarAlunos$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AlunosActions.carregarAlunos),
-      switchMap(action => this.http.get<PaginaResultado<Aluno>>('/api/v1/alunos', {
-        params: { page: action.page ?? 1, page_size: action.page_size ?? 25 }
-      }).pipe(
-        map(resp => AlunosActions.carregarAlunosSucesso({
-          alunos: resp.items,
-          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
-        })),
-        catchError(err => of(AlunosActions.alunosOperacaoFalhou({
-          erro: err.error?.detail || 'Não foi possível carregar os alunos.'
-        })))
-      ))
+      switchMap(action => {
+        const params: Record<string, string | number> = { page: action.page ?? 1, page_size: action.page_size ?? 25 };
+        if (action.busca) params['busca'] = action.busca;
+        if (action.data_nascimento_inicio) params['data_nascimento_inicio'] = action.data_nascimento_inicio;
+        if (action.data_nascimento_fim) params['data_nascimento_fim'] = action.data_nascimento_fim;
+        return this.http.get<PaginaResultado<Aluno>>('/api/v1/alunos', { params }).pipe(
+          map(resp => AlunosActions.carregarAlunosSucesso({
+            alunos: resp.items,
+            paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+          })),
+          catchError(err => of(AlunosActions.alunosOperacaoFalhou({
+            erro: err.error?.detail || 'Não foi possível carregar os alunos.'
+          })))
+        );
+      })
     )
   );
 

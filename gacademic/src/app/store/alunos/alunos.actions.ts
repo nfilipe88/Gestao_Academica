@@ -9,7 +9,10 @@ import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 // explicitamente conforme o utilizador pagina.
 export const carregarAlunos = createAction(
   '[Alunos] Carregar Alunos',
-  props<{ page?: number, page_size?: number }>()
+  props<{
+    page?: number, page_size?: number, busca?: string,
+    data_nascimento_inicio?: string, data_nascimento_fim?: string
+  }>()
 );
 export const carregarAlunosSucesso = createAction(
   '[Alunos] Carregar Alunos Sucesso',

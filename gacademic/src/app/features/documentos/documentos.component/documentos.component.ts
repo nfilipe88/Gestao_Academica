@@ -23,6 +23,9 @@ import { PaginacaoComponent } from '../../../shared/components/paginacao/paginac
 
 type Aba = 'emissao' | 'precos' | 'modelos' | 'pedidos-escola' | 'minhas-respostas';
 
+const ESTADOS_EMISSAO = ['PENDENTE_PAGAMENTO', 'PAGO', 'ENTREGUE', 'CANCELADO'];
+const ESTADOS_ESCOLA = ['PENDENTE', 'RESPONDIDO', 'CONCLUIDO'];
+
 @Component({
   selector: 'app-documentos.component',
   imports: [AsyncPipe, CurrencyPipe, DatePipe, FormsModule, PaginacaoComponent],
@@ -74,6 +77,15 @@ export class DocumentosComponent implements OnInit {
   paginaEscola = 1;
   tamanhoEscola = 25;
 
+  estadosEmissao = ESTADOS_EMISSAO;
+  estadosEscola = ESTADOS_ESCOLA;
+  filtroStatusEmissao = '';
+  filtroDataInicioEmissao = '';
+  filtroDataFimEmissao = '';
+  filtroStatusEscola = '';
+  filtroDataInicioEscola = '';
+  filtroDataFimEscola = '';
+
   ngOnInit() {
     // GESTOR/SECRETARIA gerem pedidos de emissão e pedidos-à-escola
     // (exigir_perfil no back-end); um PROFESSOR só vê "Pedidos que me
@@ -81,8 +93,8 @@ export class DocumentosComponent implements OnInit {
     this.perfil$.pipe(take(1)).subscribe(perfil => {
       this.souGestorOuSecretaria = perfil === 'GESTOR' || perfil === 'SECRETARIA';
       if (this.souGestorOuSecretaria) {
-        this.store.dispatch(DocumentosActions.carregarSolicitacoesEmissaoStaff({ page: this.paginaEmissao, page_size: this.tamanhoEmissao }));
-        this.store.dispatch(DocumentosActions.carregarSolicitacoesEscolaStaff({ page: this.paginaEscola, page_size: this.tamanhoEscola }));
+        this.dispatchEmissaoComFiltro(this.paginaEmissao);
+        this.dispatchEscolaComFiltro(this.paginaEscola);
         // page_size no máximo: povoam <select>, ver nota em transferencias.component.ts
         this.store.dispatch(carregarAlunos({ page_size: 100 }));
         this.store.dispatch(carregarProfessores({ page_size: 100 }));
@@ -95,26 +107,68 @@ export class DocumentosComponent implements OnInit {
     this.store.dispatch(DocumentosActions.carregarMinhasSolicitacoesEscola());
   }
 
+  private dispatchEmissaoComFiltro(pagina: number) {
+    this.store.dispatch(DocumentosActions.carregarSolicitacoesEmissaoStaff({
+      page: pagina, page_size: this.tamanhoEmissao,
+      status: this.filtroStatusEmissao || undefined,
+      data_inicio: this.filtroDataInicioEmissao || undefined,
+      data_fim: this.filtroDataFimEmissao || undefined
+    }));
+  }
+
+  private dispatchEscolaComFiltro(pagina: number) {
+    this.store.dispatch(DocumentosActions.carregarSolicitacoesEscolaStaff({
+      page: pagina, page_size: this.tamanhoEscola,
+      status: this.filtroStatusEscola || undefined,
+      data_inicio: this.filtroDataInicioEscola || undefined,
+      data_fim: this.filtroDataFimEscola || undefined
+    }));
+  }
+
+  aplicarFiltroEmissao() {
+    this.paginaEmissao = 1;
+    this.dispatchEmissaoComFiltro(1);
+  }
+
+  limparFiltroEmissao() {
+    this.filtroStatusEmissao = '';
+    this.filtroDataInicioEmissao = '';
+    this.filtroDataFimEmissao = '';
+    this.aplicarFiltroEmissao();
+  }
+
+  aplicarFiltroEscola() {
+    this.paginaEscola = 1;
+    this.dispatchEscolaComFiltro(1);
+  }
+
+  limparFiltroEscola() {
+    this.filtroStatusEscola = '';
+    this.filtroDataInicioEscola = '';
+    this.filtroDataFimEscola = '';
+    this.aplicarFiltroEscola();
+  }
+
   onPaginaEmissao(pagina: number) {
     this.paginaEmissao = pagina;
-    this.store.dispatch(DocumentosActions.carregarSolicitacoesEmissaoStaff({ page: pagina, page_size: this.tamanhoEmissao }));
+    this.dispatchEmissaoComFiltro(pagina);
   }
 
   onTamanhoEmissao(tamanho: number) {
     this.tamanhoEmissao = tamanho;
     this.paginaEmissao = 1;
-    this.store.dispatch(DocumentosActions.carregarSolicitacoesEmissaoStaff({ page: 1, page_size: tamanho }));
+    this.dispatchEmissaoComFiltro(1);
   }
 
   onPaginaEscola(pagina: number) {
     this.paginaEscola = pagina;
-    this.store.dispatch(DocumentosActions.carregarSolicitacoesEscolaStaff({ page: pagina, page_size: this.tamanhoEscola }));
+    this.dispatchEscolaComFiltro(pagina);
   }
 
   onTamanhoEscola(tamanho: number) {
     this.tamanhoEscola = tamanho;
     this.paginaEscola = 1;
-    this.store.dispatch(DocumentosActions.carregarSolicitacoesEscolaStaff({ page: 1, page_size: tamanho }));
+    this.dispatchEscolaComFiltro(1);
   }
 
   irParaAba(aba: Aba) {

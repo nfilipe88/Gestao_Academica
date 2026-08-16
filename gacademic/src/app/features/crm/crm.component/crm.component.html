@@ -18,6 +18,45 @@
     <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
+  <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+    <form [formGroup]="filtroForm" class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Origem</label>
+        <select formControlName="origem_lead"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          <option value="">Todas</option>
+          @for (origem of origens; track origem) {
+            <option [value]="origem">{{ origem }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Curso de interesse</label>
+        <select formControlName="curso_interesse_id"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          <option value="">Todos</option>
+          @for (curso of cursos$ | async; track curso.id) {
+            <option [value]="curso.id">{{ curso.nome }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Entrada entre</label>
+        <input type="date" formControlName="data_entrada_inicio"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+        <input type="date" formControlName="data_entrada_fim"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <button type="button" (click)="limparFiltro()"
+        class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
+        Limpar
+      </button>
+    </form>
+  </div>
+
   @if (mostrarFormularioLead) {
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
       <form [formGroup]="leadForm" (ngSubmit)="onSubmitLead()" class="grid grid-cols-1 md:grid-cols-3 gap-3">

@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
@@ -31,11 +33,16 @@ async def criar_aluno(
 async def listar_alunos(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
+    busca: str | None = Query(None, description="Filtra por nome, matrícula ou nº de documento (parcial)."),
+    data_nascimento_inicio: date | None = Query(None),
+    data_nascimento_fim: date | None = Query(None),
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
 ):
-    """Lista os alunos da escola do utilizador logado, paginados."""
-    return await crud_alunos.listar_alunos(db, utilizador["tenant_id"], page, page_size)
+    """Lista os alunos da escola do utilizador logado, paginados e opcionalmente filtrados."""
+    return await crud_alunos.listar_alunos(
+        db, utilizador["tenant_id"], page, page_size, busca, data_nascimento_inicio, data_nascimento_fim
+    )
 
 # ==========================================
 # ROTAS PARA RESPONSÁVEIS

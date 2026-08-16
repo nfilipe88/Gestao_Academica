@@ -34,5 +34,7 @@ export interface OportunidadeCRM {
     nome_aluno_candidato: string;
     data_nascimento_candidato: string | null;
     origem_lead: string;
+    curso_interesse_id: string | null;
+    data_entrada: string;
   };
 }

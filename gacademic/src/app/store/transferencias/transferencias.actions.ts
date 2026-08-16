@@ -9,7 +9,7 @@ export const criarSolicitacao = createAction(
 
 export const carregarMinhasSolicitacoes = createAction(
   '[Transferencias] Carregar Minhas Solicitacoes',
-  props<{ page?: number, page_size?: number }>()
+  props<{ page?: number, page_size?: number, status?: string, data_inicio?: string, data_fim?: string }>()
 );
 export const carregarSolicitacoesSuperAdmin = createAction(
   '[Transferencias] Carregar Solicitacoes Super Admin',

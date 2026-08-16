@@ -33,8 +33,13 @@ export class TransferenciasComponent implements OnInit {
   pagina = 1;
   tamanho = 25;
 
+  estados = ['PENDENTE', 'CONCLUIDA', 'REJEITADA'];
+  filtroStatus = '';
+  filtroDataInicio = '';
+  filtroDataFim = '';
+
   ngOnInit() {
-    this.store.dispatch(TransferenciasActions.carregarMinhasSolicitacoes({ page: this.pagina, page_size: this.tamanho }));
+    this.dispatchComFiltro(this.pagina);
     // page_size no máximo permitido (100): isto povoa um <select>, não
     // uma tabela paginada — uma escola com mais de 100 alunos só vê os
     // 100 primeiros aqui (limitação conhecida, fora do âmbito desta
@@ -42,15 +47,36 @@ export class TransferenciasComponent implements OnInit {
     this.store.dispatch(carregarAlunos({ page_size: 100 }));
   }
 
+  private dispatchComFiltro(pagina: number) {
+    this.store.dispatch(TransferenciasActions.carregarMinhasSolicitacoes({
+      page: pagina, page_size: this.tamanho,
+      status: this.filtroStatus || undefined,
+      data_inicio: this.filtroDataInicio || undefined,
+      data_fim: this.filtroDataFim || undefined
+    }));
+  }
+
+  aplicarFiltro() {
+    this.pagina = 1;
+    this.dispatchComFiltro(1);
+  }
+
+  limparFiltro() {
+    this.filtroStatus = '';
+    this.filtroDataInicio = '';
+    this.filtroDataFim = '';
+    this.aplicarFiltro();
+  }
+
   onPagina(pagina: number) {
     this.pagina = pagina;
-    this.store.dispatch(TransferenciasActions.carregarMinhasSolicitacoes({ page: pagina, page_size: this.tamanho }));
+    this.dispatchComFiltro(pagina);
   }
 
   onTamanho(tamanho: number) {
     this.tamanho = tamanho;
     this.pagina = 1;
-    this.store.dispatch(TransferenciasActions.carregarMinhasSolicitacoes({ page: 1, page_size: tamanho }));
+    this.dispatchComFiltro(1);
   }
 
   onSubmit() {

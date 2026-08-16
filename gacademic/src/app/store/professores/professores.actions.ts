@@ -4,7 +4,7 @@ import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
 export const carregarProfessores = createAction(
   '[Professores] Carregar Professores',
-  props<{ page?: number, page_size?: number }>()
+  props<{ page?: number, page_size?: number, busca?: string }>()
 );
 export const carregarProfessoresSucesso = createAction(
   '[Professores] Carregar Professores Sucesso',

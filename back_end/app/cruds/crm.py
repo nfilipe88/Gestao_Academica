@@ -267,6 +267,8 @@ async def listar_oportunidades(db: AsyncSession, tenant_id, etapa_id: uuid.UUID 
                 "nome_aluno_candidato": lead.nome_aluno_candidato,
                 "data_nascimento_candidato": lead.data_nascimento_candidato,
                 "origem_lead": lead.origem_lead,
+                "curso_interesse_id": lead.curso_interesse_id,
+                "data_entrada": lead.data_entrada,
             },
         }
         for oportunidade, lead in resultado.all()

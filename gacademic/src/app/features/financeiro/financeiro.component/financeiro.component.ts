@@ -3,7 +3,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { filter, take } from 'rxjs';
+import { combineLatest, filter, map, startWith, take } from 'rxjs';
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
 import { selectAlunos } from '../../../store/alunos/alunos.selector';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
@@ -16,7 +16,10 @@ import {
   selectContrato, selectContratoCarregado, selectFaturas, selectFinanceiroError,
   selectFinanceiroMensagem, selectMatriculasDoAluno, selectResponsaveisElegiveis, selectUltimaCobranca
 } from '../../../store/financeiro/financeiro.selector';
+import { StatusFatura } from '../../../store/financeiro/financeiro.models';
 import { abrirOuNavegar } from '../../../core/utils/abrir-em-nova-aba';
+
+const ESTADOS_FATURA: StatusFatura[] = ['PENDENTE', 'PAGO', 'ATRASADO', 'CANCELADO', 'NEGOCIADO'];
 
 const FORMAS_PAGAMENTO = ['MANUAL', 'DINHEIRO', 'TRANSFERENCIA', 'MBWAY', 'OUTRO'];
 
@@ -44,6 +47,32 @@ export class FinanceiroComponent implements OnInit {
   moeda$ = this.store.select(selectMoeda);
 
   formasPagamento = FORMAS_PAGAMENTO;
+  estadosFatura = ESTADOS_FATURA;
+
+  // Filtro por estado e por intervalo de vencimento — as faturas de um
+  // contrato já vêm todas de uma vez (tipicamente ≤36 parcelas), por
+  // isso o filtro é só no cliente, sem novo pedido ao back-end.
+  filtroFaturasForm = this.fb.group({
+    status: [''],
+    data_vencimento_inicio: [''],
+    data_vencimento_fim: ['']
+  });
+
+  faturasFiltradas$ = combineLatest([
+    this.faturas$,
+    this.filtroFaturasForm.valueChanges.pipe(startWith(this.filtroFaturasForm.value))
+  ]).pipe(
+    map(([faturas, filtro]) => faturas.filter(f => {
+      if (filtro.status && f.status_efetivo !== filtro.status) return false;
+      if (filtro.data_vencimento_inicio && f.data_vencimento < filtro.data_vencimento_inicio) return false;
+      if (filtro.data_vencimento_fim && f.data_vencimento > filtro.data_vencimento_fim) return false;
+      return true;
+    }))
+  );
+
+  limparFiltroFaturas() {
+    this.filtroFaturasForm.reset({ status: '', data_vencimento_inicio: '', data_vencimento_fim: '' });
+  }
 
   alunoSelecionadoId = '';
   matriculaSelecionadaId: string | null = null;

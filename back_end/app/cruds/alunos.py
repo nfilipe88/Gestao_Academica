@@ -6,7 +6,7 @@ não uma preocupação de acesso a dados.
 """
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import or_, select
 import uuid
 
 from app.database.models import Usuario
@@ -78,8 +78,23 @@ async def criar_aluno(db: AsyncSession, tenant_id, dados: AlunoCreate) -> Aluno:
     return novo_aluno
 
 
-async def listar_alunos(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
-    query = select(Aluno).where(Aluno.tenant_id == tenant_id).order_by(Aluno.nome_completo)
+async def listar_alunos(
+    db: AsyncSession, tenant_id, page: int, page_size: int,
+    busca: str | None = None, data_nascimento_inicio=None, data_nascimento_fim=None
+) -> dict:
+    query = select(Aluno).where(Aluno.tenant_id == tenant_id)
+    if busca:
+        termo = f"%{busca.strip()}%"
+        query = query.where(or_(
+            Aluno.nome_completo.ilike(termo),
+            Aluno.matricula_interna.ilike(termo),
+            Aluno.numero_documento.ilike(termo)
+        ))
+    if data_nascimento_inicio:
+        query = query.where(Aluno.data_nascimento >= data_nascimento_inicio)
+    if data_nascimento_fim:
+        query = query.where(Aluno.data_nascimento <= data_nascimento_fim)
+    query = query.order_by(Aluno.nome_completo)
     return await paginar(db, query, page, page_size)
 
 

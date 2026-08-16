@@ -6,7 +6,7 @@ direções (emissão pela escola vs. pedido da escola a terceiros).
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from dotenv import load_dotenv
@@ -308,13 +308,22 @@ async def listar_minhas_solicitacoes_emissao(db: AsyncSession, tenant_id, utiliz
     return [_serializar_emissao(s, nome) for s, nome in resultado]
 
 
-async def listar_solicitacoes_emissao_staff(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+async def listar_solicitacoes_emissao_staff(
+    db: AsyncSession, tenant_id, page: int, page_size: int,
+    status: str | None = None, data_inicio=None, data_fim=None
+) -> dict:
     query = (
         select(SolicitacaoDocumentoEmissao, Aluno.nome_completo)
         .join(Aluno, Aluno.id == SolicitacaoDocumentoEmissao.aluno_id)
         .where(SolicitacaoDocumentoEmissao.tenant_id == tenant_id)
-        .order_by(SolicitacaoDocumentoEmissao.data_solicitacao.desc())
     )
+    if status:
+        query = query.where(SolicitacaoDocumentoEmissao.status == status)
+    if data_inicio:
+        query = query.where(SolicitacaoDocumentoEmissao.data_solicitacao >= data_inicio)
+    if data_fim:
+        query = query.where(SolicitacaoDocumentoEmissao.data_solicitacao < data_fim + timedelta(days=1))
+    query = query.order_by(SolicitacaoDocumentoEmissao.data_solicitacao.desc())
     pagina = await paginar_linhas(db, query, page, page_size)
     pagina["items"] = [_serializar_emissao(s, nome) for s, nome in pagina["items"]]
     return pagina
@@ -613,8 +622,18 @@ async def _obter_solicitacao_escola(db: AsyncSession, tenant_id, solicitacao_id:
     return solicitacao
 
 
-async def listar_solicitacoes_escola_staff(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
-    query = select(SolicitacaoDocumentoEscola).where(SolicitacaoDocumentoEscola.tenant_id == tenant_id).order_by(SolicitacaoDocumentoEscola.data_solicitacao.desc())
+async def listar_solicitacoes_escola_staff(
+    db: AsyncSession, tenant_id, page: int, page_size: int,
+    status: str | None = None, data_inicio=None, data_fim=None
+) -> dict:
+    query = select(SolicitacaoDocumentoEscola).where(SolicitacaoDocumentoEscola.tenant_id == tenant_id)
+    if status:
+        query = query.where(SolicitacaoDocumentoEscola.status == status)
+    if data_inicio:
+        query = query.where(SolicitacaoDocumentoEscola.data_solicitacao >= data_inicio)
+    if data_fim:
+        query = query.where(SolicitacaoDocumentoEscola.data_solicitacao < data_fim + timedelta(days=1))
+    query = query.order_by(SolicitacaoDocumentoEscola.data_solicitacao.desc())
     pagina = await paginar(db, query, page, page_size)
 
     resultado = []

@@ -1,8 +1,8 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { combineLatest, map } from 'rxjs';
+import { combineLatest, debounceTime, distinctUntilChanged, map, Subscription } from 'rxjs';
 import {
   carregarAlunos, carregarResponsaveis, carregarResponsaveisDoAluno,
   criarAcessoAluno, criarAcessoResponsavel, criarAluno, criarResponsavel, vincularResponsavel
@@ -20,9 +20,10 @@ import { PaginacaoComponent } from '../../../shared/components/paginacao/paginac
   templateUrl: './alunos.component.html',
   styleUrl: './alunos.component.css',
 })
-export class AlunosComponent implements OnInit {
+export class AlunosComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private subscricoes = new Subscription();
 
   erro$ = this.store.select(selectAlunosError);
   mensagem$ = this.store.select(selectAlunosMensagem);
@@ -97,6 +98,16 @@ export class AlunosComponent implements OnInit {
   paginaAlunos = 1;
   tamanhoAlunos = 25;
 
+  // Filtro por busca (nome/matrícula/documento) e por intervalo de data
+  // de nascimento — combinado com a paginação já existente (ver
+  // dispatchAlunosComFiltros). A busca tem debounce para não disparar
+  // um pedido a cada tecla; as datas disparam logo (menos frequentes).
+  filtroForm = this.fb.group({
+    busca: [''],
+    data_nascimento_inicio: [''],
+    data_nascimento_fim: ['']
+  });
+
   ngOnInit() {
     this.store.dispatch(carregarAlunos({ page: this.paginaAlunos, page_size: this.tamanhoAlunos }));
     // Responsáveis não tem tabela própria nesta página — só povoa o
@@ -105,17 +116,54 @@ export class AlunosComponent implements OnInit {
     // escolas com mais de 100 responsáveis, ver nota em
     // transferencias.component.ts).
     this.store.dispatch(carregarResponsaveis({ page_size: 100 }));
+
+    this.subscricoes.add(
+      this.filtroForm.controls.busca.valueChanges.pipe(
+        debounceTime(300),
+        distinctUntilChanged()
+      ).subscribe(() => this.aplicarFiltros())
+    );
+    this.subscricoes.add(
+      this.filtroForm.controls.data_nascimento_inicio.valueChanges.subscribe(() => this.aplicarFiltros())
+    );
+    this.subscricoes.add(
+      this.filtroForm.controls.data_nascimento_fim.valueChanges.subscribe(() => this.aplicarFiltros())
+    );
+  }
+
+  ngOnDestroy() {
+    this.subscricoes.unsubscribe();
+  }
+
+  private dispatchAlunosComFiltros(pagina: number) {
+    const { busca, data_nascimento_inicio, data_nascimento_fim } = this.filtroForm.value;
+    this.store.dispatch(carregarAlunos({
+      page: pagina, page_size: this.tamanhoAlunos,
+      busca: busca?.trim() || undefined,
+      data_nascimento_inicio: data_nascimento_inicio || undefined,
+      data_nascimento_fim: data_nascimento_fim || undefined
+    }));
+  }
+
+  aplicarFiltros() {
+    this.paginaAlunos = 1;
+    this.dispatchAlunosComFiltros(1);
+  }
+
+  limparFiltros() {
+    this.filtroForm.reset({ busca: '', data_nascimento_inicio: '', data_nascimento_fim: '' });
+    this.aplicarFiltros();
   }
 
   onPaginaAlunos(pagina: number) {
     this.paginaAlunos = pagina;
-    this.store.dispatch(carregarAlunos({ page: pagina, page_size: this.tamanhoAlunos }));
+    this.dispatchAlunosComFiltros(pagina);
   }
 
   onTamanhoAlunos(tamanho: number) {
     this.tamanhoAlunos = tamanho;
     this.paginaAlunos = 1;
-    this.store.dispatch(carregarAlunos({ page: 1, page_size: tamanho }));
+    this.dispatchAlunosComFiltros(1);
   }
 
   alternarFormularioAluno() {

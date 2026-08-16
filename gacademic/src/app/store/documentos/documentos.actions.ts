@@ -40,7 +40,7 @@ export const criarSolicitacaoEmissao = createAction(
 export const carregarMinhasSolicitacoesEmissao = createAction('[Documentos] Carregar Minhas Solicitacoes Emissao');
 export const carregarSolicitacoesEmissaoStaff = createAction(
   '[Documentos] Carregar Solicitacoes Emissao Staff',
-  props<{ page?: number, page_size?: number }>()
+  props<{ page?: number, page_size?: number, status?: string, data_inicio?: string, data_fim?: string }>()
 );
 // `paginacao` só vem preenchida quando a origem é a listagem staff
 // (paginada no back-end) — a variante "minhas" (Aluno/Responsável)
@@ -65,7 +65,7 @@ export const criarSolicitacaoEscola = createAction(
 );
 export const carregarSolicitacoesEscolaStaff = createAction(
   '[Documentos] Carregar Solicitacoes Escola Staff',
-  props<{ page?: number, page_size?: number }>()
+  props<{ page?: number, page_size?: number, status?: string, data_inicio?: string, data_fim?: string }>()
 );
 export const carregarSolicitacoesEscolaStaffSucesso = createAction(
   '[Documentos] Carregar Solicitacoes Escola Staff Sucesso',

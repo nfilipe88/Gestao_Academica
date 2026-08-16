@@ -1,8 +1,8 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { combineLatest, map } from 'rxjs';
+import { combineLatest, debounceTime, distinctUntilChanged, map, Subscription } from 'rxjs';
 import { carregarCursos, carregarDisciplinas, carregarSeries, carregarTurmas } from '../../../store/academico/academic.actions';
 import { selectDisciplinas, selectTurmas } from '../../../store/academico/academic.selector';
 import { selectIsGestor, selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
@@ -16,9 +16,10 @@ import { PaginacaoComponent } from '../../../shared/components/paginacao/paginac
   templateUrl: './professores.component.html',
   styleUrl: './professores.component.css',
 })
-export class ProfessoresComponent implements OnInit {
+export class ProfessoresComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private subscricoes = new Subscription();
 
   erro$ = this.store.select(selectProfessoresError);
   turmas$ = this.store.select(selectTurmas);
@@ -59,6 +60,10 @@ export class ProfessoresComponent implements OnInit {
   paginaProfessores = 1;
   tamanhoProfessores = 25;
 
+  // Busca por nome/e-mail — debounce para não disparar um pedido a
+  // cada tecla (mesmo padrão do filtro de Alunos).
+  filtroForm = this.fb.group({ busca: [''] });
+
   ngOnInit() {
     this.store.dispatch(carregarProfessores({ page: this.paginaProfessores, page_size: this.tamanhoProfessores }));
     this.store.dispatch(carregarAlocacoes());
@@ -67,17 +72,44 @@ export class ProfessoresComponent implements OnInit {
     this.store.dispatch(carregarDisciplinas());
     this.store.dispatch(carregarCursos());
     this.store.dispatch(carregarSeries());
+
+    this.subscricoes.add(
+      this.filtroForm.controls.busca.valueChanges.pipe(
+        debounceTime(300),
+        distinctUntilChanged()
+      ).subscribe(() => {
+        this.paginaProfessores = 1;
+        this.dispatchProfessoresComFiltro(1);
+      })
+    );
+  }
+
+  ngOnDestroy() {
+    this.subscricoes.unsubscribe();
+  }
+
+  private dispatchProfessoresComFiltro(pagina: number) {
+    this.store.dispatch(carregarProfessores({
+      page: pagina, page_size: this.tamanhoProfessores,
+      busca: this.filtroForm.value.busca?.trim() || undefined
+    }));
+  }
+
+  limparFiltro() {
+    this.filtroForm.reset({ busca: '' });
+    this.paginaProfessores = 1;
+    this.dispatchProfessoresComFiltro(1);
   }
 
   onPaginaProfessores(pagina: number) {
     this.paginaProfessores = pagina;
-    this.store.dispatch(carregarProfessores({ page: pagina, page_size: this.tamanhoProfessores }));
+    this.dispatchProfessoresComFiltro(pagina);
   }
 
   onTamanhoProfessores(tamanho: number) {
     this.tamanhoProfessores = tamanho;
     this.paginaProfessores = 1;
-    this.store.dispatch(carregarProfessores({ page: 1, page_size: tamanho }));
+    this.dispatchProfessoresComFiltro(1);
   }
 
   alternarFormulario() {

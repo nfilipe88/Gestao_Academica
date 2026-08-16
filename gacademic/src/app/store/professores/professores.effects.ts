@@ -14,17 +14,19 @@ export class ProfessoresEffects {
   carregarProfessores$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ProfessoresActions.carregarProfessores),
-      switchMap(action => this.http.get<PaginaResultado<Professor>>('/api/v1/professores', {
-        params: { page: action.page ?? 1, page_size: action.page_size ?? 25 }
-      }).pipe(
-        map(resp => ProfessoresActions.carregarProfessoresSucesso({
-          professores: resp.items,
-          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
-        })),
-        catchError(err => of(ProfessoresActions.professoresOperacaoFalhou({
-          erro: err.error?.detail || 'Não foi possível carregar os professores.'
-        })))
-      ))
+      switchMap(action => {
+        const params: Record<string, string | number> = { page: action.page ?? 1, page_size: action.page_size ?? 25 };
+        if (action.busca) params['busca'] = action.busca;
+        return this.http.get<PaginaResultado<Professor>>('/api/v1/professores', { params }).pipe(
+          map(resp => ProfessoresActions.carregarProfessoresSucesso({
+            professores: resp.items,
+            paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+          })),
+          catchError(err => of(ProfessoresActions.professoresOperacaoFalhou({
+            erro: err.error?.detail || 'Não foi possível carregar os professores.'
+          })))
+        );
+      })
     )
   );
 

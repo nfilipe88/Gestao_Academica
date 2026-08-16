@@ -47,6 +47,33 @@
 
   <!-- ABA: Pedidos de Emissão -->
   @if (aba === 'emissao') {
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+        <select [(ngModel)]="filtroStatusEmissao" (ngModelChange)="aplicarFiltroEmissao()"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          <option value="">Todos</option>
+          @for (estado of estadosEmissao; track estado) {
+            <option [value]="estado">{{ estado }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Pedido entre</label>
+        <input type="date" [(ngModel)]="filtroDataInicioEmissao" (ngModelChange)="aplicarFiltroEmissao()"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+        <input type="date" [(ngModel)]="filtroDataFimEmissao" (ngModelChange)="aplicarFiltroEmissao()"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <button type="button" (click)="limparFiltroEmissao()"
+        class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
+        Limpar
+      </button>
+    </div>
+
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-slate-500 text-left">
@@ -274,6 +301,33 @@
         </button>
       </div>
     }
+
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+        <select [(ngModel)]="filtroStatusEscola" (ngModelChange)="aplicarFiltroEscola()"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          <option value="">Todos</option>
+          @for (estado of estadosEscola; track estado) {
+            <option [value]="estado">{{ estado }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Pedido entre</label>
+        <input type="date" [(ngModel)]="filtroDataInicioEscola" (ngModelChange)="aplicarFiltroEscola()"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+        <input type="date" [(ngModel)]="filtroDataFimEscola" (ngModelChange)="aplicarFiltroEscola()"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <button type="button" (click)="limparFiltroEscola()"
+        class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
+        Limpar
+      </button>
+    </div>
 
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-x-auto">
       <table class="w-full text-sm">

@@ -9,7 +9,7 @@ o porquê de ser seguro (RLS é reforço, o isolamento real vem do filtro
 explícito por tenant_id, e aqui o filtro é deliberadamente cruzado).
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -110,14 +110,23 @@ async def criar_solicitacao(db: AsyncSession, tenant_id, utilizador: dict, dados
     return _serializar(nova, aluno_nome=aluno.nome_completo, nome_destino=tenant_destino.nome_fantasia)
 
 
-async def listar_minhas_solicitacoes(db: AsyncSession, tenant_id, page: int, page_size: int) -> dict:
+async def listar_minhas_solicitacoes(
+    db: AsyncSession, tenant_id, page: int, page_size: int,
+    status: str | None = None, data_inicio=None, data_fim=None
+) -> dict:
     query = (
         select(SolicitacaoTransferencia, Aluno.nome_completo, Tenant.nome_fantasia)
         .join(Aluno, Aluno.id == SolicitacaoTransferencia.aluno_id)
         .join(Tenant, Tenant.id == SolicitacaoTransferencia.tenant_destino_id)
         .where(SolicitacaoTransferencia.tenant_id == tenant_id)
-        .order_by(SolicitacaoTransferencia.data_solicitacao.desc())
     )
+    if status:
+        query = query.where(SolicitacaoTransferencia.status == status)
+    if data_inicio:
+        query = query.where(SolicitacaoTransferencia.data_solicitacao >= data_inicio)
+    if data_fim:
+        query = query.where(SolicitacaoTransferencia.data_solicitacao < data_fim + timedelta(days=1))
+    query = query.order_by(SolicitacaoTransferencia.data_solicitacao.desc())
     pagina = await paginar_linhas(db, query, page, page_size)
     pagina["items"] = [_serializar(s, aluno_nome=nome_aluno, nome_destino=nome_destino) for s, nome_aluno, nome_destino in pagina["items"]]
     return pagina
