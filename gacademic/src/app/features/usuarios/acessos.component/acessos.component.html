@@ -1,0 +1,200 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Gestão de Acessos</h2>
+    <p class="text-slate-500 text-sm">Quem tem conta de funcionário na sua escola, com que perfil, e o histórico de alterações.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  @if (!(podeAceder$ | async)) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">Acesso restrito a: GESTOR.</div>
+  }
+
+  @if (podeAceder$ | async) {
+  <div class="flex gap-1 border-b border-slate-200">
+    <button type="button" (click)="aba = 'staff'"
+      class="px-4 py-2 text-sm font-medium border-b-2 -mb-px cursor-pointer transition-colors"
+      [class.border-blue-600]="aba === 'staff'" [class.text-blue-600]="aba === 'staff'"
+      [class.border-transparent]="aba !== 'staff'" [class.text-slate-500]="aba !== 'staff'">
+      Funcionários
+    </button>
+    <button type="button" (click)="onVerAuditoria()"
+      class="px-4 py-2 text-sm font-medium border-b-2 -mb-px cursor-pointer transition-colors"
+      [class.border-blue-600]="aba === 'auditoria'" [class.text-blue-600]="aba === 'auditoria'"
+      [class.border-transparent]="aba !== 'auditoria'" [class.text-slate-500]="aba !== 'auditoria'">
+      Histórico
+    </button>
+  </div>
+
+  @if (aba === 'staff') {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800">Funcionários</h3>
+          <p class="text-xs text-slate-500">Gestor e Secretaria podem ter o perfil alterado aqui; Professor mantém a gestão em "Professores".</p>
+        </div>
+        <button type="button" (click)="alternarFormularioSecretaria()"
+          class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+          {{ mostrarFormularioSecretaria ? 'Cancelar' : '+ Nova Conta de Secretaria' }}
+        </button>
+      </div>
+
+      @if (mostrarFormularioSecretaria) {
+        <form [formGroup]="secretariaForm" (ngSubmit)="onCriarSecretaria()"
+          class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 pb-4 border-b border-slate-100">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Nome completo</label>
+            <input type="text" formControlName="nome_completo" placeholder="Ex: Ana Ferreira"
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">E-mail</label>
+            <input type="email" formControlName="email" placeholder="ana.ferreira@escola.pt"
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Palavra-passe inicial</label>
+            <input type="text" formControlName="palavra_passe" placeholder="Mínimo 8 caracteres"
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div class="flex items-end">
+            <button type="submit" [disabled]="secretariaForm.invalid"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+              Criar
+            </button>
+          </div>
+        </form>
+      }
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-600 text-sm">
+              <th class="py-2 pr-4 font-medium">Nome</th>
+              <th class="py-2 pr-4 font-medium">E-mail</th>
+              <th class="py-2 pr-4 font-medium">Perfil</th>
+              <th class="py-2 pr-4 font-medium">Estado</th>
+              <th class="py-2 font-medium text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of (usuarios$ | async); track u.id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2.5 pr-4 text-slate-800 font-medium">{{ u.nome_completo }}</td>
+                <td class="py-2.5 pr-4 text-slate-500">{{ u.email }}</td>
+                <td class="py-2.5 pr-4">
+                  @if (usuarioAEditarPerfilId === u.id) {
+                    <select #perfilSelect [value]="u.perfil_acesso"
+                      class="border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800">
+                      @for (p of perfisAtribuiveis; track p) {
+                        <option [value]="p">{{ p }}</option>
+                      }
+                    </select>
+                    <button type="button" (click)="onGuardarPerfil(u.id, perfilSelect.value)"
+                      class="ml-2 text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">Guardar</button>
+                    <button type="button" (click)="onCancelarEdicaoPerfil()"
+                      class="ml-1 text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Cancelar</button>
+                  } @else {
+                    <span class="text-xs font-medium py-0.5 px-2 rounded-full"
+                      [class.bg-indigo-100]="u.perfil_acesso === 'GESTOR'" [class.text-indigo-700]="u.perfil_acesso === 'GESTOR'"
+                      [class.bg-blue-100]="u.perfil_acesso === 'SECRETARIA'" [class.text-blue-700]="u.perfil_acesso === 'SECRETARIA'"
+                      [class.bg-purple-100]="u.perfil_acesso === 'PROFESSOR'" [class.text-purple-700]="u.perfil_acesso === 'PROFESSOR'">
+                      {{ u.perfil_acesso }}
+                    </span>
+                  }
+                </td>
+                <td class="py-2.5 pr-4">
+                  <span class="text-xs font-medium py-0.5 px-2 rounded-full"
+                    [class.bg-emerald-100]="u.ativo" [class.text-emerald-700]="u.ativo"
+                    [class.bg-slate-100]="!u.ativo" [class.text-slate-500]="!u.ativo">
+                    {{ u.ativo ? 'Ativo' : 'Suspenso' }}
+                  </span>
+                </td>
+                <td class="py-2.5 text-right space-x-3 whitespace-nowrap">
+                  @if (podeMudarPerfil(u) && usuarioAEditarPerfilId !== u.id) {
+                    <button type="button" (click)="onAbrirEdicaoPerfil(u.id)"
+                      class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Mudar perfil</button>
+                  }
+                  @if ((meuUsuario$ | async)?.id !== u.id) {
+                    @if (usuarioASuspenderId === u.id) {
+                      <span class="text-xs text-rose-600">{{ u.ativo ? 'Suspender?' : 'Reativar?' }}</span>
+                      <button type="button" (click)="onConfirmarAlterarAtivo(u.id, !u.ativo)"
+                        class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
+                      <button type="button" (click)="onCancelarSuspensao()"
+                        class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Não</button>
+                    } @else {
+                      <button type="button" (click)="onPedirSuspensao(u.id)"
+                        class="text-xs font-medium cursor-pointer"
+                        [class.text-rose-500]="u.ativo" [class.hover:text-rose-700]="u.ativo"
+                        [class.text-emerald-600]="!u.ativo" [class.hover:text-emerald-800]="!u.ativo">
+                        {{ u.ativo ? 'Suspender' : 'Reativar' }}
+                      </button>
+                    }
+                  } @else {
+                    <span class="text-xs text-slate-300">(você)</span>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="5" class="py-6 text-center text-slate-500">Nenhum funcionário encontrado.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (paginacaoUsuarios$ | async; as paginacao) {
+        <app-paginacao [estado]="paginacao" (paginaChange)="onPaginaStaff($event)" (tamanhoChange)="onTamanhoStaff($event)"></app-paginacao>
+      }
+    </div>
+  }
+
+  @if (aba === 'auditoria') {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <h3 class="text-sm font-semibold text-slate-800 mb-1">Histórico de Gestão de Acessos</h3>
+      <p class="text-xs text-slate-500 mb-4">Criação de contas, mudanças de perfil e suspensões/reativações — quem fez, quando, e o antes/depois.</p>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-600">
+              <th class="py-2 pr-4 font-medium">Quando</th>
+              <th class="py-2 pr-4 font-medium">Ação</th>
+              <th class="py-2 pr-4 font-medium">Utilizador</th>
+              <th class="py-2 pr-4 font-medium">Detalhe</th>
+              <th class="py-2 font-medium">Autor</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (registo of (auditoria$ | async); track registo.id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-4 text-slate-500 whitespace-nowrap">{{ registo.data_acao | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="py-2 pr-4 text-slate-800">{{ labelAcao(registo.acao) }}</td>
+                <td class="py-2 pr-4 text-slate-800 font-medium">{{ registo.nome_alvo }}</td>
+                <td class="py-2 pr-4 text-slate-500">
+                  @if (registo.perfil_anterior && registo.perfil_novo) {
+                    {{ registo.perfil_anterior }} → {{ registo.perfil_novo }}
+                  } @else if (registo.detalhe) {
+                    {{ registo.detalhe }}
+                  }
+                </td>
+                <td class="py-2 text-slate-500">{{ registo.nome_autor || '—' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="5" class="py-6 text-center text-slate-500">Ainda não há alterações registadas.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (paginacaoAuditoria$ | async; as paginacao) {
+        <app-paginacao [estado]="paginacao" (paginaChange)="onPaginaAuditoria($event)" (tamanhoChange)="onTamanhoAuditoria($event)"></app-paginacao>
+      }
+    </div>
+  }
+  }
+
+</div>

@@ -33,6 +33,7 @@
             <th class="py-3 px-6 font-medium text-right">Professores</th>
             <th class="py-3 px-6 font-medium">Estado</th>
             <th class="py-3 px-6 font-medium">Validade da Licença</th>
+            <th class="py-3 px-6 font-medium text-right">Acessos</th>
             <th class="py-3 px-6 font-medium text-right">Ação</th>
           </tr>
         </thead>
@@ -68,6 +69,14 @@
                 }
               </td>
               <td class="py-3 px-6 text-right">
+                <button type="button" (click)="onAlternarGestaoAcessos(tenant.id)"
+                  class="text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
+                  [class.bg-blue-100]="usuariosDoTenantId !== tenant.id" [class.text-blue-700]="usuariosDoTenantId !== tenant.id" [class.hover:bg-blue-200]="usuariosDoTenantId !== tenant.id"
+                  [class.bg-slate-200]="usuariosDoTenantId === tenant.id" [class.text-slate-700]="usuariosDoTenantId === tenant.id">
+                  {{ usuariosDoTenantId === tenant.id ? 'Fechar' : 'Gerir Acessos' }}
+                </button>
+              </td>
+              <td class="py-3 px-6 text-right">
                 @if (tenantAConfirmarId === tenant.id) {
                   <div class="flex items-center justify-end gap-2">
                     <span class="text-xs text-slate-500">Confirmar?</span>
@@ -90,8 +99,112 @@
                 }
               </td>
             </tr>
+            @if (usuariosDoTenantId === tenant.id) {
+              <tr class="border-b border-slate-100 bg-slate-50/60">
+                <td colspan="9" class="p-4">
+
+                  @if (erroUsuarios$ | async; as erroU) {
+                    <div class="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-xs text-rose-700">{{ erroU }}</div>
+                  }
+                  @if (mensagemUsuarios$ | async; as mensagemU) {
+                    <div class="mb-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs text-emerald-700">{{ mensagemU }}</div>
+                  }
+
+                  <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Funcionários de {{ tenant.nome_fantasia }}</h4>
+                    <button type="button" (click)="alternarFormularioSecretaria()"
+                      class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-lg transition-colors cursor-pointer">
+                      {{ mostrarFormularioSecretaria ? 'Cancelar' : '+ Nova Conta de Secretaria' }}
+                    </button>
+                  </div>
+
+                  @if (mostrarFormularioSecretaria) {
+                    <form [formGroup]="secretariaForm" (ngSubmit)="onCriarSecretaria()"
+                      class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 pb-3 border-b border-slate-200">
+                      <input type="text" formControlName="nome_completo" placeholder="Nome completo"
+                        class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800" />
+                      <input type="email" formControlName="email" placeholder="E-mail"
+                        class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800" />
+                      <input type="text" formControlName="palavra_passe" placeholder="Palavra-passe inicial"
+                        class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800" />
+                      <button type="submit" [disabled]="secretariaForm.invalid"
+                        class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                        Criar
+                      </button>
+                    </form>
+                  }
+
+                  <table class="w-full text-left border-collapse text-xs bg-white rounded-lg overflow-hidden">
+                    <thead>
+                      <tr class="border-b border-slate-200 text-slate-500">
+                        <th class="py-2 px-3 font-medium">Nome</th>
+                        <th class="py-2 px-3 font-medium">E-mail</th>
+                        <th class="py-2 px-3 font-medium">Perfil</th>
+                        <th class="py-2 px-3 font-medium">Estado</th>
+                        <th class="py-2 px-3 font-medium text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (u of (usuarios$ | async); track u.id) {
+                        <tr class="border-b border-slate-100">
+                          <td class="py-2 px-3 text-slate-800 font-medium">{{ u.nome_completo }}</td>
+                          <td class="py-2 px-3 text-slate-500">{{ u.email }}</td>
+                          <td class="py-2 px-3">
+                            @if (usuarioAEditarPerfilId === u.id) {
+                              <select #perfilSelectAdmin [value]="u.perfil_acesso" class="border border-slate-300 rounded px-1.5 py-0.5 text-xs">
+                                @for (p of perfisAtribuiveis; track p) {
+                                  <option [value]="p">{{ p }}</option>
+                                }
+                              </select>
+                              <button type="button" (click)="onGuardarPerfil(u.id, perfilSelectAdmin.value)" class="ml-1 text-blue-600 hover:text-blue-800 font-medium cursor-pointer">Guardar</button>
+                              <button type="button" (click)="onCancelarEdicaoPerfil()" class="ml-1 text-slate-400 hover:text-slate-600 cursor-pointer">Cancelar</button>
+                            } @else {
+                              <span class="font-medium py-0.5 px-2 rounded-full"
+                                [class.bg-indigo-100]="u.perfil_acesso === 'GESTOR'" [class.text-indigo-700]="u.perfil_acesso === 'GESTOR'"
+                                [class.bg-blue-100]="u.perfil_acesso === 'SECRETARIA'" [class.text-blue-700]="u.perfil_acesso === 'SECRETARIA'"
+                                [class.bg-purple-100]="u.perfil_acesso === 'PROFESSOR'" [class.text-purple-700]="u.perfil_acesso === 'PROFESSOR'">
+                                {{ u.perfil_acesso }}
+                              </span>
+                            }
+                          </td>
+                          <td class="py-2 px-3">
+                            <span class="font-medium py-0.5 px-2 rounded-full"
+                              [class.bg-emerald-100]="u.ativo" [class.text-emerald-700]="u.ativo"
+                              [class.bg-slate-100]="!u.ativo" [class.text-slate-500]="!u.ativo">
+                              {{ u.ativo ? 'Ativo' : 'Suspenso' }}
+                            </span>
+                          </td>
+                          <td class="py-2 px-3 text-right space-x-2 whitespace-nowrap">
+                            @if (podeMudarPerfil(u) && usuarioAEditarPerfilId !== u.id) {
+                              <button type="button" (click)="onAbrirEdicaoPerfil(u.id)" class="text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Mudar perfil</button>
+                            }
+                            @if (usuarioASuspenderId === u.id) {
+                              <span class="text-rose-600">{{ u.ativo ? 'Suspender?' : 'Reativar?' }}</span>
+                              <button type="button" (click)="onConfirmarAlterarAtivo(u.id, !u.ativo)" class="text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
+                              <button type="button" (click)="onCancelarSuspensaoUsuario()" class="text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Não</button>
+                            } @else {
+                              <button type="button" (click)="onPedirSuspensaoUsuario(u.id)"
+                                class="font-medium cursor-pointer"
+                                [class.text-rose-500]="u.ativo" [class.hover:text-rose-700]="u.ativo"
+                                [class.text-emerald-600]="!u.ativo" [class.hover:text-emerald-800]="!u.ativo">
+                                {{ u.ativo ? 'Suspender' : 'Reativar' }}
+                              </button>
+                            }
+                          </td>
+                        </tr>
+                      } @empty {
+                        <tr><td colspan="5" class="py-4 text-center text-slate-400">Nenhum funcionário nesta escola.</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                  @if (paginacaoUsuarios$ | async; as paginacaoU) {
+                    <app-paginacao [estado]="paginacaoU" (paginaChange)="onPaginaUsuarios($event)" (tamanhoChange)="onTamanhoUsuarios($event)"></app-paginacao>
+                  }
+                </td>
+              </tr>
+            }
           } @empty {
-            <tr><td colspan="8" class="py-8 text-center text-slate-500">Nenhuma instituição registada na plataforma.</td></tr>
+            <tr><td colspan="9" class="py-8 text-center text-slate-500">Nenhuma instituição registada na plataforma.</td></tr>
           }
         </tbody>
       </table>

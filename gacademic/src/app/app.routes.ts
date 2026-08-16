@@ -111,6 +111,10 @@ export const routes: Routes = [
         path: 'configuracoes',
         loadComponent: () => import('./features/configuracoes/configuracoes.component/configuracoes.component').then((m) => m.ConfiguracoesComponent)
       },
+      {
+        path: 'acessos',
+        loadComponent: () => import('./features/usuarios/acessos.component/acessos.component').then((m) => m.AcessosComponent)
+      },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

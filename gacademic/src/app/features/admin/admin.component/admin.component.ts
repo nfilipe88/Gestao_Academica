@@ -1,6 +1,6 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { atualizarStatusTenant, atualizarValidadeLicenca, carregarTenants, processarValidadeLicencas } from '../../../store/admin/admin.actions';
 import { selectAdminError, selectAdminMensagem, selectPaginacaoTenants, selectTenants } from '../../../store/admin/admin.selector';
@@ -9,16 +9,20 @@ import * as TransferenciasActions from '../../../store/transferencias/transferen
 import {
   selectPaginacaoTransferencias, selectSolicitacoesTransferencia, selectTransferenciasError, selectTransferenciasMensagem
 } from '../../../store/transferencias/transferencias.selector';
+import * as UsuariosActions from '../../../store/usuarios/usuarios.actions';
+import { selectPaginacaoUsuarios, selectUsuarios, selectUsuariosError, selectUsuariosMensagem } from '../../../store/usuarios/usuarios.selector';
+import { PERFIS_ATRIBUIVEIS, UsuarioStaff } from '../../../store/usuarios/usuarios.models';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 @Component({
   selector: 'app-admin.component',
-  imports: [CommonModule, AsyncPipe, FormsModule, PaginacaoComponent],
+  imports: [CommonModule, AsyncPipe, FormsModule, ReactiveFormsModule, PaginacaoComponent],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.css',
 })
 export class AdminComponent implements OnInit {
   private store = inject(Store);
+  private fb = inject(FormBuilder);
 
   tenants$ = this.store.select(selectTenants);
   paginacaoTenants$ = this.store.select(selectPaginacaoTenants);
@@ -29,6 +33,23 @@ export class AdminComponent implements OnInit {
   paginacaoTransferencias$ = this.store.select(selectPaginacaoTransferencias);
   erroTransferencias$ = this.store.select(selectTransferenciasError);
   mensagemTransferencias$ = this.store.select(selectTransferenciasMensagem);
+
+  // Gestão de Acessos por escola (expandida sob um tenant de cada vez —
+  // mesma store partilhada com o Gestor, ver usuarios.effects.ts::baseUrl).
+  usuariosDoTenantId: string | null = null;
+  usuarios$ = this.store.select(selectUsuarios);
+  paginacaoUsuarios$ = this.store.select(selectPaginacaoUsuarios);
+  erroUsuarios$ = this.store.select(selectUsuariosError);
+  mensagemUsuarios$ = this.store.select(selectUsuariosMensagem);
+  perfisAtribuiveis = PERFIS_ATRIBUIVEIS;
+  mostrarFormularioSecretaria = false;
+  secretariaForm = this.fb.group({
+    nome_completo: ['', Validators.required],
+    email: ['', [Validators.required, Validators.email]],
+    palavra_passe: ['', [Validators.required, Validators.minLength(8)]],
+  });
+  usuarioAEditarPerfilId: string | null = null;
+  usuarioASuspenderId: string | null = null;
 
   // Qual tenant está a pedir confirmação inline ("Confirmar"/"Cancelar"
   // em vez do botão normal) — mesmo padrão dos restantes módulos, sem
@@ -120,5 +141,73 @@ export class AdminComponent implements OnInit {
     if (!this.observacoesRejeicao.trim()) return;
     this.store.dispatch(TransferenciasActions.rejeitarSolicitacao({ solicitacao_id: solicitacaoId, observacoes: this.observacoesRejeicao }));
     this.solicitacaoARejeitar = null;
+  }
+
+  // --- Gestão de Acessos por escola (cross-tenant) ---
+
+  onAlternarGestaoAcessos(tenantId: string) {
+    this.usuariosDoTenantId = this.usuariosDoTenantId === tenantId ? null : tenantId;
+    this.mostrarFormularioSecretaria = false;
+    this.usuarioAEditarPerfilId = null;
+    this.usuarioASuspenderId = null;
+    if (this.usuariosDoTenantId) {
+      this.store.dispatch(UsuariosActions.carregarUsuarios({ tenant_id: tenantId }));
+    }
+  }
+
+  onPaginaUsuarios(pagina: number) {
+    if (!this.usuariosDoTenantId) return;
+    this.store.dispatch(UsuariosActions.carregarUsuarios({ tenant_id: this.usuariosDoTenantId, page: pagina }));
+  }
+
+  onTamanhoUsuarios(tamanho: number) {
+    if (!this.usuariosDoTenantId) return;
+    this.store.dispatch(UsuariosActions.carregarUsuarios({ tenant_id: this.usuariosDoTenantId, page: 1, page_size: tamanho }));
+  }
+
+  alternarFormularioSecretaria() {
+    this.mostrarFormularioSecretaria = !this.mostrarFormularioSecretaria;
+    this.secretariaForm.reset({ nome_completo: '', email: '', palavra_passe: '' });
+  }
+
+  onCriarSecretaria() {
+    if (this.secretariaForm.invalid || !this.usuariosDoTenantId) return;
+    const v = this.secretariaForm.value;
+    this.store.dispatch(UsuariosActions.criarSecretaria({
+      tenant_id: this.usuariosDoTenantId, nome_completo: v.nome_completo!, email: v.email!, palavra_passe: v.palavra_passe!
+    }));
+    this.mostrarFormularioSecretaria = false;
+  }
+
+  onAbrirEdicaoPerfil(usuarioId: string) {
+    this.usuarioAEditarPerfilId = usuarioId;
+  }
+
+  onCancelarEdicaoPerfil() {
+    this.usuarioAEditarPerfilId = null;
+  }
+
+  onGuardarPerfil(usuarioId: string, novoPerfil: string) {
+    if ((novoPerfil !== 'GESTOR' && novoPerfil !== 'SECRETARIA') || !this.usuariosDoTenantId) return;
+    this.store.dispatch(UsuariosActions.alterarPerfil({ tenant_id: this.usuariosDoTenantId, usuario_id: usuarioId, perfil_acesso: novoPerfil }));
+    this.usuarioAEditarPerfilId = null;
+  }
+
+  onPedirSuspensaoUsuario(usuarioId: string) {
+    this.usuarioASuspenderId = usuarioId;
+  }
+
+  onCancelarSuspensaoUsuario() {
+    this.usuarioASuspenderId = null;
+  }
+
+  onConfirmarAlterarAtivo(usuarioId: string, ativo: boolean) {
+    if (!this.usuariosDoTenantId) return;
+    this.store.dispatch(UsuariosActions.alterarAtivo({ tenant_id: this.usuariosDoTenantId, usuario_id: usuarioId, ativo }));
+    this.usuarioASuspenderId = null;
+  }
+
+  podeMudarPerfil(usuario: UsuarioStaff): boolean {
+    return usuario.perfil_acesso === 'GESTOR' || usuario.perfil_acesso === 'SECRETARIA';
   }
 }

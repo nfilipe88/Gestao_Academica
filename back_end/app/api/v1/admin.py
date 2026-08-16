@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil
 from app.schemas.admin import TenantStatusUpdate, ValidadeLicencaUpdate
+from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
 from app.cruds import admin as crud_admin
+from app.cruds import usuarios as crud_usuarios
 
 
 async def _via_background_tasks(background_tasks: BackgroundTasks):
@@ -73,3 +75,60 @@ async def processar_validade_licencas(
     agendar_email = await _via_background_tasks(background_tasks)
     resumo = await crud_admin.processar_validade_licencas(db, agendar_email)
     return {"mensagem": "Validade de licenças processada.", **resumo}
+
+
+# ==========================================
+# GESTÃO DE ACESSOS — cross-tenant (qualquer escola)
+# ==========================================
+# Mesmo crud usado por app/api/v1/usuarios.py (Gestor, só a própria
+# escola) — aqui o tenant_id vem do path da URL em vez do token, é a
+# única diferença.
+
+@router.get("/tenants/{tenant_id}/usuarios")
+async def listar_usuarios_do_tenant(
+    tenant_id: uuid.UUID,
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Staff (Gestor/Secretaria/Professor) de uma escola específica."""
+    return await crud_usuarios.listar_usuarios(db, tenant_id, page, page_size)
+
+
+@router.post("/tenants/{tenant_id}/usuarios/secretaria", status_code=201)
+async def criar_secretaria_no_tenant(
+    tenant_id: uuid.UUID, dados: SecretariaCreate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Cria uma conta de Secretaria numa escola específica (ex.: apoio ao onboarding)."""
+    novo = await crud_usuarios.criar_secretaria(db, tenant_id, dados, utilizador["usuario_id"])
+    return {"mensagem": f'Conta de Secretaria criada para "{novo.nome_completo}".', "id": novo.id}
+
+
+@router.patch("/tenants/{tenant_id}/usuarios/{usuario_id}/perfil")
+async def alterar_perfil_no_tenant(
+    tenant_id: uuid.UUID, usuario_id: uuid.UUID, dados: PerfilAcessoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Muda o perfil (Gestor/Secretaria) de um utilizador de qualquer escola."""
+    alterado = await crud_usuarios.alterar_perfil(db, tenant_id, usuario_id, dados, utilizador["usuario_id"])
+    return {"mensagem": f'"{alterado.nome_completo}" passou a ter o perfil {alterado.perfil_acesso}.', "perfil_acesso": alterado.perfil_acesso}
+
+
+@router.patch("/tenants/{tenant_id}/usuarios/{usuario_id}/ativo")
+async def alterar_estado_ativo_no_tenant(
+    tenant_id: uuid.UUID, usuario_id: uuid.UUID, dados: AtivoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Suspende ou reativa o acesso de UM utilizador de qualquer escola."""
+    alterado = await crud_usuarios.alterar_estado_ativo(db, tenant_id, usuario_id, dados.ativo, utilizador["usuario_id"])
+    return {"mensagem": f'"{alterado.nome_completo}" agora está {"ativo" if alterado.ativo else "suspenso"}.', "ativo": alterado.ativo}
+
+
+@router.get("/tenants/{tenant_id}/usuarios/auditoria")
+async def listar_auditoria_do_tenant(
+    tenant_id: uuid.UUID,
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Histórico de gestão de acessos de uma escola específica."""
+    return await crud_usuarios.listar_auditoria(db, tenant_id, page, page_size)

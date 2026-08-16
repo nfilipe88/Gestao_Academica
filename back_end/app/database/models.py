@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 from typing import List
-from sqlalchemy import Date, Numeric, String, ForeignKey, DateTime, text
+from sqlalchemy import Boolean, Date, Numeric, String, ForeignKey, DateTime, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -57,6 +57,14 @@ class Usuario(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     perfil_acesso: Mapped[str] = mapped_column(String(50), nullable=False) # GESTOR, PROFESSOR, ALUNO
+    # Suspensão individual (distinta da suspensão da escola inteira em
+    # Tenant.status) — Gestor/Super Admin usam isto para revogar o
+    # acesso de UMA pessoa (ex.: funcionário que saiu) sem mexer no
+    # resto da escola. Só é verificado no login (ver
+    # cruds/auth.py::autenticar), não em cada pedido — mesma limitação
+    # já aceite para Tenant.status: uma sessão já iniciada só perde o
+    # acesso quando o token expirar (até 24h), não instantaneamente.
+    ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     # Relacionamento

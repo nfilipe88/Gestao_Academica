@@ -21,6 +21,7 @@ import app.database.models_notificacoes
 import app.database.models_documentos
 import app.database.models_transferencias
 import app.database.models_lms
+import app.database.models_usuarios
 
 from alembic import context
 

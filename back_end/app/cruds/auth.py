@@ -79,6 +79,15 @@ async def autenticar(email: str, palavra_passe: str) -> dict:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        # Suspensão individual (RBAC — Núcleo Multi-Tenant): distinta da
+        # suspensão da escola inteira abaixo. Ver
+        # cruds/usuarios.py::alterar_estado_ativo.
+        if not usuario.ativo:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="O seu acesso foi suspenso. Contacte a direção da escola."
+            )
+
         # Bloqueio por Inadimplência do SaaS (Nível 2)
         tenant = await db.execute(select(Tenant).where(Tenant.id == usuario.tenant_id))
         tenant_status = tenant.scalars().first().status
