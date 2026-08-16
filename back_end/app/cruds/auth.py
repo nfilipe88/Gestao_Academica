@@ -2,10 +2,16 @@
 Acesso a dados de Autenticação e Onboarding.
 
 Ao contrário dos restantes módulos, estas funções abrem a própria
-sessão (AsyncSessionLocal) em vez de receber uma via
+sessão (AsyncSessionLocalSistema) em vez de receber uma via
 Depends(obter_sessao_db) — nesta fase (registo/login) ainda não há um
-utilizador autenticado para extrair o tenant_id do JWT, então o RLS
-ainda não tem nada para filtrar.
+utilizador autenticado para extrair o tenant_id do JWT, e ambas as
+operações são inerentemente cross-tenant: procurar um email para fazer
+login não sabe a priori a que escola ele pertence (o email é único em
+toda a plataforma, não só dentro de um tenant), e registar uma escola
+nova está a criar o próprio tenant, antes de existir qualquer
+"tenant atual" para o RLS filtrar. Por isso usam o role app_sistema
+(bypassrls) em vez do app_tenant usado pelo resto da app — ver
+app/database/session.py.
 
 O limitador de tentativas de login (anti força-bruta) fica na camada
 de API — depende do IP do pedido HTTP, não é uma preocupação de
@@ -14,7 +20,7 @@ acesso a dados.
 from fastapi import HTTPException, status
 from sqlalchemy import select
 
-from app.database.session import AsyncSessionLocal
+from app.database.session import AsyncSessionLocalSistema
 from app.database.models import Usuario, Tenant
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso
 from app.schemas.auth import RegistoInicial
@@ -25,7 +31,7 @@ async def registar_escola(dados: RegistoInicial) -> tuple[Tenant, Usuario]:
     Cria a Instituição (Tenant) e o seu primeiro Gestor. A operação é
     transacional: ou cria tudo, ou reverte tudo.
     """
-    async with AsyncSessionLocal() as db:
+    async with AsyncSessionLocalSistema() as db:
         nif_existente = await db.execute(select(Tenant).where(Tenant.nif == dados.nif))
         if nif_existente.scalars().first():
             raise HTTPException(status_code=400, detail="Este NIF já está registado.")
@@ -68,7 +74,7 @@ async def autenticar(email: str, palavra_passe: str) -> dict:
     (Tenant) não está suspensa, e gera o JWT com os dados necessários
     para o RLS (tenant_id) e RBAC (perfil_acesso).
     """
-    async with AsyncSessionLocal() as db:
+    async with AsyncSessionLocalSistema() as db:
         resultado = await db.execute(select(Usuario).where(Usuario.email == email))
         usuario = resultado.scalars().first()
 

@@ -97,12 +97,16 @@ async def run_async_migrations() -> None:
     await connectable.dispose()
 
 
-# 3. Injetar a URL de conexão a partir do .env
+# 3. Injetar a URL de conexão a partir do .env — DATABASE_URL_MIGRACOES
+# (role `postgres`, superuser) em vez de DATABASE_URL (role app_tenant,
+# sem privilégios de DDL — não consegue criar/alterar tabelas nem
+# policies de RLS). Ver scripts/criar_roles_rls.sql. Fallback para
+# DATABASE_URL só por compatibilidade com um .env antigo.
 def run_migrations_online() -> None:
-    database_url = os.getenv("DATABASE_URL")
+    database_url = os.getenv("DATABASE_URL_MIGRACOES") or os.getenv("DATABASE_URL")
     if not database_url:
         raise RuntimeError(
-            "DATABASE_URL não encontrada. Crie um ficheiro .env na raiz do back_end "
+            "DATABASE_URL_MIGRACOES não encontrada. Crie um ficheiro .env na raiz do back_end "
             "com base no .env.example."
         )
 

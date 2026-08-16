@@ -16,7 +16,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select, text
 
-from app.database.session import AsyncSessionLocal
+from app.database.session import AsyncSessionLocal, AsyncSessionLocalSistema
 from app.database.models import Tenant
 from app.cruds.financeiro import processar_regua_cobranca_do_tenant
 from app.cruds.admin import processar_validade_licencas
@@ -66,8 +66,16 @@ async def job_validade_licenca_diaria() -> dict:
     alertadas (in-app + e-mail) nos DIAS_ALERTA_LICENCA dias antes de
     expirar, e suspensas automaticamente (status=SUSPENSO) assim que a
     data passa — sem exigir que o Super Admin se lembre de agir.
+
+    Usa a sessão de sistema (bypassrls): processar_validade_licencas
+    lê/escreve, para cada escola, tanto o tenant da própria escola como
+    o tenant interno da plataforma (para notificar os Super Admins) —
+    duas tenants diferentes dentro da mesma chamada, o que não dá para
+    resolver com um único set_config('app.current_tenant_id', ...)
+    como o job da régua de cobrança faz (esse é mesmo de uma escola de
+    cada vez, por isso continua na sessão normal).
     """
-    async with AsyncSessionLocal() as db:
+    async with AsyncSessionLocalSistema() as db:
         try:
             resumo = await processar_validade_licencas(db, _enviar_email_direto)
         except Exception:
