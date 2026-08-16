@@ -2,7 +2,7 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { Subscription } from 'rxjs';
+import { combineLatest, map, startWith, Subscription } from 'rxjs';
 import { carregarAlocacoes } from '../../../store/professores/professores.actions';
 import { selectAlocacoes } from '../../../store/professores/professores.selector';
 import { carregarPeriodos } from '../../../store/diario/diario.actions';
@@ -41,6 +41,32 @@ export class TarefasComponent implements OnInit, OnDestroy {
   mensagem$ = this.store.select(selectTarefasMensagem);
 
   statusOpcoes = STATUS_OPCOES;
+
+  // Filtro por título, período de avaliação e "só por corrigir" (tem
+  // pelo menos uma entrega ainda sem nota) — a lista já vem toda de
+  // uma vez para a turma/disciplina selecionada, por isso o filtro é
+  // só no cliente.
+  filtroForm = this.fb.group({
+    busca: [''],
+    periodo_avaliacao: [''],
+    soPorCorrigir: [false]
+  });
+
+  tarefasFiltradas$ = combineLatest([
+    this.tarefas$,
+    this.filtroForm.valueChanges.pipe(startWith(this.filtroForm.value))
+  ]).pipe(
+    map(([tarefas, filtro]) => tarefas.filter(t => {
+      if (filtro.busca && !t.titulo.toLowerCase().includes(filtro.busca.trim().toLowerCase())) return false;
+      if (filtro.periodo_avaliacao && t.periodo_avaliacao !== filtro.periodo_avaliacao) return false;
+      if (filtro.soPorCorrigir && t.pendentes === 0) return false;
+      return true;
+    }))
+  );
+
+  limparFiltro() {
+    this.filtroForm.reset({ busca: '', periodo_avaliacao: '', soPorCorrigir: false });
+  }
 
   alocacaoSelecionadaId = '';
   turmaSelecionadaId: string | null = null;
@@ -84,6 +110,7 @@ export class TarefasComponent implements OnInit, OnDestroy {
   onSelecionarAlocacao(alocacaoId: string) {
     this.alocacaoSelecionadaId = alocacaoId;
     this.mostrarFormularioTarefa = false;
+    this.limparFiltro();
     this.store.dispatch(fecharTarefaDetalhe());
     this.alocacoes$.pipe().subscribe(alocacoes => {
       const alocacao = alocacoes.find(a => a.id === alocacaoId);

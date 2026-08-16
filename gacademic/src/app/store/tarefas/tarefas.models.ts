@@ -13,6 +13,7 @@ export interface Tarefa {
   nome_turma: string;
   disciplina_id: string;
   nome_disciplina: string;
+  pendentes: number; // nº de entregas ainda por corrigir (TarefaAvaliacao "PENDENTE")
 }
 
 // PENDENTE = ainda por avaliar; as restantes são escolhidas pelo professor ao avaliar.

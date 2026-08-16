@@ -13,7 +13,7 @@ RN03 - Período trancado (opcional): se a tarefa tiver periodo_avaliacao
 preenchido e esse período estiver trancado, bloqueia a avaliação.
 """
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -131,7 +131,9 @@ async def _garantir_avaliacoes_da_turma(db: AsyncSession, tenant_id, tarefa: Tar
     await db.commit()
 
 
-def _serializar_tarefa(tarefa: Tarefa, turma_id, nome_turma: str, disciplina_id, nome_disciplina: str) -> dict:
+def _serializar_tarefa(
+    tarefa: Tarefa, turma_id, nome_turma: str, disciplina_id, nome_disciplina: str, pendentes: int = 0
+) -> dict:
     return {
         "id": tarefa.id,
         "alocacao_id": tarefa.alocacao_id,
@@ -145,6 +147,7 @@ def _serializar_tarefa(tarefa: Tarefa, turma_id, nome_turma: str, disciplina_id,
         "nome_turma": nome_turma,
         "disciplina_id": disciplina_id,
         "nome_disciplina": nome_disciplina,
+        "pendentes": pendentes,
     }
 
 
@@ -195,7 +198,25 @@ async def listar_tarefas_da_turma_disciplina(db: AsyncSession, utilizador: dict,
         )
         .order_by(Tarefa.data_entrega.desc())
     )
-    return [_serializar_tarefa(t, turma_id, nome_turma, disciplina_id, nome_disciplina) for t, nome_turma, nome_disciplina in resultado.all()]
+    linhas = resultado.all()
+
+    # Nº de entregas ainda por corrigir (TarefaAvaliacao "PENDENTE") por
+    # tarefa — usado para o filtro "só por corrigir" no frontend, numa
+    # única query em vez de uma por tarefa.
+    tarefa_ids = [t.id for t, _, _ in linhas]
+    pendentes_por_tarefa: dict[uuid.UUID, int] = {}
+    if tarefa_ids:
+        contagem = await db.execute(
+            select(TarefaAvaliacao.tarefa_id, func.count())
+            .where(TarefaAvaliacao.tarefa_id.in_(tarefa_ids), TarefaAvaliacao.status == "PENDENTE")
+            .group_by(TarefaAvaliacao.tarefa_id)
+        )
+        pendentes_por_tarefa = dict(contagem.all())
+
+    return [
+        _serializar_tarefa(t, turma_id, nome_turma, disciplina_id, nome_disciplina, pendentes_por_tarefa.get(t.id, 0))
+        for t, nome_turma, nome_disciplina in linhas
+    ]
 
 
 # ==========================================

@@ -2,7 +2,7 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { combineLatest, map } from 'rxjs';
+import { combineLatest, map, startWith } from 'rxjs';
 import {
   adicionarDisciplinaASerie, carregarCursos, carregarDisciplinas, carregarGradeCurricular,
   carregarObjetivosAprendizagem, carregarSeries, criarCurso, criarDisciplina, criarObjetivoAprendizagem, criarSerieAno
@@ -34,7 +34,7 @@ export class CursosComponent implements OnInit {
   // Cada curso já com as suas Séries/Anos agrupadas, e cada série já com
   // as suas disciplinas (grade curricular) — tudo junto aqui no cliente,
   // já que a API devolve cada entidade separada.
-  cursos$ = combineLatest([
+  private cursosComSeries$ = combineLatest([
     this.store.select(selectCursos),
     this.store.select(selectSeries),
     this.store.select(selectGradeCurricular),
@@ -51,6 +51,32 @@ export class CursosComponent implements OnInit {
             .map(g => disciplinas.find(d => d.id === g.disciplina_id)?.nome ?? '—')
         }))
     })))
+  );
+
+  // Busca por nome — ambas as tabelas desta página (Cursos e
+  // Disciplinas) já carregam tudo de uma vez, por isso o filtro é só
+  // no cliente, sem novo pedido ao back-end.
+  filtroCursos = this.fb.group({ busca: [''] });
+  filtroDisciplinas = this.fb.group({ busca: [''] });
+
+  cursos$ = combineLatest([
+    this.cursosComSeries$,
+    this.filtroCursos.valueChanges.pipe(startWith(this.filtroCursos.value))
+  ]).pipe(
+    map(([cursos, filtro]) => !filtro.busca
+      ? cursos
+      : cursos.filter(c => c.nome.toLowerCase().includes(filtro.busca!.trim().toLowerCase()))
+    )
+  );
+
+  disciplinasFiltradas$ = combineLatest([
+    this.disciplinas$,
+    this.filtroDisciplinas.valueChanges.pipe(startWith(this.filtroDisciplinas.value))
+  ]).pipe(
+    map(([disciplinas, filtro]) => !filtro.busca
+      ? disciplinas
+      : disciplinas.filter(d => d.nome.toLowerCase().includes(filtro.busca!.trim().toLowerCase()))
+    )
   );
 
   // Qual curso está com o painel de Séries/Anos aberto (só um de cada vez).

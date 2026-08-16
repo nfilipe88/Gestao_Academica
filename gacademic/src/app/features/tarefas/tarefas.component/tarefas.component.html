@@ -81,6 +81,34 @@
       </form>
     }
 
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
+      <form [formGroup]="filtroForm" class="flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-40">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+          <input type="text" formControlName="busca" placeholder="Título do trabalho"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Período</label>
+          <select formControlName="periodo_avaliacao"
+            class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="">Todos</option>
+            @for (periodo of periodos$ | async; track periodo.id) {
+              <option [value]="periodo.nome">{{ periodo.nome }}</option>
+            }
+          </select>
+        </div>
+        <label class="flex items-center gap-2 text-sm text-slate-600 pb-1.5">
+          <input type="checkbox" formControlName="soPorCorrigir" />
+          Só por corrigir
+        </label>
+        <button type="button" (click)="limparFiltro()"
+          class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
+          Limpar
+        </button>
+      </form>
+    </div>
+
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
       <table class="w-full text-left border-collapse">
         <thead>
@@ -89,16 +117,24 @@
             <th class="py-3 px-6 font-medium">Prazo</th>
             <th class="py-3 px-6 font-medium text-right">Valor máximo</th>
             <th class="py-3 px-6 font-medium">Período</th>
+            <th class="py-3 px-6 font-medium text-right">Por corrigir</th>
             <th class="py-3 px-6 font-medium text-right">Ação</th>
           </tr>
         </thead>
         <tbody>
-          @for (tarefa of tarefas$ | async; track tarefa.id) {
+          @for (tarefa of tarefasFiltradas$ | async; track tarefa.id) {
             <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="py-3 px-6 text-slate-800 font-medium">{{ tarefa.titulo }}</td>
               <td class="py-3 px-6 text-slate-600">{{ tarefa.data_entrega }}</td>
               <td class="py-3 px-6 text-slate-600 text-right">{{ tarefa.valor_maximo }}</td>
               <td class="py-3 px-6 text-slate-500 text-sm">{{ tarefa.periodo_avaliacao || '—' }}</td>
+              <td class="py-3 px-6 text-right">
+                @if (tarefa.pendentes > 0) {
+                  <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-amber-100 text-amber-700">{{ tarefa.pendentes }}</span>
+                } @else {
+                  <span class="text-xs text-emerald-600">✓ Tudo corrigido</span>
+                }
+              </td>
               <td class="py-3 px-6 text-right">
                 <button type="button" (click)="onAbrirTarefa(tarefa.id)"
                   class="text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
@@ -107,7 +143,7 @@
               </td>
             </tr>
           } @empty {
-            <tr><td colspan="5" class="py-6 text-center text-slate-500">Nenhum trabalho atribuído ainda.</td></tr>
+            <tr><td colspan="6" class="py-6 text-center text-slate-500">Nenhum trabalho atribuído ainda.</td></tr>
           }
         </tbody>
       </table>

@@ -3,7 +3,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { combineLatest, map } from 'rxjs';
+import { combineLatest, map, startWith } from 'rxjs';
 import { carregarCursos, carregarSeries, carregarTurmas, criarTurma } from '../../../../store/academico/academic.actions';
 import { selectAcademicoError, selectCursos, selectSeries, selectTurmas } from '../../../../store/academico/academic.selector';
 import { carregarAlunos } from '../../../../store/alunos/alunos.actions';
@@ -46,7 +46,7 @@ export class TurmasComponent implements OnInit {
     })))
   );
 
-  turmas$ = combineLatest([
+  private turmasComLabel$ = combineLatest([
     this.store.select(selectTurmas),
     this.seriesOptions$
   ]).pipe(
@@ -55,6 +55,32 @@ export class TurmasComponent implements OnInit {
       serieLabel: seriesOptions.find(s => s.id === turma.serie_ano_id)?.label ?? '—'
     })))
   );
+
+  // Busca (nome da turma ou curso/série) + filtro por ano letivo — a
+  // lista já carrega tudo de uma vez, por isso o filtro é só no cliente.
+  filtroForm = this.fb.group({ busca: [''], ano_letivo: [''] });
+
+  anosLetivosDisponiveis$ = this.turmasComLabel$.pipe(
+    map(turmas => [...new Set(turmas.map(t => t.ano_letivo))].sort((a, b) => b - a))
+  );
+
+  turmas$ = combineLatest([
+    this.turmasComLabel$,
+    this.filtroForm.valueChanges.pipe(startWith(this.filtroForm.value))
+  ]).pipe(
+    map(([turmas, filtro]) => turmas.filter(t => {
+      if (filtro.ano_letivo && t.ano_letivo !== Number(filtro.ano_letivo)) return false;
+      if (filtro.busca) {
+        const termo = filtro.busca.trim().toLowerCase();
+        if (!t.nome_codigo.toLowerCase().includes(termo) && !t.serieLabel.toLowerCase().includes(termo)) return false;
+      }
+      return true;
+    }))
+  );
+
+  limparFiltro() {
+    this.filtroForm.reset({ busca: '', ano_letivo: '' });
+  }
 
   // Avisa o utilizador se falta um passo anterior (curso ou série) antes
   // de conseguir criar uma turma.

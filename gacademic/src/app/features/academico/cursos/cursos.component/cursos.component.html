@@ -37,6 +37,14 @@
   </div>
   }
 
+  <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+    <form [formGroup]="filtroCursos">
+      <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+      <input type="text" formControlName="busca" placeholder="Nome do curso"
+        class="w-full md:w-96 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+    </form>
+  </div>
+
   <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
     <table class="w-full text-left border-collapse">
       <thead>
@@ -169,6 +177,14 @@
   </div>
   }
 
+  <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+    <form [formGroup]="filtroDisciplinas">
+      <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+      <input type="text" formControlName="busca" placeholder="Nome da disciplina"
+        class="w-full md:w-96 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+    </form>
+  </div>
+
   <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
     <table class="w-full text-left border-collapse">
       <thead>
@@ -179,7 +195,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (disciplina of disciplinas$ | async; track disciplina.id) {
+        @for (disciplina of disciplinasFiltradas$ | async; track disciplina.id) {
         <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
           <td class="py-3 px-6 text-slate-800 font-medium">{{ disciplina.nome }}</td>
           <td class="py-3 px-6 text-right text-slate-600">{{ disciplina.carga_horaria_total || '—' }}</td>
