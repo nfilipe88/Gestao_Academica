@@ -23,6 +23,11 @@ export const selectAvaliacoes = createSelector(
   (state) => state.avaliacoes
 );
 
+export const selectAvaliacoesAgendadas = createSelector(
+  selectDiarioState,
+  (state) => state.avaliacoesAgendadas
+);
+
 export const selectNotasAvaliacaoSelecionada = createSelector(
   selectDiarioState,
   (state) => state.notasAvaliacaoSelecionada

@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import date
 import uuid
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.diario import (
-    AvaliacaoCreate, AvaliacaoUpdate, FrequenciaLoteCreate, NotaAvaliacaoLoteCreate, NotaLoteCreate, PeriodoAvaliacaoCreate
+    AvaliacaoAgendarGeralCreate, AvaliacaoCreate, AvaliacaoUpdate, FrequenciaLoteCreate, NotaAvaliacaoLoteCreate,
+    NotaLoteCreate, PeriodoAvaliacaoCreate
 )
 from app.cruds import diario as crud_diario
 
@@ -115,6 +117,16 @@ async def reabrir_periodo_avaliacao(
 # ==========================================
 # F. AVALIAÇÕES (Provas e Contínuas) + Nota Final Calculada
 # ==========================================
+@router.get("/avaliacoes/agendadas")
+async def listar_avaliacoes_agendadas(
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Avaliações/exames com hora marcada num intervalo de datas — para o painel do mapa de Horários. Professor só vê as suas próprias."""
+    return await crud_diario.listar_avaliacoes_agendadas(db, utilizador, data_inicio, data_fim)
+
 @router.get("/turmas/{turma_id}/disciplinas/{disciplina_id}/avaliacoes")
 async def listar_avaliacoes(
     turma_id: uuid.UUID,
@@ -136,6 +148,16 @@ async def criar_avaliacao(
 ):
     """Cria uma prova ou avaliação contínua — o Professor precisa de estar alocado a esta turma+disciplina (validado no crud)."""
     return await crud_diario.criar_avaliacao(db, utilizador, turma_id, disciplina_id, dados)
+
+@router.post("/avaliacoes/agendar-geral", status_code=status.HTTP_201_CREATED)
+async def agendar_avaliacao_geral(
+    dados: AvaliacaoAgendarGeralCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR_PERIODOS)
+):
+    """Agendamento "Geral" (toda a escola) — cria uma Avaliacao para cada turma+disciplina atualmente alocada, todas com a mesma data/hora/sala/prazo. Só Gestor/Secretaria."""
+    novas = await crud_diario.agendar_avaliacao_geral(db, utilizador, dados)
+    return {"mensagem": f"Avaliação agendada em {len(novas)} turma(s)/disciplina(s).", "total": len(novas)}
 
 @router.patch("/avaliacoes/{avaliacao_id}")
 async def atualizar_avaliacao(

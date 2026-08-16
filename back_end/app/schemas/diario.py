@@ -1,6 +1,6 @@
 """Schemas Pydantic do Diário de Classe (frequência, notas, períodos de avaliação)."""
 from pydantic import BaseModel
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 import uuid
 
@@ -40,9 +40,13 @@ class PeriodoAvaliacaoCreate(BaseModel):
 class AvaliacaoCreate(BaseModel):
     periodo_avaliacao: str
     titulo: str
-    tipo_avaliacao: str  # "CONTINUA" | "PROVA"
+    tipo_avaliacao: str  # nome de um TipoAvaliacaoConfig ativo do tenant
     peso: Decimal = Decimal("100")
     data_avaliacao: date | None = None
+    hora_inicio: time | None = None
+    hora_fim: time | None = None
+    sala: str | None = None
+    data_limite_correcao: date | None = None
     objetivo_aprendizagem_id: uuid.UUID | None = None
 
 
@@ -51,7 +55,25 @@ class AvaliacaoUpdate(BaseModel):
     tipo_avaliacao: str
     peso: Decimal
     data_avaliacao: date | None = None
+    hora_inicio: time | None = None
+    hora_fim: time | None = None
+    sala: str | None = None
+    data_limite_correcao: date | None = None
     objetivo_aprendizagem_id: uuid.UUID | None = None
+
+
+class AvaliacaoAgendarGeralCreate(BaseModel):
+    """Agendamento "Geral" (toda a escola) — ver cruds/diario.py::agendar_avaliacao_geral.
+    Cria uma Avaliacao por cada turma+disciplina atualmente alocada, todas com a mesma data/hora/sala."""
+    periodo_avaliacao: str
+    titulo: str
+    tipo_avaliacao: str
+    peso: Decimal = Decimal("100")
+    data_avaliacao: date
+    hora_inicio: time
+    hora_fim: time
+    sala: str | None = None
+    data_limite_correcao: date | None = None
 
 
 class NotaAvaliacaoAluno(BaseModel):

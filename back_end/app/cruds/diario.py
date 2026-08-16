@@ -1,7 +1,7 @@
 """Acesso a dados e regras de negócio (RN01-RN04) do Diário de Classe."""
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_
 from datetime import date
 from decimal import Decimal
 import uuid
@@ -11,7 +11,7 @@ from app.database.models_pessoas import Aluno, Professor
 from app.database.models_matricula import Matricula
 from app.database.models_diario import (
     Avaliacao, NotaAvaliacao, PeriodoAvaliacao, ProfessorTurmaDisciplina,
-    RegistroFrequencia, RegistroNota, RegistroNotaAuditoria
+    RegistroFrequencia, RegistroNota, RegistroNotaAuditoria, TipoAvaliacaoConfig
 )
 from app.schemas.diario import (
     AvaliacaoCreate, AvaliacaoUpdate, FrequenciaLoteCreate, NotaAvaliacaoLoteCreate, NotaLoteCreate, PeriodoAvaliacaoCreate
@@ -19,7 +19,6 @@ from app.schemas.diario import (
 
 NOTA_MINIMA = Decimal("0.0")
 NOTA_MAXIMA = Decimal("10.0")
-TIPOS_AVALIACAO_VALIDOS = {"CONTINUA", "PROVA"}
 
 
 # ==========================================
@@ -364,12 +363,37 @@ async def reabrir_periodo_avaliacao(db: AsyncSession, tenant_id, periodo_id: uui
 # ==========================================
 # F. AVALIAÇÕES (provas e contínuas) + cálculo automático da nota final
 # ==========================================
-def _validar_tipo_avaliacao(tipo: str):
-    if tipo not in TIPOS_AVALIACAO_VALIDOS:
-        raise HTTPException(
-            status_code=400,
-            detail=f'Tipo de avaliação inválido — use {" ou ".join(sorted(TIPOS_AVALIACAO_VALIDOS))}.'
+async def _validar_e_obter_tipo_avaliacao(db: AsyncSession, tenant_id, tipo: str) -> TipoAvaliacaoConfig:
+    config = (await db.execute(
+        select(TipoAvaliacaoConfig).where(
+            TipoAvaliacaoConfig.tenant_id == tenant_id, TipoAvaliacaoConfig.nome == tipo, TipoAvaliacaoConfig.ativo == True  # noqa: E712
         )
+    )).scalars().first()
+    if not config:
+        raise HTTPException(status_code=400, detail=f'Tipo de avaliação "{tipo}" inválido ou inativo — veja os tipos disponíveis em Configurações.')
+    return config
+
+
+def _validar_agendamento(tipo_config: TipoAvaliacaoConfig, utilizador: dict, dados) -> None:
+    """
+    Tipos marcados com requer_agendamento (ex.: "Prova") só podem ser
+    marcados por Gestor/Secretaria, com data e hora obrigatórias — é
+    esta flag, configurável por escola em Configurações, que decide se
+    uma Avaliacao é uma avaliação contínua do dia-a-dia (o professor
+    continua livre) ou um evento agendado formalmente.
+    """
+    if not tipo_config.requer_agendamento:
+        return
+
+    if utilizador["perfil_acesso"] not in ("GESTOR", "SECRETARIA"):
+        raise HTTPException(
+            status_code=403,
+            detail=f'"{tipo_config.nome}" exige agendamento — só o Gestor ou a Secretaria podem marcar data/hora para este tipo de avaliação.'
+        )
+    if not dados.data_avaliacao or not dados.hora_inicio or not dados.hora_fim:
+        raise HTTPException(status_code=400, detail=f'"{tipo_config.nome}" exige data, hora de início e hora de fim.')
+    if dados.hora_fim <= dados.hora_inicio:
+        raise HTTPException(status_code=400, detail="A hora de fim tem de ser depois da hora de início.")
 
 
 async def _validar_objetivo_aprendizagem(db: AsyncSession, tenant_id, disciplina_id: uuid.UUID, objetivo_id: uuid.UUID | None):
@@ -480,12 +504,77 @@ async def listar_avaliacoes(
     return (await db.execute(query.order_by(Avaliacao.data_criacao))).scalars().all()
 
 
+async def listar_avaliacoes_agendadas(
+    db: AsyncSession, utilizador: dict, data_inicio: date | None = None, data_fim: date | None = None
+) -> list[dict]:
+    """
+    Avaliações/exames com agendamento (hora_inicio definida) num intervalo
+    de datas — alimenta o painel do mapa de Horários. Gestor/Secretaria
+    vê as de toda a escola; Professor só vê as das suas próprias
+    alocações (RN01).
+    """
+    tenant_id = utilizador["tenant_id"]
+    query = (
+        select(Avaliacao, Turma.nome_codigo, Disciplina.nome)
+        .join(Turma, Turma.id == Avaliacao.turma_id)
+        .join(Disciplina, Disciplina.id == Avaliacao.disciplina_id)
+        .where(Avaliacao.tenant_id == tenant_id, Avaliacao.hora_inicio.is_not(None))
+    )
+    if data_inicio:
+        query = query.where(Avaliacao.data_avaliacao >= data_inicio)
+    if data_fim:
+        query = query.where(Avaliacao.data_avaliacao <= data_fim)
+
+    perfil = utilizador["perfil_acesso"]
+    if perfil == "PROFESSOR":
+        professor = (await db.execute(
+            select(Professor).where(
+                Professor.usuario_id == utilizador["usuario_id"], Professor.tenant_id == tenant_id
+            )
+        )).scalars().first()
+        if not professor:
+            return []
+        pares = (await db.execute(
+            select(ProfessorTurmaDisciplina.turma_id, ProfessorTurmaDisciplina.disciplina_id).where(
+                ProfessorTurmaDisciplina.professor_id == professor.id, ProfessorTurmaDisciplina.tenant_id == tenant_id
+            )
+        )).all()
+        if not pares:
+            return []
+        query = query.where(tuple_(Avaliacao.turma_id, Avaliacao.disciplina_id).in_(pares))
+    elif perfil not in ("GESTOR", "SECRETARIA"):
+        raise HTTPException(status_code=403, detail="Sem permissão para consultar avaliações agendadas.")
+
+    query = query.order_by(Avaliacao.data_avaliacao, Avaliacao.hora_inicio)
+    linhas = (await db.execute(query)).all()
+    return [
+        {
+            "id": av.id,
+            "titulo": av.titulo,
+            "tipo_avaliacao": av.tipo_avaliacao,
+            "periodo_avaliacao": av.periodo_avaliacao,
+            "data_avaliacao": av.data_avaliacao,
+            "hora_inicio": av.hora_inicio,
+            "hora_fim": av.hora_fim,
+            "sala": av.sala,
+            "data_limite_correcao": av.data_limite_correcao,
+            "grupo_agendamento_id": av.grupo_agendamento_id,
+            "turma_id": av.turma_id,
+            "turma_nome": turma_nome,
+            "disciplina_id": av.disciplina_id,
+            "disciplina_nome": disciplina_nome,
+        }
+        for av, turma_nome, disciplina_nome in linhas
+    ]
+
+
 async def criar_avaliacao(db: AsyncSession, utilizador: dict, turma_id: uuid.UUID, disciplina_id: uuid.UUID, dados: AvaliacaoCreate) -> Avaliacao:
     tenant_id = utilizador["tenant_id"]
     await _validar_turma_disciplina(db, tenant_id, turma_id, disciplina_id)
     await _validar_autoria(db, utilizador, turma_id, disciplina_id)
     await _validar_periodo_aberto(db, tenant_id, dados.periodo_avaliacao)
-    _validar_tipo_avaliacao(dados.tipo_avaliacao)
+    tipo_config = await _validar_e_obter_tipo_avaliacao(db, tenant_id, dados.tipo_avaliacao)
+    _validar_agendamento(tipo_config, utilizador, dados)
     if dados.peso <= 0:
         raise HTTPException(status_code=400, detail="O peso da avaliação tem de ser maior que zero.")
     await _validar_objetivo_aprendizagem(db, tenant_id, disciplina_id, dados.objetivo_aprendizagem_id)
@@ -499,6 +588,10 @@ async def criar_avaliacao(db: AsyncSession, utilizador: dict, turma_id: uuid.UUI
         tipo_avaliacao=dados.tipo_avaliacao,
         peso=dados.peso,
         data_avaliacao=dados.data_avaliacao,
+        hora_inicio=dados.hora_inicio,
+        hora_fim=dados.hora_fim,
+        sala=dados.sala,
+        data_limite_correcao=dados.data_limite_correcao,
         objetivo_aprendizagem_id=dados.objetivo_aprendizagem_id,
         criado_por_usuario_id=utilizador["usuario_id"]
     )
@@ -508,12 +601,65 @@ async def criar_avaliacao(db: AsyncSession, utilizador: dict, turma_id: uuid.UUI
     return nova
 
 
+async def agendar_avaliacao_geral(db: AsyncSession, utilizador: dict, dados: "AvaliacaoAgendarGeralCreate") -> list[Avaliacao]:
+    """
+    Agendamento "Geral" (toda a escola) — só chamado por Gestor/Secretaria
+    (RBAC no router). Cria uma Avaliacao por cada turma+disciplina
+    atualmente alocada (ProfessorTurmaDisciplina), todas com a mesma
+    data/hora/sala/prazo — cada professor lança a nota da sua
+    normalmente, como já fazia antes.
+    """
+    tenant_id = utilizador["tenant_id"]
+    await _validar_periodo_aberto(db, tenant_id, dados.periodo_avaliacao)
+    await _validar_e_obter_tipo_avaliacao(db, tenant_id, dados.tipo_avaliacao)
+    if dados.peso <= 0:
+        raise HTTPException(status_code=400, detail="O peso da avaliação tem de ser maior que zero.")
+    if dados.hora_fim <= dados.hora_inicio:
+        raise HTTPException(status_code=400, detail="A hora de fim tem de ser depois da hora de início.")
+
+    pares = (await db.execute(
+        select(ProfessorTurmaDisciplina.turma_id, ProfessorTurmaDisciplina.disciplina_id)
+        .where(ProfessorTurmaDisciplina.tenant_id == tenant_id)
+        .distinct()
+    )).all()
+    if not pares:
+        raise HTTPException(status_code=400, detail="Não há nenhuma turma com disciplinas alocadas — nada para agendar.")
+
+    grupo_id = uuid.uuid4()
+    titulo = dados.titulo.strip()
+    novas = [
+        Avaliacao(
+            tenant_id=tenant_id,
+            turma_id=turma_id,
+            disciplina_id=disciplina_id,
+            periodo_avaliacao=dados.periodo_avaliacao,
+            titulo=titulo,
+            tipo_avaliacao=dados.tipo_avaliacao,
+            peso=dados.peso,
+            data_avaliacao=dados.data_avaliacao,
+            hora_inicio=dados.hora_inicio,
+            hora_fim=dados.hora_fim,
+            sala=dados.sala,
+            data_limite_correcao=dados.data_limite_correcao,
+            grupo_agendamento_id=grupo_id,
+            criado_por_usuario_id=utilizador["usuario_id"]
+        )
+        for turma_id, disciplina_id in pares
+    ]
+    db.add_all(novas)
+    await db.commit()
+    for nova in novas:
+        await db.refresh(nova)
+    return novas
+
+
 async def atualizar_avaliacao(db: AsyncSession, utilizador: dict, avaliacao_id: uuid.UUID, dados: AvaliacaoUpdate) -> Avaliacao:
     tenant_id = utilizador["tenant_id"]
     avaliacao = await _obter_avaliacao(db, tenant_id, avaliacao_id)
     await _validar_autoria(db, utilizador, avaliacao.turma_id, avaliacao.disciplina_id)
     await _validar_periodo_aberto(db, tenant_id, avaliacao.periodo_avaliacao)
-    _validar_tipo_avaliacao(dados.tipo_avaliacao)
+    tipo_config = await _validar_e_obter_tipo_avaliacao(db, tenant_id, dados.tipo_avaliacao)
+    _validar_agendamento(tipo_config, utilizador, dados)
     if dados.peso <= 0:
         raise HTTPException(status_code=400, detail="O peso da avaliação tem de ser maior que zero.")
     await _validar_objetivo_aprendizagem(db, tenant_id, avaliacao.disciplina_id, dados.objetivo_aprendizagem_id)
@@ -523,6 +669,10 @@ async def atualizar_avaliacao(db: AsyncSession, utilizador: dict, avaliacao_id: 
     avaliacao.tipo_avaliacao = dados.tipo_avaliacao
     avaliacao.peso = dados.peso
     avaliacao.data_avaliacao = dados.data_avaliacao
+    avaliacao.hora_inicio = dados.hora_inicio
+    avaliacao.hora_fim = dados.hora_fim
+    avaliacao.sala = dados.sala
+    avaliacao.data_limite_correcao = dados.data_limite_correcao
     avaliacao.objetivo_aprendizagem_id = dados.objetivo_aprendizagem_id
 
     if peso_mudou:
@@ -578,11 +728,24 @@ async def lancar_notas_avaliacao_lote(db: AsyncSession, utilizador: dict, avalia
     nota final do período (RegistroNota) para cada aluno afetado.
     RN02: valor_nota tem de estar entre 0.0 e 10.0.
     RN03: o período tem de estar aberto.
+    RN05: passado o prazo de correção (data_limite_correcao), o
+    Professor fica bloqueado — só Gestor/Secretaria pode lançar
+    notas atrasadas.
     """
     tenant_id = utilizador["tenant_id"]
     avaliacao = await _obter_avaliacao(db, tenant_id, avaliacao_id)
     await _validar_autoria(db, utilizador, avaliacao.turma_id, avaliacao.disciplina_id)
     await _validar_periodo_aberto(db, tenant_id, avaliacao.periodo_avaliacao)
+    if (
+        avaliacao.data_limite_correcao
+        and avaliacao.data_limite_correcao < date.today()
+        and utilizador["perfil_acesso"] not in ("GESTOR", "SECRETARIA")
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail=f'Prazo de correção desta avaliação terminou em {avaliacao.data_limite_correcao.strftime("%d/%m/%Y")} — '
+                   f"peça ao Gestor ou à Secretaria para lançar notas atrasadas."
+        )
 
     matriculas_da_turma = set((await db.execute(
         select(Matricula.id).where(Matricula.turma_id == avaliacao.turma_id, Matricula.tenant_id == tenant_id)

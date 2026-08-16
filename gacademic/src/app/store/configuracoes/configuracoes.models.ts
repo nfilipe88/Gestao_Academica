@@ -9,6 +9,18 @@ export interface ConfiguracaoTenant {
   cidade: string | null;
   codigo_postal: string | null;
   pais: string | null;
+  nota_minima_aprovacao: number | null;
+}
+
+// Catálogo de tipos de avaliação da escola — ver
+// app/database/models_diario.py::TipoAvaliacaoConfig. requer_agendamento
+// é o que decide o RBAC: tipos marcados assim só podem ser
+// criados/editados por Gestor/Secretaria, com data/hora obrigatórias.
+export interface TipoAvaliacao {
+  id: string;
+  nome: string;
+  requer_agendamento: boolean;
+  ativo: boolean;
 }
 
 // Moedas efetivamente aceites pela PayPal Orders API — ver
@@ -30,4 +42,5 @@ export const CONFIGURACAO_INICIAL: ConfiguracaoTenant = {
   cidade: null,
   codigo_postal: null,
   pais: null,
+  nota_minima_aprovacao: null,
 };

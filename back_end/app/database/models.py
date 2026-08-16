@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 from typing import List
-from sqlalchemy import Date, String, ForeignKey, DateTime, text
+from sqlalchemy import Date, Numeric, String, ForeignKey, DateTime, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -40,6 +40,10 @@ class Tenant(Base):
     cidade: Mapped[str | None] = mapped_column(String(100), nullable=True)
     codigo_postal: Mapped[str | None] = mapped_column(String(20), nullable=True)
     pais: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Nota mínima de aprovação (escala livre — cada escola usa a sua,
+    # ex.: 0-20 ou 0-10) — usada no Boletim/Indicadores para marcar
+    # Aprovado/Reprovado. Sem valor definido, essa marcação não aparece.
+    nota_minima_aprovacao: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
 
     # Relacionamento
     usuarios: Mapped[List["Usuario"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")

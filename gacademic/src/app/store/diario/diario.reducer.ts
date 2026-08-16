@@ -1,12 +1,15 @@
 import { createReducer, on } from '@ngrx/store';
 import * as DiarioActions from './diario.actions';
-import { AlunoDiario, Avaliacao, ConsolidadoTurmaDisciplina, NotaAvaliacaoInput, NotaFinal, PeriodoAvaliacao } from './diario.models';
+import {
+  AlunoDiario, Avaliacao, AvaliacaoAgendada, ConsolidadoTurmaDisciplina, NotaAvaliacaoInput, NotaFinal, PeriodoAvaliacao
+} from './diario.models';
 
 export interface DiarioState {
   alunos: AlunoDiario[];
   consolidado: ConsolidadoTurmaDisciplina | null;
   periodos: PeriodoAvaliacao[];
   avaliacoes: Avaliacao[];
+  avaliacoesAgendadas: AvaliacaoAgendada[];
   notasAvaliacaoSelecionada: NotaAvaliacaoInput[];
   notasFinais: NotaFinal[];
   mensagem: string | null;
@@ -18,6 +21,7 @@ export const initialState: DiarioState = {
   consolidado: null,
   periodos: [],
   avaliacoes: [],
+  avaliacoesAgendadas: [],
   notasAvaliacaoSelecionada: [],
   notasFinais: [],
   mensagem: null,
@@ -33,13 +37,15 @@ export const diarioReducer = createReducer(
      DiarioActions.carregarAvaliacoes, DiarioActions.criarAvaliacao,
      DiarioActions.atualizarAvaliacao, DiarioActions.apagarAvaliacao,
      DiarioActions.carregarNotasAvaliacao, DiarioActions.lancarNotasAvaliacao,
-     DiarioActions.carregarNotasFinais,
+     DiarioActions.carregarNotasFinais, DiarioActions.agendarAvaliacaoGeral,
+     DiarioActions.carregarAvaliacoesAgendadas,
     (state) => ({ ...state, erro: null, mensagem: null })
   ),
   on(DiarioActions.carregarAlunosDiarioSucesso, (state, { alunos }) => ({ ...state, alunos })),
   on(DiarioActions.carregarConsolidadoSucesso, (state, { consolidado }) => ({ ...state, consolidado })),
   on(DiarioActions.carregarPeriodosSucesso, (state, { periodos }) => ({ ...state, periodos })),
   on(DiarioActions.carregarAvaliacoesSucesso, (state, { avaliacoes }) => ({ ...state, avaliacoes })),
+  on(DiarioActions.carregarAvaliacoesAgendadasSucesso, (state, { avaliacoesAgendadas }) => ({ ...state, avaliacoesAgendadas })),
   on(DiarioActions.carregarNotasAvaliacaoSucesso, (state, { notas }) => ({ ...state, notasAvaliacaoSelecionada: notas })),
   on(DiarioActions.carregarNotasFinaisSucesso, (state, { notasFinais }) => ({ ...state, notasFinais })),
   on(DiarioActions.diarioOperacaoSucesso, (state, { mensagem }) => ({ ...state, mensagem })),

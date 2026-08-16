@@ -1,6 +1,6 @@
 import uuid
-from datetime import date, datetime
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, text
+from datetime import date, datetime, time
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Time, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -86,6 +86,21 @@ class Avaliacao(Base):
     A nota final do período em RegistroNota passa a ser a média
     ponderada (por `peso`) de todas as Avaliacao com nota lançada
     nesse período — ver cruds/diario.py::_recalcular_nota_periodo.
+
+    Agendamento (hora_inicio/hora_fim/sala/data_limite_correcao): só
+    preenchido quando o TipoAvaliacaoConfig do tenant marca este
+    tipo_avaliacao como requer_agendamento=True — nesse caso só
+    Gestor/Secretaria pode criar/editar esta Avaliacao (ver RN01 em
+    cruds/diario.py::_validar_agendamento). Para tipos sem essa flag
+    (ex.: avaliação contínua do dia-a-dia), estes campos ficam vazios
+    e o professor continua a criar livremente na sua alocação, como
+    sempre foi.
+
+    grupo_agendamento_id: partilhado por todas as Avaliacao criadas
+    de uma vez pelo agendamento "Geral" (toda a escola) — não é FK,
+    só serve para o frontend agrupar visualmente linhas irmãs; cada
+    uma continua a ser uma Avaliacao independente (o professor de
+    cada turma lança a sua nota separadamente).
     """
     __tablename__ = "avaliacao"
 
@@ -96,9 +111,19 @@ class Avaliacao(Base):
 
     periodo_avaliacao: Mapped[str] = mapped_column(String(50), nullable=False)
     titulo: Mapped[str] = mapped_column(String(150), nullable=False)  # Ex: "Teste de Células"
-    tipo_avaliacao: Mapped[str] = mapped_column(String(20), nullable=False)  # "CONTINUA" | "PROVA"
+    # Nome de um TipoAvaliacaoConfig do tenant (texto, não FK — mesmo
+    # padrão de outros campos "status" nesta base de dados). Por isso
+    # o crud de TipoAvaliacaoConfig impede renomear um tipo já usado
+    # por alguma Avaliacao (ver cruds/configuracoes.py::atualizar_tipo_avaliacao).
+    tipo_avaliacao: Mapped[str] = mapped_column(String(50), nullable=False)
     peso: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=100)  # peso relativo dentro do período — não precisa somar 100 (normalizado no cálculo)
     data_avaliacao: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    hora_inicio: Mapped[time | None] = mapped_column(Time, nullable=True)
+    hora_fim: Mapped[time | None] = mapped_column(Time, nullable=True)
+    sala: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    data_limite_correcao: Mapped[date | None] = mapped_column(Date, nullable=True)
+    grupo_agendamento_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
 
     # Opcional: a que tópico do currículo esta avaliação corresponde
     # (ex.: "Células"). Sem isto a avaliação continua a contar para a
@@ -110,6 +135,30 @@ class Avaliacao(Base):
 
     criado_por_usuario_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class TipoAvaliacaoConfig(Base):
+    """Catálogo de tipos de avaliação por escola (ex.: "Contínua", "Prova",
+    "Exame Final", "Trabalho de Grupo") — substitui a lista fixa
+    anterior (CONTINUA/PROVA), que agora só serve de seed inicial (ver
+    migração). `requer_agendamento` é o que decide o RBAC de
+    Avaliacao: tipos marcados assim só podem ser criados/editados por
+    Gestor/Secretaria, com data/hora obrigatórias (ver
+    cruds/diario.py::_validar_agendamento).
+    """
+    __tablename__ = "tipo_avaliacao_config"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+
+    nome: Mapped[str] = mapped_column(String(50), nullable=False)
+    requer_agendamento: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "nome", name="uq_tipo_avaliacao_tenant_nome"),
+    )
 
 
 class NotaAvaliacao(Base):

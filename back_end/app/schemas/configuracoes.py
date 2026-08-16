@@ -1,3 +1,5 @@
+import uuid
+
 from pydantic import BaseModel, field_validator
 
 # Moedas efetivamente aceites pela PayPal Orders API (lista oficial,
@@ -20,6 +22,7 @@ class ConfiguracaoTenantOut(BaseModel):
     cidade: str | None = None
     codigo_postal: str | None = None
     pais: str | None = None
+    nota_minima_aprovacao: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -33,6 +36,7 @@ class ConfiguracaoTenantUpdate(BaseModel):
     cidade: str | None = None
     codigo_postal: str | None = None
     pais: str | None = None
+    nota_minima_aprovacao: float | None = None
 
     @field_validator("moeda")
     @classmethod
@@ -41,3 +45,26 @@ class ConfiguracaoTenantUpdate(BaseModel):
         if valor not in MOEDAS_SUPORTADAS:
             raise ValueError(f"Moeda inválida. Use uma de: {', '.join(sorted(MOEDAS_SUPORTADAS))}.")
         return valor
+
+
+# ==========================================
+# TIPOS DE AVALIAÇÃO (catálogo por escola)
+# ==========================================
+class TipoAvaliacaoOut(BaseModel):
+    id: uuid.UUID
+    nome: str
+    requer_agendamento: bool
+    ativo: bool
+
+    model_config = {"from_attributes": True}
+
+
+class TipoAvaliacaoCreate(BaseModel):
+    nome: str
+    requer_agendamento: bool = False
+
+
+class TipoAvaliacaoUpdate(BaseModel):
+    nome: str
+    requer_agendamento: bool
+    ativo: bool

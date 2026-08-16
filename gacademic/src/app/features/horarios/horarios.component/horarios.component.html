@@ -17,6 +17,137 @@
     </div>
   }
 
+  @if (avaliacaoErro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (avaliacaoMensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  <!-- Avaliações/Exames Agendados — cruza o Diário com o Horário. Visível
+       a todo o staff (o back-end já filtra o Professor às suas próprias
+       alocações); só Gestor/Secretaria pode agendar "Geral". -->
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-800">Avaliações / Exames Agendados</h3>
+        <p class="text-xs text-slate-500">Provas e exames com data/hora marcadas — tipos configurados como "exige agendamento" em Configurações.</p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        @if (podeGerir$ | async) {
+          <button type="button" (click)="alternarFormularioAgendarGeral()"
+            class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+            {{ mostrarFormularioAgendarGeral ? 'Cancelar' : '+ Agendar Geral (toda a escola)' }}
+          </button>
+        }
+        <button type="button" (click)="alternarAvaliacoesAgendadas()"
+          class="text-sm bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+          {{ mostrarAvaliacoesAgendadas ? 'Fechar' : 'Ver agendadas' }}
+        </button>
+      </div>
+    </div>
+
+    @if (mostrarFormularioAgendarGeral) {
+      <form [formGroup]="agendarGeralForm" (ngSubmit)="onSubmitAgendarGeral()"
+        class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-lg p-4">
+        <p class="md:col-span-4 text-xs text-slate-500 -mb-1">Cria uma avaliação idêntica em todas as turmas/disciplinas atualmente alocadas — cada professor lança a nota da sua turma normalmente.</p>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Período de avaliação</label>
+          <input type="text" formControlName="periodo_avaliacao" placeholder="Ex: 1º Trimestre" list="lista-periodos-horarios"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          <datalist id="lista-periodos-horarios">
+            @for (periodo of periodos$ | async; track periodo.id) {
+              <option [value]="periodo.nome">{{ periodo.aberto ? 'Aberto' : 'Trancado' }}</option>
+            }
+          </datalist>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Título</label>
+          <input type="text" formControlName="titulo" placeholder="Ex: Exame Final"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+          <select formControlName="tipo_avaliacao"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="" disabled>Escolher…</option>
+            @for (tipo of tiposParaAgendarGeral(tiposComAgendamento$ | async); track tipo.id) {
+              <option [value]="tipo.nome">{{ tipo.nome }}</option>
+            }
+          </select>
+          @if (tiposParaAgendarGeral(tiposComAgendamento$ | async).length === 0) {
+            <p class="text-xs text-amber-600 mt-1">Nenhum tipo "exige agendamento" configurado — cria um em Configurações.</p>
+          }
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Peso (%)</label>
+          <input type="number" min="0.01" step="1" formControlName="peso"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Data</label>
+          <input type="date" formControlName="data_avaliacao"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Hora início</label>
+          <input type="time" formControlName="hora_inicio"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Hora fim</label>
+          <input type="time" formControlName="hora_fim"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Sala — opcional</label>
+          <input type="text" formControlName="sala" placeholder="Ex: Auditório"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Prazo p/ corrigir — opcional</label>
+          <input type="date" formControlName="data_limite_correcao"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div class="flex items-end">
+          <button type="submit" [disabled]="agendarGeralForm.invalid"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+            Agendar em toda a escola
+          </button>
+        </div>
+      </form>
+    }
+
+    @if (mostrarAvaliacoesAgendadas) {
+      <div class="mt-4 space-y-2">
+        @for (av of avaliacoesAgendadas$ | async; track av.id) {
+          <div class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm flex-wrap">
+            <div>
+              <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-amber-100 text-amber-700">{{ av.tipo_avaliacao }}</span>
+              <span class="font-medium text-slate-800 ml-1">{{ av.titulo }}</span>
+              <span class="text-slate-500"> · {{ av.data_avaliacao ? formatarData(av.data_avaliacao) : '' }}</span>
+              @if (av.hora_inicio) {
+                <span class="text-slate-500">
+                  · {{ formatarHora(av.hora_inicio) }}
+                  @if (av.hora_fim) { – {{ formatarHora(av.hora_fim) }} }
+                </span>
+              }
+              <span class="text-slate-600"> · {{ av.disciplina_nome }} — {{ av.turma_nome }}</span>
+              @if (av.sala) {
+                <span class="text-slate-400"> · {{ av.sala }}</span>
+              }
+            </div>
+            @if (av.data_limite_correcao) {
+              <span class="text-xs text-slate-500">prazo correção: {{ formatarData(av.data_limite_correcao) }}</span>
+            }
+          </div>
+        } @empty {
+          <p class="text-sm text-slate-500">Nenhuma avaliação com data/hora marcada.</p>
+        }
+      </div>
+    }
+  </div>
+
   @if (podeGerir$ | async) {
 
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">

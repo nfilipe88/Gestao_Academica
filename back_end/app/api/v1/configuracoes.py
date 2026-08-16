@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends
+import uuid
+
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
-from app.core.security import exigir_perfil, obter_utilizador_atual
+from app.core.security import exigir_perfil, exigir_perfil_staff, obter_utilizador_atual
 from app.cruds import configuracoes as crud_configuracoes
-from app.schemas.configuracoes import ConfiguracaoTenantOut, ConfiguracaoTenantUpdate
+from app.schemas.configuracoes import (
+    ConfiguracaoTenantOut, ConfiguracaoTenantUpdate, TipoAvaliacaoCreate, TipoAvaliacaoOut, TipoAvaliacaoUpdate
+)
 
 router = APIRouter(prefix="/api/v1/configuracoes", tags=["Configurações da Escola"])
 
@@ -30,3 +34,31 @@ async def atualizar_configuracao(
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
 ):
     return await crud_configuracoes.atualizar_configuracao(db, utilizador["tenant_id"], dados)
+
+
+# ==========================================
+# TIPOS DE AVALIAÇÃO (catálogo por escola)
+# ==========================================
+@router.get("/tipos-avaliacao", response_model=list[TipoAvaliacaoOut])
+async def listar_tipos_avaliacao(
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Leitura aberta a qualquer staff — o Professor precisa da lista para escolher o tipo ao criar uma Avaliação."""
+    return await crud_configuracoes.listar_tipos_avaliacao(db, utilizador["tenant_id"])
+
+
+@router.post("/tipos-avaliacao", response_model=TipoAvaliacaoOut, status_code=status.HTTP_201_CREATED)
+async def criar_tipo_avaliacao(
+    dados: TipoAvaliacaoCreate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    return await crud_configuracoes.criar_tipo_avaliacao(db, utilizador["tenant_id"], dados)
+
+
+@router.put("/tipos-avaliacao/{tipo_id}", response_model=TipoAvaliacaoOut)
+async def atualizar_tipo_avaliacao(
+    tipo_id: uuid.UUID,
+    dados: TipoAvaliacaoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    return await crud_configuracoes.atualizar_tipo_avaliacao(db, utilizador["tenant_id"], tipo_id, dados)

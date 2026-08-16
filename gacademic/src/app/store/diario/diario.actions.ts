@@ -1,7 +1,7 @@
 import { createAction, props } from '@ngrx/store';
 import {
-  AlunoDiario, Avaliacao, ConsolidadoTurmaDisciplina, FrequenciaAlunoInput,
-  NotaAlunoInput, NotaAvaliacaoInput, NotaFinal, PeriodoAvaliacao, TipoAvaliacao
+  AlunoDiario, Avaliacao, AvaliacaoAgendada, ConsolidadoTurmaDisciplina, FrequenciaAlunoInput,
+  NotaAlunoInput, NotaAvaliacaoInput, NotaFinal, PeriodoAvaliacao
 } from './diario.models';
 
 export const carregarAlunosDiario = createAction(
@@ -73,7 +73,8 @@ export const criarAvaliacao = createAction(
   '[Diario] Criar Avaliacao',
   props<{
     turma_id: string, disciplina_id: string, periodo_avaliacao: string,
-    titulo: string, tipo_avaliacao: TipoAvaliacao, peso: number, data_avaliacao: string | null,
+    titulo: string, tipo_avaliacao: string, peso: number, data_avaliacao: string | null,
+    hora_inicio: string | null, hora_fim: string | null, sala: string | null, data_limite_correcao: string | null,
     objetivo_aprendizagem_id: string | null
   }>()
 );
@@ -82,7 +83,8 @@ export const atualizarAvaliacao = createAction(
   '[Diario] Atualizar Avaliacao',
   props<{
     avaliacao_id: string, turma_id: string, disciplina_id: string, periodo_avaliacao: string,
-    titulo: string, tipo_avaliacao: TipoAvaliacao, peso: number, data_avaliacao: string | null,
+    titulo: string, tipo_avaliacao: string, peso: number, data_avaliacao: string | null,
+    hora_inicio: string | null, hora_fim: string | null, sala: string | null, data_limite_correcao: string | null,
     objetivo_aprendizagem_id: string | null
   }>()
 );
@@ -90,6 +92,25 @@ export const atualizarAvaliacao = createAction(
 export const apagarAvaliacao = createAction(
   '[Diario] Apagar Avaliacao',
   props<{ avaliacao_id: string, turma_id: string, disciplina_id: string, periodo_avaliacao: string }>()
+);
+
+// Agendamento "Geral" (toda a escola) — ver POST /diario/avaliacoes/agendar-geral.
+export const agendarAvaliacaoGeral = createAction(
+  '[Diario] Agendar Avaliacao Geral',
+  props<{
+    periodo_avaliacao: string, titulo: string, tipo_avaliacao: string, peso: number,
+    data_avaliacao: string, hora_inicio: string, hora_fim: string, sala: string | null, data_limite_correcao: string | null
+  }>()
+);
+
+// Avaliações com hora marcada num intervalo — alimenta o painel de Horários.
+export const carregarAvaliacoesAgendadas = createAction(
+  '[Diario] Carregar Avaliacoes Agendadas',
+  props<{ data_inicio: string | null, data_fim: string | null }>()
+);
+export const carregarAvaliacoesAgendadasSucesso = createAction(
+  '[Diario] Carregar Avaliacoes Agendadas Sucesso',
+  props<{ avaliacoesAgendadas: AvaliacaoAgendada[] }>()
 );
 
 export const carregarNotasAvaliacao = createAction(

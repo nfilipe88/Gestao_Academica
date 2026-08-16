@@ -2,7 +2,8 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { Subscription, take } from 'rxjs';
+import { combineLatest, Subscription, take } from 'rxjs';
+import { map, startWith } from 'rxjs/operators';
 import { carregarAlocacoes } from '../../../store/professores/professores.actions';
 import { selectAlocacoes } from '../../../store/professores/professores.selector';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
@@ -18,7 +19,9 @@ import {
   selectAlunosDiario, selectAvaliacoes, selectConsolidado, selectDiarioError, selectDiarioMensagem,
   selectNotasAvaliacaoSelecionada, selectNotasFinais, selectPeriodos
 } from '../../../store/diario/diario.selector';
-import { AlunoDiario, Avaliacao, TIPOS_AVALIACAO, TipoAvaliacao } from '../../../store/diario/diario.models';
+import { AlunoDiario, Avaliacao } from '../../../store/diario/diario.models';
+import { carregarTiposAvaliacao } from '../../../store/configuracoes/configuracoes.actions';
+import { selectTiposAvaliacaoAtivos } from '../../../store/configuracoes/configuracoes.selector';
 import {
   apagarMaterial, atualizarMaterial, carregarMateriais, criarMaterial, limparSugestaoConteudo, sugerirConteudo
 } from '../../../store/lms/lms.actions';
@@ -63,7 +66,10 @@ export class DiarioComponent implements OnInit, OnDestroy {
   gradeHorarioDaTurma$ = this.store.select(selectGradeDaTurma);
   podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
 
-  tiposAvaliacao = TIPOS_AVALIACAO;
+  // Catálogo de tipos de avaliação da escola (Configurações) — o
+  // Professor só vê os que NÃO exigem agendamento (ex.: Contínua); o
+  // Gestor/Secretaria vê o catálogo completo (ver tiposDisponiveis()).
+  tiposAvaliacaoAtivos$ = this.store.select(selectTiposAvaliacaoAtivos);
 
   mostrarFormularioPeriodo = false;
   periodoForm = this.fb.group({ nome: ['', Validators.required] });
@@ -80,11 +86,26 @@ export class DiarioComponent implements OnInit, OnDestroy {
   avaliacaoEmEdicaoId: string | null = null;
   avaliacaoForm = this.fb.group({
     titulo: ['', Validators.required],
-    tipo_avaliacao: ['PROVA' as TipoAvaliacao, Validators.required],
+    tipo_avaliacao: ['', Validators.required],
     peso: [100, [Validators.required, Validators.min(0.01)]],
     data_avaliacao: [''],
+    hora_inicio: [''],
+    hora_fim: [''],
+    sala: [''],
+    data_limite_correcao: [''],
     objetivo_aprendizagem_id: ['']
   });
+
+  // true quando o tipo escolhido no formulário exige agendamento (ex.:
+  // "Prova") — mostra os campos hora/sala/prazo e torna hora
+  // início/fim obrigatórias (ver template). Combina o catálogo da
+  // escola com o valor atual do <select>, reagindo às duas mudanças.
+  tipoSelecionadoExigeAgendamento$ = combineLatest([
+    this.tiposAvaliacaoAtivos$,
+    this.avaliacaoForm.controls.tipo_avaliacao.valueChanges.pipe(startWith(this.avaliacaoForm.value.tipo_avaliacao ?? ''))
+  ]).pipe(
+    map(([tipos, nomeSelecionado]) => !!tipos.find(t => t.nome === nomeSelecionado)?.requer_agendamento)
+  );
   avaliacaoAApagarId: string | null = null;
   avaliacaoExpandidaId: string | null = null;
   notasAvaliacaoPorAluno: Record<string, number | null> = {};
@@ -197,9 +218,19 @@ export class DiarioComponent implements OnInit, OnDestroy {
     );
   }
 
+  // Tipos que o utilizador atual pode escolher ao criar/editar uma
+  // Avaliação: o Professor só vê os que não exigem agendamento (o
+  // back-end bloquearia os outros de qualquer forma — isto evita que
+  // ele escolha uma opção só para levar um 403); Gestor/Secretaria vê
+  // o catálogo completo.
+  tiposParaFormulario$ = combineLatest([this.tiposAvaliacaoAtivos$, this.podeGerir$]).pipe(
+    map(([tipos, podeGerir]) => podeGerir ? tipos : tipos.filter(t => !t.requer_agendamento))
+  );
+
   ngOnInit() {
     this.store.dispatch(carregarAlocacoes());
     this.store.dispatch(carregarPeriodos());
+    this.store.dispatch(carregarTiposAvaliacao());
   }
 
   ngOnDestroy() {
@@ -355,7 +386,10 @@ export class DiarioComponent implements OnInit, OnDestroy {
   alternarFormularioAvaliacao() {
     this.mostrarFormularioAvaliacao = !this.mostrarFormularioAvaliacao;
     this.avaliacaoEmEdicaoId = null;
-    this.avaliacaoForm.reset({ titulo: '', tipo_avaliacao: 'PROVA', peso: 100, data_avaliacao: '', objetivo_aprendizagem_id: '' });
+    this.avaliacaoForm.reset({
+      titulo: '', tipo_avaliacao: '', peso: 100, data_avaliacao: '',
+      hora_inicio: '', hora_fim: '', sala: '', data_limite_correcao: '', objetivo_aprendizagem_id: ''
+    });
   }
 
   onEditarAvaliacao(avaliacao: Avaliacao) {
@@ -366,25 +400,33 @@ export class DiarioComponent implements OnInit, OnDestroy {
       tipo_avaliacao: avaliacao.tipo_avaliacao,
       peso: avaliacao.peso,
       data_avaliacao: avaliacao.data_avaliacao || '',
+      hora_inicio: avaliacao.hora_inicio || '',
+      hora_fim: avaliacao.hora_fim || '',
+      sala: avaliacao.sala || '',
+      data_limite_correcao: avaliacao.data_limite_correcao || '',
       objetivo_aprendizagem_id: avaliacao.objetivo_aprendizagem_id || ''
     });
   }
 
   onSubmitAvaliacao() {
     if (this.avaliacaoForm.invalid || !this.turmaSelecionadaId || !this.disciplinaSelecionadaId || !this.periodoNotasCarregado) return;
-    const { titulo, tipo_avaliacao, peso, data_avaliacao, objetivo_aprendizagem_id } = this.avaliacaoForm.value;
+    const { titulo, tipo_avaliacao, peso, data_avaliacao, hora_inicio, hora_fim, sala, data_limite_correcao, objetivo_aprendizagem_id } = this.avaliacaoForm.value;
 
     if (this.avaliacaoEmEdicaoId) {
       this.store.dispatch(atualizarAvaliacao({
         avaliacao_id: this.avaliacaoEmEdicaoId,
         turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId, periodo_avaliacao: this.periodoNotasCarregado,
         titulo: titulo!, tipo_avaliacao: tipo_avaliacao!, peso: peso!, data_avaliacao: data_avaliacao || null,
+        hora_inicio: hora_inicio || null, hora_fim: hora_fim || null, sala: sala || null,
+        data_limite_correcao: data_limite_correcao || null,
         objetivo_aprendizagem_id: objetivo_aprendizagem_id || null
       }));
     } else {
       this.store.dispatch(criarAvaliacao({
         turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId, periodo_avaliacao: this.periodoNotasCarregado,
         titulo: titulo!, tipo_avaliacao: tipo_avaliacao!, peso: peso!, data_avaliacao: data_avaliacao || null,
+        hora_inicio: hora_inicio || null, hora_fim: hora_fim || null, sala: sala || null,
+        data_limite_correcao: data_limite_correcao || null,
         objetivo_aprendizagem_id: objetivo_aprendizagem_id || null
       }));
     }

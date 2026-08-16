@@ -92,11 +92,127 @@
       </div>
     </div>
 
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+      <h3 class="text-sm font-semibold text-slate-800">Avaliação</h3>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Nota mínima de aprovação</label>
+        <input type="number" step="0.01" formControlName="nota_minima_aprovacao" placeholder="Ex: 5.0 ou 10.0"
+          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        <p class="text-xs text-slate-400 mt-1">Usada no Boletim/Indicadores para marcar Aprovado/Reprovado — deixe em branco se a escola não usa esta marcação (escala livre: adapte ao sistema de notas da escola, ex.: 0-10 ou 0-20).</p>
+      </div>
+    </div>
+
     <button type="submit" [disabled]="form.invalid"
       class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
       Guardar Configurações
     </button>
   </form>
+  }
+
+  @if (podeEditar$ | async) {
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-800">Tipos de Avaliação</h3>
+        <p class="text-xs text-slate-400 mt-1">Tipos marcados "Exige agendamento" (ex.: Prova, Exame) só podem ser marcados por Gestor/Secretaria, com data/hora/sala — o Professor continua livre para os outros tipos (ex.: Contínua).</p>
+      </div>
+      <button type="button" (click)="alternarFormularioNovoTipo()"
+        class="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer whitespace-nowrap">
+        {{ mostrarFormularioNovoTipo ? 'Cancelar' : '+ Novo Tipo' }}
+      </button>
+    </div>
+
+    @if (mostrarFormularioNovoTipo) {
+      <form [formGroup]="novoTipoForm" (ngSubmit)="onCriarTipo()" class="flex flex-wrap items-end gap-3 border border-slate-200 rounded-lg p-4 bg-slate-50">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Nome</label>
+          <input type="text" formControlName="nome" placeholder="Ex: Exame Final"
+            class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <label class="flex items-center gap-2 text-sm text-slate-600 pb-1.5">
+          <input type="checkbox" formControlName="requer_agendamento" class="rounded border-slate-300" />
+          Exige agendamento
+        </label>
+        <button type="submit" [disabled]="novoTipoForm.invalid"
+          class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+          Criar
+        </button>
+      </form>
+    }
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-slate-500 border-b border-slate-200">
+            <th class="py-2 pr-4 font-medium">Nome</th>
+            <th class="py-2 pr-4 font-medium">Exige agendamento</th>
+            <th class="py-2 pr-4 font-medium">Estado</th>
+            <th class="py-2 font-medium text-right">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (tipo of (tiposAvaliacao$ | async); track tipo.id) {
+            @if (edicaoTipoId === tipo.id) {
+              <tr class="border-b border-slate-100 bg-blue-50/40">
+                <td class="py-2 pr-4" colspan="4">
+                  <form [formGroup]="edicaoTipoForm" (ngSubmit)="onGuardarEdicaoTipo()" class="flex flex-wrap items-end gap-3">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Nome</label>
+                      <input type="text" formControlName="nome"
+                        class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                    <label class="flex items-center gap-2 text-sm text-slate-600 pb-1.5">
+                      <input type="checkbox" formControlName="requer_agendamento" class="rounded border-slate-300" />
+                      Exige agendamento
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-slate-600 pb-1.5">
+                      <input type="checkbox" formControlName="ativo" class="rounded border-slate-300" />
+                      Ativo
+                    </label>
+                    <button type="submit" [disabled]="edicaoTipoForm.invalid"
+                      class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                      Guardar
+                    </button>
+                    <button type="button" (click)="onCancelarEdicaoTipo()"
+                      class="text-sm font-medium text-slate-500 hover:text-slate-700 cursor-pointer">
+                      Cancelar
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            } @else {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-4 text-slate-800">{{ tipo.nome }}</td>
+                <td class="py-2 pr-4">
+                  @if (tipo.requer_agendamento) {
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Sim — Gestor/Secretaria</span>
+                  } @else {
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Não</span>
+                  }
+                </td>
+                <td class="py-2 pr-4">
+                  @if (tipo.ativo) {
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Ativo</span>
+                  } @else {
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">Inativo</span>
+                  }
+                </td>
+                <td class="py-2 text-right space-x-3 whitespace-nowrap">
+                  <button type="button" (click)="onEditarTipo(tipo)" class="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer">Editar</button>
+                  <button type="button" (click)="onAlternarAtivo(tipo)" class="text-sm font-medium text-slate-500 hover:text-slate-700 cursor-pointer">
+                    {{ tipo.ativo ? 'Desativar' : 'Ativar' }}
+                  </button>
+                </td>
+              </tr>
+            }
+          } @empty {
+            <tr><td colspan="4" class="py-4 text-center text-slate-400 text-sm">Nenhum tipo de avaliação configurado.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
   }
 
 </div>

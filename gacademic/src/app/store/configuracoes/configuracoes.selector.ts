@@ -10,3 +10,6 @@ export const selectConfiguracao = createSelector(selectConfiguracoesState, (stat
 export const selectMoeda = createSelector(selectConfiguracao, (config) => config.moeda || 'EUR');
 export const selectConfiguracoesMensagem = createSelector(selectConfiguracoesState, (state) => state.mensagem);
 export const selectConfiguracoesError = createSelector(selectConfiguracoesState, (state) => state.erro);
+export const selectTiposAvaliacao = createSelector(selectConfiguracoesState, (state) => state.tiposAvaliacao);
+// Só os ativos, para popular o <select> de tipo ao criar uma Avaliação no Diário.
+export const selectTiposAvaliacaoAtivos = createSelector(selectTiposAvaliacao, (tipos) => tipos.filter(t => t.ativo));

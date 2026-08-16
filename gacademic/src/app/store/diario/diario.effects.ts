@@ -2,7 +2,9 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import * as DiarioActions from './diario.actions';
-import { AlunoDiario, Avaliacao, ConsolidadoTurmaDisciplina, NotaAvaliacaoInput, NotaFinal, PeriodoAvaliacao } from './diario.models';
+import {
+  AlunoDiario, Avaliacao, AvaliacaoAgendada, ConsolidadoTurmaDisciplina, NotaAvaliacaoInput, NotaFinal, PeriodoAvaliacao
+} from './diario.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -172,6 +174,8 @@ export class DiarioEffects {
         {
           periodo_avaliacao: action.periodo_avaliacao, titulo: action.titulo,
           tipo_avaliacao: action.tipo_avaliacao, peso: action.peso, data_avaliacao: action.data_avaliacao,
+          hora_inicio: action.hora_inicio, hora_fim: action.hora_fim, sala: action.sala,
+          data_limite_correcao: action.data_limite_correcao,
           objetivo_aprendizagem_id: action.objetivo_aprendizagem_id
         }
       ).pipe(
@@ -193,6 +197,8 @@ export class DiarioEffects {
         `/api/v1/diario/avaliacoes/${action.avaliacao_id}`,
         {
           titulo: action.titulo, tipo_avaliacao: action.tipo_avaliacao, peso: action.peso, data_avaliacao: action.data_avaliacao,
+          hora_inicio: action.hora_inicio, hora_fim: action.hora_fim, sala: action.sala,
+          data_limite_correcao: action.data_limite_correcao,
           objetivo_aprendizagem_id: action.objetivo_aprendizagem_id
         }
       ).pipe(
@@ -266,6 +272,45 @@ export class DiarioEffects {
           erro: err.error?.detail || 'Não foi possível carregar as notas finais.'
         })))
       ))
+    )
+  );
+
+  agendarAvaliacaoGeral$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DiarioActions.agendarAvaliacaoGeral),
+      switchMap(action => this.http.post<{ mensagem: string, total: number }>(
+        '/api/v1/diario/avaliacoes/agendar-geral',
+        {
+          periodo_avaliacao: action.periodo_avaliacao, titulo: action.titulo, tipo_avaliacao: action.tipo_avaliacao,
+          peso: action.peso, data_avaliacao: action.data_avaliacao, hora_inicio: action.hora_inicio,
+          hora_fim: action.hora_fim, sala: action.sala, data_limite_correcao: action.data_limite_correcao
+        }
+      ).pipe(
+        switchMap(resp => [
+          DiarioActions.carregarAvaliacoesAgendadas({ data_inicio: null, data_fim: null }),
+          DiarioActions.diarioOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(DiarioActions.diarioOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível agendar a avaliação para toda a escola.'
+        })))
+      ))
+    )
+  );
+
+  carregarAvaliacoesAgendadas$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DiarioActions.carregarAvaliacoesAgendadas),
+      switchMap(action => {
+        let params = new HttpParams();
+        if (action.data_inicio) params = params.set('data_inicio', action.data_inicio);
+        if (action.data_fim) params = params.set('data_fim', action.data_fim);
+        return this.http.get<AvaliacaoAgendada[]>('/api/v1/diario/avaliacoes/agendadas', { params }).pipe(
+          map(avaliacoesAgendadas => DiarioActions.carregarAvaliacoesAgendadasSucesso({ avaliacoesAgendadas })),
+          catchError(err => of(DiarioActions.diarioOperacaoFalhou({
+            erro: err.error?.detail || 'Não foi possível carregar as avaliações agendadas.'
+          })))
+        );
+      })
     )
   );
 }

@@ -3,8 +3,10 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import * as ConfiguracoesActions from '../../../store/configuracoes/configuracoes.actions';
-import { selectConfiguracao, selectConfiguracoesError, selectConfiguracoesMensagem } from '../../../store/configuracoes/configuracoes.selector';
-import { MOEDAS_SUPORTADAS } from '../../../store/configuracoes/configuracoes.models';
+import {
+  selectConfiguracao, selectConfiguracoesError, selectConfiguracoesMensagem, selectTiposAvaliacao
+} from '../../../store/configuracoes/configuracoes.selector';
+import { MOEDAS_SUPORTADAS, TipoAvaliacao } from '../../../store/configuracoes/configuracoes.models';
 import { selectIsGestor } from '../../../store/auth/auth.selectors';
 
 @Component({
@@ -28,6 +30,7 @@ export class ConfiguracoesComponent implements OnInit {
 
   mensagem$ = this.store.select(selectConfiguracoesMensagem);
   erro$ = this.store.select(selectConfiguracoesError);
+  tiposAvaliacao$ = this.store.select(selectTiposAvaliacao);
 
   form = this.fb.group({
     iban: [''],
@@ -38,10 +41,27 @@ export class ConfiguracoesComponent implements OnInit {
     cidade: [''],
     codigo_postal: [''],
     pais: [''],
+    nota_minima_aprovacao: [''],
+  });
+
+  // Formulário separado, mais simples, para criar um novo tipo de
+  // avaliação — mantido fora do form principal porque não faz parte de
+  // ConfiguracaoTenant (é outra entidade, TipoAvaliacaoConfig).
+  novoTipoForm = this.fb.group({
+    nome: ['', Validators.required],
+    requer_agendamento: [false],
+  });
+  mostrarFormularioNovoTipo = false;
+  edicaoTipoId: string | null = null;
+  edicaoTipoForm = this.fb.group({
+    nome: ['', Validators.required],
+    requer_agendamento: [false],
+    ativo: [true],
   });
 
   ngOnInit() {
     this.store.dispatch(ConfiguracoesActions.carregarConfiguracao());
+    this.store.dispatch(ConfiguracoesActions.carregarTiposAvaliacao());
     // Subscrição contínua (não take(1)): também reage ao próprio
     // carregarConfiguracaoSucesso disparado depois de "Guardar", para o
     // formulário refletir exatamente o que ficou persistido (ex.: a
@@ -58,6 +78,7 @@ export class ConfiguracoesComponent implements OnInit {
         cidade: config.cidade ?? '',
         codigo_postal: config.codigo_postal ?? '',
         pais: config.pais ?? '',
+        nota_minima_aprovacao: config.nota_minima_aprovacao != null ? String(config.nota_minima_aprovacao) : '',
       }, { emitEvent: false });
     });
   }
@@ -75,7 +96,47 @@ export class ConfiguracoesComponent implements OnInit {
         cidade: v.cidade || null,
         codigo_postal: v.codigo_postal || null,
         pais: v.pais || null,
+        nota_minima_aprovacao: v.nota_minima_aprovacao ? Number(v.nota_minima_aprovacao) : null,
       }
+    }));
+  }
+
+  // ==========================================
+  // TIPOS DE AVALIAÇÃO
+  // ==========================================
+  alternarFormularioNovoTipo() {
+    this.mostrarFormularioNovoTipo = !this.mostrarFormularioNovoTipo;
+    this.novoTipoForm.reset({ nome: '', requer_agendamento: false });
+  }
+
+  onCriarTipo() {
+    if (this.novoTipoForm.invalid) return;
+    const v = this.novoTipoForm.value;
+    this.store.dispatch(ConfiguracoesActions.criarTipoAvaliacao({ nome: v.nome!, requer_agendamento: !!v.requer_agendamento }));
+    this.mostrarFormularioNovoTipo = false;
+  }
+
+  onEditarTipo(tipo: TipoAvaliacao) {
+    this.edicaoTipoId = tipo.id;
+    this.edicaoTipoForm.setValue({ nome: tipo.nome, requer_agendamento: tipo.requer_agendamento, ativo: tipo.ativo });
+  }
+
+  onCancelarEdicaoTipo() {
+    this.edicaoTipoId = null;
+  }
+
+  onGuardarEdicaoTipo() {
+    if (this.edicaoTipoForm.invalid || !this.edicaoTipoId) return;
+    const v = this.edicaoTipoForm.value;
+    this.store.dispatch(ConfiguracoesActions.atualizarTipoAvaliacao({
+      id: this.edicaoTipoId, nome: v.nome!, requer_agendamento: !!v.requer_agendamento, ativo: !!v.ativo
+    }));
+    this.edicaoTipoId = null;
+  }
+
+  onAlternarAtivo(tipo: TipoAvaliacao) {
+    this.store.dispatch(ConfiguracoesActions.atualizarTipoAvaliacao({
+      id: tipo.id, nome: tipo.nome, requer_agendamento: tipo.requer_agendamento, ativo: !tipo.ativo
     }));
   }
 }
