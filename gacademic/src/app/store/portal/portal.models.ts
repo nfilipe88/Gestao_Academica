@@ -69,3 +69,27 @@ export interface TarefaEducando {
   nota: number | null;
   observacoes: string | null;
 }
+
+// LMS mínimo — materiais de aula (ver cruds/portal.py::listar_materiais_do_educando).
+export interface MaterialEducando {
+  id: string;
+  titulo: string;
+  disciplina_id: string;
+  nome_disciplina: string;
+  data_criacao: string;
+}
+
+export interface MaterialEducandoDetalhe {
+  id: string;
+  titulo: string;
+  corpo: string;
+  disciplina_id: string;
+  nome_objetivo: string | null;
+}
+
+// Prof. Virtual — chat sem persistência (o histórico viaja em cada
+// pedido, ver store/portal/portal.effects.ts).
+export interface MensagemProfVirtual {
+  papel: 'aluno' | 'assistente';
+  texto: string;
+}

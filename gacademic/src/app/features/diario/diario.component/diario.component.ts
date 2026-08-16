@@ -19,6 +19,13 @@ import {
   selectNotasAvaliacaoSelecionada, selectNotasFinais, selectPeriodos
 } from '../../../store/diario/diario.selector';
 import { AlunoDiario, Avaliacao, TIPOS_AVALIACAO, TipoAvaliacao } from '../../../store/diario/diario.models';
+import {
+  apagarMaterial, atualizarMaterial, carregarMateriais, criarMaterial, limparSugestaoConteudo, sugerirConteudo
+} from '../../../store/lms/lms.actions';
+import {
+  selectASugerirConteudo, selectLmsError, selectLmsMensagem, selectMateriais, selectSugestaoConteudo
+} from '../../../store/lms/lms.selector';
+import { MaterialAula } from '../../../store/lms/lms.models';
 
 @Component({
   selector: 'app-diario.component',
@@ -40,8 +47,13 @@ export class DiarioComponent implements OnInit, OnDestroy {
   notasAvaliacaoSelecionada$ = this.store.select(selectNotasAvaliacaoSelecionada);
   notasFinais$ = this.store.select(selectNotasFinais);
   objetivos$ = this.store.select(selectObjetivosAprendizagem);
+  materiais$ = this.store.select(selectMateriais);
   erro$ = this.store.select(selectDiarioError);
   mensagem$ = this.store.select(selectDiarioMensagem);
+  erroLms$ = this.store.select(selectLmsError);
+  mensagemLms$ = this.store.select(selectLmsMensagem);
+  aSugerirConteudo$ = this.store.select(selectASugerirConteudo);
+  private sugestaoConteudo$ = this.store.select(selectSugestaoConteudo);
   podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
 
   tiposAvaliacao = TIPOS_AVALIACAO;
@@ -76,11 +88,31 @@ export class DiarioComponent implements OnInit, OnDestroy {
   // resposta HTTP ser assíncrona e o elemento já ter sido criado).
   avaliacaoNotasProntas = false;
 
-  aba: 'chamada' | 'notas' | 'consolidado' = 'chamada';
+  aba: 'chamada' | 'notas' | 'materiais' | 'consolidado' = 'chamada';
 
   alocacaoSelecionadaId = '';
   turmaSelecionadaId: string | null = null;
   disciplinaSelecionadaId: string | null = null;
+
+  // Materiais de aula (LMS mínimo) — o conteúdo sobre o qual o aluno
+  // pode pedir ajuda ao Prof. Virtual no Portal.
+  mostrarFormularioMaterial = false;
+  materialEmEdicaoId: string | null = null;
+  materialForm = this.fb.group({
+    titulo: ['', Validators.required],
+    corpo: ['', Validators.required],
+    objetivo_aprendizagem_id: [''],
+    publicado: [true],
+    // Não é enviado ao publicar/atualizar — só orienta o Prof. Virtual
+    // ao gerar a sugestão de conteúdo (ver onSugerirConteudo).
+    instrucoes_sugestao: ['']
+  });
+  materialAApagarId: string | null = null;
+  // Sugestão de conteúdo do Prof. Virtual à espera de confirmação —
+  // só se pede confirmação quando já havia texto escrito no Conteúdo,
+  // para não perder trabalho do professor sem avisar.
+  sugestaoPendente: string | null = null;
+  mostrarConfirmSugestao = false;
 
   chamadaForm = this.fb.group({
     data_aula: [new Date().toISOString().substring(0, 10), Validators.required],
@@ -138,6 +170,24 @@ export class DiarioComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       })
     );
+
+    // Sempre que chega uma sugestão de conteúdo do Prof. Virtual: se o
+    // Conteúdo já tinha texto, pede confirmação antes de substituir; se
+    // estava vazio, aplica logo (nada a perder).
+    this.subscricoes.add(
+      this.sugestaoConteudo$.subscribe(sugestao => {
+        if (!sugestao) return;
+        const corpoAtual = this.materialForm.value.corpo?.trim();
+        if (corpoAtual) {
+          this.sugestaoPendente = sugestao;
+          this.mostrarConfirmSugestao = true;
+        } else {
+          this.materialForm.patchValue({ corpo: sugestao });
+          this.store.dispatch(limparSugestaoConteudo());
+        }
+        this.cdr.markForCheck();
+      })
+    );
   }
 
   ngOnInit() {
@@ -164,6 +214,7 @@ export class DiarioComponent implements OnInit, OnDestroy {
       this.avaliacaoExpandidaId = null;
       this.store.dispatch(carregarAlunosDiario({ turma_id: alocacao.turma_id, disciplina_id: alocacao.disciplina_id }));
       this.store.dispatch(carregarObjetivosAprendizagem({ disciplina_id: alocacao.disciplina_id }));
+      this.store.dispatch(carregarMateriais({ turma_id: alocacao.turma_id, disciplina_id: alocacao.disciplina_id }));
     });
   }
 
@@ -353,5 +404,90 @@ export class DiarioComponent implements OnInit, OnDestroy {
       turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId, periodo_avaliacao: this.periodoNotasCarregado,
       notas
     }));
+  }
+
+  // --- Materiais de aula (LMS mínimo) ---
+
+  alternarFormularioMaterial() {
+    this.mostrarFormularioMaterial = !this.mostrarFormularioMaterial;
+    this.materialEmEdicaoId = null;
+    this.materialForm.reset({ titulo: '', corpo: '', objetivo_aprendizagem_id: '', publicado: true, instrucoes_sugestao: '' });
+    this.sugestaoPendente = null;
+    this.mostrarConfirmSugestao = false;
+  }
+
+  onEditarMaterial(material: MaterialAula) {
+    this.materialEmEdicaoId = material.id;
+    this.mostrarFormularioMaterial = true;
+    this.materialForm.reset({
+      titulo: material.titulo,
+      corpo: material.corpo,
+      objetivo_aprendizagem_id: material.objetivo_aprendizagem_id || '',
+      publicado: material.publicado,
+      instrucoes_sugestao: ''
+    });
+    this.sugestaoPendente = null;
+    this.mostrarConfirmSugestao = false;
+  }
+
+  onSugerirConteudo() {
+    const titulo = this.materialForm.value.titulo?.trim();
+    if (!titulo || !this.turmaSelecionadaId || !this.disciplinaSelecionadaId) return;
+    this.store.dispatch(sugerirConteudo({
+      turma_id: this.turmaSelecionadaId,
+      disciplina_id: this.disciplinaSelecionadaId,
+      titulo,
+      objetivo_aprendizagem_id: this.materialForm.value.objetivo_aprendizagem_id || null,
+      instrucoes: this.materialForm.value.instrucoes_sugestao?.trim() || null
+    }));
+  }
+
+  onAplicarSugestao() {
+    if (this.sugestaoPendente) {
+      this.materialForm.patchValue({ corpo: this.sugestaoPendente });
+    }
+    this.sugestaoPendente = null;
+    this.mostrarConfirmSugestao = false;
+    this.store.dispatch(limparSugestaoConteudo());
+  }
+
+  onCancelarSugestao() {
+    this.sugestaoPendente = null;
+    this.mostrarConfirmSugestao = false;
+    this.store.dispatch(limparSugestaoConteudo());
+  }
+
+  onSubmitMaterial() {
+    if (this.materialForm.invalid || !this.turmaSelecionadaId || !this.disciplinaSelecionadaId) return;
+    const { titulo, corpo, objetivo_aprendizagem_id, publicado } = this.materialForm.value;
+
+    if (this.materialEmEdicaoId) {
+      this.store.dispatch(atualizarMaterial({
+        material_id: this.materialEmEdicaoId,
+        turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId,
+        titulo: titulo!, corpo: corpo!, objetivo_aprendizagem_id: objetivo_aprendizagem_id || null, publicado: publicado ?? true
+      }));
+    } else {
+      this.store.dispatch(criarMaterial({
+        turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId,
+        titulo: titulo!, corpo: corpo!, objetivo_aprendizagem_id: objetivo_aprendizagem_id || null, publicado: publicado ?? true
+      }));
+    }
+    this.mostrarFormularioMaterial = false;
+    this.materialEmEdicaoId = null;
+  }
+
+  onPedirApagarMaterial(materialId: string) {
+    this.materialAApagarId = materialId;
+  }
+
+  onCancelarApagarMaterial() {
+    this.materialAApagarId = null;
+  }
+
+  onConfirmarApagarMaterial(materialId: string) {
+    if (!this.turmaSelecionadaId || !this.disciplinaSelecionadaId) return;
+    this.store.dispatch(apagarMaterial({ material_id: materialId, turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId }));
+    this.materialAApagarId = null;
   }
 }

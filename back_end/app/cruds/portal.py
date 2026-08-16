@@ -15,14 +15,17 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models_academico import Disciplina, Turma
+from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turma
 from app.database.models_diario import RegistroFrequencia, RegistroNota
+from app.database.models_lms import MaterialAula
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno
 from app.cruds import alunos as crud_alunos
 from app.cruds import financeiro as crud_financeiro
 from app.cruds import horarios as crud_horarios
 from app.cruds import tarefas as crud_tarefas
+from app.core.prof_virtual import perguntar_prof_virtual
+from app.schemas.lms import ProfVirtualPerguntaCreate
 
 # Resolução de acesso ("que aluno_id este login pode ver") vive em
 # cruds/alunos.py — também é precisa em Documentos (pedidos do
@@ -189,3 +192,90 @@ async def listar_tarefas_do_educando(db: AsyncSession, tenant_id, utilizador: di
     if not matricula:
         return []
     return await crud_tarefas.listar_tarefas_do_aluno(db, tenant_id, matricula.id)
+
+
+# ==========================================
+# F. MATERIAIS DE AULA (LMS mínimo) + PROF. VIRTUAL
+# ==========================================
+async def listar_materiais_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> list[dict]:
+    """Materiais publicados para a turma atual do educando, agrupáveis por disciplina no front-end."""
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
+    if not matricula or matricula.status_matricula != "ATIVO":
+        return []
+
+    linhas = (await db.execute(
+        select(MaterialAula, Disciplina.nome)
+        .join(Disciplina, Disciplina.id == MaterialAula.disciplina_id)
+        .where(
+            MaterialAula.turma_id == matricula.turma_id,
+            MaterialAula.tenant_id == tenant_id,
+            MaterialAula.publicado.is_(True)
+        )
+        .order_by(Disciplina.nome, MaterialAula.data_criacao.desc())
+    )).all()
+
+    return [
+        {
+            "id": material.id,
+            "titulo": material.titulo,
+            "disciplina_id": material.disciplina_id,
+            "nome_disciplina": nome_disciplina,
+            "data_criacao": material.data_criacao,
+        }
+        for material, nome_disciplina in linhas
+    ]
+
+
+async def _obter_material_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, material_id: uuid.UUID) -> MaterialAula:
+    """Devolve o MaterialAula só se pertencer à turma atual do educando e estiver publicado — nunca deixa ver o de outra turma trocando o id no URL."""
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
+    if not matricula or matricula.status_matricula != "ATIVO":
+        raise HTTPException(status_code=404, detail="Material de aula não encontrado.")
+
+    material = (await db.execute(
+        select(MaterialAula).where(
+            MaterialAula.id == material_id,
+            MaterialAula.tenant_id == tenant_id,
+            MaterialAula.turma_id == matricula.turma_id,
+            MaterialAula.publicado.is_(True)
+        )
+    )).scalars().first()
+    if not material:
+        raise HTTPException(status_code=404, detail="Material de aula não encontrado.")
+    return material
+
+
+async def obter_material_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, material_id: uuid.UUID) -> dict:
+    material = await _obter_material_do_educando(db, tenant_id, utilizador, aluno_id, material_id)
+    nome_objetivo = None
+    if material.objetivo_aprendizagem_id:
+        nome_objetivo = (await db.execute(
+            select(ObjetivoAprendizagem.nome).where(ObjetivoAprendizagem.id == material.objetivo_aprendizagem_id)
+        )).scalar_one_or_none()
+    return {
+        "id": material.id,
+        "titulo": material.titulo,
+        "corpo": material.corpo,
+        "disciplina_id": material.disciplina_id,
+        "nome_objetivo": nome_objetivo,
+    }
+
+
+async def perguntar_prof_virtual_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, dados: ProfVirtualPerguntaCreate) -> str:
+    """Encaminha a pergunta do aluno ao Prof. Virtual, com o material como contexto — a posse do material já garante que o aluno só pergunta sobre a sua própria turma."""
+    material = await _obter_material_do_educando(db, tenant_id, utilizador, aluno_id, dados.material_id)
+    nome_objetivo = None
+    if material.objetivo_aprendizagem_id:
+        nome_objetivo = (await db.execute(
+            select(ObjetivoAprendizagem.nome).where(ObjetivoAprendizagem.id == material.objetivo_aprendizagem_id)
+        )).scalar_one_or_none()
+
+    return await perguntar_prof_virtual(
+        titulo_material=material.titulo,
+        corpo_material=material.corpo,
+        nome_objetivo=nome_objetivo,
+        historico=dados.historico,
+        pergunta=dados.pergunta
+    )

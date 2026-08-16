@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil
 from app.cruds import portal as crud_portal
+from app.schemas.lms import ProfVirtualPerguntaCreate
 
 router = APIRouter(prefix="/api/v1/portal", tags=["Portal do Aluno/Responsável"])
 
@@ -67,3 +68,36 @@ async def listar_tarefas_do_educando(
 ):
     """Trabalhos/tarefas do educando (prazo, status de entrega e nota, quando já avaliado)."""
     return await crud_portal.listar_tarefas_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)
+
+
+@router.get("/educandos/{aluno_id}/materiais")
+async def listar_materiais_do_educando(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Materiais de aula publicados para a turma atual do educando."""
+    return await crud_portal.listar_materiais_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)
+
+
+@router.get("/educandos/{aluno_id}/materiais/{material_id}")
+async def obter_material_do_educando(
+    aluno_id: uuid.UUID,
+    material_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Conteúdo de um material de aula — só se pertencer à turma atual do educando."""
+    return await crud_portal.obter_material_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, material_id)
+
+
+@router.post("/educandos/{aluno_id}/prof-virtual")
+async def perguntar_prof_virtual(
+    aluno_id: uuid.UUID,
+    dados: ProfVirtualPerguntaCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Envia uma pergunta ao Prof. Virtual sobre um material de aula concreto. Devolve a resposta (chat sem persistência — o histórico viaja no pedido)."""
+    resposta = await crud_portal.perguntar_prof_virtual_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, dados)
+    return {"resposta": resposta}

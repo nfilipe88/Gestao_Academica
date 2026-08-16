@@ -96,6 +96,12 @@
         [class.border-transparent]="aba !== 'notas'" [class.text-slate-500]="aba !== 'notas'">
         Notas
       </button>
+      <button type="button" (click)="aba = 'materiais'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'materiais'" [class.text-blue-600]="aba === 'materiais'"
+        [class.border-transparent]="aba !== 'materiais'" [class.text-slate-500]="aba !== 'materiais'">
+        Materiais
+      </button>
       <button type="button" (click)="onVerConsolidado()"
         class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
         [class.border-blue-600]="aba === 'consolidado'" [class.text-blue-600]="aba === 'consolidado'"
@@ -103,6 +109,13 @@
         Consolidado
       </button>
     </div>
+
+    @if (erroLms$ | async; as erro) {
+      <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    }
+    @if (mensagemLms$ | async; as mensagem) {
+      <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+    }
 
     @if (aba === 'chamada') {
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
@@ -421,6 +434,114 @@
           </div>
         }
 
+      </div>
+    }
+
+    @if (aba === 'materiais') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div>
+            <h3 class="text-sm font-semibold text-slate-800">Materiais de Aula</h3>
+            <p class="text-xs text-slate-500">O conteúdo que os alunos desta turma veem no Portal — é sobre isto que podem pedir ajuda ao Prof. Virtual.</p>
+          </div>
+          <button type="button" (click)="alternarFormularioMaterial()"
+            class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+            {{ mostrarFormularioMaterial ? 'Cancelar' : '+ Novo Material' }}
+          </button>
+        </div>
+
+        @if (mostrarFormularioMaterial) {
+          <form [formGroup]="materialForm" (ngSubmit)="onSubmitMaterial()" class="space-y-3 mb-4 pb-4 border-b border-slate-100">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Título</label>
+              <input type="text" formControlName="titulo" placeholder="Ex: Equações do 2º Grau"
+                class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            </div>
+
+            <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3 space-y-2">
+              <label class="block text-xs font-medium text-indigo-700">✨ Prof. Virtual — sugerir o Conteúdo a partir do Título</label>
+              <input type="text" formControlName="instrucoes_sugestao" placeholder="Instruções opcionais (ex: nível iniciante, com exemplos práticos)"
+                class="w-full border border-indigo-200 bg-white rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+              <button type="button" (click)="onSugerirConteudo()"
+                [disabled]="!materialForm.value.titulo?.trim() || (aSugerirConteudo$ | async)"
+                class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1.5 px-3 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                {{ (aSugerirConteudo$ | async) ? 'A gerar sugestão…' : 'Sugerir Conteúdo' }}
+              </button>
+
+              @if (mostrarConfirmSugestao) {
+                <div class="bg-white border border-indigo-200 rounded-lg p-3 space-y-2">
+                  <p class="text-xs text-slate-600">Já havia texto escrito no Conteúdo. Substituir pela sugestão do Prof. Virtual?</p>
+                  <div class="flex gap-2">
+                    <button type="button" (click)="onAplicarSugestao()"
+                      class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1 px-3 rounded-lg cursor-pointer">Aplicar sugestão</button>
+                    <button type="button" (click)="onCancelarSugestao()"
+                      class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Manter o que escrevi</button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Conteúdo</label>
+              <textarea formControlName="corpo" rows="6" placeholder="Explica a matéria como se fosse para o aluno ler diretamente — o Prof. Virtual vai basear-se neste texto para ajudar."
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Objetivo de aprendizagem — opcional</label>
+                <select formControlName="objetivo_aprendizagem_id"
+                  class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                  <option value="">Nenhum</option>
+                  @for (objetivo of objetivosDaDisciplina(objetivos$ | async); track objetivo.id) {
+                    <option [value]="objetivo.id">{{ objetivo.nome }}</option>
+                  }
+                </select>
+              </div>
+              <label class="flex items-center gap-2 text-sm text-slate-600 mt-5">
+                <input type="checkbox" formControlName="publicado" />
+                Publicado (visível para os alunos)
+              </label>
+            </div>
+            <button type="submit" [disabled]="materialForm.invalid"
+              class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+              {{ materialEmEdicaoId ? 'Guardar Alterações' : 'Publicar Material' }}
+            </button>
+          </form>
+        }
+
+        <div class="space-y-2">
+          @for (material of materiais$ | async; track material.id) {
+            <div class="border border-slate-200 rounded-lg px-4 py-2.5">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-medium text-slate-800">{{ material.titulo }}</span>
+                  @if (!material.publicado) {
+                    <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-slate-100 text-slate-500">Rascunho</span>
+                  }
+                  @if (nomeObjetivo(objetivos$ | async, material.objetivo_aprendizagem_id); as nomeObj) {
+                    <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{{ nomeObj }}</span>
+                  }
+                </div>
+                <div class="flex items-center gap-3">
+                  <button type="button" (click)="onEditarMaterial(material)"
+                    class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Editar</button>
+                  @if (materialAApagarId === material.id) {
+                    <span class="text-xs text-rose-600">Apagar?</span>
+                    <button type="button" (click)="onConfirmarApagarMaterial(material.id)"
+                      class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
+                    <button type="button" (click)="onCancelarApagarMaterial()"
+                      class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Não</button>
+                  } @else {
+                    <button type="button" (click)="onPedirApagarMaterial(material.id)"
+                      class="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer">Apagar</button>
+                  }
+                </div>
+              </div>
+            </div>
+          } @empty {
+            <p class="text-sm text-slate-500">Ainda não há materiais publicados para esta turma.</p>
+          }
+        </div>
       </div>
     }
 

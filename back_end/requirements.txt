@@ -48,6 +48,9 @@ aiosmtplib==2.0.2
 # Cliente HTTP assíncrono — usado para falar com a API do PayPal (app/core/paypal.py).
 httpx==0.28.1
 
+# SDK oficial da Anthropic — usado pelo Prof. Virtual (app/core/prof_virtual.py).
+anthropic==0.122.0
+
 # Agendador in-process (sem serviço externo) — corre a régua de cobrança
 # (RN04) diariamente para todos os tenants. Ver app/core/scheduler.py.
 apscheduler==3.11.3

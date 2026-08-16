@@ -12,10 +12,12 @@ import { capturarPagamento, financeiroOperacaoSucesso, gerarCobranca } from '../
 import { selectUltimaCobranca } from '../../../store/financeiro/financeiro.selector';
 import {
   carregarBoletimDoEducando, carregarFinanceiroDoEducando, carregarHorarioDoEducando,
-  carregarMeusEducandos, carregarTarefasDoEducando
+  carregarMaterialDoEducando, carregarMateriaisDoEducando, carregarMeusEducandos, carregarTarefasDoEducando,
+  limparMaterialAberto, perguntarProfVirtual
 } from '../../../store/portal/portal.actions';
 import {
-  selectBoletimDoEducando, selectFinanceiroDoEducando, selectHorarioDoEducando,
+  selectAProcessarPerguntaProfVirtual, selectBoletimDoEducando, selectConversaProfVirtual, selectErroProfVirtual,
+  selectFinanceiroDoEducando, selectHorarioDoEducando, selectMaterialAberto, selectMateriaisDoEducando,
   selectMeusEducandos, selectPortalError, selectTarefasDoEducando
 } from '../../../store/portal/portal.selector';
 import { HorarioAulaPortal } from '../../../store/portal/portal.models';
@@ -56,6 +58,11 @@ export class PortalComponent implements OnInit {
   boletim$ = this.store.select(selectBoletimDoEducando);
   financeiro$ = this.store.select(selectFinanceiroDoEducando);
   tarefas$ = this.store.select(selectTarefasDoEducando);
+  materiais$ = this.store.select(selectMateriaisDoEducando);
+  materialAberto$ = this.store.select(selectMaterialAberto);
+  conversaProfVirtual$ = this.store.select(selectConversaProfVirtual);
+  aProcessarPerguntaProfVirtual$ = this.store.select(selectAProcessarPerguntaProfVirtual);
+  erroProfVirtual$ = this.store.select(selectErroProfVirtual);
   erro$ = this.store.select(selectPortalError);
 
   precosDocumento$ = this.store.select(selectPrecosDocumento);
@@ -67,7 +74,11 @@ export class PortalComponent implements OnInit {
   dias = DIAS_DA_SEMANA;
 
   educandoSelecionadoId: string | null = null;
-  aba: 'horario' | 'boletim' | 'trabalhos' | 'financeiro' | 'documentos' = 'horario';
+  aba: 'horario' | 'boletim' | 'trabalhos' | 'materiais' | 'financeiro' | 'documentos' = 'horario';
+
+  // Prof. Virtual — qual material está aberto e a pergunta a meio de escrever.
+  materialAbertoId: string | null = null;
+  perguntaAtual = '';
 
   // Formulário "Novo pedido de documento"
   novoDocumentoTipo = 'CERTIFICADO';
@@ -124,10 +135,46 @@ export class PortalComponent implements OnInit {
   onSelecionarEducando(alunoId: string) {
     this.educandoSelecionadoId = alunoId;
     this.aba = 'horario';
+    this.materialAbertoId = null;
     this.store.dispatch(carregarHorarioDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarBoletimDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarFinanceiroDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarTarefasDoEducando({ aluno_id: alunoId }));
+    this.store.dispatch(carregarMateriaisDoEducando({ aluno_id: alunoId }));
+  }
+
+  // --- Materiais de aula + Prof. Virtual ---
+
+  onAbrirMaterial(materialId: string) {
+    if (!this.educandoSelecionadoId) return;
+    this.materialAbertoId = materialId;
+    this.perguntaAtual = '';
+    this.store.dispatch(carregarMaterialDoEducando({ aluno_id: this.educandoSelecionadoId, material_id: materialId }));
+  }
+
+  onFecharMaterial() {
+    this.materialAbertoId = null;
+    this.perguntaAtual = '';
+    this.store.dispatch(limparMaterialAberto());
+  }
+
+  onEnviarPergunta() {
+    const pergunta = this.perguntaAtual.trim();
+    if (!pergunta || !this.educandoSelecionadoId || !this.materialAbertoId) return;
+
+    // O histórico enviado é o que existia ANTES desta pergunta — o
+    // reducer já acrescenta a pergunta atual ao conversaProfVirtual$
+    // (ver PortalActions.perguntarProfVirtual), por isso capturamos o
+    // valor com take(1) antes de despachar, não depois.
+    this.conversaProfVirtual$.pipe(take(1)).subscribe(historico => {
+      this.store.dispatch(perguntarProfVirtual({
+        aluno_id: this.educandoSelecionadoId!,
+        material_id: this.materialAbertoId!,
+        historico,
+        pergunta
+      }));
+    });
+    this.perguntaAtual = '';
   }
 
   slotsDoDia(horarios: HorarioAulaPortal[] | null, dia: number): HorarioAulaPortal[] {

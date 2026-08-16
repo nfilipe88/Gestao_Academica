@@ -46,6 +46,12 @@
         [class.border-transparent]="aba !== 'trabalhos'" [class.text-slate-500]="aba !== 'trabalhos'">
         Trabalhos
       </button>
+      <button type="button" (click)="aba = 'materiais'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'materiais'" [class.text-blue-600]="aba === 'materiais'"
+        [class.border-transparent]="aba !== 'materiais'" [class.text-slate-500]="aba !== 'materiais'">
+        Materiais
+      </button>
       <button type="button" (click)="aba = 'financeiro'"
         class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
         [class.border-blue-600]="aba === 'financeiro'" [class.text-blue-600]="aba === 'financeiro'"
@@ -161,6 +167,85 @@
             <p class="text-sm text-slate-500 text-center py-6">Ainda não há trabalhos atribuídos.</p>
           }
         </div>
+      </div>
+    }
+
+    @if (aba === 'materiais') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+
+        @if (!materialAbertoId) {
+          <div class="space-y-2">
+            @for (material of materiais$ | async; track material.id) {
+              <button type="button" (click)="onAbrirMaterial(material.id)"
+                class="w-full text-left border border-slate-200 rounded-lg px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between">
+                <div>
+                  <h4 class="text-sm font-semibold text-slate-800">{{ material.titulo }}</h4>
+                  <p class="text-xs text-slate-500">{{ material.nome_disciplina }}</p>
+                </div>
+                <span class="text-xs text-blue-600 font-medium">Abrir →</span>
+              </button>
+            } @empty {
+              <p class="text-sm text-slate-500 text-center py-6">Ainda não há materiais de aula publicados para a tua turma.</p>
+            }
+          </div>
+        } @else if (materialAberto$ | async; as material) {
+          <div class="space-y-4">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h3 class="text-lg font-semibold text-slate-800">{{ material.titulo }}</h3>
+                @if (material.nome_objetivo) {
+                  <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{{ material.nome_objetivo }}</span>
+                }
+              </div>
+              <button type="button" (click)="onFecharMaterial()"
+                class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer shrink-0">← Voltar</button>
+            </div>
+
+            <p class="text-sm text-slate-700 whitespace-pre-line leading-relaxed bg-slate-50 rounded-lg p-4 border border-slate-100">{{ material.corpo }}</p>
+
+            <div class="border-t border-slate-200 pt-4">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">🎓</span>
+                <h4 class="text-sm font-semibold text-slate-800">Prof. Virtual</h4>
+                <span class="text-xs text-slate-400">— tira dúvidas sobre esta matéria</span>
+              </div>
+
+              <div class="space-y-2 max-h-80 overflow-y-auto mb-3 pr-1">
+                @for (msg of conversaProfVirtual$ | async; track $index) {
+                  <div class="flex" [class.justify-end]="msg.papel === 'aluno'">
+                    <p class="max-w-[80%] text-sm rounded-lg px-3 py-2"
+                      [class.bg-blue-600]="msg.papel === 'aluno'" [class.text-white]="msg.papel === 'aluno'"
+                      [class.bg-slate-100]="msg.papel === 'assistente'" [class.text-slate-800]="msg.papel === 'assistente'">
+                      {{ msg.texto }}
+                    </p>
+                  </div>
+                } @empty {
+                  <p class="text-xs text-slate-400 text-center py-4">Escreve uma dúvida sobre esta matéria abaixo para começares.</p>
+                }
+                @if (aProcessarPerguntaProfVirtual$ | async) {
+                  <div class="flex">
+                    <p class="text-sm rounded-lg px-3 py-2 bg-slate-100 text-slate-500 italic">Prof. Virtual está a pensar…</p>
+                  </div>
+                }
+              </div>
+
+              @if (erroProfVirtual$ | async; as erro) {
+                <div class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700 mb-3">{{ erro }}</div>
+              }
+
+              <form (ngSubmit)="onEnviarPergunta()" class="flex gap-2">
+                <input type="text" [(ngModel)]="perguntaAtual" name="perguntaAtual" placeholder="Escreve a tua dúvida…"
+                  [disabled]="(aProcessarPerguntaProfVirtual$ | async) ?? false"
+                  class="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-50" />
+                <button type="submit" [disabled]="!perguntaAtual.trim() || ((aProcessarPerguntaProfVirtual$ | async) ?? false)"
+                  class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                  Enviar
+                </button>
+              </form>
+            </div>
+          </div>
+        }
+
       </div>
     }
 

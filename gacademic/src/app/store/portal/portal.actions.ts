@@ -1,5 +1,8 @@
 import { createAction, props } from '@ngrx/store';
-import { Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal, TarefaEducando } from './portal.models';
+import {
+  Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal,
+  MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, TarefaEducando
+} from './portal.models';
 
 export const carregarMeusEducandos = createAction('[Portal] Carregar Meus Educandos');
 export const carregarMeusEducandosSucesso = createAction(
@@ -41,6 +44,43 @@ export const carregarTarefasDoEducando = createAction(
 export const carregarTarefasDoEducandoSucesso = createAction(
   '[Portal] Carregar Tarefas Do Educando Sucesso',
   props<{ tarefas: TarefaEducando[] }>()
+);
+
+// LMS mínimo — materiais de aula do educando
+export const carregarMateriaisDoEducando = createAction(
+  '[Portal] Carregar Materiais Do Educando',
+  props<{ aluno_id: string }>()
+);
+export const carregarMateriaisDoEducandoSucesso = createAction(
+  '[Portal] Carregar Materiais Do Educando Sucesso',
+  props<{ materiais: MaterialEducando[] }>()
+);
+
+export const carregarMaterialDoEducando = createAction(
+  '[Portal] Carregar Material Do Educando',
+  props<{ aluno_id: string, material_id: string }>()
+);
+export const carregarMaterialDoEducandoSucesso = createAction(
+  '[Portal] Carregar Material Do Educando Sucesso',
+  props<{ material: MaterialEducandoDetalhe }>()
+);
+// Ao trocar de material (ou sair da página), limpa o material aberto e
+// a conversa — sem isto, abrir um material novo mostrava por instantes
+// o conteúdo/chat do anterior.
+export const limparMaterialAberto = createAction('[Portal] Limpar Material Aberto');
+
+// Prof. Virtual — chat sem persistência (ver store/portal/portal.effects.ts)
+export const perguntarProfVirtual = createAction(
+  '[Portal] Perguntar Prof Virtual',
+  props<{ aluno_id: string, material_id: string, historico: MensagemProfVirtual[], pergunta: string }>()
+);
+export const perguntarProfVirtualSucesso = createAction(
+  '[Portal] Perguntar Prof Virtual Sucesso',
+  props<{ resposta: string }>()
+);
+export const perguntarProfVirtualFalhou = createAction(
+  '[Portal] Perguntar Prof Virtual Falhou',
+  props<{ erro: string }>()
 );
 
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,

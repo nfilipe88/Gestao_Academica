@@ -2,7 +2,10 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as PortalActions from './portal.actions';
-import { Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal, TarefaEducando } from './portal.models';
+import {
+  Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal,
+  MaterialEducando, MaterialEducandoDetalhe, TarefaEducando
+} from './portal.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -73,6 +76,49 @@ export class PortalEffects {
         map(tarefas => PortalActions.carregarTarefasDoEducandoSucesso({ tarefas })),
         catchError(err => of(PortalActions.portalOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar os trabalhos/tarefas deste educando.'
+        })))
+      ))
+    )
+  );
+
+  carregarMateriaisDoEducando$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.carregarMateriaisDoEducando),
+      switchMap(action => this.http.get<MaterialEducando[]>(
+        `/api/v1/portal/educandos/${action.aluno_id}/materiais`
+      ).pipe(
+        map(materiais => PortalActions.carregarMateriaisDoEducandoSucesso({ materiais })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os materiais de aula.'
+        })))
+      ))
+    )
+  );
+
+  carregarMaterialDoEducando$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.carregarMaterialDoEducando),
+      switchMap(action => this.http.get<MaterialEducandoDetalhe>(
+        `/api/v1/portal/educandos/${action.aluno_id}/materiais/${action.material_id}`
+      ).pipe(
+        map(material => PortalActions.carregarMaterialDoEducandoSucesso({ material })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível abrir este material de aula.'
+        })))
+      ))
+    )
+  );
+
+  perguntarProfVirtual$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.perguntarProfVirtual),
+      switchMap(action => this.http.post<{ resposta: string }>(
+        `/api/v1/portal/educandos/${action.aluno_id}/prof-virtual`,
+        { material_id: action.material_id, historico: action.historico, pergunta: action.pergunta }
+      ).pipe(
+        map(resp => PortalActions.perguntarProfVirtualSucesso({ resposta: resp.resposta })),
+        catchError(err => of(PortalActions.perguntarProfVirtualFalhou({
+          erro: err.error?.detail || 'O Prof. Virtual não conseguiu responder agora.'
         })))
       ))
     )
