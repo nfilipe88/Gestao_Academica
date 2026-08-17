@@ -1,12 +1,20 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 
 // Página pública de captação (RN03 do CRM) — pensada para ser
 // incorporada (iframe/link) no site da própria escola. Sem authGuard,
 // sem JWT: identifica a escola só pelo tenant_id na URL.
+//
+// Estado como signal, não propriedade simples: esta app não carrega
+// zone.js (sem "polyfills" em angular.json) — sem zone.js, uma
+// atribuição simples (`this.enviado = true`) dentro do callback
+// assíncrono de subscribe() nunca dispara change detection, e o ecrã
+// ficava preso no formulário mesmo com o pedido a ter sido aceite
+// (apanhado ao construir /esqueci-senha e /redefinir-senha, que
+// copiaram este mesmo padrão).
 @Component({
   selector: 'app-captar-lead.component',
   imports: [ReactiveFormsModule, CommonModule],
@@ -20,8 +28,8 @@ export class CaptarLeadComponent {
 
   tenantId = this.route.snapshot.paramMap.get('tenantId') ?? '';
 
-  enviado = false;
-  erro: string | null = null;
+  enviado = signal(false);
+  erro = signal<string | null>(null);
 
   leadForm = this.fb.group({
     nome_responsavel: ['', Validators.required],
@@ -33,10 +41,10 @@ export class CaptarLeadComponent {
 
   onSubmit() {
     if (this.leadForm.invalid || !this.tenantId) return;
-    this.erro = null;
+    this.erro.set(null);
     this.http.post(`/api/v1/public/${this.tenantId}/leads`, this.leadForm.value).subscribe({
-      next: () => { this.enviado = true; },
-      error: (err) => { this.erro = err.error?.detail || 'Não foi possível enviar o seu pedido. Tente novamente.'; }
+      next: () => { this.enviado.set(true); },
+      error: (err) => { this.erro.set(err.error?.detail || 'Não foi possível enviar o seu pedido. Tente novamente.'); }
     });
   }
 }

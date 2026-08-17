@@ -4,7 +4,7 @@ from collections import defaultdict
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.schemas.auth import RegistoInicial, TokenResponse
+from app.schemas.auth import EsqueciSenhaIn, RedefinirSenhaIn, RegistoInicial, TokenResponse
 from app.core.email import enviar_email, template_base
 from app.cruds import auth as crud_auth
 
@@ -65,3 +65,30 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     _verificar_limite_login(f"{ip_cliente}:{form_data.username}")
 
     return await crud_auth.autenticar(form_data.username, form_data.password)
+
+
+@router.post("/esqueci-senha")
+async def esqueci_senha(dados: EsqueciSenhaIn, request: Request, background_tasks: BackgroundTasks):
+    """
+    Pede um link de redefinição de palavra-passe por e-mail.
+
+    A resposta é sempre a mesma, exista ou não uma conta com este email
+    (proteção contra enumeração de utilizadores) — e o trabalho todo
+    (procurar o email, gerar o token, enviar o e-mail) corre em
+    background, depois de já ter respondido: sem isto, o tempo de
+    resposta em si denunciaria se o email existe (mais lento quando
+    existe, porque manda e-mail; instantâneo quando não existe).
+    """
+    ip_cliente = request.client.host if request.client else "desconhecido"
+    _verificar_limite_login(f"reset:{ip_cliente}:{dados.email}")
+
+    background_tasks.add_task(crud_auth.solicitar_redefinicao_senha, dados.email)
+
+    return {"mensagem": "Se este email estiver registado, vai receber um link para redefinir a palavra-passe."}
+
+
+@router.post("/redefinir-senha")
+async def redefinir_senha(dados: RedefinirSenhaIn):
+    """Valida o token recebido por e-mail e grava a nova palavra-passe."""
+    await crud_auth.redefinir_senha(dados.token, dados.nova_senha)
+    return {"mensagem": "Palavra-passe redefinida com sucesso. Já pode iniciar sessão."}

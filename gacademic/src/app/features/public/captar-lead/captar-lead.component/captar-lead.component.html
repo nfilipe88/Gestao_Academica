@@ -1,14 +1,14 @@
 <div class="min-h-screen flex items-center justify-center bg-slate-950 p-4">
   <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
 
-    @if (!enviado) {
+    @if (!enviado()) {
       <div class="text-center mb-6">
         <h1 class="text-2xl font-bold text-white">Peça mais informações</h1>
         <p class="text-slate-400 text-sm mt-1">Deixe os seus dados e entraremos em contacto brevemente.</p>
       </div>
 
-      @if (erro) {
-        <div class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-300 mb-4">{{ erro }}</div>
+      @if (erro()) {
+        <div class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-300 mb-4">{{ erro() }}</div>
       }
 
       <form [formGroup]="leadForm" (ngSubmit)="onSubmit()" class="space-y-3">

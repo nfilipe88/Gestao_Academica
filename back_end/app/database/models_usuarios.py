@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, String, Text, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -34,3 +34,29 @@ class UsuarioAuditoria(Base):
     detalhe: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     data_acao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class PasswordResetToken(Base):
+    """
+    Token de recuperação de palavra-passe (fluxo "esqueci-me da senha",
+    sempre pré-autenticado — ver cruds/auth.py::solicitar_redefinicao_senha
+    e redefinir_senha, que usam a sessão app_sistema pela mesma razão do
+    login/registo: procurar por email não sabe a priori o tenant).
+
+    Só o HASH do token (sha256) fica gravado — o token em texto limpo só
+    existe no e-mail enviado ao utilizador, nunca na base de dados, o
+    mesmo princípio já aplicado a Usuario.senha_hash. `usado` impede
+    reutilização do link mesmo dentro da janela de validade (ex.: o
+    e-mail foi reencaminhado ou aberto duas vezes).
+    """
+    __tablename__ = "password_reset_token"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), nullable=False)
+
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    usado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))

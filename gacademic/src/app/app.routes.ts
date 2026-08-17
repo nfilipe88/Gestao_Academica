@@ -18,15 +18,25 @@ export const routes: Routes = [
     canActivate: [guestGuard],
     loadComponent: () => import('./features/public/registo/registo.component/registo.component').then((m) => m.RegistoComponent)
   },
+  {
+    path: 'esqueci-senha',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./features/public/esqueci-senha/esqueci-senha.component/esqueci-senha.component').then((m) => m.EsqueciSenhaComponent)
+  },
 
   // ==========================================
-  // ROTA PÚBLICA (sem guestGuard — não é sobre estar "deslogado", é uma
-  // página para os pais visitantes do site da escola; um membro da
-  // equipa com sessão iniciada também tem de conseguir vê-la, ex. para testar o link)
+  // ROTAS PÚBLICAS (sem guestGuard — não são sobre estar "deslogado")
   // ==========================================
   {
     path: 'captar/:tenantId',
     loadComponent: () => import('./features/public/captar-lead/captar-lead.component/captar-lead.component').then((m) => m.CaptarLeadComponent)
+  },
+  {
+    // Acedida a partir do link de e-mail — tem de funcionar mesmo com
+    // uma sessão antiga aberta noutro separador, por isso sem
+    // guestGuard (ver docstring do componente).
+    path: 'redefinir-senha',
+    loadComponent: () => import('./features/public/redefinir-senha/redefinir-senha.component/redefinir-senha.component').then((m) => m.RedefinirSenhaComponent)
   },
 
   // ==========================================
@@ -114,6 +124,12 @@ export const routes: Routes = [
       {
         path: 'acessos',
         loadComponent: () => import('./features/usuarios/acessos.component/acessos.component').then((m) => m.AcessosComponent)
+      },
+      {
+        // Sem RBAC — qualquer utilizador autenticado gere a própria
+        // conta (ver app/api/v1/perfil.py, sem exigir_perfil).
+        path: 'perfil',
+        loadComponent: () => import('./features/perfil/perfil.component/perfil.component').then((m) => m.PerfilComponent)
       },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }

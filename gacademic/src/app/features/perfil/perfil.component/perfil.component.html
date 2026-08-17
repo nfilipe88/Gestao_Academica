@@ -1,0 +1,87 @@
+<div class="space-y-6 max-w-2xl">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">O Meu Perfil</h2>
+    <p class="text-slate-500 text-sm">Os seus dados de acesso à plataforma.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  @if (perfil$ | async; as perfil) {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 flex items-center gap-4">
+      <div class="w-14 h-14 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xl font-bold shrink-0">
+        {{ perfil.nome_completo.charAt(0).toUpperCase() }}
+      </div>
+      <div class="min-w-0">
+        <p class="font-semibold text-slate-800 truncate">{{ perfil.nome_completo }}</p>
+        <p class="text-sm text-slate-500 truncate">{{ perfil.nome_instituicao }}</p>
+        <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">{{ perfil.perfil_acesso }}</span>
+      </div>
+    </div>
+  }
+
+  <form [formGroup]="dadosForm" (ngSubmit)="onGuardarDados()" class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+    <h3 class="text-sm font-semibold text-slate-800">Os Meus Dados</h3>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Nome completo</label>
+        <input type="text" formControlName="nome_completo"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">E-mail (usado para iniciar sessão)</label>
+        <input type="email" formControlName="email"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        @if (dadosForm.controls.email.invalid && dadosForm.controls.email.dirty) {
+          <p class="text-xs text-rose-600 mt-1">E-mail inválido.</p>
+        }
+      </div>
+    </div>
+
+    <button type="submit" [disabled]="dadosForm.invalid"
+      class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+      Guardar Dados
+    </button>
+  </form>
+
+  <form [formGroup]="senhaForm" (ngSubmit)="onAlterarSenha()" class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+    <h3 class="text-sm font-semibold text-slate-800">Alterar Palavra-passe</h3>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Palavra-passe atual</label>
+      <input type="password" formControlName="senha_atual"
+        class="w-full max-w-sm border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Nova palavra-passe</label>
+        <input type="password" formControlName="nova_senha"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        @if (senhaForm.controls.nova_senha.invalid && senhaForm.controls.nova_senha.dirty) {
+          <p class="text-xs text-rose-600 mt-1">Mínimo 8 caracteres.</p>
+        }
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Confirmar nova palavra-passe</label>
+        <input type="password" formControlName="confirmar_senha"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        @if (senhasDiferentes) {
+          <p class="text-xs text-rose-600 mt-1">As palavras-passe não coincidem.</p>
+        }
+      </div>
+    </div>
+
+    <button type="submit" [disabled]="senhaForm.invalid || senhasDiferentes"
+      class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+      Alterar Palavra-passe
+    </button>
+  </form>
+
+</div>

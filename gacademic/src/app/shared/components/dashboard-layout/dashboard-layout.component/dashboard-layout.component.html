@@ -239,7 +239,17 @@
       }
     </nav>
 
-    <div class="p-3 border-t border-slate-800 shrink-0">
+    <div class="p-3 border-t border-slate-800 shrink-0 space-y-1">
+      <!-- Sem RBAC — qualquer utilizador autenticado gere a própria
+           conta (ver app/api/v1/perfil.py, sem exigir_perfil). -->
+      <a routerLink="/perfil" routerLinkActive="bg-slate-800 text-blue-400"
+        class="flex items-center gap-3 py-2 px-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+        [class.justify-center]="sidebarColapsada" title="O Meu Perfil">
+        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+        </svg>
+        @if (!sidebarColapsada) { <span>O Meu Perfil</span> }
+      </a>
       <button (click)="onLogout()" type="button"
         class="w-full flex items-center gap-3 text-left text-rose-400 hover:text-rose-300 py-2 px-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
         [class.justify-center]="sidebarColapsada" title="Sair do Sistema">

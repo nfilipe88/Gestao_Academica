@@ -17,14 +17,33 @@ O limitador de tentativas de login (anti força-bruta) fica na camada
 de API — depende do IP do pedido HTTP, não é uma preocupação de
 acesso a dados.
 """
+import hashlib
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 
 from app.database.session import AsyncSessionLocalSistema
 from app.database.models import Usuario, Tenant
 from app.database.models_diario import TipoAvaliacaoConfig
+from app.database.models_usuarios import PasswordResetToken
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso
+from app.core.email import enviar_email, template_base
 from app.schemas.auth import RegistoInicial
+
+# Janela de validade do link de recuperação de senha — curta de
+# propósito (é enviado por e-mail, um canal que pode ficar exposto por
+# mais tempo do que uma sessão normal).
+RESET_TOKEN_EXPIRE_MINUTES = 30
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:4200").rstrip("/")
+
+
+def _hash_token(token: str) -> str:
+    """Mesma lógica de Usuario.senha_hash: só o hash fica na base de dados, o token em texto limpo só existe no e-mail."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 async def registar_escola(dados: RegistoInicial) -> tuple[Tenant, Usuario]:
@@ -136,3 +155,93 @@ async def autenticar(email: str, palavra_passe: str) -> dict:
                 "tenant_id": str(usuario.tenant_id)
             }
         }
+
+
+async def solicitar_redefinicao_senha(email: str) -> None:
+    """
+    Gera um token de recuperação e envia o link por e-mail (best-effort,
+    em background — ver api/v1/auth.py).
+
+    Deliberadamente NUNCA revela ao chamador se o email existe ou não —
+    a resposta da API é sempre a mesma mensagem genérica, mesmo aqui
+    dentro esta função não devolve nada nem levanta exceção por email
+    desconhecido. Sem isto, o endpoint seria um oráculo para descobrir
+    que emails têm conta na plataforma (enumeração de utilizadores).
+    """
+    async with AsyncSessionLocalSistema() as db:
+        usuario = (await db.execute(select(Usuario).where(Usuario.email == email))).scalars().first()
+        if not usuario or not usuario.ativo:
+            return  # silêncio de propósito — ver docstring
+
+        # Invalida quaisquer tokens anteriores ainda não usados: só o
+        # link mais recente pedido deve funcionar.
+        tokens_antigos = (await db.execute(
+            select(PasswordResetToken).where(
+                PasswordResetToken.usuario_id == usuario.id, PasswordResetToken.usado == False  # noqa: E712
+            )
+        )).scalars().all()
+        for antigo in tokens_antigos:
+            antigo.usado = True
+
+        token_bruto = secrets.token_urlsafe(32)
+        db.add(PasswordResetToken(
+            tenant_id=usuario.tenant_id,
+            usuario_id=usuario.id,
+            token_hash=_hash_token(token_bruto),
+            expira_em=datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES),
+        ))
+        await db.commit()
+
+        link = f"{FRONTEND_URL}/redefinir-senha?token={token_bruto}"
+        await enviar_email(
+            destinatario=usuario.email,
+            assunto="Redefinir a sua palavra-passe",
+            corpo_html=template_base(
+                "Pedido de redefinição de palavra-passe",
+                f"""
+                <p>Olá {usuario.nome_completo},</p>
+                <p>Recebemos um pedido para redefinir a palavra-passe da sua conta.
+                Clique no link abaixo para escolher uma nova palavra-passe — o link
+                expira em {RESET_TOKEN_EXPIRE_MINUTES} minutos:</p>
+                <p><a href="{link}" style="color:#2563eb;">Redefinir palavra-passe</a></p>
+                <p>Se não foi você a pedir isto, ignore este e-mail — a sua
+                palavra-passe atual continua válida.</p>
+                """
+            )
+        )
+
+
+async def redefinir_senha(token: str, nova_senha: str) -> None:
+    """Valida o token (hash + expiração + não usado) e grava a nova palavra-passe."""
+    async with AsyncSessionLocalSistema() as db:
+        registo = (await db.execute(
+            select(PasswordResetToken).where(PasswordResetToken.token_hash == _hash_token(token))
+        )).scalars().first()
+
+        token_invalido = HTTPException(status_code=400, detail="Este link de redefinição é inválido ou já expirou.")
+        if not registo or registo.usado:
+            raise token_invalido
+        if registo.expira_em.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            raise token_invalido
+
+        usuario = (await db.execute(select(Usuario).where(Usuario.id == registo.usuario_id))).scalars().first()
+        if not usuario:
+            raise token_invalido
+
+        usuario.senha_hash = gerar_hash_senha(nova_senha)
+        registo.usado = True
+        await db.commit()
+
+        await enviar_email(
+            destinatario=usuario.email,
+            assunto="A sua palavra-passe foi alterada",
+            corpo_html=template_base(
+                "Palavra-passe alterada",
+                f"""
+                <p>Olá {usuario.nome_completo},</p>
+                <p>A palavra-passe da sua conta foi alterada com sucesso através do
+                link de recuperação.</p>
+                <p>Se não foi você, contacte a direção da sua escola imediatamente.</p>
+                """
+            )
+        )

@@ -1,0 +1,54 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+  <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-extrabold text-blue-500 tracking-tight">SaaS Académico</h1>
+      <p class="text-slate-400 mt-2 text-sm">Recuperar palavra-passe</p>
+    </div>
+
+    @if (enviado()) {
+      <div class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
+        Se este email estiver registado, vai receber um link para redefinir a sua palavra-passe. Verifique também a pasta de spam.
+      </div>
+      <div class="mt-6 text-center text-sm">
+        <a href="/login" class="text-blue-400 hover:underline">Voltar ao início de sessão</a>
+      </div>
+    } @else {
+      <p class="text-slate-400 text-sm mb-5">Indique o e-mail da sua conta — vamos enviar-lhe um link para escolher uma nova palavra-passe.</p>
+
+      @if (erro()) {
+        <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
+          {{ erro() }}
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5">E-mail</label>
+          <input
+            type="email"
+            formControlName="email"
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors"
+            placeholder="exemplo@escola.pt"
+          />
+          @if (form.get('email')?.touched && form.get('email')?.invalid) {
+            <span class="text-xs text-rose-500 mt-1 block">Insira um e-mail válido.</span>
+          }
+        </div>
+
+        <button
+          type="submit"
+          [disabled]="form.invalid || aEnviar()"
+          class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-lg py-3 mt-4 transition-colors cursor-pointer disabled:cursor-not-allowed shadow-lg shadow-blue-600/20"
+        >
+          {{ aEnviar() ? 'A enviar...' : 'Enviar Link de Recuperação' }}
+        </button>
+      </form>
+
+      <div class="mt-6 text-center text-sm">
+        <a href="/login" class="text-blue-400 hover:underline">Voltar ao início de sessão</a>
+      </div>
+    }
+
+  </div>
+</div>
