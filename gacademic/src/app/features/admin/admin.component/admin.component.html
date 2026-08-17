@@ -5,11 +5,17 @@
       <h2 class="text-2xl font-bold text-slate-800">Painel Super Admin</h2>
       <p class="text-slate-500 text-sm">Instituições (escolas) registadas na plataforma.</p>
     </div>
-    <button type="button" (click)="onProcessarValidadeLicencas()"
-      title="O scheduler já corre isto sozinho todos os dias às 07:00 — use isto só para testar/forçar já."
-      class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
-      Processar validade de licenças agora
-    </button>
+    <div class="flex items-center gap-2 shrink-0">
+      <button type="button" (click)="alternarFormularioNovaEscola()"
+        class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+        {{ mostrarFormularioNovaEscola ? 'Cancelar' : '+ Nova Escola' }}
+      </button>
+      <button type="button" (click)="onProcessarValidadeLicencas()"
+        title="O scheduler já corre isto sozinho todos os dias às 07:00 — use isto só para testar/forçar já."
+        class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+        Processar validade de licenças agora
+      </button>
+    </div>
   </div>
 
   @if (erro$ | async; as erro) {
@@ -18,6 +24,45 @@
 
   @if (mensagem$ | async; as mensagem) {
     <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  @if (mostrarFormularioNovaEscola) {
+    <form [formGroup]="novaEscolaForm" (ngSubmit)="onCriarEscola()"
+      class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+      <h3 class="text-sm font-semibold text-slate-800">Criar Escola — onboarding gatekeeping</h3>
+      <p class="text-xs text-slate-400 -mt-2">Cria a instituição e a primeira conta de Gestor diretamente, sem passar pelo auto-serviço em /registo.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Nome da escola</label>
+          <input type="text" formControlName="nome_fantasia" placeholder="Ex: Colégio do Futuro"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">NIF</label>
+          <input type="text" formControlName="nif"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Nome do Gestor</label>
+          <input type="text" formControlName="nome_gestor"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">E-mail do Gestor</label>
+          <input type="email" formControlName="email_gestor"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Palavra-passe inicial</label>
+          <input type="text" formControlName="palavra_passe" placeholder="Mínimo 8 caracteres"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+      </div>
+      <button type="submit" [disabled]="novaEscolaForm.invalid"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+        Criar Escola
+      </button>
+    </form>
   }
 
   <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">

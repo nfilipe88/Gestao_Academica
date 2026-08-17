@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Tenant, Usuario
 from app.database.models_pessoas import Aluno, Professor
-from app.schemas.admin import TenantStatusUpdate, ValidadeLicencaUpdate
+from app.database.models_diario import TipoAvaliacaoConfig
+from app.schemas.admin import TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
+from app.core.security import gerar_hash_senha
 from app.core.paginacao import paginar
 from app.cruds import notificacoes as crud_notificacoes
 
@@ -74,6 +76,55 @@ async def listar_tenants(db: AsyncSession, page: int, page_size: int) -> dict:
         for t in tenants
     ]
     return pagina
+
+
+async def criar_tenant_admin(db: AsyncSession, dados: TenantCreateAdmin) -> tuple[Tenant, Usuario]:
+    """
+    Onboarding gatekeeping pelo Super Admin — via de criação de escola em
+    alternativa ao auto-serviço (POST /api/v1/auth/registo). A sessão
+    (obter_sessao_db_admin) já corre com o role app_sistema (bypassrls),
+    a mesma razão de cruds/auth.py::registar_escola: o Super Admin está a
+    criar o próprio tenant, antes de existir qualquer "tenant atual".
+
+    Espelha registar_escola quase byte a byte (mesmas validações, mesmo
+    seed de TipoAvaliacaoConfig) — a única diferença é quem pode chamar
+    isto (SUPER_ADMIN, via exigir_perfil na API) e por isso não precisa
+    de abrir a sua própria sessão como aquela função faz.
+    """
+    nif_existente = (await db.execute(select(Tenant).where(Tenant.nif == dados.nif))).scalars().first()
+    if nif_existente:
+        raise HTTPException(status_code=400, detail="Este NIF já está registado.")
+
+    email_existente = (await db.execute(select(Usuario).where(Usuario.email == dados.email_gestor))).scalars().first()
+    if email_existente:
+        raise HTTPException(status_code=400, detail="Este email já está em uso.")
+
+    try:
+        novo_tenant = Tenant(nome_fantasia=dados.nome_fantasia, nif=dados.nif, status="ATIVO")
+        db.add(novo_tenant)
+        await db.flush()
+
+        novo_gestor = Usuario(
+            tenant_id=novo_tenant.id,
+            nome_completo=dados.nome_gestor,
+            email=dados.email_gestor,
+            senha_hash=gerar_hash_senha(dados.palavra_passe),
+            perfil_acesso="GESTOR",
+        )
+        db.add(novo_gestor)
+
+        db.add(TipoAvaliacaoConfig(tenant_id=novo_tenant.id, nome="CONTINUA", requer_agendamento=False, ativo=True))
+        db.add(TipoAvaliacaoConfig(tenant_id=novo_tenant.id, nome="PROVA", requer_agendamento=True, ativo=True))
+
+        await db.commit()
+        await db.refresh(novo_tenant)
+        await db.refresh(novo_gestor)
+        return novo_tenant, novo_gestor
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao criar a escola: {str(e)}")
 
 
 async def atualizar_status_tenant(db: AsyncSession, tenant_id: uuid.UUID, dados: TenantStatusUpdate) -> Tenant:

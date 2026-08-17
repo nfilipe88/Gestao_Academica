@@ -28,6 +28,24 @@ export class AdminEffects {
     )
   );
 
+  criarTenant$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.criarTenant),
+      switchMap(action => this.http.post<{ mensagem: string }>('/api/v1/admin/tenants', {
+        nome_fantasia: action.nome_fantasia, nif: action.nif, nome_gestor: action.nome_gestor,
+        email_gestor: action.email_gestor, palavra_passe: action.palavra_passe
+      }).pipe(
+        switchMap(resp => [
+          AdminActions.carregarTenants({}),
+          AdminActions.adminOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar a escola.'
+        })))
+      ))
+    )
+  );
+
   atualizarStatusTenant$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AdminActions.atualizarStatusTenant),

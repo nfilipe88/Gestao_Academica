@@ -19,7 +19,7 @@ export const initialState: AdminState = {
 
 export const adminReducer = createReducer(
   initialState,
-  on(AdminActions.carregarTenants, AdminActions.atualizarStatusTenant,
+  on(AdminActions.carregarTenants, AdminActions.criarTenant, AdminActions.atualizarStatusTenant,
     (state) => ({ ...state, erro: null, mensagem: null })
   ),
   on(AdminActions.carregarTenantsSucesso, (state, { tenants, paginacao }) => ({ ...state, tenants, paginacaoTenants: paginacao })),

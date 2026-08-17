@@ -5,8 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db_admin
 from app.core.security import exigir_perfil
-from app.schemas.admin import TenantStatusUpdate, ValidadeLicencaUpdate
+from app.schemas.admin import TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
 from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
+from app.core.email import enviar_email, template_base
 from app.cruds import admin as crud_admin
 from app.cruds import usuarios as crud_usuarios
 
@@ -32,6 +33,31 @@ async def listar_tenants(
 ):
     """Lista todas as instituições (tenants) da plataforma, com contagens básicas de uso."""
     return await crud_admin.listar_tenants(db, page, page_size)
+
+
+@router.post("/tenants", status_code=201)
+async def criar_tenant(
+    dados: TenantCreateAdmin, background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Cria uma escola (Tenant) + primeiro Gestor diretamente — onboarding gatekeeping pelo Super Admin, em alternativa ao auto-serviço em /auth/registo."""
+    novo_tenant, novo_gestor = await crud_admin.criar_tenant_admin(db, dados)
+
+    background_tasks.add_task(
+        enviar_email,
+        destinatario=dados.email_gestor,
+        assunto=f"Bem-vindo(a), {dados.nome_fantasia} já está na plataforma!",
+        corpo_html=template_base(
+            "Escola criada com sucesso!",
+            f"""
+            <p>Olá {dados.nome_gestor},</p>
+            <p>A instituição <strong>{dados.nome_fantasia}</strong> foi criada na plataforma de Gestão Académica.</p>
+            <p>Já pode iniciar sessão com o e-mail <strong>{dados.email_gestor}</strong> para começar a configurar cursos, turmas e alunos.</p>
+            """
+        )
+    )
+
+    return {"mensagem": f'Escola "{novo_tenant.nome_fantasia}" criada com sucesso.', "id": novo_tenant.id}
 
 
 @router.patch("/tenants/{tenant_id}/status")

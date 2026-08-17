@@ -6,6 +6,13 @@ export const carregarTenants = createAction(
   '[Admin] Carregar Tenants',
   props<{ page?: number, page_size?: number }>()
 );
+
+// Onboarding gatekeeping pelo Super Admin — em alternativa ao
+// auto-serviço em /registo (ver api/v1/admin.py::criar_tenant).
+export const criarTenant = createAction(
+  '[Admin] Criar Tenant',
+  props<{ nome_fantasia: string; nif: string; nome_gestor: string; email_gestor: string; palavra_passe: string }>()
+);
 export const carregarTenantsSucesso = createAction(
   '[Admin] Carregar Tenants Sucesso',
   props<{ tenants: TenantResumo[], paginacao: EstadoPaginacao }>()

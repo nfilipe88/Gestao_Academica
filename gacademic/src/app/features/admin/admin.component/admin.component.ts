@@ -2,7 +2,7 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { atualizarStatusTenant, atualizarValidadeLicenca, carregarTenants, processarValidadeLicencas } from '../../../store/admin/admin.actions';
+import { atualizarStatusTenant, atualizarValidadeLicenca, carregarTenants, criarTenant, processarValidadeLicencas } from '../../../store/admin/admin.actions';
 import { selectAdminError, selectAdminMensagem, selectPaginacaoTenants, selectTenants } from '../../../store/admin/admin.selector';
 import { StatusTenant } from '../../../store/admin/admin.models';
 import * as TransferenciasActions from '../../../store/transferencias/transferencias.actions';
@@ -56,6 +56,17 @@ export class AdminComponent implements OnInit {
   // depender de window.confirm() (não intercetável em automação/testes
   // e destoa do resto da UI, que nunca usa diálogos nativos).
   tenantAConfirmarId: string | null = null;
+
+  // Onboarding gatekeeping — Super Admin cria a escola diretamente, em
+  // alternativa ao auto-serviço em /registo.
+  mostrarFormularioNovaEscola = false;
+  novaEscolaForm = this.fb.group({
+    nome_fantasia: ['', Validators.required],
+    nif: ['', Validators.required],
+    nome_gestor: ['', Validators.required],
+    email_gestor: ['', [Validators.required, Validators.email]],
+    palavra_passe: ['', [Validators.required, Validators.minLength(8)]],
+  });
 
   // Rejeição de transferência: id do pedido com o campo de observações aberto.
   solicitacaoARejeitar: string | null = null;
@@ -113,6 +124,21 @@ export class AdminComponent implements OnInit {
 
   onProcessarValidadeLicencas() {
     this.store.dispatch(processarValidadeLicencas());
+  }
+
+  alternarFormularioNovaEscola() {
+    this.mostrarFormularioNovaEscola = !this.mostrarFormularioNovaEscola;
+    this.novaEscolaForm.reset({ nome_fantasia: '', nif: '', nome_gestor: '', email_gestor: '', palavra_passe: '' });
+  }
+
+  onCriarEscola() {
+    if (this.novaEscolaForm.invalid) return;
+    const v = this.novaEscolaForm.value;
+    this.store.dispatch(criarTenant({
+      nome_fantasia: v.nome_fantasia!, nif: v.nif!, nome_gestor: v.nome_gestor!,
+      email_gestor: v.email_gestor!, palavra_passe: v.palavra_passe!
+    }));
+    this.mostrarFormularioNovaEscola = false;
   }
 
   // dias até expirar (negativo = já expirou); null se não houver data
