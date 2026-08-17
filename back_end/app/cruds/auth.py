@@ -22,6 +22,7 @@ from sqlalchemy import select
 
 from app.database.session import AsyncSessionLocalSistema
 from app.database.models import Usuario, Tenant
+from app.database.models_diario import TipoAvaliacaoConfig
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso
 from app.schemas.auth import RegistoInicial
 
@@ -58,6 +59,21 @@ async def registar_escola(dados: RegistoInicial) -> tuple[Tenant, Usuario]:
                 perfil_acesso="GESTOR"
             )
             db.add(novo_gestor)
+
+            # Seed dos tipos de avaliação por omissão (CONTINUA/PROVA) —
+            # sem isto, uma escola registada pelo fluxo normal fica sem
+            # nenhum TipoAvaliacaoConfig, e o Diário bloqueia qualquer
+            # lançamento "por Avaliação" (ver
+            # cruds/diario.py::_validar_e_obter_tipo_avaliacao). A migração
+            # cfe1a4e36025 fez este seed uma única vez, só para os tenants
+            # que já existiam nessa altura — replica-se aqui o mesmo par
+            # (nome, requer_agendamento) para toda escola nova.
+            db.add(TipoAvaliacaoConfig(
+                tenant_id=novo_tenant.id, nome="CONTINUA", requer_agendamento=False, ativo=True
+            ))
+            db.add(TipoAvaliacaoConfig(
+                tenant_id=novo_tenant.id, nome="PROVA", requer_agendamento=True, ativo=True
+            ))
 
             await db.commit()
             return novo_tenant, novo_gestor

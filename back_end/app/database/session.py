@@ -1,4 +1,4 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncConnection
 from fastapi import Depends
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from typing import Dict, Any, AsyncGenerator
@@ -52,50 +52,79 @@ async def obter_sessao_db(
     Injeta a sessão do banco de dados (role app_tenant) e configura a
     variável de sessão do Postgres para ativar o Row Level Security
     (RLS) automaticamente para o Tenant ativo.
-    """
-    async with AsyncSessionLocal() as sessao:
-        # EXECUÇÃO CRÍTICA: Injeta o tenant_id na sessão atual do PostgreSQL
-        # Nota: "SET LOCAL x = :param" NÃO é válido em Postgres — SET/SET
-        # LOCAL não aceitam parâmetros vinculados ($1), só literais, o que
-        # dava sempre "syntax error at or near '$1'" (500 em todos os
-        # endpoints académicos). set_config() é a forma correta de definir
-        # uma GUC parametrizada.
-        #
-        # O 3º argumento é `false` (âmbito da SESSÃO, não `true`/LOCAL —
-        # âmbito da transação): muitos cruds fazem `db.commit()` a meio
-        # do pedido e continuam a usar a mesma sessão a seguir (ex.:
-        # `await db.refresh(objeto)` depois do commit, para devolver os
-        # valores gerados pelo servidor) — com âmbito LOCAL, o commit
-        # já tinha "esquecido" o tenant_id nesse ponto, e a policy de
-        # RLS rebentava com "invalid input syntax for type uuid: ''" ao
-        # comparar tenant_id com uma current_setting entretanto vazia.
-        # Isto só passou a aparecer agora que o RLS é mesmo aplicado
-        # (ver DATABASE_URL acima) — como ligação pooled que é, o valor
-        # de sessão tem de ser limpo explicitamente no `finally` abaixo,
-        # para o próximo pedido a reutilizar esta ligação nunca herdar
-        # por engano o tenant_id de um pedido anterior.
-        tenant_str = str(utilizador["tenant_id"])
-        await sessao.execute(
-            text("SELECT set_config('app.current_tenant_id', :tenant_id, false)"),
-            {"tenant_id": tenant_str}
-        )
 
-        try:
-            yield sessao
-        finally:
+    IMPORTANTE — porque isto usa engine.connect() em vez de
+    AsyncSessionLocal(): um AsyncSession normal, ligado ao Engine (não
+    a uma Connection concreta), pode devolver a ligação física ao pool
+    assim que uma transação termina (em cada `db.commit()`) e ir
+    buscar OUTRA ligação física do pool na operação seguinte — o que já
+    aconteceu na prática: um crud faz `db.add(x); await db.commit();
+    await db.refresh(x)`, o commit devolve a ligação A ao pool, e o
+    refresh a seguir apanha a ligação B (com app.current_tenant_id por
+    definir, ou definido para outro tenant), e o Postgres recusa-se a
+    "encontrar" a linha que acabou de ser criada — SQLAlchemy relata
+    isto como "Could not refresh instance", nada a ver com um erro de
+    SQL. `set_config(..., false)` (âmbito de sessão) só resolve isto se
+    for a MESMA ligação física do início ao fim do pedido — daí fixar
+    (`engine.connect()`) uma única Connection e vincular o Session a
+    ela, em vez de deixar o Session gerir isso sozinho.
+
+    ARMADILHA ADICIONAL (encontrada ao testar uma escola nova de raiz):
+    o set_config TEM de ser executado ATRAVÉS da própria `sessao`
+    (`sessao.execute(...)`), nunca através da `ligacao` crua antes de
+    criar o Session. Se for executado na `ligacao` primeiro, isso
+    despoleta o autobegin de uma transação "externa" ao Session; ao
+    vincular um AsyncSession a uma Connection que já está em
+    transação, o SQLAlchemy (join_transaction_mode="conditional_savepoint",
+    o padrão) trata essa transação como não sendo dele — o
+    `sessao.commit()` deixa de emitir COMMIT nenhum (confirmado via
+    echo=True: nem COMMIT nem SAVEPOINT, silêncio total), e a
+    transação fica pendurada até ao `ligacao.rollback()` da limpeza no
+    `finally`, que desfaz a escrita inteira. Resultado: a API responde
+    201 Created com um id válido (o id é gerado no lado do Python,
+    `default=uuid.uuid4`, não por RETURNING), mas a linha nunca fica na
+    base de dados — um bug silencioso, sem exceção nenhuma. Reproduzido
+    e confirmado a criar um segundo Curso para uma escola nova
+    (o primeiro tinha "sobrevivido" porque na altura ainda não se
+    tinha percebido isto). Fazer o set_config through `sessao.execute`
+    faz o autobegin ser do próprio Session, e `sessao.commit()` volta a
+    emitir um COMMIT real.
+    """
+    tenant_str = str(utilizador["tenant_id"])
+    async with engine.connect() as ligacao:
+        async with AsyncSession(bind=ligacao, expire_on_commit=False) as sessao:
             try:
-                # Se o pedido acabou por uma exceção a meio de uma
-                # transação, a ligação pode estar "abortada" (Postgres
-                # recusa qualquer comando até um ROLLBACK) — sem isto, o
-                # set_config de limpeza a seguir falhava sempre nesse caso.
-                await sessao.rollback()
-                # SET (mesmo sem LOCAL) aplica-se imediatamente, sem
-                # depender de commit — só precisa de correr antes de a
-                # ligação voltar para o pool.
-                await sessao.execute(text("SELECT set_config('app.current_tenant_id', '', false)"))
-            except Exception:
-                pass  # a ligação vai de qualquer forma ser fechada a seguir
-            await sessao.close()
+                # EXECUÇÃO CRÍTICA: injeta o tenant_id nesta ligação física
+                # em concreto, através da própria sessao (ver docstring
+                # acima — nunca através da `ligacao` crua). Nota: "SET
+                # LOCAL x = :param" NÃO é válido em Postgres — SET/SET
+                # LOCAL não aceitam parâmetros vinculados ($1), só
+                # literais, o que dava sempre "syntax error at or near
+                # '$1'". set_config() é a forma correta de definir uma GUC
+                # parametrizada.
+                await sessao.execute(
+                    text("SELECT set_config('app.current_tenant_id', :tenant_id, false)"),
+                    {"tenant_id": tenant_str}
+                )
+                yield sessao
+            finally:
+                try:
+                    await sessao.close()
+                except Exception:
+                    pass
+                try:
+                    # Se o pedido acabou por uma exceção a meio de uma
+                    # transação, a ligação pode estar "abortada"
+                    # (Postgres recusa qualquer comando até um
+                    # ROLLBACK) — sem isto, a limpeza a seguir falhava
+                    # sempre nesse caso.
+                    await ligacao.rollback()
+                    # Limpa antes de a ligação voltar ao pool — para o
+                    # próximo pedido a reutilizar esta ligação física
+                    # nunca herdar por engano o tenant_id deste pedido.
+                    await ligacao.execute(text("SELECT set_config('app.current_tenant_id', '', false)"))
+                except Exception:
+                    pass  # a ligação vai de qualquer forma ser devolvida ao pool a seguir
 
 
 # Só o Super Admin — o painel dele é inerentemente cross-tenant (lista
