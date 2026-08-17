@@ -67,6 +67,14 @@ class OportunidadeCRM(Base):
     valor_estimado_anual: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     data_fecho_prevista: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # Turma pretendida — extensão da RN01: só depois de a Secretaria
+    # indicar isto (o CRM sozinho só conhece o Curso de interesse do
+    # Lead) é que mover a oportunidade para uma etapa eh_etapa_ganho
+    # também gera Matrícula + Contrato Financeiro automaticamente, e
+    # não só Aluno + Responsável (ver _tentar_matricula_e_contrato_automaticos
+    # em app/cruds/crm.py).
+    turma_interesse_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("turma.id", ondelete="SET NULL"), nullable=True)
+
     # Preenchidos pela RN01 quando a oportunidade é convertida — também
     # servem de marcador de idempotência (não converter duas vezes).
     aluno_gerado_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("aluno.id", ondelete="SET NULL"), nullable=True)

@@ -126,7 +126,7 @@
               <span class="inline-block text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{{ cartao.lead.origem_lead }}</span>
 
               @if (cartao.aluno_gerado_id) {
-                <p class="text-xs text-emerald-600 font-medium">✓ Convertido em aluno — complete a matrícula em Alunos/Turmas.</p>
+                <p class="text-xs text-emerald-600 font-medium">✓ Convertido em aluno.</p>
               } @else {
                 <div class="flex items-center gap-1.5">
                   <input type="date" [(ngModel)]="nascimentoPorLead[cartao.lead.id]" [ngModelOptions]="{ standalone: true }"
@@ -140,7 +140,33 @@
                 @if (cartao.lead.data_nascimento_candidato) {
                   <p class="text-[10px] text-slate-400">Nascimento: {{ cartao.lead.data_nascimento_candidato }}</p>
                 }
+              }
 
+              <!-- Turma pretendida + valor anual: sem isto a RN01 só gera
+                   Aluno/Responsável ao ganhar o funil — com isto, gera
+                   também Matrícula + Contrato Financeiro automaticamente. -->
+              <div class="border-t border-slate-100 pt-2 space-y-1.5">
+                <select [ngModel]="turmaPorOportunidade[cartao.id] ?? cartao.turma_interesse_id ?? ''"
+                  (ngModelChange)="turmaPorOportunidade[cartao.id] = $event" [ngModelOptions]="{ standalone: true }"
+                  class="w-full text-xs border border-slate-300 rounded-lg px-2 py-1 text-slate-700 focus:outline-hidden">
+                  <option value="">Turma pretendida — por definir</option>
+                  @for (turma of turmas$ | async; track turma.id) {
+                    <option [value]="turma.id">{{ turma.nome_codigo }} ({{ turma.ano_letivo }})</option>
+                  }
+                </select>
+                <div class="flex items-center gap-1.5">
+                  <input type="number" min="0" step="0.01"
+                    [ngModel]="valorPorOportunidade[cartao.id] ?? cartao.valor_estimado_anual" (ngModelChange)="valorPorOportunidade[cartao.id] = $event"
+                    [ngModelOptions]="{ standalone: true }" placeholder="Valor anual"
+                    class="text-xs border border-slate-300 rounded-lg px-2 py-1 text-slate-700 focus:outline-hidden flex-1" />
+                  <button type="button" (click)="onGuardarTurmaValor(cartao)"
+                    class="text-xs bg-slate-700 hover:bg-slate-800 text-white font-medium py-1 px-2 rounded-lg transition-colors cursor-pointer">
+                    Guardar
+                  </button>
+                </div>
+              </div>
+
+              @if (!cartao.aluno_gerado_id) {
                 <select [value]="''" (change)="onMover(cartao.id, $any($event.target).value); $any($event.target).value = ''"
                   class="w-full text-xs border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden">
                   <option value="" disabled>Mover para...</option>

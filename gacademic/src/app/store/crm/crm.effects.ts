@@ -73,6 +73,24 @@ export class CrmEffects {
     )
   );
 
+  atualizarOportunidade$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(CrmActions.atualizarOportunidade),
+      switchMap(action => this.http.patch<{ mensagem: string }>(`/api/v1/crm/oportunidades/${action.oportunidade_id}`, {
+        turma_interesse_id: action.turma_interesse_id,
+        valor_estimado_anual: action.valor_estimado_anual
+      }).pipe(
+        switchMap(resp => [
+          CrmActions.carregarOportunidades(),
+          CrmActions.crmOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(CrmActions.crmOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível atualizar a oportunidade.'
+        })))
+      ))
+    )
+  );
+
   moverOportunidade$ = createEffect(() =>
     this.actions$.pipe(
       ofType(CrmActions.moverOportunidade),

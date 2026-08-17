@@ -5,10 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.database.models import Tenant
-from app.database.models_academico import Curso
+from app.database.models_academico import Curso, Turma
+from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.database.models_crm import FunilEtapa, LeadCandidato, OportunidadeCRM
-from app.schemas.crm import EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, OportunidadeCreate
+from app.schemas.crm import EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, OportunidadeCreate, OportunidadeUpdate
+from app.schemas.matriculas import MatriculaCreate
+from app.schemas.financeiro import ContratoCreate
+from app.cruds import matriculas as matriculas_crud
+from app.cruds import financeiro as financeiro_crud
 
 ORIGENS_VALIDAS = {"SITE", "FACEBOOK", "INDICACAO", "PRESENCIAL", "OUTRO"}
 
@@ -55,12 +60,15 @@ async def _converter_lead_em_aluno(db: AsyncSession, tenant_id, oportunidade: Op
     etapa eh_etapa_ganho, gera o Responsável e o Aluno automaticamente.
 
     O documento também prevê gerar logo o Contrato_Financeiro, mas isso
-    exige uma Matricula (turma) já atribuída — e o CRM não sabe para
-    que turma vai este aluno (só sabe o Curso de interesse). Por isso
-    esta automação para aqui: cria Responsável + Aluno + vínculo, e a
-    Secretaria conclui matrícula (Turma) e contrato financeiro nos
-    módulos já existentes (Nível 1 e Nível 2), reaproveitando-os em vez
-    de duplicar essa lógica aqui.
+    exige uma Matricula (turma) já atribuída — e por omissão o CRM não
+    sabe para que turma vai este aluno (só sabe o Curso de interesse).
+    Esta função trata só de Responsável + Aluno + vínculo; se a
+    Secretaria já tiver preenchido turma_interesse_id na Oportunidade
+    (ver OportunidadeUpdate), _tentar_matricula_e_contrato_automaticos
+    (chamada a seguir, em mover_oportunidade) completa também a
+    Matrícula e o Contrato Financeiro, reaproveitando os cruds dos
+    módulos já existentes (Nível 1 e Nível 2) em vez de duplicar essa
+    lógica aqui. Sem turma definida, a Secretaria conclui à mão.
     """
     if oportunidade.aluno_gerado_id:
         return  # idempotência — já convertido antes
@@ -99,6 +107,69 @@ async def _converter_lead_em_aluno(db: AsyncSession, tenant_id, oportunidade: Op
 
     oportunidade.aluno_gerado_id = novo_aluno.id
     oportunidade.responsavel_gerado_id = novo_responsavel.id
+
+
+async def _tentar_matricula_e_contrato_automaticos(db: AsyncSession, tenant_id, oportunidade: OportunidadeCRM) -> str | None:
+    """
+    Extensão da RN01: se a Oportunidade já tem Turma pretendida
+    (turma_interesse_id) e o Aluno já foi gerado, tenta completar
+    também a Matrícula e — havendo valor_estimado_anual — o Contrato
+    Financeiro, reaproveitando os cruds de Matrículas/Financeiro tal
+    como um funcionário faria manualmente.
+
+    Chamada depois de a etapa já ter sido movida e commitada (ver
+    mover_oportunidade) — por isso nunca bloqueia o avanço do funil:
+    se algo aqui falhar (turma entretanto lotada, valor inválido...) a
+    Oportunidade já está na nova etapa na mesma, e só fica um aviso na
+    mensagem devolvida para a Secretaria concluir à mão o que faltar.
+    Também é idempotente: se já existir Matrícula/Contrato de uma
+    tentativa anterior, não duplica.
+    """
+    if not oportunidade.turma_interesse_id or not oportunidade.aluno_gerado_id:
+        return None
+
+    turma = (await db.execute(
+        select(Turma).where(Turma.id == oportunidade.turma_interesse_id, Turma.tenant_id == tenant_id)
+    )).scalars().first()
+    if not turma:
+        return None  # turma pode ter sido apagada/desvinculada entretanto
+
+    try:
+        matricula = await matriculas_crud.criar_matricula(
+            db, tenant_id,
+            MatriculaCreate(aluno_id=oportunidade.aluno_gerado_id, turma_id=turma.id, ano_letivo=turma.ano_letivo)
+        )
+    except HTTPException as erro:
+        if erro.status_code == 400 and "já está matriculado" in erro.detail:
+            # Idempotência: tentativa anterior já matriculou — usa essa Matrícula para tentar o contrato.
+            matricula = (await db.execute(
+                select(Matricula).where(
+                    Matricula.aluno_id == oportunidade.aluno_gerado_id,
+                    Matricula.turma_id == turma.id,
+                    Matricula.ano_letivo == turma.ano_letivo,
+                )
+            )).scalars().first()
+        else:
+            return f"Matrícula automática falhou ({erro.detail}) — conclua manualmente em Matrículas."
+
+    if not matricula:
+        return None
+
+    if not oportunidade.valor_estimado_anual or not oportunidade.responsavel_gerado_id:
+        return "Matrícula criada automaticamente — defina o valor anual da oportunidade para também gerar o contrato financeiro."
+
+    try:
+        await financeiro_crud.criar_contrato(db, tenant_id, ContratoCreate(
+            matricula_id=matricula.id,
+            responsavel_id=oportunidade.responsavel_gerado_id,
+            valor_total_anual=oportunidade.valor_estimado_anual,
+        ))
+    except HTTPException as erro:
+        if erro.status_code == 400 and "Já existe um contrato" in erro.detail:
+            return "Matrícula e contrato financeiro já existiam — nada a fazer."
+        return f"Matrícula criada, mas o contrato financeiro automático falhou ({erro.detail}) — conclua manualmente em Financeiro."
+
+    return "Matrícula e contrato financeiro criados automaticamente."
 
 
 # ==========================================
@@ -257,6 +328,7 @@ async def listar_oportunidades(db: AsyncSession, tenant_id, etapa_id: uuid.UUID 
             "etapa_id": oportunidade.etapa_id,
             "valor_estimado_anual": oportunidade.valor_estimado_anual,
             "data_fecho_prevista": oportunidade.data_fecho_prevista,
+            "turma_interesse_id": oportunidade.turma_interesse_id,
             "aluno_gerado_id": oportunidade.aluno_gerado_id,
             "data_criacao": oportunidade.data_criacao,
             "lead": {
@@ -283,6 +355,13 @@ async def criar_oportunidade(db: AsyncSession, tenant_id, dados: OportunidadeCre
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado na sua instituição.")
 
+    if dados.turma_interesse_id:
+        turma = (await db.execute(
+            select(Turma).where(Turma.id == dados.turma_interesse_id, Turma.tenant_id == tenant_id)
+        )).scalars().first()
+        if not turma:
+            raise HTTPException(status_code=400, detail="Turma pretendida não encontrada na sua instituição.")
+
     etapas = await garantir_funil_seed(db, tenant_id)
     primeira_etapa = min(etapas, key=lambda e: e.ordem)
 
@@ -292,11 +371,52 @@ async def criar_oportunidade(db: AsyncSession, tenant_id, dados: OportunidadeCre
         etapa_id=primeira_etapa.id,
         valor_estimado_anual=dados.valor_estimado_anual,
         data_fecho_prevista=dados.data_fecho_prevista,
+        turma_interesse_id=dados.turma_interesse_id,
     )
     db.add(nova_oportunidade)
     await db.commit()
     await db.refresh(nova_oportunidade)
     return nova_oportunidade
+
+
+async def atualizar_oportunidade(db: AsyncSession, tenant_id, oportunidade_id: uuid.UUID, dados: OportunidadeUpdate) -> tuple[OportunidadeCRM, str]:
+    """
+    Completa/corrige a oportunidade — em particular a Turma pretendida,
+    que a RN01 precisa para gerar Matrícula + Contrato automaticamente.
+
+    Se a oportunidade já tiver sido convertida antes (aluno_gerado_id já
+    definido, ex: só faltava a turma na altura em que ganhou o funil),
+    esta função já tenta a automação de imediato — sem isto, a
+    Secretaria teria de mover o cartão para fora e para dentro da etapa
+    de novo só para acionar o mesmo código em mover_oportunidade.
+    """
+    oportunidade = (await db.execute(
+        select(OportunidadeCRM).where(OportunidadeCRM.id == oportunidade_id, OportunidadeCRM.tenant_id == tenant_id)
+    )).scalars().first()
+    if not oportunidade:
+        raise HTTPException(status_code=404, detail="Oportunidade não encontrada na sua instituição.")
+
+    dados_definidos = dados.model_dump(exclude_unset=True)
+    if "turma_interesse_id" in dados_definidos and dados_definidos["turma_interesse_id"]:
+        turma = (await db.execute(
+            select(Turma).where(Turma.id == dados_definidos["turma_interesse_id"], Turma.tenant_id == tenant_id)
+        )).scalars().first()
+        if not turma:
+            raise HTTPException(status_code=400, detail="Turma pretendida não encontrada na sua instituição.")
+
+    for campo, valor in dados_definidos.items():
+        setattr(oportunidade, campo, valor)
+
+    await db.commit()
+    await db.refresh(oportunidade)
+
+    mensagem = "Oportunidade atualizada."
+    if oportunidade.aluno_gerado_id:
+        aviso_automacao = await _tentar_matricula_e_contrato_automaticos(db, tenant_id, oportunidade)
+        if aviso_automacao:
+            mensagem += " " + aviso_automacao
+
+    return oportunidade, mensagem
 
 
 async def mover_oportunidade(db: AsyncSession, tenant_id, oportunidade_id: uuid.UUID, nova_etapa_id: uuid.UUID) -> tuple[OportunidadeCRM, str]:
@@ -329,6 +449,12 @@ async def mover_oportunidade(db: AsyncSession, tenant_id, oportunidade_id: uuid.
 
     mensagem = "Oportunidade movida com sucesso."
     if nova_etapa.eh_etapa_ganho and oportunidade.aluno_gerado_id:
-        mensagem += " Aluno e responsável criados — falta concluir a matrícula (Turma) e o contrato financeiro."
+        # Corre depois de commitada a mudança de etapa — nunca a bloqueia
+        # (ver docstring de _tentar_matricula_e_contrato_automaticos).
+        aviso_automacao = await _tentar_matricula_e_contrato_automaticos(db, tenant_id, oportunidade)
+        mensagem += " " + (
+            aviso_automacao or
+            "Aluno e responsável criados — indique a Turma pretendida para também gerar a matrícula e o contrato financeiro automaticamente."
+        )
 
     return oportunidade, mensagem

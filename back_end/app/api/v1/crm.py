@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db, obter_sessao_db_publica
 from app.core.security import obter_utilizador_atual, exigir_perfil
-from app.schemas.crm import EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, OportunidadeCreate, OportunidadeMover
+from app.schemas.crm import EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, OportunidadeCreate, OportunidadeMover, OportunidadeUpdate
 from app.cruds import crm as crud_crm
 
 router = APIRouter(prefix="/api/v1/crm", tags=["CRM"])
@@ -97,6 +97,17 @@ async def criar_oportunidade(
 ):
     """Cria manualmente uma oportunidade para um Lead já existente (ex: contacto presencial), na 1ª etapa do funil."""
     return await crud_crm.criar_oportunidade(db, utilizador["tenant_id"], dados)
+
+@router.patch("/oportunidades/{oportunidade_id}")
+async def atualizar_oportunidade(
+    oportunidade_id: uuid.UUID,
+    dados: OportunidadeUpdate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Completa/corrige a oportunidade — em particular a Turma pretendida, que a RN01 precisa para gerar Matrícula + Contrato automaticamente."""
+    oportunidade, mensagem = await crud_crm.atualizar_oportunidade(db, utilizador["tenant_id"], oportunidade_id, dados)
+    return {"mensagem": mensagem, "oportunidade": oportunidade}
 
 @router.patch("/oportunidades/{oportunidade_id}/mover")
 async def mover_oportunidade(

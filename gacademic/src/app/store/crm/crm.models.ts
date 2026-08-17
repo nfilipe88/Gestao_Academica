@@ -24,6 +24,7 @@ export interface OportunidadeCRM {
   etapa_id: string;
   valor_estimado_anual: number | null;
   data_fecho_prevista: string | null;
+  turma_interesse_id: string | null;
   aluno_gerado_id: string | null;
   data_criacao: string;
   lead: {

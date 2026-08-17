@@ -31,6 +31,14 @@ export const moverOportunidade = createAction(
   props<{ oportunidade_id: string, nova_etapa_id: string }>()
 );
 
+// Turma pretendida (+ valor anual) — o que falta à RN01 para, ao ganhar
+// a oportunidade, gerar também Matrícula + Contrato Financeiro e não só
+// Aluno + Responsável.
+export const atualizarOportunidade = createAction(
+  '[CRM] Atualizar Oportunidade',
+  props<{ oportunidade_id: string, turma_interesse_id: string | null, valor_estimado_anual: number | null }>()
+);
+
 export const crmOperacaoSucesso = createAction(
   '[CRM] Operacao Sucesso',
   props<{ mensagem: string }>()

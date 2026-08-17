@@ -4,11 +4,12 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { Store } from '@ngrx/store';
 import { combineLatest, map, startWith } from 'rxjs';
 import {
-  atualizarLead, carregarFunil, carregarOportunidades, criarLead, moverOportunidade
+  atualizarLead, atualizarOportunidade, carregarFunil, carregarOportunidades, criarLead, moverOportunidade
 } from '../../../store/crm/crm.actions';
+import { OportunidadeCRM } from '../../../store/crm/crm.models';
 import { selectCrmError, selectCrmMensagem, selectEtapas, selectOportunidades } from '../../../store/crm/crm.selector';
-import { carregarCursos } from '../../../store/academico/academic.actions';
-import { selectCursos } from '../../../store/academico/academic.selector';
+import { carregarCursos, carregarTurmas } from '../../../store/academico/academic.actions';
+import { selectCursos, selectTurmas } from '../../../store/academico/academic.selector';
 
 const ORIGENS = ['SITE', 'FACEBOOK', 'INDICACAO', 'PRESENCIAL', 'OUTRO'];
 
@@ -26,6 +27,7 @@ export class CrmComponent implements OnInit {
   mensagem$ = this.store.select(selectCrmMensagem);
   origens = ORIGENS;
   cursos$ = this.store.select(selectCursos);
+  turmas$ = this.store.select(selectTurmas);
 
   // Filtro por origem do lead, curso de interesse e intervalo de
   // entrada — o quadro já carrega todas as oportunidades de uma vez,
@@ -66,6 +68,12 @@ export class CrmComponent implements OnInit {
   mostrarFormularioLead = false;
   nascimentoPorLead: Record<string, string> = {};
 
+  // Turma pretendida + valor anual, editados por oportunidade — o que
+  // falta à RN01 para, ao ganhar a oportunidade, gerar também Matrícula
+  // e Contrato Financeiro automaticamente (ver onGuardarTurmaValor).
+  turmaPorOportunidade: Record<string, string | undefined> = {};
+  valorPorOportunidade: Record<string, number | null | undefined> = {};
+
   leadForm = this.fb.group({
     nome_responsavel: ['', Validators.required],
     email_contato: ['', Validators.email],
@@ -79,6 +87,7 @@ export class CrmComponent implements OnInit {
     this.store.dispatch(carregarFunil());
     this.store.dispatch(carregarOportunidades());
     this.store.dispatch(carregarCursos());
+    this.store.dispatch(carregarTurmas());
   }
 
   alternarFormularioLead() {
@@ -109,5 +118,16 @@ export class CrmComponent implements OnInit {
     const data = this.nascimentoPorLead[leadId];
     if (!data) return;
     this.store.dispatch(atualizarLead({ lead_id: leadId, data_nascimento_candidato: data }));
+  }
+
+  onGuardarTurmaValor(oportunidade: OportunidadeCRM) {
+    const turmaId = this.turmaPorOportunidade[oportunidade.id] ?? oportunidade.turma_interesse_id ?? null;
+    const valor = this.valorPorOportunidade[oportunidade.id] ?? oportunidade.valor_estimado_anual ?? null;
+    if (!turmaId && valor == null) return;
+    this.store.dispatch(atualizarOportunidade({
+      oportunidade_id: oportunidade.id,
+      turma_interesse_id: turmaId || null,
+      valor_estimado_anual: valor
+    }));
   }
 }

@@ -19,7 +19,7 @@ export const initialState: CrmState = {
 export const crmReducer = createReducer(
   initialState,
   on(CrmActions.carregarFunil, CrmActions.carregarOportunidades, CrmActions.criarLead,
-     CrmActions.atualizarLead, CrmActions.moverOportunidade,
+     CrmActions.atualizarLead, CrmActions.moverOportunidade, CrmActions.atualizarOportunidade,
     (state) => ({ ...state, erro: null, mensagem: null })
   ),
   on(CrmActions.carregarFunilSucesso, (state, { etapas }) => ({ ...state, etapas })),

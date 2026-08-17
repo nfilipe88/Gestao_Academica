@@ -57,6 +57,16 @@ class OportunidadeCreate(BaseModel):
     lead_id: uuid.UUID
     valor_estimado_anual: Decimal | None = None
     data_fecho_prevista: date | None = None
+    turma_interesse_id: uuid.UUID | None = None
+
+
+class OportunidadeUpdate(BaseModel):
+    """Completar a oportunidade antes (ou depois) de ganhar — em particular
+    a Turma pretendida, que é o que falta à RN01 para também gerar
+    Matrícula + Contrato Financeiro automaticamente."""
+    valor_estimado_anual: Decimal | None = None
+    data_fecho_prevista: date | None = None
+    turma_interesse_id: uuid.UUID | None = None
 
 
 class OportunidadeMover(BaseModel):
