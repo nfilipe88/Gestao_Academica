@@ -1,8 +1,8 @@
 import { createReducer, on } from '@ngrx/store';
 import * as PortalActions from './portal.actions';
 import {
-  Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal,
-  MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, TarefaEducando
+  Boletim, EducandoResumo, ExameEducando, FinanceiroEducando, HorarioAulaPortal,
+  MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, ResultadoExame, TarefaEducando, TentativaIniciada
 } from './portal.models';
 
 export interface PortalState {
@@ -16,6 +16,10 @@ export interface PortalState {
   conversaProfVirtual: MensagemProfVirtual[];
   aProcessarPerguntaProfVirtual: boolean;
   erroProfVirtual: string | null;
+  exames: ExameEducando[];
+  tentativaAtual: TentativaIniciada | null;
+  resultadoExame: ResultadoExame | null;
+  aSubmeterTentativa: boolean;
   erro: string | null;
 }
 
@@ -30,6 +34,10 @@ export const initialState: PortalState = {
   conversaProfVirtual: [],
   aProcessarPerguntaProfVirtual: false,
   erroProfVirtual: null,
+  exames: [],
+  tentativaAtual: null,
+  resultadoExame: null,
+  aSubmeterTentativa: false,
   erro: null
 };
 
@@ -38,7 +46,7 @@ export const portalReducer = createReducer(
   on(PortalActions.carregarMeusEducandos, PortalActions.carregarHorarioDoEducando,
      PortalActions.carregarBoletimDoEducando, PortalActions.carregarFinanceiroDoEducando,
      PortalActions.carregarTarefasDoEducando, PortalActions.carregarMateriaisDoEducando,
-     PortalActions.carregarMaterialDoEducando,
+     PortalActions.carregarMaterialDoEducando, PortalActions.carregarExamesDoEducando,
     (state) => ({ ...state, erro: null })
   ),
   on(PortalActions.carregarMeusEducandosSucesso, (state, { educandos }) => ({ ...state, educandos })),
@@ -51,6 +59,14 @@ export const portalReducer = createReducer(
   on(PortalActions.limparMaterialAberto, (state) => ({
     ...state, materialAberto: null, conversaProfVirtual: [], erroProfVirtual: null
   })),
+  on(PortalActions.carregarExamesDoEducandoSucesso, (state, { exames }) => ({ ...state, exames })),
+  on(PortalActions.iniciarTentativaExame, (state) => ({ ...state, erro: null, tentativaAtual: null, resultadoExame: null })),
+  on(PortalActions.iniciarTentativaExameSucesso, (state, { tentativa }) => ({ ...state, tentativaAtual: tentativa })),
+  on(PortalActions.submeterTentativaExame, (state) => ({ ...state, erro: null, aSubmeterTentativa: true })),
+  on(PortalActions.submeterTentativaExameSucesso, (state) => ({ ...state, aSubmeterTentativa: false, tentativaAtual: null })),
+  on(PortalActions.carregarResultadoExame, (state) => ({ ...state, erro: null, resultadoExame: null })),
+  on(PortalActions.carregarResultadoExameSucesso, (state, { resultado }) => ({ ...state, resultadoExame: resultado })),
+  on(PortalActions.limparTentativaExame, (state) => ({ ...state, tentativaAtual: null, resultadoExame: null })),
   on(PortalActions.perguntarProfVirtual, (state, { pergunta }) => ({
     ...state,
     conversaProfVirtual: [...state.conversaProfVirtual, { papel: 'aluno' as const, texto: pergunta }],

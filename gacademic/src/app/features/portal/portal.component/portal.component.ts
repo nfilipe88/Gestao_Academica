@@ -11,14 +11,16 @@ import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector
 import { capturarPagamento, financeiroOperacaoSucesso, gerarCobranca } from '../../../store/financeiro/financeiro.actions';
 import { selectUltimaCobranca } from '../../../store/financeiro/financeiro.selector';
 import {
-  carregarBoletimDoEducando, carregarFinanceiroDoEducando, carregarHorarioDoEducando,
-  carregarMaterialDoEducando, carregarMateriaisDoEducando, carregarMeusEducandos, carregarTarefasDoEducando,
-  limparMaterialAberto, perguntarProfVirtual
+  carregarBoletimDoEducando, carregarExamesDoEducando, carregarFinanceiroDoEducando, carregarHorarioDoEducando,
+  carregarMaterialDoEducando, carregarMateriaisDoEducando, carregarMeusEducandos, carregarResultadoExame,
+  carregarTarefasDoEducando, iniciarTentativaExame, limparMaterialAberto, limparTentativaExame,
+  perguntarProfVirtual, submeterTentativaExame
 } from '../../../store/portal/portal.actions';
 import {
-  selectAProcessarPerguntaProfVirtual, selectBoletimDoEducando, selectConversaProfVirtual, selectErroProfVirtual,
-  selectFinanceiroDoEducando, selectHorarioDoEducando, selectMaterialAberto, selectMateriaisDoEducando,
-  selectMeusEducandos, selectPortalError, selectTarefasDoEducando
+  selectAProcessarPerguntaProfVirtual, selectASubmeterTentativa, selectBoletimDoEducando, selectConversaProfVirtual,
+  selectErroProfVirtual, selectExamesDoEducando, selectFinanceiroDoEducando, selectHorarioDoEducando,
+  selectMaterialAberto, selectMateriaisDoEducando, selectMeusEducandos, selectPortalError, selectResultadoExame,
+  selectTarefasDoEducando, selectTentativaAtual
 } from '../../../store/portal/portal.selector';
 import { HorarioAulaPortal } from '../../../store/portal/portal.models';
 import * as DocumentosActions from '../../../store/documentos/documentos.actions';
@@ -64,6 +66,10 @@ export class PortalComponent implements OnInit {
   aProcessarPerguntaProfVirtual$ = this.store.select(selectAProcessarPerguntaProfVirtual);
   erroProfVirtual$ = this.store.select(selectErroProfVirtual);
   erro$ = this.store.select(selectPortalError);
+  exames$ = this.store.select(selectExamesDoEducando);
+  tentativaAtual$ = this.store.select(selectTentativaAtual);
+  resultadoExame$ = this.store.select(selectResultadoExame);
+  aSubmeterTentativa$ = this.store.select(selectASubmeterTentativa);
 
   precosDocumento$ = this.store.select(selectPrecosDocumento);
   solicitacoesDocumento$ = this.store.select(selectSolicitacoesEmissao);
@@ -74,11 +80,18 @@ export class PortalComponent implements OnInit {
   dias = DIAS_DA_SEMANA;
 
   educandoSelecionadoId: string | null = null;
-  aba: 'horario' | 'boletim' | 'trabalhos' | 'materiais' | 'financeiro' | 'documentos' = 'horario';
+  aba: 'horario' | 'boletim' | 'trabalhos' | 'materiais' | 'exames' | 'financeiro' | 'documentos' = 'horario';
 
   // Prof. Virtual — qual material está aberto e a pergunta a meio de escrever.
   materialAbertoId: string | null = null;
   perguntaAtual = '';
+
+  // Exames online (LMS) — qual exame está a ser feito agora (mostra o
+  // formulário de perguntas em vez da lista) e as respostas dadas até
+  // ao momento; qual exame tem o resultado aberto (depois de submetido).
+  exameEmCursoId: string | null = null;
+  respostasTentativa: Record<string, string> = {};
+  exameResultadoAbertoId: string | null = null;
 
   // Formulário "Novo pedido de documento"
   novoDocumentoTipo = 'CERTIFICADO';
@@ -141,6 +154,45 @@ export class PortalComponent implements OnInit {
     this.store.dispatch(carregarFinanceiroDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarTarefasDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarMateriaisDoEducando({ aluno_id: alunoId }));
+    this.store.dispatch(carregarExamesDoEducando({ aluno_id: alunoId }));
+    this.exameEmCursoId = null;
+    this.exameResultadoAbertoId = null;
+    this.store.dispatch(limparTentativaExame());
+  }
+
+  // --- Exames online (LMS) ---
+
+  onIniciarExame(exameId: string) {
+    if (!this.educandoSelecionadoId) return;
+    this.exameEmCursoId = exameId;
+    this.respostasTentativa = {};
+    this.store.dispatch(iniciarTentativaExame({ aluno_id: this.educandoSelecionadoId, exame_id: exameId }));
+  }
+
+  onResponder(questaoId: string, valor: string) {
+    this.respostasTentativa = { ...this.respostasTentativa, [questaoId]: valor };
+  }
+
+  onSubmeterExame() {
+    if (!this.educandoSelecionadoId || !this.exameEmCursoId) return;
+    this.store.dispatch(submeterTentativaExame({
+      aluno_id: this.educandoSelecionadoId, exame_id: this.exameEmCursoId, respostas: this.respostasTentativa
+    }));
+    this.exameEmCursoId = null;
+  }
+
+  onSairDoExame() {
+    this.exameEmCursoId = null;
+    this.respostasTentativa = {};
+    this.store.dispatch(limparTentativaExame());
+  }
+
+  onVerResultadoExame(exameId: string) {
+    if (!this.educandoSelecionadoId) return;
+    this.exameResultadoAbertoId = this.exameResultadoAbertoId === exameId ? null : exameId;
+    if (this.exameResultadoAbertoId) {
+      this.store.dispatch(carregarResultadoExame({ aluno_id: this.educandoSelecionadoId, exame_id: exameId }));
+    }
   }
 
   // --- Materiais de aula + Prof. Virtual ---

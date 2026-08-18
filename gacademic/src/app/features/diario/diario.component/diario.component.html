@@ -102,6 +102,12 @@
         [class.border-transparent]="aba !== 'materiais'" [class.text-slate-500]="aba !== 'materiais'">
         Materiais
       </button>
+      <button type="button" (click)="aba = 'exames'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'exames'" [class.text-blue-600]="aba === 'exames'"
+        [class.border-transparent]="aba !== 'exames'" [class.text-slate-500]="aba !== 'exames'">
+        Exames
+      </button>
       <button type="button" (click)="onVerConsolidado()"
         class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
         [class.border-blue-600]="aba === 'consolidado'" [class.text-blue-600]="aba === 'consolidado'"
@@ -586,6 +592,246 @@
             <p class="text-sm text-slate-500">Ainda não há materiais publicados para esta turma.</p>
           }
         </div>
+      </div>
+    }
+
+    @if (aba === 'exames') {
+      <div class="space-y-6">
+
+        <!-- Banco de Questões -->
+        <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div>
+              <h3 class="text-sm font-semibold text-slate-800">Banco de Questões</h3>
+              <p class="text-xs text-slate-500">Questões de escolha múltipla ou verdadeiro/falso desta disciplina — reutilizáveis em vários exames, corrigidas automaticamente.</p>
+            </div>
+            <button type="button" (click)="alternarFormularioQuestao()"
+              class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+              {{ mostrarFormularioQuestao ? 'Cancelar' : '+ Nova Questão' }}
+            </button>
+          </div>
+
+          @if (mostrarFormularioQuestao) {
+            <form [formGroup]="questaoForm" (ngSubmit)="onSubmitQuestao()" class="space-y-3 mb-4 pb-4 border-b border-slate-100">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Enunciado</label>
+                <textarea formControlName="enunciado" rows="2" placeholder="Ex: Quanto é 2+2?"
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+                  <select formControlName="tipo"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <option value="ESCOLHA_MULTIPLA">Escolha múltipla</option>
+                    <option value="VERDADEIRO_FALSO">Verdadeiro/Falso</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Valor (pontos)</label>
+                  <input type="number" step="0.5" min="0.5" formControlName="valor"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+              </div>
+
+              @if (questaoForm.value.tipo === 'ESCOLHA_MULTIPLA') {
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Opções, separadas por vírgula</label>
+                  <input type="text" formControlName="opcoesTexto" placeholder="Ex: 3, 4, 5"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Opção correta</label>
+                  <select formControlName="resposta_correta"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <option value="" disabled>Escolha a opção certa...</option>
+                    @for (opcao of opcoesArray(); track $index) {
+                      <option [value]="$index">{{ opcao }}</option>
+                    }
+                  </select>
+                </div>
+              } @else {
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Resposta correta</label>
+                  <select formControlName="resposta_correta"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <option value="" disabled>Escolha...</option>
+                    <option value="VERDADEIRO">Verdadeiro</option>
+                    <option value="FALSO">Falso</option>
+                  </select>
+                </div>
+              }
+
+              <button type="submit" [disabled]="questaoForm.invalid"
+                class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                {{ questaoEmEdicaoId ? 'Guardar Alterações' : 'Adicionar Questão' }}
+              </button>
+            </form>
+          }
+
+          <div class="space-y-2">
+            @for (questao of bancoQuestoes$ | async; track questao.id) {
+              <div class="border border-slate-200 rounded-lg px-4 py-2.5">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <span class="text-sm text-slate-800">{{ questao.enunciado }}</span>
+                    <span class="text-xs text-slate-400 ml-2">({{ questao.tipo === 'ESCOLHA_MULTIPLA' ? 'Escolha múltipla' : 'V/F' }} · {{ questao.valor }} pts)</span>
+                  </div>
+                  <div class="flex items-center gap-3 shrink-0">
+                    <button type="button" (click)="onEditarQuestao(questao)"
+                      class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Editar</button>
+                    @if (questaoAApagarId === questao.id) {
+                      <span class="text-xs text-rose-600">Apagar?</span>
+                      <button type="button" (click)="onConfirmarApagarQuestao(questao.id)"
+                        class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
+                      <button type="button" (click)="onCancelarApagarQuestao()"
+                        class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Não</button>
+                    } @else {
+                      <button type="button" (click)="onPedirApagarQuestao(questao.id)"
+                        class="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer">Apagar</button>
+                    }
+                  </div>
+                </div>
+              </div>
+            } @empty {
+              <p class="text-sm text-slate-500">Ainda não há questões nesta disciplina.</p>
+            }
+          </div>
+        </div>
+
+        <!-- Exames -->
+        <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div>
+              <h3 class="text-sm font-semibold text-slate-800">Exames Online</h3>
+              <p class="text-xs text-slate-500">Correção automática, janela temporal e baralhamento de perguntas por aluno.</p>
+            </div>
+            <button type="button" (click)="alternarFormularioExame()"
+              class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+              {{ mostrarFormularioExame ? 'Cancelar' : '+ Novo Exame' }}
+            </button>
+          </div>
+
+          @if (mostrarFormularioExame) {
+            <form [formGroup]="exameForm" (ngSubmit)="onSubmitExame()" class="space-y-3 mb-4 pb-4 border-b border-slate-100">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Título</label>
+                <input type="text" formControlName="titulo" placeholder="Ex: Teste 1 — Equações"
+                  class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Abre em</label>
+                  <input type="datetime-local" formControlName="data_inicio"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Fecha em</label>
+                  <input type="datetime-local" formControlName="data_fim"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Duração (minutos)</label>
+                  <input type="number" min="1" formControlName="duracao_minutos"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+              </div>
+              <label class="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" formControlName="baralhar_perguntas" />
+                Baralhar a ordem das perguntas para cada aluno
+              </label>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Questões incluídas ({{ questoesSelecionadasNoExame.size }} selecionadas)</label>
+                <div class="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
+                  @for (questao of bancoQuestoes$ | async; track questao.id) {
+                    <label class="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-50">
+                      <input type="checkbox" [checked]="questoesSelecionadasNoExame.has(questao.id)" (change)="onToggleQuestaoNoExame(questao.id)" />
+                      <span class="flex-1">{{ questao.enunciado }}</span>
+                      <span class="text-xs text-slate-400">{{ questao.valor }} pts</span>
+                    </label>
+                  } @empty {
+                    <p class="text-sm text-slate-500 px-3 py-3">Crie questões no banco acima primeiro.</p>
+                  }
+                </div>
+              </div>
+
+              <button type="submit" [disabled]="exameForm.invalid || questoesSelecionadasNoExame.size === 0"
+                class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                Criar Exame (rascunho)
+              </button>
+            </form>
+          }
+
+          <div class="space-y-2">
+            @for (exame of exames$ | async; track exame.id) {
+              <div class="border border-slate-200 rounded-lg px-4 py-2.5">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-medium text-slate-800">{{ exame.titulo }}</span>
+                    @if (exame.publicado) {
+                      <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-emerald-100 text-emerald-700">Publicado</span>
+                    } @else {
+                      <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-slate-100 text-slate-500">Rascunho</span>
+                    }
+                    <span class="text-xs text-slate-400">{{ exame.data_inicio | date:'short' }} → {{ exame.data_fim | date:'short' }} · {{ exame.duracao_minutos }} min</span>
+                  </div>
+                  <div class="flex items-center gap-3 shrink-0">
+                    <button type="button" (click)="onAlternarResultadosExame(exame.id)"
+                      class="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+                      {{ exameResultadosAbertoId === exame.id ? 'Ocultar resultados' : 'Ver resultados' }}
+                    </button>
+                    @if (exame.publicado) {
+                      <button type="button" (click)="onDespublicarExame(exame.id)"
+                        class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Despublicar</button>
+                    } @else {
+                      <button type="button" (click)="onPublicarExame(exame.id)"
+                        class="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer">Publicar</button>
+                    }
+                    @if (exameAApagarId === exame.id) {
+                      <span class="text-xs text-rose-600">Apagar?</span>
+                      <button type="button" (click)="onConfirmarApagarExame(exame.id)"
+                        class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
+                      <button type="button" (click)="onCancelarApagarExame()"
+                        class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Não</button>
+                    } @else {
+                      <button type="button" (click)="onPedirApagarExame(exame.id)"
+                        class="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer">Apagar</button>
+                    }
+                  </div>
+                </div>
+
+                @if (exameResultadosAbertoId === exame.id) {
+                  <table class="w-full text-left border-collapse mt-3 pt-3 border-t border-slate-100">
+                    <thead>
+                      <tr class="text-slate-500 text-xs">
+                        <th class="py-1 pr-3 font-medium">Aluno</th>
+                        <th class="py-1 pr-3 font-medium">Estado</th>
+                        <th class="py-1 pr-3 font-medium text-right">Nota</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (resultado of (resultadosPorExame$ | async)?.[exame.id]; track resultado.matricula_id) {
+                        <tr class="border-b border-slate-50 text-sm">
+                          <td class="py-1.5 pr-3 text-slate-700">{{ resultado.nome_aluno }}</td>
+                          <td class="py-1.5 pr-3 text-slate-500">{{ resultado.status === 'SUBMETIDA' ? 'Submetida' : 'Em curso' }}</td>
+                          <td class="py-1.5 pr-3 text-right font-semibold text-slate-800">
+                            {{ resultado.nota_obtida !== null ? (resultado.nota_obtida + ' / ' + resultado.nota_maxima) : '—' }}
+                          </td>
+                        </tr>
+                      } @empty {
+                        <tr><td colspan="3" class="py-3 text-center text-slate-500 text-sm">Ainda ninguém começou este exame.</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              </div>
+            } @empty {
+              <p class="text-sm text-slate-500">Ainda não há exames para esta alocação.</p>
+            }
+          </div>
+        </div>
+
       </div>
     }
 

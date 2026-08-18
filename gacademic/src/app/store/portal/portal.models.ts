@@ -93,3 +93,54 @@ export interface MensagemProfVirtual {
   papel: 'aluno' | 'assistente';
   texto: string;
 }
+
+// ==========================================
+// Exames online (LMS) — ver cruds/portal.py (secção G).
+// ==========================================
+export interface ExameEducando {
+  id: string;
+  titulo: string;
+  nome_disciplina: string;
+  data_inicio: string;
+  data_fim: string;
+  duracao_minutos: number;
+  status_tentativa: 'NAO_INICIADA' | 'EM_CURSO' | 'SUBMETIDA';
+  pode_iniciar: boolean;
+  nota_obtida: number | null;
+  nota_maxima: number | null;
+}
+
+export interface PerguntaTentativa {
+  id: string;
+  enunciado: string;
+  tipo: 'ESCOLHA_MULTIPLA' | 'VERDADEIRO_FALSO';
+  opcoes: string[];
+}
+
+// Nunca inclui resposta_correta — o back-end só a devolve depois de
+// submetida (ver ResultadoExame).
+export interface TentativaIniciada {
+  tentativa_id: string;
+  titulo: string;
+  data_inicio_tentativa: string;
+  duracao_minutos: number;
+  perguntas: PerguntaTentativa[];
+  respostas_ja_dadas: Record<string, string>;
+}
+
+export interface PerguntaResultado {
+  id: string;
+  enunciado: string;
+  tipo: string;
+  opcoes: string[];
+  resposta_correta: string;
+  resposta_dada: string | null;
+  correta: boolean;
+}
+
+export interface ResultadoExame {
+  nota_obtida: number;
+  nota_maxima: number;
+  data_submissao: string;
+  perguntas: PerguntaResultado[];
+}

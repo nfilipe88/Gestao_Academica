@@ -1,7 +1,7 @@
 import { createAction, props } from '@ngrx/store';
 import {
-  Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal,
-  MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, TarefaEducando
+  Boletim, EducandoResumo, ExameEducando, FinanceiroEducando, HorarioAulaPortal,
+  MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, ResultadoExame, TarefaEducando, TentativaIniciada
 } from './portal.models';
 
 export const carregarMeusEducandos = createAction('[Portal] Carregar Meus Educandos');
@@ -82,6 +82,50 @@ export const perguntarProfVirtualFalhou = createAction(
   '[Portal] Perguntar Prof Virtual Falhou',
   props<{ erro: string }>()
 );
+
+// ==========================================
+// Exames online (LMS)
+// ==========================================
+export const carregarExamesDoEducando = createAction(
+  '[Portal] Carregar Exames Do Educando',
+  props<{ aluno_id: string }>()
+);
+export const carregarExamesDoEducandoSucesso = createAction(
+  '[Portal] Carregar Exames Do Educando Sucesso',
+  props<{ exames: ExameEducando[] }>()
+);
+
+export const iniciarTentativaExame = createAction(
+  '[Portal] Iniciar Tentativa Exame',
+  props<{ aluno_id: string, exame_id: string }>()
+);
+export const iniciarTentativaExameSucesso = createAction(
+  '[Portal] Iniciar Tentativa Exame Sucesso',
+  props<{ tentativa: TentativaIniciada }>()
+);
+
+export const submeterTentativaExame = createAction(
+  '[Portal] Submeter Tentativa Exame',
+  props<{ aluno_id: string, exame_id: string, respostas: Record<string, string> }>()
+);
+export const submeterTentativaExameSucesso = createAction(
+  '[Portal] Submeter Tentativa Exame Sucesso',
+  props<{ aluno_id: string, exame_id: string }>()
+);
+
+export const carregarResultadoExame = createAction(
+  '[Portal] Carregar Resultado Exame',
+  props<{ aluno_id: string, exame_id: string }>()
+);
+export const carregarResultadoExameSucesso = createAction(
+  '[Portal] Carregar Resultado Exame Sucesso',
+  props<{ resultado: ResultadoExame }>()
+);
+
+// Ao sair do exame (voltar à lista), limpa a tentativa/resultado em
+// memória — sem isto, abrir outro exame a seguir mostrava por
+// instantes as perguntas do anterior.
+export const limparTentativaExame = createAction('[Portal] Limpar Tentativa Exame');
 
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,
 // um erro HTTP dentro de um effect fica por apanhar e mata esse effect

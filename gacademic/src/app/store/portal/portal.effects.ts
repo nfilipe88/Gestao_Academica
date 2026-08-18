@@ -3,8 +3,8 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as PortalActions from './portal.actions';
 import {
-  Boletim, EducandoResumo, FinanceiroEducando, HorarioAulaPortal,
-  MaterialEducando, MaterialEducandoDetalhe, TarefaEducando
+  Boletim, EducandoResumo, ExameEducando, FinanceiroEducando, HorarioAulaPortal,
+  MaterialEducando, MaterialEducandoDetalhe, ResultadoExame, TarefaEducando, TentativaIniciada
 } from './portal.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
@@ -119,6 +119,70 @@ export class PortalEffects {
         map(resp => PortalActions.perguntarProfVirtualSucesso({ resposta: resp.resposta })),
         catchError(err => of(PortalActions.perguntarProfVirtualFalhou({
           erro: err.error?.detail || 'O Prof. Virtual não conseguiu responder agora.'
+        })))
+      ))
+    )
+  );
+
+  // ==========================================
+  // Exames online (LMS)
+  // ==========================================
+  carregarExamesDoEducando$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.carregarExamesDoEducando),
+      switchMap(action => this.http.get<ExameEducando[]>(
+        `/api/v1/portal/educandos/${action.aluno_id}/exames`
+      ).pipe(
+        map(exames => PortalActions.carregarExamesDoEducandoSucesso({ exames })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os exames.'
+        })))
+      ))
+    )
+  );
+
+  iniciarTentativaExame$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.iniciarTentativaExame),
+      switchMap(action => this.http.post<TentativaIniciada>(
+        `/api/v1/portal/educandos/${action.aluno_id}/exames/${action.exame_id}/iniciar`, {}
+      ).pipe(
+        map(tentativa => PortalActions.iniciarTentativaExameSucesso({ tentativa })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível iniciar o exame.'
+        })))
+      ))
+    )
+  );
+
+  submeterTentativaExame$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.submeterTentativaExame),
+      switchMap(action => this.http.post(
+        `/api/v1/portal/educandos/${action.aluno_id}/exames/${action.exame_id}/submeter`,
+        { respostas: action.respostas }
+      ).pipe(
+        switchMap(() => [
+          PortalActions.submeterTentativaExameSucesso({ aluno_id: action.aluno_id, exame_id: action.exame_id }),
+          PortalActions.carregarExamesDoEducando({ aluno_id: action.aluno_id }),
+          PortalActions.carregarResultadoExame({ aluno_id: action.aluno_id, exame_id: action.exame_id })
+        ]),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível submeter o exame.'
+        })))
+      ))
+    )
+  );
+
+  carregarResultadoExame$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.carregarResultadoExame),
+      switchMap(action => this.http.get<ResultadoExame>(
+        `/api/v1/portal/educandos/${action.aluno_id}/exames/${action.exame_id}/resultado`
+      ).pipe(
+        map(resultado => PortalActions.carregarResultadoExameSucesso({ resultado })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar o resultado do exame.'
         })))
       ))
     )

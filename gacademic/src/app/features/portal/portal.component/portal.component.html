@@ -52,6 +52,12 @@
         [class.border-transparent]="aba !== 'materiais'" [class.text-slate-500]="aba !== 'materiais'">
         Materiais
       </button>
+      <button type="button" (click)="aba = 'exames'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
+        [class.border-blue-600]="aba === 'exames'" [class.text-blue-600]="aba === 'exames'"
+        [class.border-transparent]="aba !== 'exames'" [class.text-slate-500]="aba !== 'exames'">
+        Exames
+      </button>
       <button type="button" (click)="aba = 'financeiro'"
         class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
         [class.border-blue-600]="aba === 'financeiro'" [class.text-blue-600]="aba === 'financeiro'"
@@ -243,6 +249,112 @@
                 </button>
               </form>
             </div>
+          </div>
+        }
+
+      </div>
+    }
+
+    @if (aba === 'exames') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+
+        @if (exameEmCursoId && (tentativaAtual$ | async); as tentativa) {
+          <!-- A fazer o exame -->
+          <div class="space-y-4">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h3 class="text-lg font-semibold text-slate-800">{{ tentativa.titulo }}</h3>
+                <p class="text-xs text-slate-500">Duração: {{ tentativa.duracao_minutos }} min · responde a todas as perguntas e submete quando terminares.</p>
+              </div>
+              <button type="button" (click)="onSairDoExame()"
+                class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer shrink-0">← Sair sem submeter</button>
+            </div>
+
+            <div class="space-y-4">
+              @for (pergunta of tentativa.perguntas; track pergunta.id; let i = $index) {
+                <div class="border border-slate-200 rounded-lg p-4">
+                  <p class="text-sm font-medium text-slate-800 mb-3">{{ i + 1 }}. {{ pergunta.enunciado }}</p>
+                  @if (pergunta.tipo === 'ESCOLHA_MULTIPLA') {
+                    <div class="space-y-1.5">
+                      @for (opcao of pergunta.opcoes; track $index) {
+                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                          <input type="radio" [name]="'pergunta-' + pergunta.id" [checked]="respostasTentativa[pergunta.id] === $index + ''"
+                            (change)="onResponder(pergunta.id, $index + '')" />
+                          {{ opcao }}
+                        </label>
+                      }
+                    </div>
+                  } @else {
+                    <div class="flex gap-4">
+                      <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input type="radio" [name]="'pergunta-' + pergunta.id" [checked]="respostasTentativa[pergunta.id] === 'VERDADEIRO'"
+                          (change)="onResponder(pergunta.id, 'VERDADEIRO')" />
+                        Verdadeiro
+                      </label>
+                      <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input type="radio" [name]="'pergunta-' + pergunta.id" [checked]="respostasTentativa[pergunta.id] === 'FALSO'"
+                          (change)="onResponder(pergunta.id, 'FALSO')" />
+                        Falso
+                      </label>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            <button type="button" (click)="onSubmeterExame()" [disabled]="(aSubmeterTentativa$ | async) ?? false"
+              class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+              {{ (aSubmeterTentativa$ | async) ? 'A submeter…' : 'Submeter Exame' }}
+            </button>
+          </div>
+        } @else {
+          <!-- Lista de exames -->
+          <div class="space-y-2">
+            @for (exame of exames$ | async; track exame.id) {
+              <div class="border border-slate-200 rounded-lg px-4 py-3">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h4 class="text-sm font-semibold text-slate-800">{{ exame.titulo }}</h4>
+                    <p class="text-xs text-slate-500">{{ exame.nome_disciplina }} · {{ exame.data_inicio | date:'short' }} → {{ exame.data_fim | date:'short' }} · {{ exame.duracao_minutos }} min</p>
+                  </div>
+                  <div class="flex items-center gap-3 shrink-0">
+                    @if (exame.status_tentativa === 'SUBMETIDA') {
+                      <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-emerald-100 text-emerald-700">
+                        Submetido — {{ exame.nota_obtida }} / {{ exame.nota_maxima }}
+                      </span>
+                      <button type="button" (click)="onVerResultadoExame(exame.id)"
+                        class="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+                        {{ exameResultadoAbertoId === exame.id ? 'Ocultar' : 'Ver correção' }}
+                      </button>
+                    } @else if ((usuario$ | async)?.perfil_acesso !== 'ALUNO') {
+                      <span class="text-xs text-slate-400">Só o aluno pode realizar o exame.</span>
+                    } @else if (exame.pode_iniciar) {
+                      <button type="button" (click)="onIniciarExame(exame.id)"
+                        class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
+                        {{ exame.status_tentativa === 'EM_CURSO' ? 'Continuar' : 'Começar' }}
+                      </button>
+                    } @else {
+                      <span class="text-xs text-slate-400">Fora da janela do exame.</span>
+                    }
+                  </div>
+                </div>
+
+                @if (exameResultadoAbertoId === exame.id && (resultadoExame$ | async); as resultado) {
+                  <div class="mt-3 pt-3 border-t border-slate-100 space-y-3">
+                    @for (pergunta of resultado.perguntas; track pergunta.id; let i = $index) {
+                      <div class="text-sm">
+                        <p class="text-slate-800">{{ i + 1 }}. {{ pergunta.enunciado }}</p>
+                        <p [class.text-emerald-600]="pergunta.correta" [class.text-rose-600]="!pergunta.correta" class="text-xs mt-1">
+                          {{ pergunta.correta ? '✓ Correta' : '✗ Resposta dada: ' + (pergunta.resposta_dada ?? '(em branco)') + ' — correta: ' + pergunta.resposta_correta }}
+                        </p>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            } @empty {
+              <p class="text-sm text-slate-500 text-center py-6">Ainda não há exames disponíveis para a tua turma.</p>
+            }
           </div>
         }
 

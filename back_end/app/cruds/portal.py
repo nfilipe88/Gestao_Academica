@@ -24,8 +24,9 @@ from app.cruds import alunos as crud_alunos
 from app.cruds import financeiro as crud_financeiro
 from app.cruds import horarios as crud_horarios
 from app.cruds import tarefas as crud_tarefas
+from app.cruds import lms as crud_lms
 from app.core.prof_virtual import perguntar_prof_virtual
-from app.schemas.lms import ProfVirtualPerguntaCreate
+from app.schemas.lms import LMSSubmeterTentativa, ProfVirtualPerguntaCreate
 
 # Resolução de acesso ("que aluno_id este login pode ver") vive em
 # cruds/alunos.py — também é precisa em Documentos (pedidos do
@@ -279,3 +280,50 @@ async def perguntar_prof_virtual_do_educando(db: AsyncSession, tenant_id, utiliz
         historico=dados.historico,
         pergunta=dados.pergunta
     )
+
+
+# ==========================================
+# G. EXAMES ONLINE (LMS) DO EDUCANDO
+# ==========================================
+async def _obter_matricula_ativa_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> Matricula:
+    """Mesma posse+matrícula-ativa já usada em materiais/tarefas, mas aqui levanta 404 em vez de devolver lista vazia — fazer exame exige mesmo ter turma atual."""
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
+    if not matricula or matricula.status_matricula != "ATIVO":
+        raise HTTPException(status_code=404, detail="Educando sem matrícula ativa.")
+    return matricula
+
+
+def _garantir_e_aluno(utilizador: dict):
+    """Ver/consultar resultados é aberto a ALUNO e RESPONSAVEL (como o resto do Portal) — mas fazer o exame em si (iniciar/submeter) é só do próprio aluno, nunca do encarregado de educação."""
+    if utilizador["perfil_acesso"] != "ALUNO":
+        raise HTTPException(status_code=403, detail="Só o próprio aluno pode realizar o exame.")
+
+
+async def listar_exames_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> list[dict]:
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
+    if not matricula or matricula.status_matricula != "ATIVO":
+        return []
+    return await crud_lms.listar_exames_do_aluno(db, tenant_id, matricula.id, matricula.turma_id)
+
+
+async def iniciar_tentativa_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, exame_id: uuid.UUID) -> dict:
+    _garantir_e_aluno(utilizador)
+    matricula = await _obter_matricula_ativa_do_educando(db, tenant_id, utilizador, aluno_id)
+    return await crud_lms.iniciar_tentativa(db, tenant_id, matricula.id, matricula.turma_id, exame_id)
+
+
+async def submeter_tentativa_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, exame_id: uuid.UUID, dados: LMSSubmeterTentativa) -> dict:
+    _garantir_e_aluno(utilizador)
+    matricula = await _obter_matricula_ativa_do_educando(db, tenant_id, utilizador, aluno_id)
+    return await crud_lms.submeter_tentativa(db, tenant_id, matricula.id, matricula.turma_id, exame_id, dados)
+
+
+async def obter_resultado_tentativa_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, exame_id: uuid.UUID) -> dict:
+    """Resultado + gabarito — aberto a ALUNO e RESPONSAVEL (só leitura, sem restrição extra)."""
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
+    if not matricula:
+        raise HTTPException(status_code=404, detail="Educando sem matrícula.")
+    return await crud_lms.obter_resultado_tentativa(db, tenant_id, matricula.id, exame_id)

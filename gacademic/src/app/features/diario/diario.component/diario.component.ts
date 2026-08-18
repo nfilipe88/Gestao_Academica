@@ -23,12 +23,15 @@ import { AlunoDiario, Avaliacao } from '../../../store/diario/diario.models';
 import { carregarTiposAvaliacao } from '../../../store/configuracoes/configuracoes.actions';
 import { selectTiposAvaliacaoAtivos } from '../../../store/configuracoes/configuracoes.selector';
 import {
-  apagarMaterial, atualizarMaterial, carregarMateriais, criarMaterial, limparSugestaoConteudo, sugerirConteudo
+  apagarExame, apagarMaterial, apagarQuestao, atualizarMaterial, atualizarQuestao, carregarBancoQuestoes,
+  carregarExameDetalhe, carregarExames, carregarMateriais, carregarResultadosExame, criarExame, criarMaterial,
+  criarQuestao, despublicarExame, limparExameDetalhe, limparSugestaoConteudo, publicarExame, sugerirConteudo
 } from '../../../store/lms/lms.actions';
 import {
-  selectASugerirConteudo, selectLmsError, selectLmsMensagem, selectMateriais, selectSugestaoConteudo
+  selectASugerirConteudo, selectBancoQuestoes, selectExameDetalhe, selectExames, selectLmsError, selectLmsMensagem,
+  selectMateriais, selectResultadosPorExame, selectSugestaoConteudo
 } from '../../../store/lms/lms.selector';
-import { MaterialAula } from '../../../store/lms/lms.models';
+import { LmsQuestao, MaterialAula, TipoQuestaoLms } from '../../../store/lms/lms.models';
 import { carregarGradeDaTurma } from '../../../store/horarios/horarios.actions';
 import { selectGradeDaTurma } from '../../../store/horarios/horarios.selector';
 import { HorarioAula } from '../../../store/horarios/horarios.models';
@@ -54,6 +57,10 @@ export class DiarioComponent implements OnInit, OnDestroy {
   notasFinais$ = this.store.select(selectNotasFinais);
   objetivos$ = this.store.select(selectObjetivosAprendizagem);
   materiais$ = this.store.select(selectMateriais);
+  bancoQuestoes$ = this.store.select(selectBancoQuestoes);
+  exames$ = this.store.select(selectExames);
+  exameDetalhe$ = this.store.select(selectExameDetalhe);
+  resultadosPorExame$ = this.store.select(selectResultadosPorExame);
   erro$ = this.store.select(selectDiarioError);
   mensagem$ = this.store.select(selectDiarioMensagem);
   erroLms$ = this.store.select(selectLmsError);
@@ -116,7 +123,7 @@ export class DiarioComponent implements OnInit, OnDestroy {
   // resposta HTTP ser assíncrona e o elemento já ter sido criado).
   avaliacaoNotasProntas = false;
 
-  aba: 'chamada' | 'notas' | 'materiais' | 'consolidado' = 'chamada';
+  aba: 'chamada' | 'notas' | 'materiais' | 'exames' | 'consolidado' = 'chamada';
 
   alocacaoSelecionadaId = '';
   turmaSelecionadaId: string | null = null;
@@ -141,6 +148,34 @@ export class DiarioComponent implements OnInit, OnDestroy {
   // para não perder trabalho do professor sem avisar.
   sugestaoPendente: string | null = null;
   mostrarConfirmSugestao = false;
+
+  // Motor de Exames (LMS) — banco de questões (por disciplina) + exames
+  // (por alocação, com baralhamento e correção automática).
+  mostrarFormularioQuestao = false;
+  questaoEmEdicaoId: string | null = null;
+  questaoForm = this.fb.group({
+    enunciado: ['', Validators.required],
+    tipo: ['ESCOLHA_MULTIPLA' as TipoQuestaoLms, Validators.required],
+    // Opções em texto livre separadas por vírgula (só ESCOLHA_MULTIPLA)
+    // — evita montar um FormArray só para isto; convertidas em array no
+    // submit (ver opcoesArray()/onSubmitQuestao()).
+    opcoesTexto: [''],
+    resposta_correta: ['', Validators.required],
+    valor: [1, [Validators.required, Validators.min(0.01)]]
+  });
+  questaoAApagarId: string | null = null;
+
+  mostrarFormularioExame = false;
+  exameForm = this.fb.group({
+    titulo: ['', Validators.required],
+    data_inicio: ['', Validators.required],
+    data_fim: ['', Validators.required],
+    duracao_minutos: [30, [Validators.required, Validators.min(1)]],
+    baralhar_perguntas: [true]
+  });
+  questoesSelecionadasNoExame = new Set<string>();
+  exameAApagarId: string | null = null;
+  exameResultadosAbertoId: string | null = null;
 
   chamadaForm = this.fb.group({
     data_aula: [new Date().toISOString().substring(0, 10), Validators.required],
@@ -254,6 +289,10 @@ export class DiarioComponent implements OnInit, OnDestroy {
       this.store.dispatch(carregarObjetivosAprendizagem({ disciplina_id: alocacao.disciplina_id }));
       this.store.dispatch(carregarMateriais({ turma_id: alocacao.turma_id, disciplina_id: alocacao.disciplina_id }));
       this.store.dispatch(carregarGradeDaTurma({ turma_id: alocacao.turma_id }));
+      this.store.dispatch(carregarBancoQuestoes({ disciplina_id: alocacao.disciplina_id }));
+      this.store.dispatch(carregarExames({ alocacao_id: alocacaoId }));
+      this.exameResultadosAbertoId = null;
+      this.store.dispatch(limparExameDetalhe());
     });
   }
 
@@ -563,5 +602,128 @@ export class DiarioComponent implements OnInit, OnDestroy {
     if (!this.turmaSelecionadaId || !this.disciplinaSelecionadaId) return;
     this.store.dispatch(apagarMaterial({ material_id: materialId, turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId }));
     this.materialAApagarId = null;
+  }
+
+  // --- Motor de Exames (LMS): banco de questões ---
+
+  // Opções digitadas em texto livre ("A, B, C") já convertidas em
+  // array — usado tanto para desenhar o <select> da resposta certa
+  // como para montar o payload no submit.
+  opcoesArray(): string[] {
+    const texto = this.questaoForm.value.opcoesTexto ?? '';
+    return texto.split(',').map(o => o.trim()).filter(Boolean);
+  }
+
+  alternarFormularioQuestao() {
+    this.mostrarFormularioQuestao = !this.mostrarFormularioQuestao;
+    this.questaoEmEdicaoId = null;
+    this.questaoForm.reset({ enunciado: '', tipo: 'ESCOLHA_MULTIPLA', opcoesTexto: '', resposta_correta: '', valor: 1 });
+  }
+
+  onEditarQuestao(questao: LmsQuestao) {
+    this.questaoEmEdicaoId = questao.id;
+    this.mostrarFormularioQuestao = true;
+    this.questaoForm.reset({
+      enunciado: questao.enunciado,
+      tipo: questao.tipo,
+      opcoesTexto: questao.opcoes.join(', '),
+      resposta_correta: questao.resposta_correta,
+      valor: questao.valor
+    });
+  }
+
+  onSubmitQuestao() {
+    if (this.questaoForm.invalid || !this.disciplinaSelecionadaId) return;
+    const { enunciado, tipo, resposta_correta, valor } = this.questaoForm.value;
+    const opcoes = tipo === 'ESCOLHA_MULTIPLA' ? this.opcoesArray() : [];
+
+    if (this.questaoEmEdicaoId) {
+      this.store.dispatch(atualizarQuestao({
+        questao_id: this.questaoEmEdicaoId, disciplina_id: this.disciplinaSelecionadaId,
+        enunciado: enunciado!, tipo: tipo!, opcoes, resposta_correta: resposta_correta!, valor: valor!
+      }));
+    } else {
+      this.store.dispatch(criarQuestao({
+        disciplina_id: this.disciplinaSelecionadaId,
+        enunciado: enunciado!, tipo: tipo!, opcoes, resposta_correta: resposta_correta!, valor: valor!
+      }));
+    }
+    this.mostrarFormularioQuestao = false;
+    this.questaoEmEdicaoId = null;
+  }
+
+  onPedirApagarQuestao(questaoId: string) {
+    this.questaoAApagarId = questaoId;
+  }
+
+  onCancelarApagarQuestao() {
+    this.questaoAApagarId = null;
+  }
+
+  onConfirmarApagarQuestao(questaoId: string) {
+    if (!this.disciplinaSelecionadaId) return;
+    this.store.dispatch(apagarQuestao({ questao_id: questaoId, disciplina_id: this.disciplinaSelecionadaId }));
+    this.questaoAApagarId = null;
+  }
+
+  // --- Motor de Exames (LMS): exames ---
+
+  alternarFormularioExame() {
+    this.mostrarFormularioExame = !this.mostrarFormularioExame;
+    this.exameForm.reset({ titulo: '', data_inicio: '', data_fim: '', duracao_minutos: 30, baralhar_perguntas: true });
+    this.questoesSelecionadasNoExame = new Set();
+  }
+
+  onToggleQuestaoNoExame(questaoId: string) {
+    const novo = new Set(this.questoesSelecionadasNoExame);
+    if (novo.has(questaoId)) novo.delete(questaoId); else novo.add(questaoId);
+    this.questoesSelecionadasNoExame = novo;
+  }
+
+  onSubmitExame() {
+    if (this.exameForm.invalid || !this.alocacaoSelecionadaId || this.questoesSelecionadasNoExame.size === 0) return;
+    const { titulo, data_inicio, data_fim, duracao_minutos, baralhar_perguntas } = this.exameForm.value;
+    this.store.dispatch(criarExame({
+      alocacao_id: this.alocacaoSelecionadaId,
+      titulo: titulo!,
+      data_inicio: new Date(data_inicio!).toISOString(),
+      data_fim: new Date(data_fim!).toISOString(),
+      duracao_minutos: duracao_minutos!,
+      baralhar_perguntas: baralhar_perguntas ?? true,
+      questao_ids: Array.from(this.questoesSelecionadasNoExame)
+    }));
+    this.mostrarFormularioExame = false;
+    this.questoesSelecionadasNoExame = new Set();
+  }
+
+  onPublicarExame(exameId: string) {
+    if (!this.alocacaoSelecionadaId) return;
+    this.store.dispatch(publicarExame({ exame_id: exameId, alocacao_id: this.alocacaoSelecionadaId }));
+  }
+
+  onDespublicarExame(exameId: string) {
+    if (!this.alocacaoSelecionadaId) return;
+    this.store.dispatch(despublicarExame({ exame_id: exameId, alocacao_id: this.alocacaoSelecionadaId }));
+  }
+
+  onPedirApagarExame(exameId: string) {
+    this.exameAApagarId = exameId;
+  }
+
+  onCancelarApagarExame() {
+    this.exameAApagarId = null;
+  }
+
+  onConfirmarApagarExame(exameId: string) {
+    if (!this.alocacaoSelecionadaId) return;
+    this.store.dispatch(apagarExame({ exame_id: exameId, alocacao_id: this.alocacaoSelecionadaId }));
+    this.exameAApagarId = null;
+  }
+
+  onAlternarResultadosExame(exameId: string) {
+    this.exameResultadosAbertoId = this.exameResultadosAbertoId === exameId ? null : exameId;
+    if (this.exameResultadosAbertoId) {
+      this.store.dispatch(carregarResultadosExame({ exame_id: exameId }));
+    }
   }
 }

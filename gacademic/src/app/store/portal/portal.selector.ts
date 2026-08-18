@@ -14,3 +14,7 @@ export const selectConversaProfVirtual = createSelector(selectPortalState, (stat
 export const selectAProcessarPerguntaProfVirtual = createSelector(selectPortalState, (state) => state.aProcessarPerguntaProfVirtual);
 export const selectErroProfVirtual = createSelector(selectPortalState, (state) => state.erroProfVirtual);
 export const selectPortalError = createSelector(selectPortalState, (state) => state.erro);
+export const selectExamesDoEducando = createSelector(selectPortalState, (state) => state.exames);
+export const selectTentativaAtual = createSelector(selectPortalState, (state) => state.tentativaAtual);
+export const selectResultadoExame = createSelector(selectPortalState, (state) => state.resultadoExame);
+export const selectASubmeterTentativa = createSelector(selectPortalState, (state) => state.aSubmeterTentativa);
