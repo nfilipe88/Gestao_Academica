@@ -14,13 +14,17 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi import HTTPException
+
 from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turma
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.database.models_diario import Avaliacao, NotaAvaliacao, RegistroFrequencia, RegistroNota
 from app.database.models_crm import FunilEtapa, LeadCandidato, OportunidadeCRM
+from app.database.models_bi import TrilhaRecuperacao
 from app.cruds import financeiro as crud_financeiro
+from app.core import prof_virtual
 
 
 # ==========================================
@@ -380,3 +384,55 @@ async def obter_indicadores(db: AsyncSession, tenant_id) -> dict:
             "total_baixo": sum(1 for r in risco_evasao if r["nivel_risco"] == "BAIXO"),
         },
     }
+
+
+# ==========================================
+# I. TRILHAS DE RECUPERAÇÃO (Prof. Virtual / IA) — só para alunos já sinalizados por G
+# ==========================================
+async def gerar_trilha_recuperacao(db: AsyncSession, tenant_id, matricula_id, usuario_id) -> TrilhaRecuperacao:
+    """
+    Pede ao Prof. Virtual (IA) um plano de recuperação para um aluno já
+    sinalizado pelo motor de risco de evasão. Reaproveita
+    obter_risco_evasao em vez de recalcular os sinais aqui — assim o
+    prompt vê exatamente os mesmos fatores que o Gestor vê no ecrã, sem
+    duas fontes de verdade sobre o risco deste aluno.
+    """
+    perfil = next((r for r in await obter_risco_evasao(db, tenant_id) if r["matricula_id"] == matricula_id), None)
+    if not perfil:
+        raise HTTPException(
+            status_code=400,
+            detail="Este aluno não tem sinais de risco de evasão no momento — não há trilha de recuperação a gerar."
+        )
+
+    conteudo = await prof_virtual.gerar_trilha_recuperacao(
+        nome_aluno=perfil["nome_aluno"],
+        nome_turma=perfil["nome_turma"],
+        nivel_risco=perfil["nivel_risco"],
+        pontuacao_risco=perfil["pontuacao_risco"],
+        fatores=perfil["fatores"],
+        taxa_falta=perfil["taxa_falta"],
+        media_notas=perfil["media_notas"],
+    )
+
+    nova_trilha = TrilhaRecuperacao(
+        tenant_id=tenant_id,
+        aluno_id=perfil["aluno_id"],
+        matricula_id=matricula_id,
+        gerada_por=usuario_id,
+        pontuacao_risco_momento=perfil["pontuacao_risco"],
+        nivel_risco_momento=perfil["nivel_risco"],
+        conteudo=conteudo,
+    )
+    db.add(nova_trilha)
+    await db.commit()
+    await db.refresh(nova_trilha)
+    return nova_trilha
+
+
+async def listar_trilhas_do_aluno(db: AsyncSession, tenant_id, matricula_id) -> list[TrilhaRecuperacao]:
+    """Histórico de trilhas já geradas para este aluno, mais recente primeiro — para não gerar (e pagar) outra vez sem necessidade."""
+    return list((await db.execute(
+        select(TrilhaRecuperacao)
+        .where(TrilhaRecuperacao.tenant_id == tenant_id, TrilhaRecuperacao.matricula_id == matricula_id)
+        .order_by(TrilhaRecuperacao.data_criacao.desc())
+    )).scalars().all())

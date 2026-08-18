@@ -14,6 +14,14 @@ Prof. Virtual — assistente de IA da plataforma, com dois papéis distintos:
    sugere um rascunho do campo "Conteúdo" do material — o professor
    revê e edita antes de publicar, a IA nunca publica sozinha.
 
+3. Gerador de trilhas de recuperação (gerar_trilha_recuperacao, usado
+   em app/cruds/indicadores.py): a partir do perfil de risco de um
+   aluno sinalizado pelo motor de risco de evasão (regras, não IA —
+   ver obter_risco_evasao), sugere um plano de ações concretas para a
+   Secretaria/Gestor conduzirem com a família. A IA aqui é consultiva,
+   não decide nada sozinha: o resultado fica sempre gravado para
+   revisão humana antes de ser posto em prática.
+
 Chat do aluno sem persistência em BD nesta primeira versão: o histórico
 viaja no próprio pedido (ver ProfVirtualPerguntaCreate) — refrescar a
 página perde a conversa. Suficiente para testar o conceito; se ficar,
@@ -133,5 +141,57 @@ async def sugerir_conteudo_aula(
     except APIStatusError as erro:
         logger.error("Prof. Virtual (sugestão de conteúdo): falha na API da Anthropic (status %s)", erro.status_code)
         raise HTTPException(status_code=502, detail="O Prof. Virtual não conseguiu gerar uma sugestão agora — tenta novamente daqui a pouco.")
+
+    return "".join(bloco.text for bloco in resposta.content if bloco.type == "text").strip()
+
+
+def _construir_prompt_sistema_trilha() -> str:
+    return """És um especialista em sucesso escolar e apoio socioeducativo, a ajudar a Secretaria/Direção de uma escola a montar planos de recuperação para alunos sinalizados por um motor de risco de evasão baseado em regras (não é análise tua — os fatores já vêm calculados e são factuais).
+
+A tua função é traduzir esses fatores num plano de ação concreto e acionável — não é diagnosticar nem repetir os números que já te deram.
+Regras que segues sempre:
+- Responde em português europeu, em markdown simples (títulos com ##, listas com -), sem introduções nem despedidas.
+- Estrutura sempre em 3 secções: "## Ações imediatas" (1-2 semanas), "## Acompanhamento" (resto do período), "## Envolvimento da família" (o que comunicar aos encarregados de educação e como).
+- Cada ação tem de ser concreta e atribuível (quem faz o quê), nunca genérica ("melhorar a atenção do aluno" não serve; "Diretor de Turma agenda reunião com o encarregado de educação até [prazo]" serve).
+- Baseia as sugestões só nos fatores de risco fornecidos — não inventes causas (problemas familiares, saúde, etc.) que não foram dados.
+- Não sugiras nada que exija orçamento ou recursos que uma escola comum tipicamente não tem (ex.: psicólogo a tempo inteiro) — sugere o que é razoável pedir à estrutura já existente (Diretor de Turma, Professores, Secretaria).
+- Comprimento: conciso, tipicamente 150-300 palavras no total."""
+
+
+async def gerar_trilha_recuperacao(
+    nome_aluno: str,
+    nome_turma: str,
+    nivel_risco: str,
+    pontuacao_risco: int,
+    fatores: list[str],
+    taxa_falta: float,
+    media_notas: float | None,
+) -> str:
+    if _cliente is None:
+        raise HTTPException(
+            status_code=503,
+            detail="O Prof. Virtual ainda não está configurado nesta instituição — falta a chave da API de IA no servidor."
+        )
+
+    media_texto = f"{media_notas}" if media_notas is not None else "sem notas lançadas ainda"
+    pedido = f"""Aluno: {nome_aluno} (turma {nome_turma})
+Nível de risco: {nivel_risco} (pontuação {pontuacao_risco}/100)
+Taxa de faltas: {taxa_falta}%
+Média de notas: {media_texto}
+Fatores de risco identificados:
+{chr(10).join(f"- {fator}" for fator in fatores)}
+
+Gera o plano de recuperação para este aluno."""
+
+    try:
+        resposta = await _cliente.messages.create(
+            model=MODELO,
+            max_tokens=1000,
+            system=_construir_prompt_sistema_trilha(),
+            messages=[{"role": "user", "content": pedido}]
+        )
+    except APIStatusError as erro:
+        logger.error("Prof. Virtual (trilha de recuperação): falha na API da Anthropic (status %s)", erro.status_code)
+        raise HTTPException(status_code=502, detail="Não foi possível gerar a trilha de recuperação agora — tenta novamente daqui a pouco.")
 
     return "".join(bloco.text for bloco in resposta.content if bloco.type == "text").strip()

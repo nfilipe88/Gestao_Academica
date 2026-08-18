@@ -5,4 +5,6 @@ export const selectIndicadoresState = createFeatureSelector<IndicadoresState>('i
 
 export const selectIndicadores = createSelector(selectIndicadoresState, (state) => state.indicadores);
 export const selectAlunosEmRisco = createSelector(selectIndicadoresState, (state) => state.alunosEmRisco);
+export const selectTrilhasPorMatricula = createSelector(selectIndicadoresState, (state) => state.trilhasPorMatricula);
+export const selectAGerarTrilhaPorMatricula = createSelector(selectIndicadoresState, (state) => state.aGerarTrilhaPorMatricula);
 export const selectIndicadoresError = createSelector(selectIndicadoresState, (state) => state.erro);

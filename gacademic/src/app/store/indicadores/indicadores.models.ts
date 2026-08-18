@@ -79,6 +79,18 @@ export interface AlunoRisco {
   mensalidades_em_atraso: number;
 }
 
+// Plano de recuperação gerado pelo Prof. Virtual (IA) para um aluno em
+// risco — ver cruds/indicadores.py::gerar_trilha_recuperacao. conteudo
+// vem em markdown simples (títulos ## e listas -).
+export interface TrilhaRecuperacao {
+  id: string;
+  matricula_id: string;
+  nivel_risco_momento: 'ALTO' | 'MEDIO' | 'BAIXO';
+  pontuacao_risco_momento: number;
+  conteudo: string;
+  data_criacao: string;
+}
+
 export interface Indicadores {
   academico: ResumoAcademico;
   desempenho_por_turma: DesempenhoTurma[];

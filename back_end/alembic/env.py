@@ -22,6 +22,7 @@ import app.database.models_documentos
 import app.database.models_transferencias
 import app.database.models_lms
 import app.database.models_usuarios
+import app.database.models_bi
 
 from alembic import context
 

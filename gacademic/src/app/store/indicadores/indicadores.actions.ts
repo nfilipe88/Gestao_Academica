@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { AlunoRisco, Indicadores } from './indicadores.models';
+import { AlunoRisco, Indicadores, TrilhaRecuperacao } from './indicadores.models';
 
 export const carregarIndicadores = createAction('[Indicadores] Carregar Indicadores');
 export const carregarIndicadoresSucesso = createAction(
@@ -14,6 +14,17 @@ export const carregarRiscoEvasao = createAction('[Indicadores] Carregar Risco de
 export const carregarRiscoEvasaoSucesso = createAction(
   '[Indicadores] Carregar Risco de Evasão Sucesso',
   props<{ alunosEmRisco: AlunoRisco[] }>()
+);
+
+// Trilha de recuperação (Prof. Virtual/IA) — pedida a um clique, por
+// aluno já sinalizado pelo motor de risco (ver risco-evasao acima).
+export const gerarTrilhaRecuperacao = createAction(
+  '[Indicadores] Gerar Trilha de Recuperação',
+  props<{ matricula_id: string }>()
+);
+export const gerarTrilhaRecuperacaoSucesso = createAction(
+  '[Indicadores] Gerar Trilha de Recuperação Sucesso',
+  props<{ matricula_id: string, trilha: TrilhaRecuperacao }>()
 );
 
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,

@@ -182,11 +182,12 @@
             <th class="py-2 pr-3 font-medium">Nível</th>
             <th class="py-2 pr-3 font-medium text-right">Pontuação</th>
             <th class="py-2 pr-3 font-medium">Fatores</th>
+            <th class="py-2 pr-3 font-medium">Trilha de recuperação (IA)</th>
           </tr>
         </thead>
         <tbody>
           @for (aluno of (alunosEmRisco$ | async); track aluno.matricula_id) {
-            <tr class="border-b border-slate-100">
+            <tr class="border-b border-slate-100 align-top">
               <td class="py-2 pr-3 text-slate-800 font-medium">{{ aluno.nome_aluno }}</td>
               <td class="py-2 pr-3 text-slate-600">{{ aluno.nome_turma }}</td>
               <td class="py-2 pr-3">
@@ -205,9 +206,33 @@
                   }
                 </div>
               </td>
+              <td class="py-2 pr-3 min-w-64 max-w-96">
+                @if ((trilhasPorMatricula$ | async)?.[aluno.matricula_id]; as trilha) {
+                  <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1.5 text-xs">
+                    @for (linha of linhasTrilha(trilha.conteudo); track $index) {
+                      @if (linha.tipo === 'titulo') {
+                        <p class="font-semibold text-slate-800 pt-1">{{ linha.texto }}</p>
+                      } @else if (linha.tipo === 'item') {
+                        <p class="text-slate-600 pl-2">• {{ linha.texto }}</p>
+                      } @else {
+                        <p class="text-slate-600">{{ linha.texto }}</p>
+                      }
+                    }
+                  </div>
+                  <button type="button" (click)="onGerarTrilha(aluno.matricula_id)" [disabled]="(aGerarTrilhaPorMatricula$ | async)?.[aluno.matricula_id]"
+                    class="mt-1.5 text-[11px] text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50 cursor-pointer">
+                    {{ (aGerarTrilhaPorMatricula$ | async)?.[aluno.matricula_id] ? 'A gerar…' : 'Gerar de novo' }}
+                  </button>
+                } @else {
+                  <button type="button" (click)="onGerarTrilha(aluno.matricula_id)" [disabled]="(aGerarTrilhaPorMatricula$ | async)?.[aluno.matricula_id]"
+                    class="text-xs bg-slate-700 hover:bg-slate-800 text-white font-medium py-1.5 px-3 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                    {{ (aGerarTrilhaPorMatricula$ | async)?.[aluno.matricula_id] ? 'A gerar…' : 'Gerar trilha' }}
+                  </button>
+                }
+              </td>
             </tr>
           } @empty {
-            <tr><td colspan="5" class="py-4 text-center text-slate-500">Nenhum aluno com sinais de risco no momento.</td></tr>
+            <tr><td colspan="6" class="py-4 text-center text-slate-500">Nenhum aluno com sinais de risco no momento.</td></tr>
           }
         </tbody>
       </table>
