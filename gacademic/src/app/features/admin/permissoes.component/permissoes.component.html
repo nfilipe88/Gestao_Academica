@@ -2,7 +2,7 @@
 
   <div>
     <h2 class="text-2xl font-bold text-slate-800">Mapa de Permissões</h2>
-    <p class="text-slate-500 text-sm">O que cada perfil pode fazer, módulo a módulo. Editável pelo Super Admin e pelo Gestor: escolha as operações CRUD na combobox de cada célula — a alteração fica guardada assim que seleciona.</p>
+    <p class="text-slate-500 text-sm">O que cada perfil pode fazer, módulo a módulo. Editável pelo Super Admin e pelo Gestor: abra o dropdown de cada célula e marque as operações CRUD — a alteração fica guardada assim que marca ou desmarca.</p>
   </div>
 
   @if (erro$ | async; as erro) {
@@ -76,18 +76,27 @@
               @for (perfil of perfis; track perfil.id) {
                 <td class="py-2.5 px-3 text-center align-top">
                   @if (linha.porPerfil[perfil.id]; as celula) {
-                    <div class="inline-flex flex-col items-center gap-1">
-                      <span class="text-[10px] font-semibold py-0.5 px-2 rounded-full" [ngClass]="classeResumo(celula)">
+                    <app-popover>
+                      <button popoverGatilho type="button"
+                        class="inline-flex items-center gap-1 text-[10px] font-semibold py-0.5 px-2 rounded-full cursor-pointer transition-opacity hover:opacity-80"
+                        [ngClass]="classeResumo(celula)">
                         {{ resumoTexto(celula) }}
-                      </span>
-                      <select multiple size="4"
-                        class="w-24 text-[10px] border border-slate-300 rounded-md bg-white focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        (change)="onAlterarOperacoes(celula, $event)">
+                        <svg class="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                        </svg>
+                      </button>
+                      <div popoverConteudo class="w-36 py-1">
                         @for (op of operacoes; track op.chave) {
-                          <option [value]="op.chave" [selected]="celula[op.chave]">{{ op.letra }} — {{ op.label }}</option>
+                          <label class="flex items-center gap-2 text-xs text-slate-700 py-1.5 px-3 hover:bg-slate-50 cursor-pointer">
+                            <input type="checkbox" [checked]="celula[op.chave]"
+                              (change)="onAlterarOperacao(celula, op.chave, $event)"
+                              class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <span class="w-3.5 text-slate-400 font-semibold">{{ op.letra }}</span>
+                            {{ op.label }}
+                          </label>
                         }
-                      </select>
-                    </div>
+                      </div>
+                    </app-popover>
                   }
                 </td>
               }

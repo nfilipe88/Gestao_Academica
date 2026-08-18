@@ -5,6 +5,7 @@ import { map } from 'rxjs';
 import { carregarPermissoes, atualizarPermissao } from '../../../store/permissoes/permissoes.actions';
 import { selectPermissoes, selectPermissoesError } from '../../../store/permissoes/permissoes.selector';
 import { OperacoesCrud, PerfilPermissao, PermissaoModulo } from '../../../store/permissoes/permissoes.models';
+import { PopoverComponent } from '../../../shared/components/popover/popover.component/popover.component';
 
 // Perfis fixos da plataforma (ver app/core/security.py::exigir_perfil no
 // back-end). Não confundir com "Perfis Personalizados" — uma
@@ -18,8 +19,8 @@ const PERFIS: { id: PerfilPermissao; label: string }[] = [
   { id: 'aluno_responsavel', label: 'Aluno / Resp.' },
 ];
 
-// As 4 operações que a combobox de cada célula oferece — a ordem aqui é
-// a ordem em que aparecem no <select multiple>.
+// As 4 operações que o dropdown de cada célula oferece — a ordem aqui é
+// a ordem em que aparecem no popover.
 const OPERACOES: { chave: keyof OperacoesCrud; letra: string; label: string }[] = [
   { chave: 'pode_criar', letra: 'C', label: 'Criar' },
   { chave: 'pode_ler', letra: 'R', label: 'Ler' },
@@ -35,7 +36,7 @@ interface LinhaModulo {
 
 @Component({
   selector: 'app-permissoes.component',
-  imports: [CommonModule, AsyncPipe],
+  imports: [CommonModule, AsyncPipe, PopoverComponent],
   templateUrl: './permissoes.component.html',
   styleUrl: './permissoes.component.css',
 })
@@ -70,7 +71,8 @@ export class PermissoesComponent implements OnInit {
   }
 
   // Quantas operações estão ativas nesta célula — usado só para pintar
-  // o resumo visual (verde/âmbar/cinzento), o combobox é que manda.
+  // o resumo visual (verde/âmbar/cinzento) no gatilho do dropdown; o
+  // popover é que manda no que está realmente marcado.
   contarOperacoes(celula: PermissaoModulo | undefined): number {
     if (!celula) return 0;
     return OPERACOES.filter(op => celula[op.chave]).length;
@@ -89,17 +91,18 @@ export class PermissoesComponent implements OnInit {
     return letras.length ? letras.join('') : '—';
   }
 
-  // Disparado pelo (change) do <select multiple> — sem botão "Guardar"
-  // à parte, a seleção já atualiza a célula de imediato.
-  onAlterarOperacoes(celula: PermissaoModulo, event: Event) {
-    const selecionadas = new Set(
-      Array.from((event.target as HTMLSelectElement).selectedOptions).map(o => o.value)
-    );
+  // Disparado por cada checkbox do popover — sem botão "Guardar" à
+  // parte, cada alteração já atualiza a célula de imediato. O popover
+  // fica aberto (só fecha ao clicar fora ou Escape) para permitir
+  // marcar várias operações seguidas sem reabrir.
+  onAlterarOperacao(celula: PermissaoModulo, chave: keyof OperacoesCrud, event: Event) {
+    const marcado = (event.target as HTMLInputElement).checked;
     const operacoes: OperacoesCrud = {
-      pode_criar: selecionadas.has('pode_criar'),
-      pode_ler: selecionadas.has('pode_ler'),
-      pode_atualizar: selecionadas.has('pode_atualizar'),
-      pode_apagar: selecionadas.has('pode_apagar'),
+      pode_criar: celula.pode_criar,
+      pode_ler: celula.pode_ler,
+      pode_atualizar: celula.pode_atualizar,
+      pode_apagar: celula.pode_apagar,
+      [chave]: marcado,
     };
     this.store.dispatch(atualizarPermissao({ id: celula.id, operacoes }));
   }

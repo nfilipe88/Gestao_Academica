@@ -1,0 +1,11 @@
+<div #gatilhoRef class="inline-block" (click)="alternar($event)">
+  <ng-content select="[popoverGatilho]"></ng-content>
+</div>
+
+@if (aberto) {
+  <div class="fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg"
+    [style.top.px]="posicao.top" [style.left.px]="posicao.left"
+    (click)="onConteudoClick($event)">
+    <ng-content select="[popoverConteudo]"></ng-content>
+  </div>
+}
