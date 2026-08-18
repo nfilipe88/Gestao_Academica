@@ -16,5 +16,14 @@ async def obter_indicadores(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
-    """Painel de indicadores (BI): ocupação de vagas, desempenho por turma, inadimplência/receita e funil do CRM."""
+    """Painel de indicadores (BI): ocupação de vagas, desempenho por turma, inadimplência/receita, funil do CRM e resumo de risco de evasão."""
     return await crud_indicadores.obter_indicadores(db, utilizador["tenant_id"])
+
+
+@router.get("/risco-evasao")
+async def obter_risco_evasao(
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Lista de alunos com sinais de risco de evasão (faltas, queda de notas, mensalidades em atraso), pontuados por regras e ordenados do mais para o menos arriscado."""
+    return await crud_indicadores.obter_risco_evasao(db, utilizador["tenant_id"])

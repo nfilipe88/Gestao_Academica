@@ -59,10 +59,31 @@ export interface EficienciaObjetivo {
   abaixo_da_media: boolean;
 }
 
+// Risco de evasão — pontuação por regras (ver cruds/indicadores.py::obter_risco_evasao).
+export interface ResumoRiscoEvasao {
+  total_alto: number;
+  total_medio: number;
+  total_baixo: number;
+}
+
+export interface AlunoRisco {
+  aluno_id: string;
+  matricula_id: string;
+  nome_aluno: string;
+  nome_turma: string;
+  pontuacao_risco: number;
+  nivel_risco: 'ALTO' | 'MEDIO' | 'BAIXO';
+  fatores: string[];
+  taxa_falta: number;
+  media_notas: number | null;
+  mensalidades_em_atraso: number;
+}
+
 export interface Indicadores {
   academico: ResumoAcademico;
   desempenho_por_turma: DesempenhoTurma[];
   eficiencia_por_objetivo: EficienciaObjetivo[];
   financeiro: ResumoFinanceiro;
   crm: FunilCrm;
+  risco_evasao_resumo: ResumoRiscoEvasao;
 }

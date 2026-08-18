@@ -16,8 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turma
 from app.database.models_matricula import Matricula
+from app.database.models_pessoas import Aluno
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
-from app.database.models_diario import Avaliacao, NotaAvaliacao, RegistroNota
+from app.database.models_diario import Avaliacao, NotaAvaliacao, RegistroFrequencia, RegistroNota
 from app.database.models_crm import FunilEtapa, LeadCandidato, OportunidadeCRM
 from app.cruds import financeiro as crud_financeiro
 
@@ -226,13 +227,156 @@ async def obter_eficiencia_por_objetivo(db: AsyncSession, tenant_id) -> list[dic
 
 
 # ==========================================
-# F. AGREGADO GERAL DO PAINEL
+# G. RISCO DE EVASÃO — pontuação por regras (não é Machine Learning)
+# ==========================================
+# Pesos fixos e explicáveis por sinal, somados num score 0-100 —
+# calculado on-demand a cada pedido (nunca persistido: não há
+# histórico de score a manter em dia nem risco de ficar desatualizado).
+# Isto substitui um modelo estatístico/ML por algo que o Gestor
+# consegue auditar linha a linha (ver "fatores" no retorno).
+PONTOS_FALTA_ALTA = 40      # taxa de faltas >= 25%
+PONTOS_FALTA_MEDIA = 20     # taxa de faltas >= 15%
+LIMIAR_FALTA_ALTA = 0.25
+LIMIAR_FALTA_MEDIA = 0.15
+
+PONTOS_QUEDA_NOTAS = 25
+# Queda relativa (não absoluta) entre a 1ª e a 2ª metade cronológica das
+# notas lançadas — cada escola usa a sua própria escala (0-10, 0-20...),
+# por isso comparar por percentagem evita depender dessa escala.
+LIMIAR_QUEDA_NOTAS = 0.85  # 2ª metade <= 85% da 1ª metade → queda de 15%+
+
+PONTOS_ATRASO_GRAVE = 35    # 2+ mensalidades vencidas por pagar
+PONTOS_ATRASO_LEVE = 15     # 1 mensalidade vencida por pagar
+
+LIMIAR_RISCO_ALTO = 50
+LIMIAR_RISCO_MEDIO = 25
+
+
+async def obter_risco_evasao(db: AsyncSession, tenant_id) -> list[dict]:
+    """
+    Para cada aluno com Matrícula ATIVO, cruza três sinais já existentes
+    nos módulos Diário e Financeiro — frequência, tendência de notas e
+    mensalidades em atraso — numa pontuação de risco de evasão. Só
+    devolve quem tem pelo menos 1 ponto (algum sinal de risco), ordenado
+    do mais arriscado para o menos, para o Gestor poder agir sobre a
+    lista sem ter de a filtrar primeiro.
+    """
+    matriculas = (await db.execute(
+        select(Matricula.id, Matricula.aluno_id, Aluno.nome_completo, Turma.nome_codigo)
+        .join(Aluno, Aluno.id == Matricula.aluno_id)
+        .join(Turma, Turma.id == Matricula.turma_id)
+        .where(Matricula.tenant_id == tenant_id, Matricula.status_matricula == "ATIVO")
+    )).all()
+    if not matriculas:
+        return []
+    matricula_ids = [linha.id for linha in matriculas]
+
+    # --- Sinal 1: frequência ---
+    freq_por_matricula = {
+        matricula_id: (int(soma_faltas or 0), int(soma_aulas or 0))
+        for matricula_id, soma_faltas, soma_aulas in (await db.execute(
+            select(
+                RegistroFrequencia.matricula_id,
+                func.sum(RegistroFrequencia.faltas),
+                func.sum(RegistroFrequencia.quantidade_aulas)
+            )
+            .where(RegistroFrequencia.matricula_id.in_(matricula_ids))
+            .group_by(RegistroFrequencia.matricula_id)
+        )).all()
+    }
+
+    # --- Sinal 2: tendência de notas (ordenadas cronologicamente para dividir em 2 metades) ---
+    notas_por_matricula: dict = {}
+    for matricula_id, valor_nota in (await db.execute(
+        select(RegistroNota.matricula_id, RegistroNota.valor_nota)
+        .where(RegistroNota.matricula_id.in_(matricula_ids))
+        .order_by(RegistroNota.matricula_id, RegistroNota.data_atualizacao)
+    )).all():
+        notas_por_matricula.setdefault(matricula_id, []).append(float(valor_nota))
+
+    # --- Sinal 3: mensalidades vencidas e ainda por pagar ---
+    hoje = date.today()
+    atraso_por_matricula = dict((await db.execute(
+        select(ContratoFinanceiro.matricula_id, func.count(FaturaMensalidade.id))
+        .join(FaturaMensalidade, FaturaMensalidade.contrato_id == ContratoFinanceiro.id)
+        .where(
+            ContratoFinanceiro.matricula_id.in_(matricula_ids),
+            FaturaMensalidade.status_pagamento == "PENDENTE",
+            FaturaMensalidade.data_vencimento < hoje,
+        )
+        .group_by(ContratoFinanceiro.matricula_id)
+    )).all())
+
+    resultado = []
+    for matricula_id, aluno_id, nome_aluno, nome_turma in matriculas:
+        pontos = 0
+        fatores = []
+
+        faltas, aulas = freq_por_matricula.get(matricula_id, (0, 0))
+        taxa_falta = (faltas / aulas) if aulas else 0.0
+        if taxa_falta >= LIMIAR_FALTA_ALTA:
+            pontos += PONTOS_FALTA_ALTA
+            fatores.append(f"Faltas elevadas ({round(taxa_falta * 100)}% das aulas)")
+        elif taxa_falta >= LIMIAR_FALTA_MEDIA:
+            pontos += PONTOS_FALTA_MEDIA
+            fatores.append(f"Faltas acima do normal ({round(taxa_falta * 100)}% das aulas)")
+
+        notas = notas_por_matricula.get(matricula_id, [])
+        media_notas = round(sum(notas) / len(notas), 2) if notas else None
+        if len(notas) >= 2:
+            metade = len(notas) // 2
+            media_antiga = sum(notas[:metade]) / metade
+            media_recente = sum(notas[metade:]) / (len(notas) - metade)
+            if media_antiga > 0 and media_recente <= media_antiga * LIMIAR_QUEDA_NOTAS:
+                pontos += PONTOS_QUEDA_NOTAS
+                fatores.append("Queda no rendimento escolar")
+
+        qtd_atraso = atraso_por_matricula.get(matricula_id, 0)
+        if qtd_atraso >= 2:
+            pontos += PONTOS_ATRASO_GRAVE
+            fatores.append(f"{qtd_atraso} mensalidades vencidas por pagar")
+        elif qtd_atraso == 1:
+            pontos += PONTOS_ATRASO_LEVE
+            fatores.append("1 mensalidade vencida por pagar")
+
+        if pontos == 0:
+            continue
+
+        nivel_risco = "ALTO" if pontos >= LIMIAR_RISCO_ALTO else "MEDIO" if pontos >= LIMIAR_RISCO_MEDIO else "BAIXO"
+        resultado.append({
+            "aluno_id": aluno_id,
+            "matricula_id": matricula_id,
+            "nome_aluno": nome_aluno,
+            "nome_turma": nome_turma,
+            "pontuacao_risco": min(pontos, 100),
+            "nivel_risco": nivel_risco,
+            "fatores": fatores,
+            "taxa_falta": round(taxa_falta * 100, 1),
+            "media_notas": media_notas,
+            "mensalidades_em_atraso": qtd_atraso,
+        })
+
+    resultado.sort(key=lambda linha: linha["pontuacao_risco"], reverse=True)
+    return resultado
+
+
+# ==========================================
+# H. AGREGADO GERAL DO PAINEL
 # ==========================================
 async def obter_indicadores(db: AsyncSession, tenant_id) -> dict:
+    risco_evasao = await obter_risco_evasao(db, tenant_id)
     return {
         "academico": await obter_resumo_academico(db, tenant_id),
         "desempenho_por_turma": await obter_desempenho_por_turma(db, tenant_id),
         "eficiencia_por_objetivo": await obter_eficiencia_por_objetivo(db, tenant_id),
         "financeiro": await obter_resumo_financeiro(db, tenant_id),
         "crm": await obter_funil_crm(db, tenant_id),
+        # No agregado só o resumo (a lista completa tem o seu próprio
+        # endpoint, GET /indicadores/risco-evasao, para não sobrecarregar
+        # o payload do painel principal com o detalhe de cada aluno).
+        "risco_evasao_resumo": {
+            "total_alto": sum(1 for r in risco_evasao if r["nivel_risco"] == "ALTO"),
+            "total_medio": sum(1 for r in risco_evasao if r["nivel_risco"] == "MEDIO"),
+            "total_baixo": sum(1 for r in risco_evasao if r["nivel_risco"] == "BAIXO"),
+        },
     }
