@@ -9,6 +9,7 @@ de exigir_perfil("SUPER_ADMIN") na camada de API (app/api/v1/admin.py).
 import logging
 import uuid
 from datetime import date, timedelta
+from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -17,7 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import Tenant, Usuario
 from app.database.models_pessoas import Aluno, Professor
 from app.database.models_diario import TipoAvaliacaoConfig
-from app.schemas.admin import TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
+from app.database.models_billing import AssinaturaTenant, PlanoSaaS
+from app.schemas.admin import (
+    AssinaturaTenantInput, PlanoSaaSCreate, PlanoSaaSUpdate,
+    TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
+)
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import paginar
 from app.cruds import notificacoes as crud_notificacoes
@@ -34,6 +39,19 @@ NIF_PLATAFORMA = "00000000000"
 # A partir de quantos dias antes de expirar é que a licença começa a
 # gerar alertas diários (in-app + e-mail) ao Gestor da escola e ao Super Admin.
 DIAS_ALERTA_LICENCA = 7
+
+# Sanções progressivas (dias em atraso APÓS a data de validade expirar
+# — distinto de DIAS_ALERTA_LICENCA acima, que é ANTES de expirar):
+#   0-14 dias de atraso: só alerta (ATIVO, acesso normal).
+#   15-29 dias de atraso: BLOQUEIO_PARCIAL — a escola continua a
+#     aceder normalmente (ATIVO), mas fica impedida de criar novas
+#     Matrículas/Contratos Financeiros (ver esta_bloqueado_parcialmente,
+#     chamada em cruds/matriculas.py e cruds/financeiro.py) — pressão
+#     comercial sem cortar o serviço a meio do ano letivo.
+#   30+ dias de atraso: SUSPENSA — bloqueio total (status=SUSPENSO,
+#     mesmo comportamento que já existia antes desta sanção progressiva).
+DIAS_BLOQUEIO_PARCIAL_LICENCA = 15
+DIAS_SUSPENSAO_LICENCA = 30
 
 
 async def listar_tenants(db: AsyncSession, page: int, page_size: int) -> dict:
@@ -179,12 +197,14 @@ async def _destinatarios_alerta_licenca(db: AsyncSession, tenant_id) -> list[uui
 
 async def processar_validade_licencas(db: AsyncSession, agendar_email) -> dict:
     """
-    Percorre todas as escolas com data de validade de licença definida:
-    - já expirada e ainda ATIVO -> suspende automaticamente + notifica.
-    - a expirar dentro de DIAS_ALERTA_LICENCA e ATIVO -> só alerta
-      (repete todos os dias dentro da janela — intencional, para o
-      Gestor não perder o aviso).
-    Devolve um resumo para o log/teste manual.
+    Percorre todas as escolas com data de validade de licença definida
+    e aplica a sanção progressiva correspondente aos dias em atraso
+    (ver constantes DIAS_BLOQUEIO_PARCIAL_LICENCA/DIAS_SUSPENSAO_LICENCA
+    acima) — ou o alerta pré-expiração de sempre, se ainda não expirou.
+    BLOQUEIO_PARCIAL nunca muda tenant.status (a escola continua ATIVO,
+    só perde a capacidade de criar Matrículas/Contratos — ver
+    esta_bloqueado_parcialmente); só a suspensão aos 30 dias muda o
+    status. Devolve um resumo para o log/teste manual.
     """
     hoje = date.today()
     limite_alerta = hoje + timedelta(days=DIAS_ALERTA_LICENCA)
@@ -197,7 +217,7 @@ async def processar_validade_licencas(db: AsyncSession, agendar_email) -> dict:
         )
     )).scalars().all()
 
-    resumo = {"suspensos": 0, "alertados": 0}
+    resumo = {"suspensos": 0, "bloqueados_parcial": 0, "alertados": 0}
 
     for tenant in tenants:
         destinatarios = await _destinatarios_alerta_licenca(db, tenant.id)
@@ -205,13 +225,27 @@ async def processar_validade_licencas(db: AsyncSession, agendar_email) -> dict:
             select(Usuario.email).where(Usuario.id.in_(destinatarios))
         )).scalars().all() if destinatarios else []
 
-        if tenant.data_validade_licenca < hoje:
+        dias_atraso = (hoje - tenant.data_validade_licenca).days  # negativo = ainda não expirou
+
+        if dias_atraso >= DIAS_SUSPENSAO_LICENCA:
             tenant.status = "SUSPENSO"
-            titulo = "Licença expirada — acesso suspenso"
-            mensagem = f"A licença de {tenant.nome_fantasia} expirou em {tenant.data_validade_licenca.strftime('%d/%m/%Y')} e o acesso foi automaticamente suspenso."
+            titulo = "Licença expirada há 30+ dias — acesso suspenso"
+            mensagem = f"A licença de {tenant.nome_fantasia} está por regularizar há {dias_atraso} dias e o acesso foi automaticamente suspenso."
             resumo["suspensos"] += 1
+        elif dias_atraso >= DIAS_BLOQUEIO_PARCIAL_LICENCA:
+            titulo = "Licença vencida há 15+ dias — novas matrículas bloqueadas"
+            mensagem = (
+                f"A licença de {tenant.nome_fantasia} está por regularizar há {dias_atraso} dias. "
+                f"O acesso continua normal, mas não é possível criar novas Matrículas ou Contratos Financeiros até regularizar — "
+                f"a partir de {DIAS_SUSPENSAO_LICENCA} dias em atraso o acesso é suspenso na totalidade."
+            )
+            resumo["bloqueados_parcial"] += 1
+        elif dias_atraso >= 0:
+            titulo = "Licença vencida"
+            mensagem = f"A licença de {tenant.nome_fantasia} venceu há {dias_atraso} dia(s). Regularize a situação para evitar restrições de acesso."
+            resumo["alertados"] += 1
         elif tenant.data_validade_licenca <= limite_alerta:
-            dias_restantes = (tenant.data_validade_licenca - hoje).days
+            dias_restantes = -dias_atraso
             titulo = "Licença a expirar em breve"
             mensagem = f"A licença de {tenant.nome_fantasia} expira em {tenant.data_validade_licenca.strftime('%d/%m/%Y')} ({dias_restantes} dia(s))."
             resumo["alertados"] += 1
@@ -234,3 +268,140 @@ async def processar_validade_licencas(db: AsyncSession, agendar_email) -> dict:
                 await agendar_email(enviar_email, destinatario=email, assunto=titulo, corpo_html=template_base(titulo, f"<p>{mensagem}</p>"))
 
     return resumo
+
+
+async def esta_bloqueado_parcialmente(db: AsyncSession, tenant_id) -> bool:
+    """
+    Chamado por cruds/matriculas.py::criar_matricula e
+    cruds/financeiro.py::criar_contrato antes de criar o registo — ver
+    DIAS_BLOQUEIO_PARCIAL_LICENCA acima. Calculado on-the-fly a partir
+    de Tenant.data_validade_licenca (nunca persistido à parte, mesmo
+    princípio do cálculo de juros/multa em cruds/financeiro.py::calcular_situacao_fatura)
+    para nunca poder ficar dessincronizado da data real.
+    """
+    validade = (await db.execute(
+        select(Tenant.data_validade_licenca).where(Tenant.id == tenant_id)
+    )).scalar_one_or_none()
+    if not validade:
+        return False
+    return (date.today() - validade).days >= DIAS_BLOQUEIO_PARCIAL_LICENCA
+
+
+# ==========================================
+# SAAS BILLING — Planos e Assinaturas
+# ==========================================
+async def listar_planos(db: AsyncSession) -> list[PlanoSaaS]:
+    return (await db.execute(select(PlanoSaaS).order_by(PlanoSaaS.preco_mensal))).scalars().all()
+
+
+async def criar_plano(db: AsyncSession, dados: PlanoSaaSCreate) -> PlanoSaaS:
+    ja_existe = (await db.execute(select(PlanoSaaS).where(PlanoSaaS.nome == dados.nome))).scalars().first()
+    if ja_existe:
+        raise HTTPException(status_code=400, detail="Já existe um plano com este nome.")
+
+    novo = PlanoSaaS(
+        nome=dados.nome.strip(), preco_mensal=dados.preco_mensal,
+        limite_alunos=dados.limite_alunos, descricao=dados.descricao
+    )
+    db.add(novo)
+    await db.commit()
+    await db.refresh(novo)
+    return novo
+
+
+async def _obter_plano(db: AsyncSession, plano_id: uuid.UUID) -> PlanoSaaS:
+    plano = (await db.execute(select(PlanoSaaS).where(PlanoSaaS.id == plano_id))).scalars().first()
+    if not plano:
+        raise HTTPException(status_code=404, detail="Plano não encontrado.")
+    return plano
+
+
+async def atualizar_plano(db: AsyncSession, plano_id: uuid.UUID, dados: PlanoSaaSUpdate) -> PlanoSaaS:
+    plano = await _obter_plano(db, plano_id)
+    duplicado = (await db.execute(
+        select(PlanoSaaS).where(PlanoSaaS.nome == dados.nome, PlanoSaaS.id != plano_id)
+    )).scalars().first()
+    if duplicado:
+        raise HTTPException(status_code=400, detail="Já existe um plano com este nome.")
+
+    plano.nome = dados.nome.strip()
+    plano.preco_mensal = dados.preco_mensal
+    plano.limite_alunos = dados.limite_alunos
+    plano.descricao = dados.descricao
+    plano.ativo = dados.ativo
+    await db.commit()
+    await db.refresh(plano)
+    return plano
+
+
+async def apagar_plano(db: AsyncSession, plano_id: uuid.UUID) -> None:
+    plano = await _obter_plano(db, plano_id)
+    em_uso = (await db.execute(select(AssinaturaTenant).where(AssinaturaTenant.plano_id == plano_id))).scalars().first()
+    if em_uso:
+        raise HTTPException(status_code=400, detail="Este plano tem escolas assinadas — desative-o em vez de apagar.")
+    await db.delete(plano)
+    await db.commit()
+
+
+async def obter_assinatura_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> dict | None:
+    linha = (await db.execute(
+        select(AssinaturaTenant, PlanoSaaS.nome, PlanoSaaS.preco_mensal)
+        .join(PlanoSaaS, PlanoSaaS.id == AssinaturaTenant.plano_id)
+        .where(AssinaturaTenant.tenant_id == tenant_id)
+    )).first()
+    if not linha:
+        return None
+    assinatura, nome_plano, preco_mensal = linha
+    return {
+        "id": assinatura.id, "plano_id": assinatura.plano_id, "nome_plano": nome_plano, "preco_mensal": preco_mensal,
+        "data_inicio": assinatura.data_inicio, "proxima_cobranca": assinatura.proxima_cobranca, "status": assinatura.status,
+    }
+
+
+async def definir_assinatura_tenant(db: AsyncSession, tenant_id: uuid.UUID, dados: AssinaturaTenantInput) -> dict:
+    """Upsert: associa (ou troca) o plano da escola — não guarda histórico de planos anteriores nesta primeira versão."""
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Instituição não encontrada.")
+    await _obter_plano(db, dados.plano_id)  # 404 se o plano não existir
+
+    existente = (await db.execute(select(AssinaturaTenant).where(AssinaturaTenant.tenant_id == tenant_id))).scalars().first()
+    if existente:
+        existente.plano_id = dados.plano_id
+        existente.proxima_cobranca = dados.proxima_cobranca
+        existente.status = "ATIVA"
+    else:
+        db.add(AssinaturaTenant(
+            tenant_id=tenant_id, plano_id=dados.plano_id,
+            data_inicio=date.today(), proxima_cobranca=dados.proxima_cobranca, status="ATIVA"
+        ))
+    await db.commit()
+    return await obter_assinatura_tenant(db, tenant_id)
+
+
+async def cancelar_assinatura_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> None:
+    assinatura = (await db.execute(select(AssinaturaTenant).where(AssinaturaTenant.tenant_id == tenant_id))).scalars().first()
+    if not assinatura:
+        raise HTTPException(status_code=404, detail="Esta escola não tem assinatura.")
+    assinatura.status = "CANCELADA"
+    await db.commit()
+
+
+async def obter_resumo_mrr(db: AsyncSession) -> dict:
+    """MRR (receita mensal recorrente) = soma dos preços dos planos das assinaturas ATIVA — cálculo simples, sem pro-rata."""
+    linhas = (await db.execute(
+        select(PlanoSaaS.nome, PlanoSaaS.preco_mensal, func.count(AssinaturaTenant.id))
+        .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoSaaS.id)
+        .where(AssinaturaTenant.status == "ATIVA")
+        .group_by(PlanoSaaS.nome, PlanoSaaS.preco_mensal)
+    )).all()
+
+    por_plano = [
+        {"nome_plano": nome, "preco_mensal": preco, "total_assinaturas": total, "receita_mensal": preco * total}
+        for nome, preco, total in linhas
+    ]
+    return {
+        "mrr": sum((p["receita_mensal"] for p in por_plano), Decimal("0.00")),
+        "total_assinaturas_ativas": sum(p["total_assinaturas"] for p in por_plano),
+        "por_plano": por_plano,
+    }

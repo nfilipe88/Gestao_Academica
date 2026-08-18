@@ -79,6 +79,7 @@
             <th class="py-3 px-6 font-medium">Estado</th>
             <th class="py-3 px-6 font-medium">Validade da Licença</th>
             <th class="py-3 px-6 font-medium text-right">Acessos</th>
+            <th class="py-3 px-6 font-medium text-right">Assinatura</th>
             <th class="py-3 px-6 font-medium text-right">Ação</th>
           </tr>
         </thead>
@@ -106,7 +107,11 @@
                     class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">Guardar</button>
                 </div>
                 @if (diasAteExpirar(tenant.data_validade_licenca); as info) {
-                  @if (info.dias < 0) {
+                  @if (info.dias < 0 && -info.dias >= 30) {
+                    <p class="text-xs text-rose-600 mt-1">Suspensa — {{ -info.dias }} dia(s) em atraso</p>
+                  } @else if (info.dias < 0 && -info.dias >= 15) {
+                    <p class="text-xs text-amber-700 mt-1">Bloqueio parcial — novas matrículas/contratos bloqueados</p>
+                  } @else if (info.dias < 0) {
                     <p class="text-xs text-rose-600 mt-1">Expirou há {{ -info.dias }} dia(s)</p>
                   } @else if (info.dias <= 7) {
                     <p class="text-xs text-amber-600 mt-1">Expira em {{ info.dias }} dia(s)</p>
@@ -119,6 +124,14 @@
                   [class.bg-blue-100]="usuariosDoTenantId !== tenant.id" [class.text-blue-700]="usuariosDoTenantId !== tenant.id" [class.hover:bg-blue-200]="usuariosDoTenantId !== tenant.id"
                   [class.bg-slate-200]="usuariosDoTenantId === tenant.id" [class.text-slate-700]="usuariosDoTenantId === tenant.id">
                   {{ usuariosDoTenantId === tenant.id ? 'Fechar' : 'Gerir Acessos' }}
+                </button>
+              </td>
+              <td class="py-3 px-6 text-right">
+                <button type="button" (click)="onAlternarAssinatura(tenant.id)"
+                  class="text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
+                  [class.bg-violet-100]="assinaturaDoTenantId !== tenant.id" [class.text-violet-700]="assinaturaDoTenantId !== tenant.id" [class.hover:bg-violet-200]="assinaturaDoTenantId !== tenant.id"
+                  [class.bg-slate-200]="assinaturaDoTenantId === tenant.id" [class.text-slate-700]="assinaturaDoTenantId === tenant.id">
+                  {{ assinaturaDoTenantId === tenant.id ? 'Fechar' : 'Assinatura' }}
                 </button>
               </td>
               <td class="py-3 px-6 text-right">
@@ -146,7 +159,7 @@
             </tr>
             @if (usuariosDoTenantId === tenant.id) {
               <tr class="border-b border-slate-100 bg-slate-50/60">
-                <td colspan="9" class="p-4">
+                <td colspan="10" class="p-4">
 
                   @if (erroUsuarios$ | async; as erroU) {
                     <div class="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-xs text-rose-700">{{ erroU }}</div>
@@ -248,8 +261,51 @@
                 </td>
               </tr>
             }
+            @if (assinaturaDoTenantId === tenant.id) {
+              <tr class="border-b border-slate-100 bg-violet-50/40">
+                <td colspan="10" class="p-4">
+                  <h4 class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Assinatura de {{ tenant.nome_fantasia }}</h4>
+                  @if ((assinaturasPorTenant$ | async)?.[tenant.id]; as assinatura) {
+                    <div class="flex items-center gap-4 text-sm mb-3">
+                      <span class="text-slate-800 font-medium">{{ assinatura.nome_plano }}</span>
+                      <span class="text-slate-500">{{ assinatura.preco_mensal | number:'1.2-2' }}/mês</span>
+                      <span class="text-slate-500">Próxima cobrança: {{ assinatura.proxima_cobranca | date:'dd/MM/yyyy' }}</span>
+                      <span class="text-xs font-medium py-1 px-3 rounded-full"
+                        [class.bg-emerald-100]="assinatura.status === 'ATIVA'" [class.text-emerald-700]="assinatura.status === 'ATIVA'"
+                        [class.bg-slate-200]="assinatura.status === 'CANCELADA'" [class.text-slate-600]="assinatura.status === 'CANCELADA'">
+                        {{ assinatura.status }}
+                      </span>
+                      @if (assinatura.status === 'ATIVA') {
+                        <button type="button" (click)="onCancelarAssinatura(tenant.id)"
+                          class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Cancelar assinatura</button>
+                      }
+                    </div>
+                  } @else {
+                    <p class="text-sm text-slate-400 mb-3">Esta escola ainda não tem plano atribuído.</p>
+                  }
+                  <div class="flex items-end gap-2">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-500 mb-1">Plano</label>
+                      <select #planoSelect class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800">
+                        @for (p of (planosAtivos$ | async); track p.id) {
+                          <option [value]="p.id">{{ p.nome }} — {{ p.preco_mensal | number:'1.2-2' }}/mês</option>
+                        }
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-500 mb-1">Próxima cobrança</label>
+                      <input type="date" #proximaCobrancaInput class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800" />
+                    </div>
+                    <button type="button" (click)="onDefinirAssinatura(tenant.id, planoSelect.value, proximaCobrancaInput.value)"
+                      class="text-xs bg-violet-600 hover:bg-violet-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
+                      Atribuir plano
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
           } @empty {
-            <tr><td colspan="9" class="py-8 text-center text-slate-500">Nenhuma instituição registada na plataforma.</td></tr>
+            <tr><td colspan="10" class="py-8 text-center text-slate-500">Nenhuma instituição registada na plataforma.</td></tr>
           }
         </tbody>
       </table>
@@ -257,6 +313,118 @@
     @if (paginacaoTenants$ | async; as paginacao) {
       <app-paginacao [estado]="paginacao" (paginaChange)="onPaginaTenants($event)" (tamanhoChange)="onTamanhoTenants($event)"></app-paginacao>
     }
+  </div>
+
+  <div>
+    <div class="flex items-center justify-between mb-1">
+      <h3 class="text-lg font-bold text-slate-800">Planos &amp; Faturação SaaS</h3>
+      <button type="button" (click)="alternarFormularioPlano()"
+        class="text-sm bg-violet-600 hover:bg-violet-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+        {{ mostrarFormularioPlano ? 'Cancelar' : '+ Novo Plano' }}
+      </button>
+    </div>
+    <p class="text-slate-500 text-sm mb-4">Catálogo de planos comerciais e receita mensal recorrente (MRR) da plataforma.</p>
+
+    @if (mrr$ | async; as mrr) {
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-5">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wide">MRR total</p>
+          <p class="text-2xl font-bold text-slate-800 mt-1">{{ mrr.mrr | number:'1.2-2' }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-5">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wide">Assinaturas ativas</p>
+          <p class="text-2xl font-bold text-slate-800 mt-1">{{ mrr.total_assinaturas_ativas }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-5">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Por plano</p>
+          @for (pp of mrr.por_plano; track pp.nome_plano) {
+            <p class="text-xs text-slate-600">{{ pp.nome_plano }}: {{ pp.total_assinaturas }} × {{ pp.preco_mensal | number:'1.2-2' }} = {{ pp.receita_mensal | number:'1.2-2' }}</p>
+          } @empty {
+            <p class="text-xs text-slate-400">Sem assinaturas ativas.</p>
+          }
+        </div>
+      </div>
+    }
+
+    @if (mostrarFormularioPlano) {
+      <form [formGroup]="planoForm" (ngSubmit)="onGuardarPlano()"
+        class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4 mb-4">
+        <h4 class="text-sm font-semibold text-slate-800">{{ planoAEditar ? 'Editar Plano' : 'Novo Plano' }}</h4>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Nome</label>
+            <input type="text" formControlName="nome" placeholder="Ex: Bronze"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Preço mensal</label>
+            <input type="number" step="0.01" formControlName="preco_mensal"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Limite de alunos</label>
+            <input type="number" formControlName="limite_alunos" placeholder="Sem limite"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Descrição</label>
+            <input type="text" formControlName="descricao"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+          </div>
+        </div>
+        <button type="submit" [disabled]="planoForm.invalid"
+          class="bg-violet-600 hover:bg-violet-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+          {{ planoAEditar ? 'Guardar Alterações' : 'Criar Plano' }}
+        </button>
+      </form>
+    }
+
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-x-auto">
+      <table class="w-full text-left border-collapse text-sm">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
+            <th class="py-3 px-6 font-medium">Nome</th>
+            <th class="py-3 px-6 font-medium text-right">Preço mensal</th>
+            <th class="py-3 px-6 font-medium text-right">Limite de alunos</th>
+            <th class="py-3 px-6 font-medium">Descrição</th>
+            <th class="py-3 px-6 font-medium">Estado</th>
+            <th class="py-3 px-6 font-medium text-right">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (plano of (planos$ | async); track plano.id) {
+            <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <td class="py-3 px-6 text-slate-800 font-medium">{{ plano.nome }}</td>
+              <td class="py-3 px-6 text-slate-600 text-right">{{ plano.preco_mensal | number:'1.2-2' }}</td>
+              <td class="py-3 px-6 text-slate-600 text-right">{{ plano.limite_alunos ?? 'Sem limite' }}</td>
+              <td class="py-3 px-6 text-slate-600">{{ plano.descricao || '—' }}</td>
+              <td class="py-3 px-6">
+                <span class="text-xs font-medium py-1 px-3 rounded-full"
+                  [class.bg-emerald-100]="plano.ativo" [class.text-emerald-700]="plano.ativo"
+                  [class.bg-slate-100]="!plano.ativo" [class.text-slate-500]="!plano.ativo">
+                  {{ plano.ativo ? 'Ativo' : 'Inativo' }}
+                </span>
+              </td>
+              <td class="py-3 px-6 text-right space-x-2 whitespace-nowrap">
+                <button type="button" (click)="onEditarPlano(plano)" class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">Editar</button>
+                <button type="button" (click)="onAlternarAtivoPlano(plano)" class="text-xs text-amber-600 hover:text-amber-800 font-medium cursor-pointer">
+                  {{ plano.ativo ? 'Desativar' : 'Ativar' }}
+                </button>
+                @if (planoAApagarId === plano.id) {
+                  <span class="text-xs text-rose-600">Apagar?</span>
+                  <button type="button" (click)="onConfirmarApagarPlano(plano.id)" class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
+                  <button type="button" (click)="onCancelarApagarPlano()" class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Não</button>
+                } @else {
+                  <button type="button" (click)="onPedirApagarPlano(plano.id)" class="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer">Apagar</button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="py-8 text-center text-slate-500">Nenhum plano criado ainda.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div>

@@ -11,6 +11,7 @@ from app.database.models_pessoas import Aluno
 from app.database.models_matricula import Matricula
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.schemas.matriculas import MatriculaCreate, MatriculaStatusUpdate
+from app.cruds.admin import esta_bloqueado_parcialmente
 
 ESTADOS_VALIDOS = {"ATIVO", "TRANSFERIDO", "TRANCADO", "EVADIDO"}
 
@@ -57,6 +58,16 @@ async def _tem_mensalidade_em_atraso_de_ano_anterior(db: AsyncSession, tenant_id
 
 async def criar_matricula(db: AsyncSession, tenant_id, dados: MatriculaCreate) -> Matricula:
     """Efetua a matrícula de um aluno numa turma, aplicando as regras de negócio RN01-RN05."""
+    # Sanção progressiva do Super Admin (licença vencida há 15+ dias) —
+    # ver app/cruds/admin.py::esta_bloqueado_parcialmente. Verificado
+    # primeiro, antes de qualquer outra validação: não faz sentido
+    # gastar uma consulta a validar aluno/turma só para bloquear no fim.
+    if await esta_bloqueado_parcialmente(db, tenant_id):
+        raise HTTPException(
+            status_code=403,
+            detail="A licença desta escola está vencida há mais de 15 dias — novas matrículas ficam bloqueadas até regularizar a situação junto do Super Admin."
+        )
+
     # RN01 + RN05 - Isolamento de tenant e integridade: aluno e turma têm
     # de existir e pertencer à mesma escola do utilizador.
     aluno = (await db.execute(

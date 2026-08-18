@@ -1,7 +1,9 @@
 """Schemas Pydantic do Painel Super Admin."""
 from datetime import date
+from decimal import Decimal
+import uuid
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class TenantStatusUpdate(BaseModel):
@@ -22,3 +24,32 @@ class TenantCreateAdmin(BaseModel):
     nome_gestor: str = Field(..., example="João Silva")
     email_gestor: EmailStr = Field(..., example="joao.silva@colegiofuturo.pt")
     palavra_passe: str = Field(..., min_length=8, example="SenhaSegura123!")
+
+
+# ==========================================
+# SAAS BILLING — Planos e Assinaturas
+# ==========================================
+class PlanoSaaSCreate(BaseModel):
+    nome: str
+    preco_mensal: Decimal
+    limite_alunos: int | None = None
+    descricao: str | None = None
+
+    @model_validator(mode="after")
+    def _validar(self):
+        if not self.nome.strip():
+            raise ValueError("nome é obrigatório.")
+        if self.preco_mensal < 0:
+            raise ValueError("preco_mensal não pode ser negativo.")
+        if self.limite_alunos is not None and self.limite_alunos <= 0:
+            raise ValueError("limite_alunos, se definido, tem de ser maior que zero.")
+        return self
+
+
+class PlanoSaaSUpdate(PlanoSaaSCreate):
+    ativo: bool = True
+
+
+class AssinaturaTenantInput(BaseModel):
+    plano_id: uuid.UUID
+    proxima_cobranca: date

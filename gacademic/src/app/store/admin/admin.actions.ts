@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { StatusTenant, TenantResumo } from './admin.models';
+import { AssinaturaTenant, PlanoSaaS, ResumoMrr, StatusTenant, TenantResumo } from './admin.models';
 import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
 export const carregarTenants = createAction(
@@ -43,4 +43,51 @@ export const adminOperacaoSucesso = createAction(
 export const adminOperacaoFalhou = createAction(
   '[Admin API] Operação Falhou',
   props<{ erro: string }>()
+);
+
+// ==========================================
+// SAAS BILLING — Planos, Assinaturas e MRR
+// ==========================================
+
+export const carregarPlanos = createAction('[Admin] Carregar Planos');
+export const carregarPlanosSucesso = createAction(
+  '[Admin] Carregar Planos Sucesso',
+  props<{ planos: PlanoSaaS[] }>()
+);
+
+export const criarPlano = createAction(
+  '[Admin] Criar Plano',
+  props<{ nome: string; preco_mensal: number; limite_alunos: number | null; descricao: string | null }>()
+);
+
+export const atualizarPlano = createAction(
+  '[Admin] Atualizar Plano',
+  props<{ id: string; nome: string; preco_mensal: number; limite_alunos: number | null; descricao: string | null; ativo: boolean }>()
+);
+
+export const apagarPlano = createAction('[Admin] Apagar Plano', props<{ id: string }>());
+
+export const carregarMrr = createAction('[Admin] Carregar MRR');
+export const carregarMrrSucesso = createAction(
+  '[Admin] Carregar MRR Sucesso',
+  props<{ mrr: ResumoMrr }>()
+);
+
+export const carregarAssinaturaTenant = createAction(
+  '[Admin] Carregar Assinatura Tenant',
+  props<{ tenant_id: string }>()
+);
+export const carregarAssinaturaTenantSucesso = createAction(
+  '[Admin] Carregar Assinatura Tenant Sucesso',
+  props<{ tenant_id: string; assinatura: AssinaturaTenant | null }>()
+);
+
+export const definirAssinaturaTenant = createAction(
+  '[Admin] Definir Assinatura Tenant',
+  props<{ tenant_id: string; plano_id: string; proxima_cobranca: string }>()
+);
+
+export const cancelarAssinaturaTenant = createAction(
+  '[Admin] Cancelar Assinatura Tenant',
+  props<{ tenant_id: string }>()
 );

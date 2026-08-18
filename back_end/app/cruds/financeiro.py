@@ -27,6 +27,7 @@ from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.core.email import enviar_email, template_base
 from app.core import paypal
 from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, FaturaMarcarPago, GerarCobrancaRequest
+from app.cruds.admin import esta_bloqueado_parcialmente
 
 logger = logging.getLogger("financeiro")
 
@@ -230,6 +231,14 @@ async def criar_contrato(db: AsyncSession, tenant_id, dados: ContratoCreate) -> 
     não custa nada (só o pedido ao gateway, em gerar_cobranca), gerá-las
     já no ato da assinatura não tem esse custo.
     """
+    # Sanção progressiva do Super Admin (licença vencida há 15+ dias) —
+    # ver app/cruds/admin.py::esta_bloqueado_parcialmente.
+    if await esta_bloqueado_parcialmente(db, tenant_id):
+        raise HTTPException(
+            status_code=403,
+            detail="A licença desta escola está vencida há mais de 15 dias — novos contratos financeiros ficam bloqueados até regularizar a situação junto do Super Admin."
+        )
+
     if dados.quantidade_parcelas < 1 or dados.quantidade_parcelas > 36:
         raise HTTPException(status_code=400, detail="Quantidade de parcelas deve estar entre 1 e 36.")
     if not (1 <= dados.dia_vencimento_padrao <= 28):

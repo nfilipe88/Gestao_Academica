@@ -5,7 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db_admin
 from app.core.security import exigir_perfil
-from app.schemas.admin import TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
+from app.schemas.admin import (
+    AssinaturaTenantInput, PlanoSaaSCreate, PlanoSaaSUpdate,
+    TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
+)
 from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
 from app.core.email import enviar_email, template_base
 from app.cruds import admin as crud_admin
@@ -101,6 +104,85 @@ async def processar_validade_licencas(
     agendar_email = await _via_background_tasks(background_tasks)
     resumo = await crud_admin.processar_validade_licencas(db, agendar_email)
     return {"mensagem": "Validade de licenças processada.", **resumo}
+
+
+# ==========================================
+# SAAS BILLING — Planos, Assinaturas e MRR
+# ==========================================
+@router.get("/planos")
+async def listar_planos(
+    db: AsyncSession = Depends(obter_sessao_db_admin),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Catálogo de planos comerciais (ex.: Bronze/Prata/Ouro)."""
+    return await crud_admin.listar_planos(db)
+
+
+@router.post("/planos", status_code=201)
+async def criar_plano(
+    dados: PlanoSaaSCreate,
+    db: AsyncSession = Depends(obter_sessao_db_admin),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    return await crud_admin.criar_plano(db, dados)
+
+
+@router.patch("/planos/{plano_id}")
+async def atualizar_plano(
+    plano_id: uuid.UUID,
+    dados: PlanoSaaSUpdate,
+    db: AsyncSession = Depends(obter_sessao_db_admin),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    return await crud_admin.atualizar_plano(db, plano_id, dados)
+
+
+@router.delete("/planos/{plano_id}", status_code=204)
+async def apagar_plano(
+    plano_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db_admin),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    await crud_admin.apagar_plano(db, plano_id)
+
+
+@router.get("/mrr")
+async def obter_resumo_mrr(
+    db: AsyncSession = Depends(obter_sessao_db_admin),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Receita mensal recorrente — soma dos preços dos planos das assinaturas ativas, por plano e total."""
+    return await crud_admin.obter_resumo_mrr(db)
+
+
+@router.get("/tenants/{tenant_id}/assinatura")
+async def obter_assinatura_tenant(
+    tenant_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db_admin),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    assinatura = await crud_admin.obter_assinatura_tenant(db, tenant_id)
+    return assinatura or {}
+
+
+@router.put("/tenants/{tenant_id}/assinatura")
+async def definir_assinatura_tenant(
+    tenant_id: uuid.UUID,
+    dados: AssinaturaTenantInput,
+    db: AsyncSession = Depends(obter_sessao_db_admin),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Associa (ou troca) o plano comercial desta escola."""
+    return await crud_admin.definir_assinatura_tenant(db, tenant_id, dados)
+
+
+@router.delete("/tenants/{tenant_id}/assinatura", status_code=204)
+async def cancelar_assinatura_tenant(
+    tenant_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db_admin),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    await crud_admin.cancelar_assinatura_tenant(db, tenant_id)
 
 
 # ==========================================

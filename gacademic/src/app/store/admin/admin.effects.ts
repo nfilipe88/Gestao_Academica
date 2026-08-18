@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as AdminActions from './admin.actions';
-import { TenantResumo } from './admin.models';
+import { AssinaturaTenant, PlanoSaaS, ResumoMrr, TenantResumo } from './admin.models';
 import { PaginaResultado } from '../../shared/models/paginacao.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
@@ -94,6 +94,134 @@ export class AdminEffects {
         ]),
         catchError(err => of(AdminActions.adminOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível processar a validade das licenças.'
+        })))
+      ))
+    )
+  );
+
+  // ==========================================
+  // SAAS BILLING — Planos, Assinaturas e MRR
+  // ==========================================
+
+  carregarPlanos$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.carregarPlanos),
+      switchMap(() => this.http.get<PlanoSaaS[]>('/api/v1/admin/planos').pipe(
+        map(planos => AdminActions.carregarPlanosSucesso({ planos })),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os planos.'
+        })))
+      ))
+    )
+  );
+
+  criarPlano$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.criarPlano),
+      switchMap(action => this.http.post<PlanoSaaS>('/api/v1/admin/planos', {
+        nome: action.nome, preco_mensal: action.preco_mensal,
+        limite_alunos: action.limite_alunos, descricao: action.descricao
+      }).pipe(
+        switchMap(plano => [
+          AdminActions.carregarPlanos(),
+          AdminActions.adminOperacaoSucesso({ mensagem: `Plano "${plano.nome}" criado.` })
+        ]),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível criar o plano.'
+        })))
+      ))
+    )
+  );
+
+  atualizarPlano$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.atualizarPlano),
+      switchMap(action => this.http.patch<PlanoSaaS>(`/api/v1/admin/planos/${action.id}`, {
+        nome: action.nome, preco_mensal: action.preco_mensal,
+        limite_alunos: action.limite_alunos, descricao: action.descricao, ativo: action.ativo
+      }).pipe(
+        switchMap(plano => [
+          AdminActions.carregarPlanos(),
+          AdminActions.adminOperacaoSucesso({ mensagem: `Plano "${plano.nome}" atualizado.` })
+        ]),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível atualizar o plano.'
+        })))
+      ))
+    )
+  );
+
+  apagarPlano$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.apagarPlano),
+      switchMap(action => this.http.delete<void>(`/api/v1/admin/planos/${action.id}`).pipe(
+        switchMap(() => [
+          AdminActions.carregarPlanos(),
+          AdminActions.adminOperacaoSucesso({ mensagem: 'Plano apagado.' })
+        ]),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível apagar o plano.'
+        })))
+      ))
+    )
+  );
+
+  carregarMrr$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.carregarMrr),
+      switchMap(() => this.http.get<ResumoMrr>('/api/v1/admin/mrr').pipe(
+        map(mrr => AdminActions.carregarMrrSucesso({ mrr })),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar o resumo de MRR.'
+        })))
+      ))
+    )
+  );
+
+  carregarAssinaturaTenant$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.carregarAssinaturaTenant),
+      switchMap(action => this.http.get<Partial<AssinaturaTenant>>(`/api/v1/admin/tenants/${action.tenant_id}/assinatura`).pipe(
+        map(resp => AdminActions.carregarAssinaturaTenantSucesso({
+          tenant_id: action.tenant_id,
+          assinatura: resp && resp.id ? resp as AssinaturaTenant : null
+        })),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar a assinatura desta escola.'
+        })))
+      ))
+    )
+  );
+
+  definirAssinaturaTenant$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.definirAssinaturaTenant),
+      switchMap(action => this.http.put<AssinaturaTenant>(`/api/v1/admin/tenants/${action.tenant_id}/assinatura`, {
+        plano_id: action.plano_id, proxima_cobranca: action.proxima_cobranca
+      }).pipe(
+        switchMap(assinatura => [
+          AdminActions.carregarAssinaturaTenantSucesso({ tenant_id: action.tenant_id, assinatura }),
+          AdminActions.carregarMrr(),
+          AdminActions.adminOperacaoSucesso({ mensagem: 'Assinatura atualizada.' })
+        ]),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível definir a assinatura desta escola.'
+        })))
+      ))
+    )
+  );
+
+  cancelarAssinaturaTenant$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.cancelarAssinaturaTenant),
+      switchMap(action => this.http.delete<void>(`/api/v1/admin/tenants/${action.tenant_id}/assinatura`).pipe(
+        switchMap(() => [
+          AdminActions.carregarAssinaturaTenant({ tenant_id: action.tenant_id }),
+          AdminActions.carregarMrr(),
+          AdminActions.adminOperacaoSucesso({ mensagem: 'Assinatura cancelada.' })
+        ]),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível cancelar a assinatura desta escola.'
         })))
       ))
     )

@@ -1,6 +1,6 @@
 import { createReducer, on } from '@ngrx/store';
 import * as AdminActions from './admin.actions';
-import { TenantResumo } from './admin.models';
+import { AssinaturaTenant, PlanoSaaS, ResumoMrr, TenantResumo } from './admin.models';
 import { EstadoPaginacao, PAGINACAO_INICIAL } from '../../shared/models/paginacao.models';
 
 export interface AdminState {
@@ -8,13 +8,20 @@ export interface AdminState {
   paginacaoTenants: EstadoPaginacao;
   mensagem: string | null;
   erro: string | null;
+  planos: PlanoSaaS[];
+  mrr: ResumoMrr | null;
+  // Assinatura da escola atualmente a ser vista/editada no painel de tenants.
+  assinaturasPorTenant: Record<string, AssinaturaTenant | null>;
 }
 
 export const initialState: AdminState = {
   tenants: [],
   paginacaoTenants: PAGINACAO_INICIAL,
   mensagem: null,
-  erro: null
+  erro: null,
+  planos: [],
+  mrr: null,
+  assinaturasPorTenant: {}
 };
 
 export const adminReducer = createReducer(
@@ -24,5 +31,12 @@ export const adminReducer = createReducer(
   ),
   on(AdminActions.carregarTenantsSucesso, (state, { tenants, paginacao }) => ({ ...state, tenants, paginacaoTenants: paginacao })),
   on(AdminActions.adminOperacaoSucesso, (state, { mensagem }) => ({ ...state, mensagem })),
-  on(AdminActions.adminOperacaoFalhou, (state, { erro }) => ({ ...state, erro }))
+  on(AdminActions.adminOperacaoFalhou, (state, { erro }) => ({ ...state, erro })),
+
+  on(AdminActions.carregarPlanosSucesso, (state, { planos }) => ({ ...state, planos })),
+  on(AdminActions.carregarMrrSucesso, (state, { mrr }) => ({ ...state, mrr })),
+  on(AdminActions.carregarAssinaturaTenantSucesso, (state, { tenant_id, assinatura }) => ({
+    ...state,
+    assinaturasPorTenant: { ...state.assinaturasPorTenant, [tenant_id]: assinatura }
+  }))
 );

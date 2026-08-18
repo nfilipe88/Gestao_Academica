@@ -2,9 +2,14 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { atualizarStatusTenant, atualizarValidadeLicenca, carregarTenants, criarTenant, processarValidadeLicencas } from '../../../store/admin/admin.actions';
+import {
+  atualizarStatusTenant, atualizarValidadeLicenca, carregarTenants, criarTenant, processarValidadeLicencas,
+  carregarPlanos, criarPlano, atualizarPlano, apagarPlano, carregarMrr,
+  carregarAssinaturaTenant, definirAssinaturaTenant, cancelarAssinaturaTenant
+} from '../../../store/admin/admin.actions';
 import { selectAdminError, selectAdminMensagem, selectPaginacaoTenants, selectTenants } from '../../../store/admin/admin.selector';
-import { StatusTenant } from '../../../store/admin/admin.models';
+import { selectPlanos, selectPlanosAtivos, selectMrr, selectAssinaturasPorTenant } from '../../../store/admin/admin.selector';
+import { PlanoSaaS, StatusTenant } from '../../../store/admin/admin.models';
 import * as TransferenciasActions from '../../../store/transferencias/transferencias.actions';
 import {
   selectPaginacaoTransferencias, selectSolicitacoesTransferencia, selectTransferenciasError, selectTransferenciasMensagem
@@ -77,9 +82,31 @@ export class AdminComponent implements OnInit {
   paginaTransferencias = 1;
   tamanhoTransferencias = 25;
 
+  // --- SaaS Billing: Planos, Assinaturas e MRR ---
+  planos$ = this.store.select(selectPlanos);
+  planosAtivos$ = this.store.select(selectPlanosAtivos);
+  mrr$ = this.store.select(selectMrr);
+  assinaturasPorTenant$ = this.store.select(selectAssinaturasPorTenant);
+
+  mostrarFormularioPlano = false;
+  planoAEditar: PlanoSaaS | null = null;
+  planoForm = this.fb.group({
+    nome: ['', Validators.required],
+    preco_mensal: [0, [Validators.required, Validators.min(0)]],
+    limite_alunos: [null as number | null],
+    descricao: [''],
+  });
+  planoAApagarId: string | null = null;
+
+  // Assinatura por escola — expandida sob um tenant de cada vez, mesmo
+  // padrão da Gestão de Acessos.
+  assinaturaDoTenantId: string | null = null;
+
   ngOnInit() {
     this.store.dispatch(carregarTenants({ page: this.paginaTenants, page_size: this.tamanhoTenants }));
     this.store.dispatch(TransferenciasActions.carregarSolicitacoesSuperAdmin({ page: this.paginaTransferencias, page_size: this.tamanhoTransferencias }));
+    this.store.dispatch(carregarPlanos());
+    this.store.dispatch(carregarMrr());
   }
 
   onPaginaTenants(pagina: number) {
@@ -235,5 +262,78 @@ export class AdminComponent implements OnInit {
 
   podeMudarPerfil(usuario: UsuarioStaff): boolean {
     return usuario.perfil_acesso === 'GESTOR' || usuario.perfil_acesso === 'SECRETARIA';
+  }
+
+  // --- SaaS Billing: Planos ---
+
+  alternarFormularioPlano() {
+    this.mostrarFormularioPlano = !this.mostrarFormularioPlano;
+    this.planoAEditar = null;
+    this.planoForm.reset({ nome: '', preco_mensal: 0, limite_alunos: null, descricao: '' });
+  }
+
+  onEditarPlano(plano: PlanoSaaS) {
+    this.planoAEditar = plano;
+    this.mostrarFormularioPlano = true;
+    this.planoForm.reset({
+      nome: plano.nome, preco_mensal: plano.preco_mensal,
+      limite_alunos: plano.limite_alunos, descricao: plano.descricao
+    });
+  }
+
+  onGuardarPlano() {
+    if (this.planoForm.invalid) return;
+    const v = this.planoForm.value;
+    if (this.planoAEditar) {
+      this.store.dispatch(atualizarPlano({
+        id: this.planoAEditar.id, nome: v.nome!, preco_mensal: v.preco_mensal!,
+        limite_alunos: v.limite_alunos ?? null, descricao: v.descricao || null, ativo: this.planoAEditar.ativo
+      }));
+    } else {
+      this.store.dispatch(criarPlano({
+        nome: v.nome!, preco_mensal: v.preco_mensal!,
+        limite_alunos: v.limite_alunos ?? null, descricao: v.descricao || null
+      }));
+    }
+    this.mostrarFormularioPlano = false;
+    this.planoAEditar = null;
+  }
+
+  onAlternarAtivoPlano(plano: PlanoSaaS) {
+    this.store.dispatch(atualizarPlano({
+      id: plano.id, nome: plano.nome, preco_mensal: plano.preco_mensal,
+      limite_alunos: plano.limite_alunos, descricao: plano.descricao, ativo: !plano.ativo
+    }));
+  }
+
+  onPedirApagarPlano(planoId: string) {
+    this.planoAApagarId = planoId;
+  }
+
+  onCancelarApagarPlano() {
+    this.planoAApagarId = null;
+  }
+
+  onConfirmarApagarPlano(planoId: string) {
+    this.store.dispatch(apagarPlano({ id: planoId }));
+    this.planoAApagarId = null;
+  }
+
+  // --- SaaS Billing: Assinatura por escola ---
+
+  onAlternarAssinatura(tenantId: string) {
+    this.assinaturaDoTenantId = this.assinaturaDoTenantId === tenantId ? null : tenantId;
+    if (this.assinaturaDoTenantId) {
+      this.store.dispatch(carregarAssinaturaTenant({ tenant_id: tenantId }));
+    }
+  }
+
+  onDefinirAssinatura(tenantId: string, planoId: string, proximaCobranca: string) {
+    if (!planoId || !proximaCobranca) return;
+    this.store.dispatch(definirAssinaturaTenant({ tenant_id: tenantId, plano_id: planoId, proxima_cobranca: proximaCobranca }));
+  }
+
+  onCancelarAssinatura(tenantId: string) {
+    this.store.dispatch(cancelarAssinaturaTenant({ tenant_id: tenantId }));
   }
 }
