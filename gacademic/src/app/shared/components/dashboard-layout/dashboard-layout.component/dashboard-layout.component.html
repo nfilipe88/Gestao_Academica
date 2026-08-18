@@ -225,6 +225,20 @@
       }
 
       @if (isGestor$ | async) {
+        <!-- Mapa de Permissões: o Gestor também pode consultar/editar as
+             células CRUD do mapa global (RBAC no back-end:
+             GET/PATCH /permissoes é SUPER_ADMIN + GESTOR). -->
+        <a routerLink="/admin/permissoes" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Mapa de Permissões">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Mapa de Permissões</span> }
+        </a>
+      }
+
+      @if (isGestor$ | async) {
         <!-- Criar/gerir contas de Secretaria, mudar perfis, suspender
              acessos — só o Gestor (RBAC no back-end: /usuarios é GESTOR only). -->
         <a routerLink="/acessos" routerLinkActive="bg-slate-800 text-blue-400"

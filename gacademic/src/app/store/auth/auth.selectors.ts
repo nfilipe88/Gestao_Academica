@@ -57,3 +57,10 @@ export const selectIsSuperAdmin = createSelector(
   selectAuthState,
   (state) => state.usuario?.perfil_acesso === 'SUPER_ADMIN'
 );
+
+// Mapa de Permissões (/admin/permissoes): SUPER_ADMIN e GESTOR podem ver
+// e editar (exigir_perfil("SUPER_ADMIN", "GESTOR") em api/v1/permissoes.py).
+export const selectPodeEditarPermissoes = createSelector(
+  selectAuthState,
+  (state) => state.usuario?.perfil_acesso === 'SUPER_ADMIN' || state.usuario?.perfil_acesso === 'GESTOR'
+);

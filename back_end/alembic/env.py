@@ -24,6 +24,7 @@ import app.database.models_lms
 import app.database.models_usuarios
 import app.database.models_bi
 import app.database.models_billing
+import app.database.models_permissoes
 
 from alembic import context
 

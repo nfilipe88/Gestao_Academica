@@ -47,6 +47,8 @@ import { usuariosReducer } from './store/usuarios/usuarios.reducer';
 import { UsuariosEffects } from './store/usuarios/usuarios.effects';
 import { perfilReducer } from './store/perfil/perfil.reducer';
 import { PerfilEffects } from './store/perfil/perfil.effects';
+import { permissoesReducer } from './store/permissoes/permissoes.reducer';
+import { PermissoesEffects } from './store/permissoes/permissoes.effects';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 
@@ -77,8 +79,9 @@ export const appConfig: ApplicationConfig = {
       configuracoes: configuracoesReducer,
       lms: lmsReducer,
       usuarios: usuariosReducer,
-      perfil: perfilReducer
+      perfil: perfilReducer,
+      permissoes: permissoesReducer
     }),
-    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects, AdminEffects, TarefasEffects, IndicadoresEffects, NotificacoesEffects, DocumentosEffects, TransferenciasEffects, ConfiguracoesEffects, LmsEffects, UsuariosEffects, PerfilEffects),
+    provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects, AdminEffects, TarefasEffects, IndicadoresEffects, NotificacoesEffects, DocumentosEffects, TransferenciasEffects, ConfiguracoesEffects, LmsEffects, UsuariosEffects, PerfilEffects, PermissoesEffects),
   ]
 };

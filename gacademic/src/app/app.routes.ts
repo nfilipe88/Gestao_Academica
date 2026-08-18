@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
 import { superAdminGuard } from './core/guards/super-admin.guard';
+import { permissoesGuard } from './core/guards/permissoes.guard';
 
 export const routes: Routes = [
     // ==========================================
@@ -98,7 +99,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin/permissoes',
-        canActivate: [superAdminGuard],
+        canActivate: [permissoesGuard],
         loadComponent: () => import('./features/admin/permissoes.component/permissoes.component').then((m) => m.PermissoesComponent)
       },
       {

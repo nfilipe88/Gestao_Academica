@@ -2,22 +2,29 @@
 
   <div>
     <h2 class="text-2xl font-bold text-slate-800">Mapa de Permissões</h2>
-    <p class="text-slate-500 text-sm">O que cada perfil pode fazer, módulo a módulo — construído a partir das regras de acesso do back-end e confirmado com sessão real em cada perfil.</p>
+    <p class="text-slate-500 text-sm">O que cada perfil pode fazer, módulo a módulo. Editável pelo Super Admin e pelo Gestor: escolha as operações CRUD na combobox de cada célula — a alteração fica guardada assim que seleciona.</p>
   </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
 
   <!-- Legenda -->
   <div class="flex flex-wrap gap-2">
+    @for (op of operacoes; track op.chave) {
+      <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full py-1 px-3">
+        <span class="w-4 h-4 flex items-center justify-center text-[10px] font-bold rounded bg-slate-100 text-slate-500">{{ op.letra }}</span>
+        {{ op.label }}
+      </span>
+    }
     <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full py-1 px-3">
-      <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Total — cria, edita, apaga
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Todas as operações
     </span>
     <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full py-1 px-3">
-      <span class="w-2 h-2 rounded-full bg-amber-500"></span> Parcial — só o que lhe pertence
-    </span>
-    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-full py-1 px-3">
-      <span class="w-2 h-2 rounded-full bg-slate-400"></span> Leitura — só consulta
+      <span class="w-2 h-2 rounded-full bg-amber-500"></span> Algumas operações
     </span>
     <span class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 bg-white border border-slate-200 rounded-full py-1 px-3">
-      <span class="w-2 h-2 rounded-full bg-slate-200"></span> — sem acesso
+      <span class="w-2 h-2 rounded-full bg-slate-200"></span> Sem acesso
     </span>
   </div>
 
@@ -63,21 +70,30 @@
           </tr>
         </thead>
         <tbody>
-          @for (linha of modulos; track linha.modulo) {
+          @for (linha of (linhas$ | async); track linha.modulo) {
             <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="py-2.5 px-6 text-slate-800 font-medium text-sm whitespace-nowrap">{{ linha.modulo }}</td>
               @for (perfil of perfis; track perfil.id) {
-                <td class="py-2.5 px-4 text-center">
-                  @if (labelNivel(perfil.id, linha) === '—') {
-                    <span class="text-slate-300 text-sm">—</span>
-                  } @else {
-                    <span class="text-xs font-medium py-1 px-2.5 rounded-full" [ngClass]="classeNivel(perfil.id, linha)">
-                      {{ labelNivel(perfil.id, linha) }}
-                    </span>
+                <td class="py-2.5 px-3 text-center align-top">
+                  @if (linha.porPerfil[perfil.id]; as celula) {
+                    <div class="inline-flex flex-col items-center gap-1">
+                      <span class="text-[10px] font-semibold py-0.5 px-2 rounded-full" [ngClass]="classeResumo(celula)">
+                        {{ resumoTexto(celula) }}
+                      </span>
+                      <select multiple size="4"
+                        class="w-24 text-[10px] border border-slate-300 rounded-md bg-white focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        (change)="onAlterarOperacoes(celula, $event)">
+                        @for (op of operacoes; track op.chave) {
+                          <option [value]="op.chave" [selected]="celula[op.chave]">{{ op.letra }} — {{ op.label }}</option>
+                        }
+                      </select>
+                    </div>
                   }
                 </td>
               }
             </tr>
+          } @empty {
+            <tr><td [attr.colspan]="perfis.length + 1" class="py-8 text-center text-slate-500">A carregar mapa de permissões…</td></tr>
           }
         </tbody>
       </table>
@@ -87,7 +103,7 @@
   <!-- Notas -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
-      <h3 class="text-sm font-semibold text-slate-800 mb-3">Onde está o "Parcial"</h3>
+      <h3 class="text-sm font-semibold text-slate-800 mb-3">Onde está o acesso parcial</h3>
       <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
         <li><strong class="text-slate-700">Diário / Trabalhos:</strong> o Professor só lança notas e frequência nas turmas+disciplinas onde tem alocação registada.</li>
         <li><strong class="text-slate-700">Comunicações:</strong> o Professor não tem a opção "Toda a escola" — só turma ou aluno individual.</li>
@@ -99,15 +115,15 @@
     <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
       <h3 class="text-sm font-semibold text-slate-800 mb-3">Como isto é garantido</h3>
       <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
-        <li>Cada pedido ao back-end passa por uma verificação de perfil antes de tocar em qualquer dado — o front-end só reflete essa regra, nunca decide sozinho.</li>
-        <li>Dados de escrita ficam ainda mais restritos: mesmo dentro de "Total", uma ação só é aceite se o registo pertencer à mesma instituição de quem pede.</li>
+        <li>Cada pedido ao back-end passa por uma verificação de perfil antes de tocar em qualquer dado — este mapa é a documentação dessa regra, não quem a aplica; editar uma célula aqui não muda o que a API aceita.</li>
+        <li>Dados de escrita ficam ainda mais restritos: mesmo com "Total", uma ação só é aceite se o registo pertencer à mesma instituição de quem pede.</li>
         <li>O isolamento entre escolas (multi-tenant) é reforçado a dois níveis — no código da aplicação e diretamente na base de dados.</li>
       </ul>
     </div>
     <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
       <h3 class="text-sm font-semibold text-slate-800 mb-3">A caminho</h3>
       <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
-        <li>Estes seis perfis são atualmente fixos e partilhados por todas as escolas da plataforma.</li>
+        <li>Estes seis perfis são atualmente fixos e partilhados por todas as escolas da plataforma — este mapa é, por isso, único para a plataforma toda, não por escola.</li>
         <li>Perfis personalizados por escola — por exemplo, uma "Tesouraria" com acesso só ao Financeiro — estão planeados para uma fase futura.</li>
         <li>Quando existirem, este mapa passará a refletir também os perfis que cada escola criar, não só os seis fixos.</li>
       </ul>
