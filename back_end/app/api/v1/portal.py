@@ -124,6 +124,18 @@ async def iniciar_tentativa_exame(
     return await crud_portal.iniciar_tentativa_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, exame_id)
 
 
+@router.post("/educandos/{aluno_id}/exames/{exame_id}/evento-suspeito")
+async def registar_evento_suspeito_exame(
+    aluno_id: uuid.UUID,
+    exame_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Proctoring básico: o frontend chama isto quando deteta que o aluno saiu da aba durante a tentativa (Page Visibility API). Nunca bloqueia o exame — só regista para o professor rever."""
+    total = await crud_portal.registar_evento_suspeito_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, exame_id)
+    return {"eventos_suspeitos": total}
+
+
 @router.post("/educandos/{aluno_id}/exames/{exame_id}/submeter")
 async def submeter_tentativa_exame(
     aluno_id: uuid.UUID,

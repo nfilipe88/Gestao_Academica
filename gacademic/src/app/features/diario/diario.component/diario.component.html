@@ -808,6 +808,7 @@
                         <th class="py-1 pr-3 font-medium">Aluno</th>
                         <th class="py-1 pr-3 font-medium">Estado</th>
                         <th class="py-1 pr-3 font-medium text-right">Nota</th>
+                        <th class="py-1 pr-3 font-medium text-right">Eventos suspeitos</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -818,9 +819,16 @@
                           <td class="py-1.5 pr-3 text-right font-semibold text-slate-800">
                             {{ resultado.nota_obtida !== null ? (resultado.nota_obtida + ' / ' + resultado.nota_maxima) : '—' }}
                           </td>
+                          <td class="py-1.5 pr-3 text-right">
+                            @if (resultado.eventos_suspeitos > 0) {
+                              <span class="text-xs font-medium text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">⚠ {{ resultado.eventos_suspeitos }}</span>
+                            } @else {
+                              <span class="text-xs text-slate-400">—</span>
+                            }
+                          </td>
                         </tr>
                       } @empty {
-                        <tr><td colspan="3" class="py-3 text-center text-slate-500 text-sm">Ainda ninguém começou este exame.</td></tr>
+                        <tr><td colspan="4" class="py-3 text-center text-slate-500 text-sm">Ainda ninguém começou este exame.</td></tr>
                       }
                     </tbody>
                   </table>

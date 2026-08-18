@@ -127,6 +127,18 @@ export const carregarResultadoExameSucesso = createAction(
 // instantes as perguntas do anterior.
 export const limparTentativaExame = createAction('[Portal] Limpar Tentativa Exame');
 
+// Proctoring básico: disparado pelo listener da Page Visibility API
+// (ver PortalComponent) sempre que o aluno sai da aba durante uma
+// tentativa em curso. Nunca bloqueia o exame — só regista.
+export const registarEventoSuspeito = createAction(
+  '[Portal] Registar Evento Suspeito',
+  props<{ aluno_id: string, exame_id: string }>()
+);
+export const registarEventoSuspeitoSucesso = createAction(
+  '[Portal] Registar Evento Suspeito Sucesso',
+  props<{ eventos_suspeitos: number }>()
+);
+
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,
 // um erro HTTP dentro de um effect fica por apanhar e mata esse effect
 // para o resto da sessão.

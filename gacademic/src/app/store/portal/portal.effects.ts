@@ -174,6 +174,20 @@ export class PortalEffects {
     )
   );
 
+  registarEventoSuspeito$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.registarEventoSuspeito),
+      switchMap(action => this.http.post<{ eventos_suspeitos: number }>(
+        `/api/v1/portal/educandos/${action.aluno_id}/exames/${action.exame_id}/evento-suspeito`, {}
+      ).pipe(
+        map(resp => PortalActions.registarEventoSuspeitoSucesso({ eventos_suspeitos: resp.eventos_suspeitos })),
+        // Silencioso — perder um evento de proctoring não deve mostrar
+        // erro nem atrapalhar o aluno a meio do exame.
+        catchError(() => of({ type: '[Portal] Evento Suspeito Ignorado' }))
+      ))
+    )
+  );
+
   carregarResultadoExame$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PortalActions.carregarResultadoExame),

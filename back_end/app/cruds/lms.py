@@ -566,6 +566,32 @@ async def iniciar_tentativa(db: AsyncSession, tenant_id, matricula_id: uuid.UUID
     }
 
 
+async def registar_evento_suspeito(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, turma_id: uuid.UUID, exame_id: uuid.UUID) -> int:
+    """
+    Proctoring básico (Page Visibility API): o frontend chama isto cada
+    vez que o aluno sai da aba/janela durante uma tentativa em curso —
+    a deteção em si vive só no browser (ver features/portal), este
+    endpoint só regista a contagem para o professor rever ao corrigir
+    (ver listar_resultados_exame). Nunca bloqueia nem invalida a
+    tentativa — é só sinal, a decisão fica sempre com um humano.
+    """
+    await _obter_exame_publicado_da_turma(db, tenant_id, exame_id, turma_id)
+
+    tentativa = (await db.execute(
+        select(LMSTentativaExame).where(LMSTentativaExame.exame_id == exame_id, LMSTentativaExame.matricula_id == matricula_id)
+    )).scalars().first()
+    if not tentativa or tentativa.data_submissao:
+        # Tentativa inexistente ou já fechada — nada a registar (o
+        # aluno pode ter mudado de aba depois de sair do exame; não é
+        # um erro que valha a pena reportar ao frontend).
+        return tentativa.eventos_suspeitos if tentativa else 0
+
+    tentativa.eventos_suspeitos += 1
+    await db.commit()
+    await db.refresh(tentativa)
+    return tentativa.eventos_suspeitos
+
+
 async def submeter_tentativa(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, turma_id: uuid.UUID, exame_id: uuid.UUID, dados: LMSSubmeterTentativa) -> dict:
     await _obter_exame_publicado_da_turma(db, tenant_id, exame_id, turma_id)
 

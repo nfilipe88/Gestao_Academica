@@ -20,6 +20,7 @@ export interface PortalState {
   tentativaAtual: TentativaIniciada | null;
   resultadoExame: ResultadoExame | null;
   aSubmeterTentativa: boolean;
+  eventosSuspeitosTentativa: number;
   erro: string | null;
 }
 
@@ -38,6 +39,7 @@ export const initialState: PortalState = {
   tentativaAtual: null,
   resultadoExame: null,
   aSubmeterTentativa: false,
+  eventosSuspeitosTentativa: 0,
   erro: null
 };
 
@@ -60,13 +62,14 @@ export const portalReducer = createReducer(
     ...state, materialAberto: null, conversaProfVirtual: [], erroProfVirtual: null
   })),
   on(PortalActions.carregarExamesDoEducandoSucesso, (state, { exames }) => ({ ...state, exames })),
-  on(PortalActions.iniciarTentativaExame, (state) => ({ ...state, erro: null, tentativaAtual: null, resultadoExame: null })),
+  on(PortalActions.iniciarTentativaExame, (state) => ({ ...state, erro: null, tentativaAtual: null, resultadoExame: null, eventosSuspeitosTentativa: 0 })),
   on(PortalActions.iniciarTentativaExameSucesso, (state, { tentativa }) => ({ ...state, tentativaAtual: tentativa })),
   on(PortalActions.submeterTentativaExame, (state) => ({ ...state, erro: null, aSubmeterTentativa: true })),
   on(PortalActions.submeterTentativaExameSucesso, (state) => ({ ...state, aSubmeterTentativa: false, tentativaAtual: null })),
   on(PortalActions.carregarResultadoExame, (state) => ({ ...state, erro: null, resultadoExame: null })),
   on(PortalActions.carregarResultadoExameSucesso, (state, { resultado }) => ({ ...state, resultadoExame: resultado })),
-  on(PortalActions.limparTentativaExame, (state) => ({ ...state, tentativaAtual: null, resultadoExame: null })),
+  on(PortalActions.limparTentativaExame, (state) => ({ ...state, tentativaAtual: null, resultadoExame: null, eventosSuspeitosTentativa: 0 })),
+  on(PortalActions.registarEventoSuspeitoSucesso, (state, { eventos_suspeitos }) => ({ ...state, eventosSuspeitosTentativa: eventos_suspeitos })),
   on(PortalActions.perguntarProfVirtual, (state, { pergunta }) => ({
     ...state,
     conversaProfVirtual: [...state.conversaProfVirtual, { papel: 'aluno' as const, texto: pergunta }],

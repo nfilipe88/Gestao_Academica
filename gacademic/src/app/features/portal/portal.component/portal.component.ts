@@ -1,5 +1,5 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, HostListener, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -14,13 +14,13 @@ import {
   carregarBoletimDoEducando, carregarExamesDoEducando, carregarFinanceiroDoEducando, carregarHorarioDoEducando,
   carregarMaterialDoEducando, carregarMateriaisDoEducando, carregarMeusEducandos, carregarResultadoExame,
   carregarTarefasDoEducando, iniciarTentativaExame, limparMaterialAberto, limparTentativaExame,
-  perguntarProfVirtual, submeterTentativaExame
+  perguntarProfVirtual, registarEventoSuspeito, submeterTentativaExame
 } from '../../../store/portal/portal.actions';
 import {
   selectAProcessarPerguntaProfVirtual, selectASubmeterTentativa, selectBoletimDoEducando, selectConversaProfVirtual,
-  selectErroProfVirtual, selectExamesDoEducando, selectFinanceiroDoEducando, selectHorarioDoEducando,
-  selectMaterialAberto, selectMateriaisDoEducando, selectMeusEducandos, selectPortalError, selectResultadoExame,
-  selectTarefasDoEducando, selectTentativaAtual
+  selectErroProfVirtual, selectEventosSuspeitosTentativa, selectExamesDoEducando, selectFinanceiroDoEducando,
+  selectHorarioDoEducando, selectMaterialAberto, selectMateriaisDoEducando, selectMeusEducandos, selectPortalError,
+  selectResultadoExame, selectTarefasDoEducando, selectTentativaAtual
 } from '../../../store/portal/portal.selector';
 import { HorarioAulaPortal } from '../../../store/portal/portal.models';
 import * as DocumentosActions from '../../../store/documentos/documentos.actions';
@@ -70,6 +70,7 @@ export class PortalComponent implements OnInit {
   tentativaAtual$ = this.store.select(selectTentativaAtual);
   resultadoExame$ = this.store.select(selectResultadoExame);
   aSubmeterTentativa$ = this.store.select(selectASubmeterTentativa);
+  eventosSuspeitosTentativa$ = this.store.select(selectEventosSuspeitosTentativa);
 
   precosDocumento$ = this.store.select(selectPrecosDocumento);
   solicitacoesDocumento$ = this.store.select(selectSolicitacoesEmissao);
@@ -185,6 +186,19 @@ export class PortalComponent implements OnInit {
     this.exameEmCursoId = null;
     this.respostasTentativa = {};
     this.store.dispatch(limparTentativaExame());
+  }
+
+  // Proctoring básico: enquanto o aluno está a meio de uma tentativa
+  // (exameEmCursoId definido), sair da aba/janela conta como evento
+  // suspeito — nunca bloqueia o exame, só fica registado para o
+  // professor rever ao corrigir (ver LMSResultadoAlunoExame). Não
+  // dispara ao trocar de aba fora de um exame nem quando volta a
+  // ficar visível (só na saída, para não contar o mesmo evento 2x).
+  @HostListener('document:visibilitychange')
+  onVisibilidadeMudou() {
+    if (document.hidden && this.exameEmCursoId && this.educandoSelecionadoId) {
+      this.store.dispatch(registarEventoSuspeito({ aluno_id: this.educandoSelecionadoId, exame_id: this.exameEmCursoId }));
+    }
   }
 
   onVerResultadoExame(exameId: string) {
