@@ -1,0 +1,73 @@
+<div class="space-y-6">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-800">Tabela de Propinas</h2>
+      <p class="text-slate-500 text-sm">Valor da mensalidade (e, opcionalmente, da matrícula) por curso ou por classe — repita o mesmo valor em todas as séries de um curso para um preço uniforme, ou dê valores diferentes por classe.</p>
+    </div>
+    <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2 py-1.5 shrink-0">
+      <button type="button" (click)="onAnoAnterior()" class="text-slate-500 hover:text-slate-700 px-2 cursor-pointer">‹</button>
+      <span class="text-sm font-medium text-slate-700 w-24 text-center">Ano {{ anoLetivo }}</span>
+      <button type="button" (click)="onAnoSeguinte()" class="text-slate-500 hover:text-slate-700 px-2 cursor-pointer">›</button>
+    </div>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+            <th class="py-3 px-6 font-medium">Curso / Classe</th>
+            <th class="py-3 px-6 font-medium">Mensalidade</th>
+            <th class="py-3 px-6 font-medium">Matrícula (opcional)</th>
+            <th class="py-3 px-6 font-medium text-right">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (grupo of (grupos$ | async); track grupo.curso_id) {
+            <tr class="bg-slate-50/70">
+              <td colspan="4" class="py-2 px-6 text-xs font-semibold text-slate-500 uppercase tracking-wide">{{ grupo.curso_nome }}</td>
+            </tr>
+            @for (linha of grupo.series; track linha.serie_ano_id) {
+              <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                <td class="py-2.5 px-6 pl-10 text-slate-800">{{ linha.serie_ano_nome }}</td>
+                <td class="py-2.5 px-6">
+                  <input type="number" min="0" step="0.01" #mensalidadeInput
+                    [value]="linha.valor_mensalidade ?? ''"
+                    placeholder="Sem valor definido"
+                    class="w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </td>
+                <td class="py-2.5 px-6">
+                  <input type="number" min="0" step="0.01" #matriculaInput
+                    [value]="linha.valor_matricula ?? ''"
+                    placeholder="—"
+                    class="w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </td>
+                <td class="py-2.5 px-6 text-right space-x-2 whitespace-nowrap">
+                  <button type="button" (click)="onGuardar(linha, mensalidadeInput.value, matriculaInput.value)"
+                    class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">Guardar</button>
+                  @if (linha.propina_id) {
+                    @if (propinaAApagarId === linha.propina_id) {
+                      <span class="text-xs text-rose-600">Limpar?</span>
+                      <button type="button" (click)="onConfirmarApagar(linha)" class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
+                      <button type="button" (click)="onCancelarApagar()" class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Não</button>
+                    } @else {
+                      <button type="button" (click)="onPedirApagar(linha.propina_id)" class="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer">Limpar</button>
+                    }
+                  }
+                </td>
+              </tr>
+            }
+          } @empty {
+            <tr><td colspan="4" class="py-8 text-center text-slate-500">Ainda não há Cursos/Séries criados — configure a estrutura académica primeiro.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>

@@ -82,6 +82,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/financeiro/financeiro.component/financeiro.component').then((m) => m.FinanceiroComponent)
       },
       {
+        path: 'propinas',
+        loadComponent: () => import('./features/propinas/propinas.component/propinas.component').then((m) => m.PropinasComponent)
+      },
+      {
         path: 'crm',
         loadComponent: () => import('./features/crm/crm.component/crm.component').then((m) => m.CrmComponent)
       },

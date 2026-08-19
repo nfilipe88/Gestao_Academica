@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1 import academico, admin, alunos, auth, comunicacoes, configuracoes, crm, diario, documentos, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, tarefas, transferencias, usuarios
+from app.api.v1 import academico, admin, alunos, auth, comunicacoes, configuracoes, crm, diario, documentos, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, tarefas, transferencias, usuarios
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 
 
@@ -64,6 +64,7 @@ app.include_router(configuracoes.router)
 app.include_router(lms.router)
 app.include_router(perfil.router)
 app.include_router(permissoes.router)
+app.include_router(propinas.router)
 
 @app.get("/api/v1/health")
 async def health_check():
