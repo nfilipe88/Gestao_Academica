@@ -24,7 +24,7 @@ from app.schemas.admin import (
     TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
 )
 from app.core.security import gerar_hash_senha
-from app.core.paginacao import paginar
+from app.core.paginacao import paginar_linhas
 from app.cruds import notificacoes as crud_notificacoes
 
 logger = logging.getLogger("admin")
@@ -54,21 +54,67 @@ DIAS_BLOQUEIO_PARCIAL_LICENCA = 15
 DIAS_SUSPENSAO_LICENCA = 30
 
 
-async def listar_tenants(db: AsyncSession, page: int, page_size: int) -> dict:
-    """Todas as instituições da plataforma (exceto o tenant interno), com contagens básicas de uso."""
-    query = select(Tenant).where(Tenant.nif != NIF_PLATAFORMA).order_by(Tenant.data_criacao.desc())
-    pagina = await paginar(db, query, page, page_size)
-    tenants = pagina["items"]
-    if not tenants:
+def _em_periodo_teste(data_inicio: date, dias_periodo_teste: int) -> bool:
+    """Calculado on-the-fly (nunca persistido) — mesma filosofia de
+    esta_bloqueado_parcialmente() abaixo: "está em teste?" é sempre uma
+    função da data de hoje, nunca um estado gravado que possa ficar
+    dessincronizado."""
+    if dias_periodo_teste <= 0:
+        return False
+    return (date.today() - data_inicio).days < dias_periodo_teste
+
+
+async def listar_tenants(
+    db: AsyncSession, page: int, page_size: int,
+    nome: str | None = None, plano_id: uuid.UUID | None = None,
+    usuarios_min: int | None = None, usuarios_max: int | None = None,
+) -> dict:
+    """Todas as instituições da plataforma (exceto o tenant interno), com
+    contagens básicas de uso e o plano ativo de cada uma.
+
+    Filtros: nome (ILIKE em nome_fantasia), plano_id (só escolas com
+    assinatura ATIVA nesse plano) e usuarios_min/usuarios_max (intervalo
+    de nº de utilizadores) — este último tem de entrar na query
+    principal (via subquery + WHERE), não filtrar em Python depois de
+    paginar, senão a paginação fica errada (páginas com menos itens do
+    que page_size, ou "total" a mentir).
+    """
+    subq_usuarios = (
+        select(Usuario.tenant_id, func.count(Usuario.id).label("total"))
+        .group_by(Usuario.tenant_id).subquery()
+    )
+    total_usuarios_expr = func.coalesce(subq_usuarios.c.total, 0)
+
+    query = (
+        select(Tenant, total_usuarios_expr.label("total_usuarios"))
+        .outerjoin(subq_usuarios, subq_usuarios.c.tenant_id == Tenant.id)
+        .where(Tenant.nif != NIF_PLATAFORMA)
+    )
+    if nome:
+        query = query.where(Tenant.nome_fantasia.ilike(f"%{nome.strip()}%"))
+    if usuarios_min is not None:
+        query = query.where(total_usuarios_expr >= usuarios_min)
+    if usuarios_max is not None:
+        query = query.where(total_usuarios_expr <= usuarios_max)
+    if plano_id:
+        query = query.join(
+            AssinaturaTenant,
+            (AssinaturaTenant.tenant_id == Tenant.id)
+            & (AssinaturaTenant.status == "ATIVA")
+            & (AssinaturaTenant.plano_id == plano_id)
+        )
+    query = query.order_by(Tenant.data_criacao.desc())
+
+    pagina = await paginar_linhas(db, query, page, page_size)
+    linhas = pagina["items"]
+    if not linhas:
         pagina["items"] = []
         return pagina
 
+    tenants = [linha[0] for linha in linhas]
+    contagem_usuarios = {linha[0].id: linha[1] for linha in linhas}
     tenant_ids = [t.id for t in tenants]
 
-    contagem_usuarios = dict((await db.execute(
-        select(Usuario.tenant_id, func.count(Usuario.id))
-        .where(Usuario.tenant_id.in_(tenant_ids)).group_by(Usuario.tenant_id)
-    )).all())
     contagem_alunos = dict((await db.execute(
         select(Aluno.tenant_id, func.count(Aluno.id))
         .where(Aluno.tenant_id.in_(tenant_ids)).group_by(Aluno.tenant_id)
@@ -77,6 +123,16 @@ async def listar_tenants(db: AsyncSession, page: int, page_size: int) -> dict:
         select(Professor.tenant_id, func.count(Professor.id))
         .where(Professor.tenant_id.in_(tenant_ids)).group_by(Professor.tenant_id)
     )).all())
+
+    linhas_plano = (await db.execute(
+        select(AssinaturaTenant.tenant_id, PlanoSaaS.nome, PlanoSaaS.dias_periodo_teste, AssinaturaTenant.data_inicio)
+        .join(PlanoSaaS, PlanoSaaS.id == AssinaturaTenant.plano_id)
+        .where(AssinaturaTenant.tenant_id.in_(tenant_ids), AssinaturaTenant.status == "ATIVA")
+    )).all()
+    planos_por_tenant = {
+        tid: {"nome_plano": nome_plano, "em_periodo_teste": _em_periodo_teste(data_inicio, dias_teste)}
+        for tid, nome_plano, dias_teste, data_inicio in linhas_plano
+    }
 
     pagina["items"] = [
         {
@@ -90,6 +146,8 @@ async def listar_tenants(db: AsyncSession, page: int, page_size: int) -> dict:
             "total_usuarios": contagem_usuarios.get(t.id, 0),
             "total_alunos": contagem_alunos.get(t.id, 0),
             "total_professores": contagem_professores.get(t.id, 0),
+            "nome_plano": planos_por_tenant.get(t.id, {}).get("nome_plano"),
+            "em_periodo_teste": planos_por_tenant.get(t.id, {}).get("em_periodo_teste", False),
         }
         for t in tenants
     ]
@@ -301,7 +359,8 @@ async def criar_plano(db: AsyncSession, dados: PlanoSaaSCreate) -> PlanoSaaS:
 
     novo = PlanoSaaS(
         nome=dados.nome.strip(), preco_mensal=dados.preco_mensal,
-        limite_alunos=dados.limite_alunos, descricao=dados.descricao
+        limite_alunos=dados.limite_alunos, descricao=dados.descricao,
+        dias_periodo_teste=dados.dias_periodo_teste,
     )
     db.add(novo)
     await db.commit()
@@ -328,6 +387,7 @@ async def atualizar_plano(db: AsyncSession, plano_id: uuid.UUID, dados: PlanoSaa
     plano.preco_mensal = dados.preco_mensal
     plano.limite_alunos = dados.limite_alunos
     plano.descricao = dados.descricao
+    plano.dias_periodo_teste = dados.dias_periodo_teste
     plano.ativo = dados.ativo
     await db.commit()
     await db.refresh(plano)
@@ -345,16 +405,17 @@ async def apagar_plano(db: AsyncSession, plano_id: uuid.UUID) -> None:
 
 async def obter_assinatura_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> dict | None:
     linha = (await db.execute(
-        select(AssinaturaTenant, PlanoSaaS.nome, PlanoSaaS.preco_mensal)
+        select(AssinaturaTenant, PlanoSaaS.nome, PlanoSaaS.preco_mensal, PlanoSaaS.dias_periodo_teste)
         .join(PlanoSaaS, PlanoSaaS.id == AssinaturaTenant.plano_id)
         .where(AssinaturaTenant.tenant_id == tenant_id)
     )).first()
     if not linha:
         return None
-    assinatura, nome_plano, preco_mensal = linha
+    assinatura, nome_plano, preco_mensal, dias_periodo_teste = linha
     return {
         "id": assinatura.id, "plano_id": assinatura.plano_id, "nome_plano": nome_plano, "preco_mensal": preco_mensal,
         "data_inicio": assinatura.data_inicio, "proxima_cobranca": assinatura.proxima_cobranca, "status": assinatura.status,
+        "em_periodo_teste": _em_periodo_teste(assinatura.data_inicio, dias_periodo_teste),
     }
 
 

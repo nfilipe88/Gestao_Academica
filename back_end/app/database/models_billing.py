@@ -29,6 +29,12 @@ class PlanoSaaS(Base):
     # em nenhum outro módulo.
     limite_alunos: Mapped[int | None] = mapped_column(Integer, nullable=True)
     descricao: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Dias de período de teste oferecidos ao atribuir este plano a uma
+    # escola nova (0 = sem teste, cobrança normal desde o início). Só
+    # define a duração do teste — "está em período de teste?" é
+    # calculado on-the-fly a partir de AssinaturaTenant.data_inicio +
+    # este valor, nunca persistido (ver cruds/admin.py::_em_periodo_teste).
+    dias_periodo_teste: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 

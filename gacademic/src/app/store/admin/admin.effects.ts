@@ -14,17 +14,23 @@ export class AdminEffects {
   carregarTenants$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AdminActions.carregarTenants),
-      switchMap(action => this.http.get<PaginaResultado<TenantResumo>>('/api/v1/admin/tenants', {
-        params: { page: action.page ?? 1, page_size: action.page_size ?? 25 }
-      }).pipe(
-        map(resp => AdminActions.carregarTenantsSucesso({
-          tenants: resp.items,
-          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
-        })),
-        catchError(err => of(AdminActions.adminOperacaoFalhou({
-          erro: err.error?.detail || 'Não foi possível carregar as instituições.'
-        })))
-      ))
+      switchMap(action => {
+        const params: Record<string, string | number> = { page: action.page ?? 1, page_size: action.page_size ?? 25 };
+        const filtros = action.filtros;
+        if (filtros?.nome) params['nome'] = filtros.nome;
+        if (filtros?.plano_id) params['plano_id'] = filtros.plano_id;
+        if (filtros?.usuarios_min != null) params['usuarios_min'] = filtros.usuarios_min;
+        if (filtros?.usuarios_max != null) params['usuarios_max'] = filtros.usuarios_max;
+        return this.http.get<PaginaResultado<TenantResumo>>('/api/v1/admin/tenants', { params }).pipe(
+          map(resp => AdminActions.carregarTenantsSucesso({
+            tenants: resp.items,
+            paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+          })),
+          catchError(err => of(AdminActions.adminOperacaoFalhou({
+            erro: err.error?.detail || 'Não foi possível carregar as instituições.'
+          })))
+        );
+      })
     )
   );
 
@@ -120,7 +126,8 @@ export class AdminEffects {
       ofType(AdminActions.criarPlano),
       switchMap(action => this.http.post<PlanoSaaS>('/api/v1/admin/planos', {
         nome: action.nome, preco_mensal: action.preco_mensal,
-        limite_alunos: action.limite_alunos, descricao: action.descricao
+        limite_alunos: action.limite_alunos, descricao: action.descricao,
+        dias_periodo_teste: action.dias_periodo_teste
       }).pipe(
         switchMap(plano => [
           AdminActions.carregarPlanos(),
@@ -138,7 +145,8 @@ export class AdminEffects {
       ofType(AdminActions.atualizarPlano),
       switchMap(action => this.http.patch<PlanoSaaS>(`/api/v1/admin/planos/${action.id}`, {
         nome: action.nome, preco_mensal: action.preco_mensal,
-        limite_alunos: action.limite_alunos, descricao: action.descricao, ativo: action.ativo
+        limite_alunos: action.limite_alunos, descricao: action.descricao,
+        dias_periodo_teste: action.dias_periodo_teste, ativo: action.ativo
       }).pipe(
         switchMap(plano => [
           AdminActions.carregarPlanos(),

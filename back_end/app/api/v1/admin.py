@@ -31,11 +31,13 @@ _PODE_ACEDER = exigir_perfil("SUPER_ADMIN")
 @router.get("/tenants")
 async def listar_tenants(
     page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+    nome: str | None = Query(None), plano_id: uuid.UUID | None = Query(None),
+    usuarios_min: int | None = Query(None, ge=0), usuarios_max: int | None = Query(None, ge=0),
     db: AsyncSession = Depends(obter_sessao_db_admin),
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
-    """Lista todas as instituições (tenants) da plataforma, com contagens básicas de uso."""
-    return await crud_admin.listar_tenants(db, page, page_size)
+    """Lista todas as instituições (tenants) da plataforma, com contagens básicas de uso e o plano ativo de cada uma."""
+    return await crud_admin.listar_tenants(db, page, page_size, nome, plano_id, usuarios_min, usuarios_max)
 
 
 @router.post("/tenants", status_code=201)

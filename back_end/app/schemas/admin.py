@@ -34,6 +34,8 @@ class PlanoSaaSCreate(BaseModel):
     preco_mensal: Decimal
     limite_alunos: int | None = None
     descricao: str | None = None
+    # 0 = sem período de teste (cobrança normal desde o início).
+    dias_periodo_teste: int = 0
 
     @model_validator(mode="after")
     def _validar(self):
@@ -43,6 +45,8 @@ class PlanoSaaSCreate(BaseModel):
             raise ValueError("preco_mensal não pode ser negativo.")
         if self.limite_alunos is not None and self.limite_alunos <= 0:
             raise ValueError("limite_alunos, se definido, tem de ser maior que zero.")
+        if self.dias_periodo_teste < 0:
+            raise ValueError("dias_periodo_teste não pode ser negativo.")
         return self
 
 

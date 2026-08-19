@@ -2,6 +2,7 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 import {
   atualizarStatusTenant, atualizarValidadeLicenca, carregarTenants, criarTenant, processarValidadeLicencas,
   carregarPlanos, criarPlano, atualizarPlano, apagarPlano, carregarMrr,
@@ -9,7 +10,7 @@ import {
 } from '../../../store/admin/admin.actions';
 import { selectAdminError, selectAdminMensagem, selectPaginacaoTenants, selectTenants } from '../../../store/admin/admin.selector';
 import { selectPlanos, selectPlanosAtivos, selectMrr, selectAssinaturasPorTenant } from '../../../store/admin/admin.selector';
-import { PlanoSaaS, StatusTenant } from '../../../store/admin/admin.models';
+import { FiltrosTenants, PlanoSaaS, StatusTenant } from '../../../store/admin/admin.models';
 import * as TransferenciasActions from '../../../store/transferencias/transferencias.actions';
 import {
   selectPaginacaoTransferencias, selectSolicitacoesTransferencia, selectTransferenciasError, selectTransferenciasMensagem
@@ -82,6 +83,16 @@ export class AdminComponent implements OnInit {
   paginaTransferencias = 1;
   tamanhoTransferencias = 25;
 
+  // Filtro da tabela de Instituições: nome (com debounce, para não
+  // disparar um pedido a cada tecla), plano e intervalo de nº de
+  // utilizadores — mesmo padrão reativo já usado em Alunos/CRM/etc.
+  filtroTenantsForm = this.fb.group({
+    nome: [''],
+    plano_id: [''],
+    usuarios_min: [null as number | null],
+    usuarios_max: [null as number | null],
+  });
+
   // --- SaaS Billing: Planos, Assinaturas e MRR ---
   planos$ = this.store.select(selectPlanos);
   planosAtivos$ = this.store.select(selectPlanosAtivos);
@@ -95,6 +106,7 @@ export class AdminComponent implements OnInit {
     preco_mensal: [0, [Validators.required, Validators.min(0)]],
     limite_alunos: [null as number | null],
     descricao: [''],
+    dias_periodo_teste: [0, [Validators.required, Validators.min(0)]],
   });
   planoAApagarId: string | null = null;
 
@@ -107,17 +119,48 @@ export class AdminComponent implements OnInit {
     this.store.dispatch(TransferenciasActions.carregarSolicitacoesSuperAdmin({ page: this.paginaTransferencias, page_size: this.tamanhoTransferencias }));
     this.store.dispatch(carregarPlanos());
     this.store.dispatch(carregarMrr());
+
+    this.filtroTenantsForm.controls.nome.valueChanges.pipe(
+      debounceTime(300), distinctUntilChanged()
+    ).subscribe(() => this.aplicarFiltrosTenants());
+    this.filtroTenantsForm.controls.plano_id.valueChanges.subscribe(() => this.aplicarFiltrosTenants());
+    this.filtroTenantsForm.controls.usuarios_min.valueChanges.subscribe(() => this.aplicarFiltrosTenants());
+    this.filtroTenantsForm.controls.usuarios_max.valueChanges.subscribe(() => this.aplicarFiltrosTenants());
+  }
+
+  private filtrosTenantsAtuais(): FiltrosTenants {
+    const v = this.filtroTenantsForm.value;
+    return {
+      nome: v.nome || undefined,
+      plano_id: v.plano_id || undefined,
+      usuarios_min: v.usuarios_min ?? undefined,
+      usuarios_max: v.usuarios_max ?? undefined,
+    };
+  }
+
+  private dispatchTenantsComFiltros(pagina: number) {
+    this.store.dispatch(carregarTenants({ page: pagina, page_size: this.tamanhoTenants, filtros: this.filtrosTenantsAtuais() }));
+  }
+
+  aplicarFiltrosTenants() {
+    this.paginaTenants = 1;
+    this.dispatchTenantsComFiltros(1);
+  }
+
+  limparFiltrosTenants() {
+    this.filtroTenantsForm.reset({ nome: '', plano_id: '', usuarios_min: null, usuarios_max: null });
+    this.aplicarFiltrosTenants();
   }
 
   onPaginaTenants(pagina: number) {
     this.paginaTenants = pagina;
-    this.store.dispatch(carregarTenants({ page: pagina, page_size: this.tamanhoTenants }));
+    this.dispatchTenantsComFiltros(pagina);
   }
 
   onTamanhoTenants(tamanho: number) {
     this.tamanhoTenants = tamanho;
     this.paginaTenants = 1;
-    this.store.dispatch(carregarTenants({ page: 1, page_size: tamanho }));
+    this.dispatchTenantsComFiltros(1);
   }
 
   onPaginaTransferencias(pagina: number) {
@@ -269,7 +312,7 @@ export class AdminComponent implements OnInit {
   alternarFormularioPlano() {
     this.mostrarFormularioPlano = !this.mostrarFormularioPlano;
     this.planoAEditar = null;
-    this.planoForm.reset({ nome: '', preco_mensal: 0, limite_alunos: null, descricao: '' });
+    this.planoForm.reset({ nome: '', preco_mensal: 0, limite_alunos: null, descricao: '', dias_periodo_teste: 0 });
   }
 
   onEditarPlano(plano: PlanoSaaS) {
@@ -277,7 +320,8 @@ export class AdminComponent implements OnInit {
     this.mostrarFormularioPlano = true;
     this.planoForm.reset({
       nome: plano.nome, preco_mensal: plano.preco_mensal,
-      limite_alunos: plano.limite_alunos, descricao: plano.descricao
+      limite_alunos: plano.limite_alunos, descricao: plano.descricao,
+      dias_periodo_teste: plano.dias_periodo_teste,
     });
   }
 
@@ -287,12 +331,14 @@ export class AdminComponent implements OnInit {
     if (this.planoAEditar) {
       this.store.dispatch(atualizarPlano({
         id: this.planoAEditar.id, nome: v.nome!, preco_mensal: v.preco_mensal!,
-        limite_alunos: v.limite_alunos ?? null, descricao: v.descricao || null, ativo: this.planoAEditar.ativo
+        limite_alunos: v.limite_alunos ?? null, descricao: v.descricao || null,
+        dias_periodo_teste: v.dias_periodo_teste ?? 0, ativo: this.planoAEditar.ativo
       }));
     } else {
       this.store.dispatch(criarPlano({
         nome: v.nome!, preco_mensal: v.preco_mensal!,
-        limite_alunos: v.limite_alunos ?? null, descricao: v.descricao || null
+        limite_alunos: v.limite_alunos ?? null, descricao: v.descricao || null,
+        dias_periodo_teste: v.dias_periodo_teste ?? 0,
       }));
     }
     this.mostrarFormularioPlano = false;
@@ -302,7 +348,8 @@ export class AdminComponent implements OnInit {
   onAlternarAtivoPlano(plano: PlanoSaaS) {
     this.store.dispatch(atualizarPlano({
       id: plano.id, nome: plano.nome, preco_mensal: plano.preco_mensal,
-      limite_alunos: plano.limite_alunos, descricao: plano.descricao, ativo: !plano.ativo
+      limite_alunos: plano.limite_alunos, descricao: plano.descricao,
+      dias_periodo_teste: plano.dias_periodo_teste, ativo: !plano.ativo
     }));
   }
 
@@ -335,5 +382,17 @@ export class AdminComponent implements OnInit {
 
   onCancelarAssinatura(tenantId: string) {
     this.store.dispatch(cancelarAssinaturaTenant({ tenant_id: tenantId }));
+  }
+
+  // Sugestão de data ao escolher o plano no formulário de assinatura:
+  // se o plano tem período de teste, a primeira cobrança só faz
+  // sentido no fim do teste; sem teste, sugere-se o mês seguinte. É só
+  // uma sugestão pré-preenchida — o campo de data continua editável.
+  sugerirProximaCobranca(planoId: string, planos: PlanoSaaS[] | null): string {
+    const plano = planos?.find(p => p.id === planoId);
+    const dias = plano?.dias_periodo_teste && plano.dias_periodo_teste > 0 ? plano.dias_periodo_teste : 30;
+    const data = new Date();
+    data.setDate(data.getDate() + dias);
+    return data.toISOString().slice(0, 10);
   }
 }

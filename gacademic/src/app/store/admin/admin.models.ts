@@ -13,6 +13,18 @@ export interface TenantResumo {
   total_usuarios: number;
   total_alunos: number;
   total_professores: number;
+  nome_plano: string | null;
+  em_periodo_teste: boolean;
+}
+
+// Filtros da listagem de Instituições — nome (ILIKE), plano_id
+// (só escolas com assinatura ATIVA nesse plano) e intervalo de nº de
+// utilizadores. Tudo opcional; omitido = sem esse filtro.
+export interface FiltrosTenants {
+  nome?: string;
+  plano_id?: string;
+  usuarios_min?: number | null;
+  usuarios_max?: number | null;
 }
 
 // ==========================================
@@ -24,6 +36,9 @@ export interface PlanoSaaS {
   preco_mensal: number;
   limite_alunos: number | null;
   descricao: string | null;
+  // Dias de acesso grátis ao atribuir este plano a uma escola nova (0 =
+  // sem período de teste, cobrança normal desde o início).
+  dias_periodo_teste: number;
   ativo: boolean;
 }
 
@@ -35,6 +50,7 @@ export interface AssinaturaTenant {
   data_inicio: string;
   proxima_cobranca: string;
   status: 'ATIVA' | 'CANCELADA';
+  em_periodo_teste: boolean;
 }
 
 export interface ResumoMrrPorPlano {

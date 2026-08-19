@@ -26,6 +26,38 @@
     <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
+  <form [formGroup]="filtroTenantsForm" class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
+    <div class="flex-1 min-w-48">
+      <label class="block text-xs font-medium text-slate-500 mb-1">Nome da escola</label>
+      <input type="text" formControlName="nome" placeholder="Pesquisar por nome..."
+        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+    </div>
+    <div class="min-w-40">
+      <label class="block text-xs font-medium text-slate-500 mb-1">Plano</label>
+      <select formControlName="plano_id"
+        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        <option value="">Todos os planos</option>
+        @for (p of (planos$ | async); track p.id) {
+          <option [value]="p.id">{{ p.nome }}</option>
+        }
+      </select>
+    </div>
+    <div class="w-28">
+      <label class="block text-xs font-medium text-slate-500 mb-1">Nº utiliz. mín.</label>
+      <input type="number" min="0" formControlName="usuarios_min"
+        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+    </div>
+    <div class="w-28">
+      <label class="block text-xs font-medium text-slate-500 mb-1">Nº utiliz. máx.</label>
+      <input type="number" min="0" formControlName="usuarios_max"
+        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+    </div>
+    <button type="button" (click)="limparFiltrosTenants()"
+      class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
+      Limpar filtros
+    </button>
+  </form>
+
   @if (mostrarFormularioNovaEscola) {
     <form [formGroup]="novaEscolaForm" (ngSubmit)="onCriarEscola()"
       class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
@@ -76,6 +108,7 @@
             <th class="py-3 px-6 font-medium text-right">Utilizadores</th>
             <th class="py-3 px-6 font-medium text-right">Alunos</th>
             <th class="py-3 px-6 font-medium text-right">Professores</th>
+            <th class="py-3 px-6 font-medium">Plano</th>
             <th class="py-3 px-6 font-medium">Estado</th>
             <th class="py-3 px-6 font-medium">Validade da Licença</th>
             <th class="py-3 px-6 font-medium text-right">Acessos</th>
@@ -92,6 +125,16 @@
               <td class="py-3 px-6 text-slate-600 text-right">{{ tenant.total_usuarios }}</td>
               <td class="py-3 px-6 text-slate-600 text-right">{{ tenant.total_alunos }}</td>
               <td class="py-3 px-6 text-slate-600 text-right">{{ tenant.total_professores }}</td>
+              <td class="py-3 px-6">
+                @if (tenant.nome_plano) {
+                  <span class="text-slate-700">{{ tenant.nome_plano }}</span>
+                  @if (tenant.em_periodo_teste) {
+                    <span class="ml-1.5 text-[10px] font-semibold py-0.5 px-2 rounded-full bg-sky-100 text-sky-700">Teste</span>
+                  }
+                } @else {
+                  <span class="text-slate-300 text-sm">—</span>
+                }
+              </td>
               <td class="py-3 px-6">
                 <span class="text-xs font-medium py-1 px-3 rounded-full"
                   [class.bg-emerald-100]="tenant.status === 'ATIVO'" [class.text-emerald-700]="tenant.status === 'ATIVO'"
@@ -159,7 +202,7 @@
             </tr>
             @if (usuariosDoTenantId === tenant.id) {
               <tr class="border-b border-slate-100 bg-slate-50/60">
-                <td colspan="10" class="p-4">
+                <td colspan="11" class="p-4">
 
                   @if (erroUsuarios$ | async; as erroU) {
                     <div class="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-xs text-rose-700">{{ erroU }}</div>
@@ -263,7 +306,7 @@
             }
             @if (assinaturaDoTenantId === tenant.id) {
               <tr class="border-b border-slate-100 bg-violet-50/40">
-                <td colspan="10" class="p-4">
+                <td colspan="11" class="p-4">
                   <h4 class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Assinatura de {{ tenant.nome_fantasia }}</h4>
                   @if ((assinaturasPorTenant$ | async)?.[tenant.id]; as assinatura) {
                     <div class="flex items-center gap-4 text-sm mb-3">
@@ -275,6 +318,9 @@
                         [class.bg-slate-200]="assinatura.status === 'CANCELADA'" [class.text-slate-600]="assinatura.status === 'CANCELADA'">
                         {{ assinatura.status }}
                       </span>
+                      @if (assinatura.em_periodo_teste) {
+                        <span class="text-xs font-medium py-1 px-3 rounded-full bg-sky-100 text-sky-700">Em período de teste</span>
+                      }
                       @if (assinatura.status === 'ATIVA') {
                         <button type="button" (click)="onCancelarAssinatura(tenant.id)"
                           class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Cancelar assinatura</button>
@@ -283,29 +329,33 @@
                   } @else {
                     <p class="text-sm text-slate-400 mb-3">Esta escola ainda não tem plano atribuído.</p>
                   }
-                  <div class="flex items-end gap-2">
-                    <div>
-                      <label class="block text-xs font-medium text-slate-500 mb-1">Plano</label>
-                      <select #planoSelect class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800">
-                        @for (p of (planosAtivos$ | async); track p.id) {
-                          <option [value]="p.id">{{ p.nome }} — {{ p.preco_mensal | number:'1.2-2' }}/mês</option>
-                        }
-                      </select>
+                  @if (planosAtivos$ | async; as planosAtivos) {
+                    <div class="flex items-end gap-2">
+                      <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Plano</label>
+                        <select #planoSelect class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800"
+                          (change)="proximaCobrancaInput.value = sugerirProximaCobranca(planoSelect.value, planosAtivos)">
+                          @for (p of planosAtivos; track p.id) {
+                            <option [value]="p.id">{{ p.nome }} — {{ p.preco_mensal | number:'1.2-2' }}/mês{{ p.dias_periodo_teste > 0 ? ' (' + p.dias_periodo_teste + ' dias de teste)' : '' }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Próxima cobrança</label>
+                        <input type="date" #proximaCobrancaInput class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800" />
+                        <p class="text-[10px] text-slate-400 mt-0.5">Sugerida ao escolher o plano — pode ajustar.</p>
+                      </div>
+                      <button type="button" (click)="onDefinirAssinatura(tenant.id, planoSelect.value, proximaCobrancaInput.value)"
+                        class="text-xs bg-violet-600 hover:bg-violet-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
+                        Atribuir plano
+                      </button>
                     </div>
-                    <div>
-                      <label class="block text-xs font-medium text-slate-500 mb-1">Próxima cobrança</label>
-                      <input type="date" #proximaCobrancaInput class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800" />
-                    </div>
-                    <button type="button" (click)="onDefinirAssinatura(tenant.id, planoSelect.value, proximaCobrancaInput.value)"
-                      class="text-xs bg-violet-600 hover:bg-violet-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
-                      Atribuir plano
-                    </button>
-                  </div>
+                  }
                 </td>
               </tr>
             }
           } @empty {
-            <tr><td colspan="10" class="py-8 text-center text-slate-500">Nenhuma instituição registada na plataforma.</td></tr>
+            <tr><td colspan="11" class="py-8 text-center text-slate-500">Nenhuma instituição registada na plataforma.</td></tr>
           }
         </tbody>
       </table>
@@ -371,6 +421,11 @@
             <input type="text" formControlName="descricao"
               class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
           </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Período de teste (dias)</label>
+            <input type="number" min="0" formControlName="dias_periodo_teste" placeholder="0 = sem teste"
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+          </div>
         </div>
         <button type="submit" [disabled]="planoForm.invalid"
           class="bg-violet-600 hover:bg-violet-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
@@ -387,6 +442,7 @@
             <th class="py-3 px-6 font-medium text-right">Preço mensal</th>
             <th class="py-3 px-6 font-medium text-right">Limite de alunos</th>
             <th class="py-3 px-6 font-medium">Descrição</th>
+            <th class="py-3 px-6 font-medium text-right">Teste</th>
             <th class="py-3 px-6 font-medium">Estado</th>
             <th class="py-3 px-6 font-medium text-right">Ações</th>
           </tr>
@@ -398,6 +454,13 @@
               <td class="py-3 px-6 text-slate-600 text-right">{{ plano.preco_mensal | number:'1.2-2' }}</td>
               <td class="py-3 px-6 text-slate-600 text-right">{{ plano.limite_alunos ?? 'Sem limite' }}</td>
               <td class="py-3 px-6 text-slate-600">{{ plano.descricao || '—' }}</td>
+              <td class="py-3 px-6 text-right">
+                @if (plano.dias_periodo_teste > 0) {
+                  <span class="text-xs font-medium py-1 px-2.5 rounded-full bg-sky-100 text-sky-700">{{ plano.dias_periodo_teste }}d</span>
+                } @else {
+                  <span class="text-slate-300 text-sm">—</span>
+                }
+              </td>
               <td class="py-3 px-6">
                 <span class="text-xs font-medium py-1 px-3 rounded-full"
                   [class.bg-emerald-100]="plano.ativo" [class.text-emerald-700]="plano.ativo"
@@ -420,7 +483,7 @@
               </td>
             </tr>
           } @empty {
-            <tr><td colspan="6" class="py-8 text-center text-slate-500">Nenhum plano criado ainda.</td></tr>
+            <tr><td colspan="7" class="py-8 text-center text-slate-500">Nenhum plano criado ainda.</td></tr>
           }
         </tbody>
       </table>
