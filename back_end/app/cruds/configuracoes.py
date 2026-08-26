@@ -39,6 +39,12 @@ async def atualizar_configuracao(db: AsyncSession, tenant_id, dados: Configuraca
     tenant.codigo_postal = dados.codigo_postal
     tenant.pais = dados.pais
     tenant.nota_minima_aprovacao = dados.nota_minima_aprovacao
+    tenant.periodo_manha_inicio = dados.periodo_manha_inicio
+    tenant.periodo_manha_fim = dados.periodo_manha_fim
+    tenant.periodo_tarde_inicio = dados.periodo_tarde_inicio
+    tenant.periodo_tarde_fim = dados.periodo_tarde_fim
+    tenant.periodo_pos_laboral_inicio = dados.periodo_pos_laboral_inicio
+    tenant.periodo_pos_laboral_fim = dados.periodo_pos_laboral_fim
     await db.commit()
     await db.refresh(tenant)
     return tenant

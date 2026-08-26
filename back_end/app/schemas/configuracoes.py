@@ -1,4 +1,5 @@
 import uuid
+from datetime import time
 
 from pydantic import BaseModel, field_validator
 
@@ -23,6 +24,12 @@ class ConfiguracaoTenantOut(BaseModel):
     codigo_postal: str | None = None
     pais: str | None = None
     nota_minima_aprovacao: float | None = None
+    periodo_manha_inicio: time | None = None
+    periodo_manha_fim: time | None = None
+    periodo_tarde_inicio: time | None = None
+    periodo_tarde_fim: time | None = None
+    periodo_pos_laboral_inicio: time | None = None
+    periodo_pos_laboral_fim: time | None = None
 
     model_config = {"from_attributes": True}
 
@@ -37,6 +44,12 @@ class ConfiguracaoTenantUpdate(BaseModel):
     codigo_postal: str | None = None
     pais: str | None = None
     nota_minima_aprovacao: float | None = None
+    periodo_manha_inicio: time | None = None
+    periodo_manha_fim: time | None = None
+    periodo_tarde_inicio: time | None = None
+    periodo_tarde_fim: time | None = None
+    periodo_pos_laboral_inicio: time | None = None
+    periodo_pos_laboral_fim: time | None = None
 
     @field_validator("moeda")
     @classmethod
@@ -45,6 +58,17 @@ class ConfiguracaoTenantUpdate(BaseModel):
         if valor not in MOEDAS_SUPORTADAS:
             raise ValueError(f"Moeda inválida. Use uma de: {', '.join(sorted(MOEDAS_SUPORTADAS))}.")
         return valor
+
+    @field_validator(
+        "periodo_manha_inicio", "periodo_manha_fim", "periodo_tarde_inicio",
+        "periodo_tarde_fim", "periodo_pos_laboral_inicio", "periodo_pos_laboral_fim",
+        mode="before"
+    )
+    @classmethod
+    def _vazio_para_none(cls, valor):
+        # O <input type="time"> do frontend envia "" quando fica vazio —
+        # Pydantic não aceita "" como time, tem de virar None explicitamente.
+        return None if valor == "" else valor
 
 
 # ==========================================

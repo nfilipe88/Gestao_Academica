@@ -10,6 +10,15 @@ export interface ConfiguracaoTenant {
   codigo_postal: string | null;
   pais: string | null;
   nota_minima_aprovacao: number | null;
+  // Períodos letivos — hora "HH:MM:SS" (formato devolvido pelo back-end)
+  // ou null se ainda não definida. Só guarda a informação por agora;
+  // não valida conflitos em Horários.
+  periodo_manha_inicio: string | null;
+  periodo_manha_fim: string | null;
+  periodo_tarde_inicio: string | null;
+  periodo_tarde_fim: string | null;
+  periodo_pos_laboral_inicio: string | null;
+  periodo_pos_laboral_fim: string | null;
 }
 
 // Catálogo de tipos de avaliação da escola — ver
@@ -43,4 +52,10 @@ export const CONFIGURACAO_INICIAL: ConfiguracaoTenant = {
   codigo_postal: null,
   pais: null,
   nota_minima_aprovacao: null,
+  periodo_manha_inicio: null,
+  periodo_manha_fim: null,
+  periodo_tarde_inicio: null,
+  periodo_tarde_fim: null,
+  periodo_pos_laboral_inicio: null,
+  periodo_pos_laboral_fim: null,
 };

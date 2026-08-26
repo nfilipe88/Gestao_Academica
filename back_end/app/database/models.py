@@ -1,7 +1,7 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import List
-from sqlalchemy import Boolean, Date, Numeric, String, ForeignKey, DateTime, text
+from sqlalchemy import Boolean, Date, Numeric, String, ForeignKey, DateTime, Time, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -44,6 +44,18 @@ class Tenant(Base):
     # ex.: 0-20 ou 0-10) — usada no Boletim/Indicadores para marcar
     # Aprovado/Reprovado. Sem valor definido, essa marcação não aparece.
     nota_minima_aprovacao: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
+
+    # Períodos letivos (Manhã/Tarde/Pós-Laboral) — hora de início e de
+    # encerramento de cada um. Só guarda a informação nesta primeira
+    # versão (referência para a equipa); ainda não é usado para validar
+    # conflitos em Horários (ver models_horarios.py), que continua a
+    # aceitar qualquer hora informada diretamente na aula.
+    periodo_manha_inicio: Mapped[time | None] = mapped_column(Time, nullable=True)
+    periodo_manha_fim: Mapped[time | None] = mapped_column(Time, nullable=True)
+    periodo_tarde_inicio: Mapped[time | None] = mapped_column(Time, nullable=True)
+    periodo_tarde_fim: Mapped[time | None] = mapped_column(Time, nullable=True)
+    periodo_pos_laboral_inicio: Mapped[time | None] = mapped_column(Time, nullable=True)
+    periodo_pos_laboral_fim: Mapped[time | None] = mapped_column(Time, nullable=True)
 
     # Relacionamento
     usuarios: Mapped[List["Usuario"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")

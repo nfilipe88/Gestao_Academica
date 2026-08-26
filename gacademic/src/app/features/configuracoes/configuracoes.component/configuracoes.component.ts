@@ -42,6 +42,12 @@ export class ConfiguracoesComponent implements OnInit {
     codigo_postal: [''],
     pais: [''],
     nota_minima_aprovacao: [''],
+    periodo_manha_inicio: [''],
+    periodo_manha_fim: [''],
+    periodo_tarde_inicio: [''],
+    periodo_tarde_fim: [''],
+    periodo_pos_laboral_inicio: [''],
+    periodo_pos_laboral_fim: [''],
   });
 
   // Formulário separado, mais simples, para criar um novo tipo de
@@ -79,6 +85,12 @@ export class ConfiguracoesComponent implements OnInit {
         codigo_postal: config.codigo_postal ?? '',
         pais: config.pais ?? '',
         nota_minima_aprovacao: config.nota_minima_aprovacao != null ? String(config.nota_minima_aprovacao) : '',
+        periodo_manha_inicio: config.periodo_manha_inicio ?? '',
+        periodo_manha_fim: config.periodo_manha_fim ?? '',
+        periodo_tarde_inicio: config.periodo_tarde_inicio ?? '',
+        periodo_tarde_fim: config.periodo_tarde_fim ?? '',
+        periodo_pos_laboral_inicio: config.periodo_pos_laboral_inicio ?? '',
+        periodo_pos_laboral_fim: config.periodo_pos_laboral_fim ?? '',
       }, { emitEvent: false });
     });
   }
@@ -97,6 +109,12 @@ export class ConfiguracoesComponent implements OnInit {
         codigo_postal: v.codigo_postal || null,
         pais: v.pais || null,
         nota_minima_aprovacao: v.nota_minima_aprovacao ? Number(v.nota_minima_aprovacao) : null,
+        periodo_manha_inicio: v.periodo_manha_inicio || null,
+        periodo_manha_fim: v.periodo_manha_fim || null,
+        periodo_tarde_inicio: v.periodo_tarde_inicio || null,
+        periodo_tarde_fim: v.periodo_tarde_fim || null,
+        periodo_pos_laboral_inicio: v.periodo_pos_laboral_inicio || null,
+        periodo_pos_laboral_fim: v.periodo_pos_laboral_fim || null,
       }
     }));
   }
