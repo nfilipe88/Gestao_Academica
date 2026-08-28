@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db, obter_sessao_db_publica
@@ -89,6 +89,22 @@ async def obter_fatura(
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
     return await crud_financeiro.obter_fatura(db, utilizador["tenant_id"], fatura_id, utilizador)
+
+
+@router.get("/faturas/{fatura_id}/recibo")
+async def descarregar_recibo(
+    fatura_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Recibo de pagamento em PDF — só existe depois da fatura ficar
+    paga (ver cruds/financeiro.py::_emitir_recibo, chamado no mesmo
+    momento em que o pagamento é confirmado, manual ou via PayPal)."""
+    pdf_bytes = await crud_financeiro.gerar_pdf_recibo(db, utilizador["tenant_id"], fatura_id, utilizador)
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="recibo-{fatura_id}.pdf"'}
+    )
 
 # ==========================================
 # F. MARCAR FATURA COMO PAGA (via manual — Secretaria)

@@ -75,6 +75,65 @@ class FaturaMensalidade(Base):
     )
 
 
+class ContadorRecibo(Base):
+    """Contador de numeração sequencial de recibos, por escola e ano.
+
+    Legislação fiscal (ex.: regime angolano de faturação, sob a AGT)
+    exige que a numeração de documentos de venda/recibo seja sequencial
+    e sem falhas nem repetições dentro de uma série — nunca "saltar" um
+    número nem reutilizá-lo, mesmo que o registo correspondente seja
+    depois anulado. Uma linha aqui por (tenant, ano), bloqueada com
+    SELECT...FOR UPDATE (ver cruds/financeiro.py::_proximo_numero_recibo)
+    antes de emitir cada Recibo, garante isso mesmo com pedidos
+    concorrentes — sem isto, dois pagamentos confirmados ao mesmo
+    tempo podiam ler o "próximo número" igual e emitir dois recibos com
+    o mesmo número.
+    """
+    __tablename__ = "contador_recibo"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), primary_key=True)
+    ano: Mapped[int] = mapped_column(Integer, primary_key=True)
+    proximo_numero: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+class Recibo(Base):
+    """Recibo de pagamento de uma Fatura_Mensalidade.
+
+    IMPORTANTE — isto não é uma "Fatura" no sentido fiscal certificado
+    (em Angola, isso exige o software de faturação estar certificado
+    pela AGT — Administração Geral Tributária —, um processo legal e
+    de registo, não algo que se resolva só com código). É o
+    comprovativo técnico de que um pagamento foi recebido, já com os
+    dados que esse processo de certificação exigiria preparados
+    (numeração sequencial sem falhas via ContadorRecibo, NIF/documento
+    de quem paga, NIF da escola) — a base para pedir a certificação
+    mais tarde, não a certificação em si.
+    """
+    __tablename__ = "recibo"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    fatura_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fatura_mensalidade.id", ondelete="CASCADE"), nullable=False)
+
+    numero_sequencial: Mapped[int] = mapped_column(Integer, nullable=False)
+    ano: Mapped[int] = mapped_column(Integer, nullable=False)
+    data_emissao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    valor: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    moeda: Mapped[str] = mapped_column(String(3), nullable=False)
+    forma_pagamento: Mapped[str] = mapped_column(String(30), nullable=False)
+
+    # Fotografia do momento da emissão — mesmo que o Responsável mude o
+    # nome/documento depois, o recibo já emitido não pode mudar com ele.
+    nome_pagador: Mapped[str] = mapped_column(String(255), nullable=False)
+    numero_documento_pagador: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("fatura_id", name="uq_recibo_fatura"),
+        UniqueConstraint("tenant_id", "ano", "numero_sequencial", name="uq_recibo_tenant_ano_numero"),
+    )
+
+
 class TransacaoGateway(Base):
     """
     Regista cada tentativa de cobrança feita junto de um gateway externo

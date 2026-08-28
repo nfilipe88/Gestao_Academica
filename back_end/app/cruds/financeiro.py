@@ -23,10 +23,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import Tenant
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.database.models_matricula import Matricula
-from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade, TransacaoGateway
+from app.database.models_financeiro import ContadorRecibo, ContratoFinanceiro, FaturaMensalidade, Recibo, TransacaoGateway
 from app.core.email import enviar_email, template_base
-from app.core import paypal
+from app.core import documentos_pdf, paypal
 from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, FaturaMarcarPago, GerarCobrancaRequest
+from app.schemas.configuracoes import MOEDAS_PAYPAL_SUPORTADAS
 from app.cruds.admin import esta_bloqueado_parcialmente
 
 logger = logging.getLogger("financeiro")
@@ -84,6 +85,118 @@ def calcular_situacao_fatura(fatura: FaturaMensalidade) -> dict:
         "multa_aplicada": multa,
         "dias_atraso": dias_atraso,
     }
+
+
+async def _obter_moeda_tenant(db: AsyncSession, tenant_id) -> str:
+    """Usada nos e-mails de cobrança/confirmação — sem isto, o valor
+    aparecia sempre com "€" a seguir, mesmo em escolas configuradas
+    noutra moeda (ex.: AOA)."""
+    return (await db.execute(select(Tenant.moeda).where(Tenant.id == tenant_id))).scalar_one_or_none() or "EUR"
+
+
+# ==========================================
+# RECIBO DE PAGAMENTO
+# ==========================================
+async def _proximo_numero_recibo(db: AsyncSession, tenant_id, ano: int) -> int:
+    """Bloqueia a linha do contador (SELECT...FOR UPDATE) e devolve o
+    próximo número — chamado sempre dentro da mesma transação que vai
+    gravar o Recibo, para o lock só se libertar no commit seguinte e
+    dois pagamentos confirmados ao mesmo tempo nunca lerem o mesmo
+    "próximo número"."""
+    contador = (await db.execute(
+        select(ContadorRecibo)
+        .where(ContadorRecibo.tenant_id == tenant_id, ContadorRecibo.ano == ano)
+        .with_for_update()
+    )).scalars().first()
+    if not contador:
+        contador = ContadorRecibo(tenant_id=tenant_id, ano=ano, proximo_numero=1)
+        db.add(contador)
+        await db.flush()
+    numero = contador.proximo_numero
+    contador.proximo_numero += 1
+    return numero
+
+
+async def _emitir_recibo(
+    db: AsyncSession, tenant_id, fatura: FaturaMensalidade, contrato: ContratoFinanceiro | None,
+    valor_pago: Decimal, moeda: str
+) -> Recibo:
+    """Chamado sempre que uma fatura passa a PAGO (manual ou PayPal),
+    ANTES do commit que grava esse estado — para nunca poder existir
+    uma fatura paga sem recibo nem um recibo "órfão" de uma fatura que
+    afinal não chegou a ficar paga (as duas escritas ficam atómicas,
+    no mesmo commit)."""
+    ano = date.today().year
+    numero = await _proximo_numero_recibo(db, tenant_id, ano)
+
+    nome_pagador = "—"
+    numero_documento_pagador = None
+    if contrato:
+        responsavel = (await db.execute(
+            select(ResponsavelFinanceiroLegal).where(ResponsavelFinanceiroLegal.id == contrato.responsavel_id)
+        )).scalars().first()
+        if responsavel:
+            nome_pagador = responsavel.nome_completo
+            numero_documento_pagador = responsavel.numero_documento
+
+    recibo = Recibo(
+        tenant_id=tenant_id, fatura_id=fatura.id, numero_sequencial=numero, ano=ano,
+        valor=valor_pago, moeda=moeda, forma_pagamento=fatura.forma_pagamento,
+        nome_pagador=nome_pagador, numero_documento_pagador=numero_documento_pagador,
+    )
+    db.add(recibo)
+    return recibo
+
+
+async def gerar_pdf_recibo(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, utilizador: dict) -> bytes:
+    """PDF do recibo de uma fatura já paga — 404 se a fatura não existir
+    nesta escola ou ainda não tiver recibo emitido (só é emitido quando
+    a fatura passa a PAGO, ver _emitir_recibo)."""
+    fatura = (await db.execute(
+        select(FaturaMensalidade).where(FaturaMensalidade.id == fatura_id, FaturaMensalidade.tenant_id == tenant_id)
+    )).scalars().first()
+    if not fatura:
+        raise HTTPException(status_code=404, detail="Fatura não encontrada na sua instituição.")
+    await _garantir_acesso_via_fatura(db, tenant_id, utilizador, fatura)
+
+    recibo = (await db.execute(
+        select(Recibo).where(Recibo.fatura_id == fatura_id, Recibo.tenant_id == tenant_id)
+    )).scalars().first()
+    if not recibo:
+        raise HTTPException(status_code=404, detail="Esta fatura ainda não tem recibo emitido — só é emitido quando fica paga.")
+
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+
+    contrato = (await db.execute(
+        select(ContratoFinanceiro).where(ContratoFinanceiro.id == fatura.contrato_id)
+    )).scalars().first()
+    aluno_nome = None
+    if contrato:
+        linha_aluno = (await db.execute(
+            select(Aluno.nome_completo).join(Matricula, Matricula.aluno_id == Aluno.id)
+            .where(Matricula.id == contrato.matricula_id)
+        )).scalar_one_or_none()
+        aluno_nome = linha_aluno
+
+    contexto = {
+        "numero_recibo": f"{recibo.numero_sequencial}/{recibo.ano}",
+        "data_emissao": recibo.data_emissao.strftime("%d/%m/%Y"),
+        "nome_pagador": recibo.nome_pagador,
+        "numero_documento_pagador": recibo.numero_documento_pagador,
+        "aluno_nome": aluno_nome or "—",
+        "descricao": f"Parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas if contrato else '?'}",
+        "forma_pagamento": recibo.forma_pagamento,
+        "valor": f"{recibo.valor:.2f}",
+        "moeda": recibo.moeda,
+    }
+    escola = {
+        "nome": tenant.nome_fantasia if tenant else "",
+        "razao_social": tenant.razao_social if tenant else None,
+        "nif": tenant.nif if tenant else None,
+        "morada": tenant.morada if tenant else None,
+        "contacto": tenant.telefone_contacto if tenant else None,
+    }
+    return documentos_pdf.gerar_pdf_documento("RECIBO", escola, contexto)
 
 
 # ==========================================
@@ -429,11 +542,17 @@ async def marcar_fatura_paga(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, 
     fatura.data_pagamento_realizado = datetime.now(timezone.utc)
     fatura.valor_pago_realizado = valor_pago
     fatura.forma_pagamento = dados.forma_pagamento
-    await db.commit()
 
     contrato = (await db.execute(
         select(ContratoFinanceiro).where(ContratoFinanceiro.id == fatura.contrato_id)
     )).scalars().first()
+    moeda = await _obter_moeda_tenant(db, tenant_id)
+    # Emitido na mesma transação da mudança de estado — nunca fica uma
+    # fatura PAGA sem recibo nem um recibo à espera de uma fatura que
+    # afinal não chegou a comitar.
+    await _emitir_recibo(db, tenant_id, fatura, contrato, valor_pago, moeda)
+    await db.commit()
+
     if contrato:
         responsavel = (await db.execute(
             select(ResponsavelFinanceiroLegal).where(ResponsavelFinanceiroLegal.id == contrato.responsavel_id)
@@ -446,7 +565,7 @@ async def marcar_fatura_paga(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, 
                 corpo_html=template_base(
                     "Pagamento confirmado",
                     f"Recebemos o pagamento da parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas}, "
-                    f"no valor de {valor_pago}€. Obrigado!"
+                    f"no valor de {valor_pago} {moeda}. Obrigado!"
                 )
             )
 
@@ -527,6 +646,18 @@ async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dado
         sufixo_retorno = f"&matricula_id={matricula_id}" if matricula_id else ""
 
     moeda = (await db.execute(select(Tenant.moeda).where(Tenant.id == tenant_id))).scalar_one_or_none() or "EUR"
+    if dados.metodo_pagamento == "PAYPAL" and moeda not in MOEDAS_PAYPAL_SUPORTADAS:
+        # Sem isto, a chamada ao PayPal abaixo falhava de qualquer forma,
+        # mas com um erro genérico da API deles em vez de dizer à
+        # Secretaria exatamente porquê — esta escola está configurada
+        # numa moeda (ex.: AOA/Kwanza) que o PayPal não aceita.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Esta instituição está configurada em {moeda}, que o PayPal não aceita. "
+                "Use o pagamento manual (transferência bancária) em vez de gerar cobrança PayPal."
+            ),
+        )
 
     try:
         order = await paypal.criar_order(
@@ -631,11 +762,16 @@ async def _efetivar_pagamento_gateway(db: AsyncSession, transacao: TransacaoGate
     transacao.status = "PAGO"
     transacao.dados_cobranca = {**transacao.dados_cobranca, "captura_bruta": captura}
 
-    await db.commit()
-
     contrato = (await db.execute(
         select(ContratoFinanceiro).where(ContratoFinanceiro.id == fatura.contrato_id)
     )).scalars().first()
+    moeda = await _obter_moeda_tenant(db, transacao.tenant_id)
+    # Mesma razão do caminho manual (marcar_fatura_paga) — emitido na
+    # mesma transação da mudança de estado.
+    await _emitir_recibo(db, transacao.tenant_id, fatura, contrato, valor_capturado, moeda)
+
+    await db.commit()
+
     if contrato:
         responsavel = (await db.execute(
             select(ResponsavelFinanceiroLegal).where(ResponsavelFinanceiroLegal.id == contrato.responsavel_id)
@@ -648,7 +784,7 @@ async def _efetivar_pagamento_gateway(db: AsyncSession, transacao: TransacaoGate
                 corpo_html=template_base(
                     "Pagamento confirmado",
                     f"Recebemos via PayPal o pagamento da parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas}, "
-                    f"no valor de {valor_capturado}€. Obrigado!"
+                    f"no valor de {valor_capturado} {moeda}. Obrigado!"
                 )
             )
 
@@ -672,6 +808,7 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
     fatura+etapa (marca *_enviado_em antes de reenviar).
     """
     hoje = date.today()
+    moeda = await _obter_moeda_tenant(db, tenant_id)
 
     faturas = (await db.execute(
         select(FaturaMensalidade, ContratoFinanceiro, Aluno.nome_completo, ResponsavelFinanceiroLegal.email)
@@ -696,7 +833,7 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                 assunto=f"Mensalidade de {nome_aluno} vence em breve",
                 corpo_html=template_base(
                     "A sua mensalidade vence em breve",
-                    f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original}€, "
+                    f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, "
                     f"vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
                 )
             )
@@ -709,7 +846,7 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                 assunto=f"Mensalidade de {nome_aluno} vence hoje",
                 corpo_html=template_base(
                     "A sua mensalidade vence hoje",
-                    f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original}€, vence hoje."
+                    f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, vence hoje."
                 )
             )
             fatura.lembrete_vencimento_enviado_em = datetime.now(timezone.utc)
@@ -723,7 +860,7 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                 corpo_html=template_base(
                     "A sua mensalidade está em atraso",
                     f"A parcela {rotulo_parcela} de {nome_aluno} está em atraso há 5 dias. "
-                    f"Valor atualizado (com juros e multa): {situacao['valor_atualizado']}€."
+                    f"Valor atualizado (com juros e multa): {situacao['valor_atualizado']} {moeda}."
                 )
             )
             fatura.aviso_atraso_enviado_em = datetime.now(timezone.utc)

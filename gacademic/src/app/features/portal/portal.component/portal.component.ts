@@ -5,9 +5,10 @@ import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Actions, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
-import { filter, take } from 'rxjs';
+import { filter, map, take } from 'rxjs';
 import { selectUsuario } from '../../../store/auth/auth.selectors';
-import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
+import { selectConfiguracao, selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
+import { MOEDAS_PAYPAL_SUPORTADAS } from '../../../store/configuracoes/configuracoes.models';
 import { capturarPagamento, financeiroOperacaoSucesso, gerarCobranca } from '../../../store/financeiro/financeiro.actions';
 import { selectUltimaCobranca } from '../../../store/financeiro/financeiro.selector';
 import {
@@ -77,6 +78,7 @@ export class PortalComponent implements OnInit {
   minhasSolicitacoesEscola$ = this.store.select(selectMinhasSolicitacoesEscola);
   erroDocumentos$ = this.store.select(selectDocumentosError);
   moeda$ = this.store.select(selectMoeda);
+  iban$ = this.store.select(selectConfiguracao).pipe(map(c => c.iban));
 
   dias = DIAS_DA_SEMANA;
 
@@ -250,6 +252,21 @@ export class PortalComponent implements OnInit {
 
   formatarHora(hora: string): string {
     return hora?.substring(0, 5) ?? '';
+  }
+
+  // Mesmo padrão de financeiro.component.ts — o PayPal não aceita
+  // todas as moedas (ex.: AOA/Kwanza), o botão só faz sentido mostrar-se
+  // quando a moeda da escola está nessa lista.
+  moedaSuportaPaypal(moeda: string | null): boolean {
+    return !!moeda && MOEDAS_PAYPAL_SUPORTADAS.includes(moeda);
+  }
+
+  onDescarregarRecibo(faturaId: string) {
+    const aba = window.open('', '_blank');
+    this.http.get(`/api/v1/financeiro/faturas/${faturaId}/recibo`, { responseType: 'blob' }).subscribe({
+      next: (blob) => abrirOuTransferirBlob(aba, blob, `recibo-${faturaId}.pdf`),
+      error: () => { if (aba) aba.close(); }
+    });
   }
 
   onPagarComPayPal(faturaId: string, contratoId: string) {

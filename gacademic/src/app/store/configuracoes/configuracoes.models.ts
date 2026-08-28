@@ -33,14 +33,24 @@ export interface TipoAvaliacao {
 }
 
 // Moedas efetivamente aceites pela PayPal Orders API — ver
-// MOEDAS_SUPORTADAS em app/schemas/configuracoes.py (tem de
-// corresponder exatamente, para o <select> nunca oferecer uma opção
-// que o back-end depois rejeita).
-export const MOEDAS_SUPORTADAS = [
+// MOEDAS_PAYPAL_SUPORTADAS em app/schemas/configuracoes.py (tem de
+// corresponder exatamente). Usada só para decidir quando esconder o
+// botão "Pagar com PayPal" a favor do pagamento manual/transferência
+// (ver financeiro.component) — nunca para restringir o <select> de
+// moeda da escola em si, essa é MOEDAS_SUPORTADAS, abaixo.
+export const MOEDAS_PAYPAL_SUPORTADAS = [
   'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'HKD',
   'HUF', 'ILS', 'JPY', 'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'PLN', 'SEK',
   'SGD', 'THB', 'TWD', 'USD',
 ];
+
+// Moedas que a escola pode escolher para os seus próprios preços — ver
+// MOEDAS_SUPORTADAS em app/schemas/configuracoes.py (tem de
+// corresponder exatamente, para o <select> nunca oferecer uma opção
+// que o back-end depois rejeita). Inclui AOA (Kwanza) mesmo não sendo
+// aceite pelo PayPal — uma escola em Angola cobra em AOA na mesma,
+// só usa o pagamento manual em vez do botão PayPal.
+export const MOEDAS_SUPORTADAS = [...MOEDAS_PAYPAL_SUPORTADAS, 'AOA'];
 
 export const CONFIGURACAO_INICIAL: ConfiguracaoTenant = {
   iban: null,

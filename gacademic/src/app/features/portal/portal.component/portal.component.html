@@ -414,19 +414,31 @@
                             <span class="text-xs text-slate-400" title="Pague as parcelas anteriores primeiro — as parcelas têm de ser pagas em ordem.">
                               Aguarda parcela(s) anterior(es)
                             </span>
-                          } @else if (fatura.transacoes_ativas.length > 0) {
-                            <a [href]="fatura.transacoes_ativas[0].approve_url" target="_blank" rel="noopener"
-                              class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-lg transition-colors">
-                              Continuar pagamento PayPal
-                            </a>
-                          } @else {
-                            <button type="button" (click)="onPagarComPayPal(fatura.id, financeiro.contrato.id)"
-                              class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
-                              Pagar com PayPal
-                            </button>
+                          } @else if (moedaSuportaPaypal(moeda$ | async)) {
+                            @if (fatura.transacoes_ativas.length > 0) {
+                              <a [href]="fatura.transacoes_ativas[0].approve_url" target="_blank" rel="noopener"
+                                class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-lg transition-colors">
+                                Continuar pagamento PayPal
+                              </a>
+                            } @else {
+                              <button type="button" (click)="onPagarComPayPal(fatura.id, financeiro.contrato.id)"
+                                class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
+                                Pagar com PayPal
+                              </button>
+                            }
+                          } @else if (iban$ | async; as iban) {
+                            <span class="text-xs text-slate-500" title="O PayPal não aceita a moeda desta escola — pague por transferência para este IBAN e a Secretaria confirma o pagamento.">
+                              Transferência para {{ iban }}
+                            </span>
                           }
                         } @else if (fatura.status_efetivo === 'PAGO') {
-                          <span class="text-xs text-slate-400">{{ fatura.forma_pagamento }}</span>
+                          <div class="flex items-center justify-end gap-2">
+                            <span class="text-xs text-slate-400">{{ fatura.forma_pagamento }}</span>
+                            <button type="button" (click)="onDescarregarRecibo(fatura.id)"
+                              class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
+                              Recibo
+                            </button>
+                          </div>
                         }
                       </td>
                     </tr>

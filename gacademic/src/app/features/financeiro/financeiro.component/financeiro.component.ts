@@ -1,4 +1,5 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,7 +8,8 @@ import { combineLatest, filter, map, startWith, take } from 'rxjs';
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
 import { selectAlunos } from '../../../store/alunos/alunos.selector';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
-import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
+import { selectConfiguracao, selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
+import { MOEDAS_PAYPAL_SUPORTADAS } from '../../../store/configuracoes/configuracoes.models';
 import {
   capturarPagamento, carregarContratoDaMatricula, carregarMatriculasDoAluno, carregarResponsaveisDaMatricula,
   criarContrato, gerarCobranca, marcarFaturaPaga, processarReguaCobranca
@@ -17,11 +19,14 @@ import {
   selectFinanceiroMensagem, selectMatriculasDoAluno, selectResponsaveisElegiveis, selectUltimaCobranca
 } from '../../../store/financeiro/financeiro.selector';
 import { StatusFatura } from '../../../store/financeiro/financeiro.models';
-import { abrirOuNavegar } from '../../../core/utils/abrir-em-nova-aba';
+import { abrirOuNavegar, abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
 
 const ESTADOS_FATURA: StatusFatura[] = ['PENDENTE', 'PAGO', 'ATRASADO', 'CANCELADO', 'NEGOCIADO'];
 
-const FORMAS_PAGAMENTO = ['MANUAL', 'DINHEIRO', 'TRANSFERENCIA', 'MBWAY', 'OUTRO'];
+// MULTICAIXA em vez de MB Way (que não opera em Angola) — a via local
+// mais comum para o pagamento manual ser confirmado (referência
+// Multicaixa Express ou levantamento/depósito direto).
+const FORMAS_PAGAMENTO = ['MANUAL', 'DINHEIRO', 'TRANSFERENCIA', 'MULTICAIXA', 'OUTRO'];
 
 @Component({
   selector: 'app-financeiro.component',
@@ -34,6 +39,7 @@ export class FinanceiroComponent implements OnInit {
   private store = inject(Store);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private http = inject(HttpClient);
 
   alunos$ = this.store.select(selectAlunos);
   matriculas$ = this.store.select(selectMatriculasDoAluno);
@@ -45,6 +51,10 @@ export class FinanceiroComponent implements OnInit {
   mensagem$ = this.store.select(selectFinanceiroMensagem);
   podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
   moeda$ = this.store.select(selectMoeda);
+  // IBAN da escola (Configurações) — mostrado como alternativa junto
+  // do botão PayPal, sobretudo relevante quando a moeda da escola não
+  // é aceite pelo PayPal (ver moedaSuportaPaypal abaixo).
+  iban$ = this.store.select(selectConfiguracao).pipe(map(c => c.iban));
 
   formasPagamento = FORMAS_PAGAMENTO;
   estadosFatura = ESTADOS_FATURA;
@@ -163,6 +173,25 @@ export class FinanceiroComponent implements OnInit {
   onMarcarPago(faturaId: string, contratoId: string) {
     const forma = this.formaPagamentoPorFatura[faturaId] || 'MANUAL';
     this.store.dispatch(marcarFaturaPaga({ fatura_id: faturaId, contrato_id: contratoId, valor_pago: null, forma_pagamento: forma }));
+  }
+
+  // O PayPal não aceita todas as moedas (ex.: AOA/Kwanza) — o botão
+  // "Pagar com PayPal" só faz sentido mostrar-se quando a moeda
+  // configurada da escola está nessa lista; nas outras, o caminho é o
+  // pagamento manual (transferência bancária/referência), sempre
+  // visível independentemente da moeda.
+  moedaSuportaPaypal(moeda: string | null): boolean {
+    return !!moeda && MOEDAS_PAYPAL_SUPORTADAS.includes(moeda);
+  }
+
+  // Mesmo padrão de documentos.component.ts::onVerPdf — o PDF exige o
+  // cabeçalho Authorization, um <a href> normal não o envia.
+  onDescarregarRecibo(faturaId: string) {
+    const aba = window.open('', '_blank');
+    this.http.get(`/api/v1/financeiro/faturas/${faturaId}/recibo`, { responseType: 'blob' }).subscribe({
+      next: (blob) => abrirOuTransferirBlob(aba, blob, `recibo-${faturaId}.pdf`),
+      error: () => { if (aba) aba.close(); }
+    });
   }
 
   onPagarComPayPal(faturaId: string, contratoId: string) {

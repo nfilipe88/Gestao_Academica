@@ -4,14 +4,24 @@ from datetime import time
 from pydantic import BaseModel, field_validator
 
 # Moedas efetivamente aceites pela PayPal Orders API (lista oficial,
-# ISO 4217) — restringir a estas evita que uma escola escolha uma moeda
-# "de exibição" que depois falha silenciosamente ao gerar uma cobrança
-# PayPal (ex.: AOA/Kwanza não está nesta lista e nunca vai funcionar).
-MOEDAS_SUPORTADAS = {
+# ISO 4217) — usada só para validar quando se está mesmo a gerar uma
+# cobrança PayPal (ver cruds/financeiro.py::gerar_cobranca), nunca para
+# restringir a moeda de exibição/cobrança da escola em si (essa é
+# MOEDAS_SUPORTADAS, abaixo) — as duas listas eram a mesma até esta
+# escola precisar de funcionar em Angola: o Kwanza (AOA) é uma moeda
+# real e válida para a escola cobrar, só não é uma que o PayPal aceite.
+MOEDAS_PAYPAL_SUPORTADAS = {
     "AUD", "BRL", "CAD", "CNY", "CZK", "DKK", "EUR", "HKD", "HUF", "ILS",
     "JPY", "MYR", "MXN", "TWD", "NZD", "NOK", "PHP", "PLN", "GBP", "SGD",
     "SEK", "CHF", "THB", "USD",
 }
+
+# Moedas que a escola pode escolher para os seus próprios preços/faturas
+# — todas as que o PayPal aceita, mais as que não aceita mas continuam
+# a ser moedas reais que uma escola precisa de cobrar (uma escola nessa
+# moeda usa o pagamento manual/transferência em vez do botão PayPal,
+# ver financeiro.component e gerar_cobranca).
+MOEDAS_SUPORTADAS = MOEDAS_PAYPAL_SUPORTADAS | {"AOA"}
 
 
 class ConfiguracaoTenantOut(BaseModel):

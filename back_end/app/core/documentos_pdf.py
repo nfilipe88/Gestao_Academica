@@ -91,6 +91,7 @@ _TITULOS = {
     "DECLARACAO": "Declaração",
     "HISTORICO_ESCOLAR": "Histórico Escolar",
     "BOLETIM": "Boletim de Notas",
+    "RECIBO": "Recibo de Pagamento",
     "OUTRO": "Documento Escolar",
 }
 
@@ -153,6 +154,28 @@ def _corpo_boletim(contexto: dict) -> str:
     """).render(**contexto)
 
 
+def _corpo_recibo(contexto: dict) -> str:
+    # "Recibo de Pagamento", nunca "Fatura" — este documento não é
+    # emitido por software certificado pela AGT (ver
+    # cruds/financeiro.py::Recibo), por isso não tem o mesmo valor
+    # fiscal de uma fatura; a nota no rodapé deixa isso explícito em
+    # vez de deixar a escola/o responsável presumir o contrário.
+    return Template("""
+      <table class="dados">
+        <tr><td class="rotulo">Recibo N.º</td><td>{{ numero_recibo }}</td></tr>
+        <tr><td class="rotulo">Data de emissão</td><td>{{ data_emissao }}</td></tr>
+        <tr><td class="rotulo">Pago por</td><td>{{ nome_pagador }}{% if numero_documento_pagador %} — doc. n.º {{ numero_documento_pagador }}{% endif %}</td></tr>
+        <tr><td class="rotulo">Referente a</td><td>{{ aluno_nome }} — {{ descricao }}</td></tr>
+        <tr><td class="rotulo">Forma de pagamento</td><td>{{ forma_pagamento }}</td></tr>
+        <tr><td class="rotulo">Valor recebido</td><td><strong>{{ valor }} {{ moeda }}</strong></td></tr>
+      </table>
+      <p style="margin-top: 28px; font-size: 9pt; color: #94a3b8;">
+        Este documento é um recibo de pagamento, emitido pela plataforma de gestão da escola —
+        não é uma fatura fiscal certificada.
+      </p>
+    """).render(**contexto)
+
+
 def _corpo_outro(contexto: dict) -> str:
     return Template("""
       <table class="dados">
@@ -167,6 +190,7 @@ _GERADORES_CORPO = {
     "DECLARACAO": _corpo_declaracao,
     "HISTORICO_ESCOLAR": _corpo_historico_escolar,
     "BOLETIM": _corpo_boletim,
+    "RECIBO": _corpo_recibo,
     "OUTRO": _corpo_outro,
 }
 
