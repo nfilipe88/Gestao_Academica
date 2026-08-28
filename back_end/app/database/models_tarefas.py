@@ -19,7 +19,7 @@ class Tarefa(Base):
     __tablename__ = "tarefa"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     alocacao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("professor_turma_disciplina.id", ondelete="CASCADE"), nullable=False)
 
     titulo: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -42,7 +42,7 @@ class TarefaAvaliacao(Base):
     __tablename__ = "tarefa_avaliacao"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     tarefa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tarefa.id", ondelete="CASCADE"), nullable=False)
     matricula_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matricula.id", ondelete="CASCADE"), nullable=False)
 

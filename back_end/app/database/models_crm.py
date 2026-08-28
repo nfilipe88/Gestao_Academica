@@ -16,7 +16,7 @@ class LeadCandidato(Base):
     __tablename__ = "lead_candidato"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     curso_interesse_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("curso.id", ondelete="SET NULL"), nullable=True)
 
     nome_responsavel: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -44,7 +44,7 @@ class FunilEtapa(Base):
     __tablename__ = "funil_etapa"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
 
     ordem: Mapped[int] = mapped_column(Integer, nullable=False)
     nome_etapa: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -60,7 +60,7 @@ class OportunidadeCRM(Base):
     __tablename__ = "oportunidade_crm"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     lead_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lead_candidato.id", ondelete="CASCADE"), nullable=False)
     etapa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("funil_etapa.id", ondelete="RESTRICT"), nullable=False)
 

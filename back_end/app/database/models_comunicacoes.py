@@ -14,7 +14,7 @@ class Comunicado(Base):
     __tablename__ = "comunicado"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     autor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
 
     tipo: Mapped[str] = mapped_column(String(20), nullable=False) # COMUNICADO, CONVOCATORIA
@@ -37,7 +37,7 @@ class AnexoComunicacao(Base):
     __tablename__ = "anexo_comunicacao"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     comunicado_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("comunicado.id", ondelete="CASCADE"), nullable=False)
 
     chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)

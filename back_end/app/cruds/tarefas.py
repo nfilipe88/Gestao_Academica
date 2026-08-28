@@ -279,6 +279,17 @@ async def avaliar_tarefa_lote(db: AsyncSession, utilizador: dict, tarefa_id: uui
 
     matriculas_da_turma = set(await _matriculas_ativas_da_turma(db, tenant_id, alocacao.turma_id))
 
+    # Uma só query para todas as avaliações já existentes deste
+    # trabalho, em vez de um SELECT por aluno dentro do loop (mesma
+    # razão das funções equivalentes em cruds/diario.py — uma turma
+    # inteira, de cada vez que o professor avalia em lote).
+    existentes_da_tarefa = {
+        r.matricula_id: r
+        for r in (await db.execute(
+            select(TarefaAvaliacao).where(TarefaAvaliacao.tarefa_id == tarefa_id)
+        )).scalars().all()
+    }
+
     total = 0
     for item in dados.avaliacoes:
         if item.status not in STATUS_AVALIACAO_VALIDOS:
@@ -291,11 +302,7 @@ async def avaliar_tarefa_lote(db: AsyncSession, utilizador: dict, tarefa_id: uui
         if item.matricula_id not in matriculas_da_turma:
             raise HTTPException(status_code=400, detail=f"A matrícula {item.matricula_id} não pertence a esta turma.")
 
-        existente = (await db.execute(
-            select(TarefaAvaliacao).where(
-                TarefaAvaliacao.tarefa_id == tarefa_id, TarefaAvaliacao.matricula_id == item.matricula_id
-            )
-        )).scalars().first()
+        existente = existentes_da_tarefa.get(item.matricula_id)
 
         if existente:
             existente.status = item.status
@@ -303,11 +310,13 @@ async def avaliar_tarefa_lote(db: AsyncSession, utilizador: dict, tarefa_id: uui
             existente.observacoes = item.observacoes
             existente.data_avaliacao = datetime.now(timezone.utc)
         else:
-            db.add(TarefaAvaliacao(
+            nova = TarefaAvaliacao(
                 tenant_id=tenant_id, tarefa_id=tarefa_id, matricula_id=item.matricula_id,
                 status=item.status, nota=item.nota, observacoes=item.observacoes,
                 data_avaliacao=datetime.now(timezone.utc)
-            ))
+            )
+            db.add(nova)
+            existentes_da_tarefa[item.matricula_id] = nova  # ver comentário equivalente em cruds/diario.py
         total += 1
 
     await db.commit()

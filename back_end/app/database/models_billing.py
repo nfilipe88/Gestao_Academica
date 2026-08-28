@@ -48,7 +48,7 @@ class AssinaturaTenant(Base):
     __tablename__ = "assinatura_tenant"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     plano_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plano_saas.id", ondelete="RESTRICT"), nullable=False)
 
     data_inicio: Mapped[date] = mapped_column(Date, nullable=False)

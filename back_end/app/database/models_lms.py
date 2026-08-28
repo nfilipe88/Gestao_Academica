@@ -19,7 +19,7 @@ class MaterialAula(Base):
     __tablename__ = "material_aula"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     turma_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("turma.id", ondelete="CASCADE"), nullable=False)
     disciplina_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disciplina.id", ondelete="CASCADE"), nullable=False)
 
@@ -49,7 +49,7 @@ class LMSQuestao(Base):
     __tablename__ = "lms_questao"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     disciplina_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disciplina.id", ondelete="CASCADE"), nullable=False)
 
     enunciado: Mapped[str] = mapped_column(Text, nullable=False)
@@ -78,7 +78,7 @@ class LMSExame(Base):
     __tablename__ = "lms_exame"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     alocacao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("professor_turma_disciplina.id", ondelete="CASCADE"), nullable=False)
 
     titulo: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -100,7 +100,7 @@ class LMSExameQuestao(Base):
     __tablename__ = "lms_exame_questao"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     exame_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lms_exame.id", ondelete="CASCADE"), nullable=False)
     questao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lms_questao.id", ondelete="CASCADE"), nullable=False)
     ordem: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -125,7 +125,7 @@ class LMSTentativaExame(Base):
     __tablename__ = "lms_tentativa_exame"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     exame_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lms_exame.id", ondelete="CASCADE"), nullable=False)
     matricula_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matricula.id", ondelete="CASCADE"), nullable=False)
 

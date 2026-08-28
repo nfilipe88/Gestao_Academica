@@ -29,7 +29,7 @@ class PrecoDocumento(Base):
     __table_args__ = (UniqueConstraint("tenant_id", "tipo_documento", name="uq_preco_documento_tenant_tipo"),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # CERTIFICADO, DECLARACAO, HISTORICO_ESCOLAR, BOLETIM, OUTRO
     tipo_documento: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -42,7 +42,7 @@ class SolicitacaoDocumentoEmissao(Base):
     __tablename__ = "solicitacao_documento_emissao"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     aluno_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aluno.id", ondelete="CASCADE"), nullable=False)
     solicitante_usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
 
@@ -81,7 +81,7 @@ class TemplateDocumentoPersonalizado(Base):
     __table_args__ = (UniqueConstraint("tenant_id", "tipo_documento", name="uq_template_documento_tenant_tipo"),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # CERTIFICADO, DECLARACAO, HISTORICO_ESCOLAR, BOLETIM, OUTRO
     tipo_documento: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -99,7 +99,7 @@ class SolicitacaoDocumentoEscola(Base):
     __tablename__ = "solicitacao_documento_escola"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # ALUNO, RESPONSAVEL, PROFESSOR — só um dos 3 FKs abaixo é preenchido.
     destinatario_tipo: Mapped[str] = mapped_column(String(20), nullable=False)

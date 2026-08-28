@@ -9,7 +9,7 @@ class Curso(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     # Relação obrigatória com a Instituição (Isolamento)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
 
     nome: Mapped[str] = mapped_column(String(150), nullable=False)
 
@@ -25,7 +25,7 @@ class SerieAno(Base):
     __tablename__ = "serie_ano"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     curso_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("curso.id", ondelete="CASCADE"), nullable=False)
 
     nome: Mapped[str] = mapped_column(String(100), nullable=False) # Ex: "10º Ano", "1ª Série"
@@ -38,7 +38,7 @@ class Turma(Base):
     __tablename__ = "turma"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     serie_ano_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("serie_ano.id", ondelete="CASCADE"), nullable=False)
 
     nome_codigo: Mapped[str] = mapped_column(String(50), nullable=False) # Ex: 10º Ano - Turma A
@@ -57,7 +57,7 @@ class Disciplina(Base):
     __tablename__ = "disciplina"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
 
     nome: Mapped[str] = mapped_column(String(150), nullable=False)
     carga_horaria_total: Mapped[int] = mapped_column(Integer, nullable=True)
@@ -67,7 +67,7 @@ class GradeCurricular(Base):
     __tablename__ = "grade_curricular"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     serie_ano_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("serie_ano.id", ondelete="CASCADE"), nullable=False)
     disciplina_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disciplina.id", ondelete="CASCADE"), nullable=False)
 
@@ -88,7 +88,7 @@ class ObjetivoAprendizagem(Base):
     __tablename__ = "objetivo_aprendizagem"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     disciplina_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disciplina.id", ondelete="CASCADE"), nullable=False)
 
     nome: Mapped[str] = mapped_column(String(150), nullable=False)  # Ex: "Células"

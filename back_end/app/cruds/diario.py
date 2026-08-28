@@ -154,18 +154,28 @@ async def lancar_frequencias_lote(db: AsyncSession, utilizador: dict, turma_id: 
         select(Matricula.id).where(Matricula.turma_id == turma_id, Matricula.tenant_id == tenant_id)
     )).scalars().all())
 
+    # Uma só query para todos os registos já existentes desta aula, em
+    # vez de um SELECT por aluno dentro do loop (uma turma típica é
+    # 20-40 alunos, e isto corre a cada chamada — a operação mais
+    # frequente do Diário de Classe, multiplicada por todas as turmas/
+    # disciplinas/dias, em todas as escolas).
+    existentes_da_aula = {
+        r.matricula_id: r
+        for r in (await db.execute(
+            select(RegistroFrequencia).where(
+                RegistroFrequencia.disciplina_id == disciplina_id,
+                RegistroFrequencia.data_aula == dados.data_aula,
+                RegistroFrequencia.matricula_id.in_(matriculas_da_turma),
+            )
+        )).scalars().all()
+    }
+
     total = 0
     for item in dados.frequencias:
         if item.matricula_id not in matriculas_da_turma:
             raise HTTPException(status_code=400, detail=f"A matrícula {item.matricula_id} não pertence a esta turma.")
 
-        existente = (await db.execute(
-            select(RegistroFrequencia).where(
-                RegistroFrequencia.matricula_id == item.matricula_id,
-                RegistroFrequencia.disciplina_id == disciplina_id,
-                RegistroFrequencia.data_aula == dados.data_aula
-            )
-        )).scalars().first()
+        existente = existentes_da_aula.get(item.matricula_id)
 
         if existente:
             # Upsert: relançar a chamada do mesmo dia atualiza, não duplica.
@@ -174,7 +184,7 @@ async def lancar_frequencias_lote(db: AsyncSession, utilizador: dict, turma_id: 
             existente.quantidade_aulas = dados.quantidade_aulas
             existente.conteudo_programado = dados.conteudo_programado
         else:
-            db.add(RegistroFrequencia(
+            nova = RegistroFrequencia(
                 tenant_id=tenant_id,
                 matricula_id=item.matricula_id,
                 disciplina_id=disciplina_id,
@@ -183,7 +193,13 @@ async def lancar_frequencias_lote(db: AsyncSession, utilizador: dict, turma_id: 
                 conteudo_programado=dados.conteudo_programado,
                 presenca=item.presenca,
                 faltas=item.faltas
-            ))
+            )
+            db.add(nova)
+            # Mesmo matricula_id duas vezes no mesmo lote (não deveria
+            # acontecer, mas o dicionário só foi construído uma vez
+            # antes do loop) — regista aqui para a segunda ocorrência
+            # atualizar em vez de duplicar.
+            existentes_da_aula[item.matricula_id] = nova
         total += 1
 
     await db.commit()
@@ -211,6 +227,20 @@ async def lancar_notas_lote(db: AsyncSession, utilizador: dict, turma_id: uuid.U
         select(Matricula.id).where(Matricula.turma_id == turma_id, Matricula.tenant_id == tenant_id)
     )).scalars().all())
 
+    # Mesma razão de lancar_frequencias_lote acima: uma query só para
+    # todos os registos já existentes deste período, em vez de um
+    # SELECT por aluno dentro do loop.
+    existentes_do_periodo = {
+        r.matricula_id: r
+        for r in (await db.execute(
+            select(RegistroNota).where(
+                RegistroNota.disciplina_id == disciplina_id,
+                RegistroNota.periodo_avaliacao == dados.periodo_avaliacao,
+                RegistroNota.matricula_id.in_(matriculas_da_turma),
+            )
+        )).scalars().all()
+    }
+
     total = 0
     for item in dados.notas:
         if item.valor_nota < NOTA_MINIMA or item.valor_nota > NOTA_MAXIMA:
@@ -221,13 +251,7 @@ async def lancar_notas_lote(db: AsyncSession, utilizador: dict, turma_id: uuid.U
         if item.matricula_id not in matriculas_da_turma:
             raise HTTPException(status_code=400, detail=f"A matrícula {item.matricula_id} não pertence a esta turma.")
 
-        existente = (await db.execute(
-            select(RegistroNota).where(
-                RegistroNota.matricula_id == item.matricula_id,
-                RegistroNota.disciplina_id == disciplina_id,
-                RegistroNota.periodo_avaliacao == dados.periodo_avaliacao
-            )
-        )).scalars().first()
+        existente = existentes_do_periodo.get(item.matricula_id)
 
         if existente:
             if existente.valor_nota != item.valor_nota:
@@ -243,7 +267,7 @@ async def lancar_notas_lote(db: AsyncSession, utilizador: dict, turma_id: uuid.U
             existente.tipo_avaliacao = dados.tipo_avaliacao
             existente.data_avaliacao = dados.data_avaliacao
         else:
-            db.add(RegistroNota(
+            nova = RegistroNota(
                 tenant_id=tenant_id,
                 matricula_id=item.matricula_id,
                 disciplina_id=disciplina_id,
@@ -251,7 +275,9 @@ async def lancar_notas_lote(db: AsyncSession, utilizador: dict, turma_id: uuid.U
                 tipo_avaliacao=dados.tipo_avaliacao,
                 data_avaliacao=dados.data_avaliacao,
                 valor_nota=item.valor_nota
-            ))
+            )
+            db.add(nova)
+            existentes_do_periodo[item.matricula_id] = nova  # ver comentário equivalente acima
         total += 1
 
     await db.commit()
@@ -751,6 +777,16 @@ async def lancar_notas_avaliacao_lote(db: AsyncSession, utilizador: dict, avalia
         select(Matricula.id).where(Matricula.turma_id == avaliacao.turma_id, Matricula.tenant_id == tenant_id)
     )).scalars().all())
 
+    # Mesma razão das duas funções acima: uma query só para todas as
+    # notas já existentes desta avaliação, em vez de um SELECT por
+    # aluno dentro do loop.
+    existentes_da_avaliacao = {
+        r.matricula_id: r
+        for r in (await db.execute(
+            select(NotaAvaliacao).where(NotaAvaliacao.avaliacao_id == avaliacao_id)
+        )).scalars().all()
+    }
+
     total = 0
     matriculas_afetadas: set[uuid.UUID] = set()
     for item in dados.notas:
@@ -762,22 +798,23 @@ async def lancar_notas_avaliacao_lote(db: AsyncSession, utilizador: dict, avalia
         if item.matricula_id not in matriculas_da_turma:
             raise HTTPException(status_code=400, detail=f"A matrícula {item.matricula_id} não pertence a esta turma.")
 
-        existente = (await db.execute(
-            select(NotaAvaliacao).where(
-                NotaAvaliacao.avaliacao_id == avaliacao_id,
-                NotaAvaliacao.matricula_id == item.matricula_id
-            )
-        )).scalars().first()
+        existente = existentes_da_avaliacao.get(item.matricula_id)
 
         if existente:
             existente.valor_nota = item.valor_nota
         else:
-            db.add(NotaAvaliacao(
+            nova = NotaAvaliacao(
                 tenant_id=tenant_id,
                 avaliacao_id=avaliacao_id,
                 matricula_id=item.matricula_id,
                 valor_nota=item.valor_nota
-            ))
+            )
+            db.add(nova)
+            # Se o mesmo matricula_id aparecer duas vezes no mesmo lote
+            # (não deveria, mas o formulário não impede), a segunda
+            # ocorrência tem de encontrar esta — o dicionário só foi
+            # construído uma vez, antes do loop.
+            existentes_da_avaliacao[item.matricula_id] = nova
         matriculas_afetadas.add(item.matricula_id)
         total += 1
 

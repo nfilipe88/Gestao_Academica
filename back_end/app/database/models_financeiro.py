@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, text
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -23,7 +23,7 @@ class ContratoFinanceiro(Base):
     __tablename__ = "contrato_financeiro"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     matricula_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matricula.id", ondelete="CASCADE"), nullable=False)
     responsavel_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("responsavel_financeiro_legal.id", ondelete="RESTRICT"), nullable=False)
 
@@ -53,7 +53,7 @@ class FaturaMensalidade(Base):
     __tablename__ = "fatura_mensalidade"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     contrato_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contrato_financeiro.id", ondelete="CASCADE"), nullable=False)
 
     numero_parcela: Mapped[int] = mapped_column(Integer, nullable=False)  # Ex: 3 (de 3/12)
@@ -72,6 +72,12 @@ class FaturaMensalidade(Base):
 
     __table_args__ = (
         UniqueConstraint("contrato_id", "numero_parcela", name="uq_fatura_contrato_parcela"),
+        # Cobre a query mais pesada desta tabela: a régua de cobrança
+        # diária (RN04, ver cruds/financeiro.py::processar_regua_cobranca_do_tenant)
+        # varre TODAS as faturas PENDENTE de uma escola, todos os dias,
+        # para todas as escolas ATIVAS — sem isto, sequential scan
+        # completo à tabela em cada execução do job.
+        Index("ix_fatura_tenant_status", "tenant_id", "status_pagamento"),
     )
 
 
@@ -112,7 +118,7 @@ class Recibo(Base):
     __tablename__ = "recibo"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     fatura_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fatura_mensalidade.id", ondelete="CASCADE"), nullable=False)
 
     numero_sequencial: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -151,7 +157,7 @@ class TransacaoGateway(Base):
     __tablename__ = "transacao_gateway"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     fatura_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fatura_mensalidade.id", ondelete="CASCADE"), nullable=False)
 
     metodo_pagamento: Mapped[str] = mapped_column(String(30), nullable=False)  # PAYPAL (por agora)

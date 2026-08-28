@@ -20,7 +20,7 @@ class HorarioAula(Base):
     __tablename__ = "horario_aula"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     alocacao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("professor_turma_disciplina.id", ondelete="CASCADE"), nullable=False)
 
     dia_semana: Mapped[int] = mapped_column(Integer, nullable=False)  # 1=Segunda ... 7=Domingo (ISO 8601)

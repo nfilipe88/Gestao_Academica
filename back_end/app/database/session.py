@@ -38,10 +38,48 @@ if not DATABASE_URL_SISTEMA:
         "com base no .env.example (precisa do role app_sistema — ver scripts/criar_roles_rls.sql)."
     )
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+# Fase 6 — escala: antes disto nenhum destes parâmetros era definido,
+# o que deixava o pool no valor por omissão do SQLAlchemy
+# (pool_size=5, max_overflow=10 — só 15 ligações físicas no total, por
+# instância). Numa escola a testar sozinha isso nunca aparece; com
+# várias escolas concorrentes num pico (início das aulas, época de
+# matrículas) esgota-se depressa, e os pedidos a mais ficam à espera
+# de uma ligação livre (ou falham com um timeout do pool) em vez de
+# simplesmente serem mais lentos.
+#
+# pool_pre_ping=True: testa a ligação (SELECT 1) antes de a reutilizar
+# do pool — sem isto, uma ligação que o Postgres/um load balancer
+# fechou silenciosamente (idle timeout, restart) só é descoberta a
+# meio de um pedido real, como erro. pool_recycle: força a renovação
+# de ligações mais velhas do que isto, pela mesma razão (idle
+# timeouts costumam ser bem menores do que "para sempre").
+#
+# Tudo configurável via .env — o valor certo depende do tamanho real
+# do Postgres (max_connections) e de quantas instâncias do back-end
+# estão no ar ao mesmo tempo; estes defaults são um ponto de partida
+# razoável para uma única instância de tamanho médio.
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "20"))
+DB_POOL_MAX_OVERFLOW = int(os.getenv("DB_POOL_MAX_OVERFLOW", "20"))
+DB_POOL_RECYCLE_SEGUNDOS = int(os.getenv("DB_POOL_RECYCLE_SEGUNDOS", "1800"))
+
+_kwargs_pool = dict(
+    pool_size=DB_POOL_SIZE,
+    max_overflow=DB_POOL_MAX_OVERFLOW,
+    pool_pre_ping=True,
+    pool_recycle=DB_POOL_RECYCLE_SEGUNDOS,
+)
+
+engine = create_async_engine(DATABASE_URL, echo=False, **_kwargs_pool)
 AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
-engine_sistema = create_async_engine(DATABASE_URL_SISTEMA, echo=False)
+# Pool mais pequeno de propósito: engine_sistema só serve os fluxos
+# cross-tenant (login/registo/webhooks/Super Admin/jobs), uma fração
+# pequena do tráfego total comparado com o engine principal (app_tenant).
+engine_sistema = create_async_engine(
+    DATABASE_URL_SISTEMA, echo=False,
+    pool_size=max(5, DB_POOL_SIZE // 2), max_overflow=max(5, DB_POOL_MAX_OVERFLOW // 2),
+    pool_pre_ping=True, pool_recycle=DB_POOL_RECYCLE_SEGUNDOS,
+)
 AsyncSessionLocalSistema = async_sessionmaker(bind=engine_sistema, class_=AsyncSession, expire_on_commit=False)
 
 

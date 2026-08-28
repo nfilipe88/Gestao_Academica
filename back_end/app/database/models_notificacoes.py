@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -15,9 +15,19 @@ class Notificacao(Base):
     acesso ao evento de origem é que gera a notificação.
     """
     __tablename__ = "notificacao"
+    __table_args__ = (
+        # Existia desde a migração original (48640d281d79) mas nunca
+        # tinha sido declarado aqui — cada migração desde então via o
+        # autogenerate a assinalá-lo como "drift" (removido) sem ninguém
+        # alguma vez o remover de facto. Cobre a query mais frequente
+        # desta tabela: notificações por ler de UM utilizador, mais
+        # recentes primeiro (sino de notificações, consultado por
+        # polling a cada 60s — ver jwt.interceptor.ts).
+        Index("ix_notificacao_usuario_lida_data", "usuario_id", "lida", "data_criacao"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), nullable=False)
 
     # COMUNICADO, SOLICITACAO_DOCUMENTO, SOLICITACAO_TRANSFERENCIA, LICENCA, SISTEMA
