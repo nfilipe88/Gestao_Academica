@@ -1,0 +1,114 @@
+name: CI
+
+# Corre em cada push e em cada Pull Request para main — o objetivo
+# concreto é que o bug corrigido em 7597615 (build de produção do
+# Angular partido há vários commits, sem ninguém notar) e qualquer
+# quebra de isolamento entre escolas (RLS) fiquem impossíveis de passar
+# despercebidos outra vez.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    name: Testes do back-end (pytest + RLS real)
+    runs-on: ubuntu-latest
+
+    # Postgres efémero só para este job — nasce e morre com o job,
+    # nunca é a base de dados de desenvolvimento/produção. O nome
+    # "academic_db_test" (com "test" no nome) é exigido pela própria
+    # suite (ver tests/conftest.py) como proteção extra contra correr
+    # os testes às cegas contra a base errada.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_ci_apenas
+          POSTGRES_DB: academic_db_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Instalar dependências
+        working-directory: back_end
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Criar roles app_tenant/app_sistema (mesmo RLS de produção)
+        # Espelha scripts/criar_roles_rls.sql — inline aqui (em vez de
+        # correr o ficheiro) só para poder apontar ao nome de base de
+        # dados de CI sem editar o .sql versionado.
+        env:
+          PGPASSWORD: postgres_ci_apenas
+        run: |
+          psql -h localhost -U postgres -d academic_db_test <<'SQL'
+          CREATE ROLE app_tenant WITH LOGIN PASSWORD 'app_tenant_ci' NOSUPERUSER NOBYPASSRLS;
+          CREATE ROLE app_sistema WITH LOGIN PASSWORD 'app_sistema_ci' NOSUPERUSER BYPASSRLS;
+          GRANT CONNECT ON DATABASE academic_db_test TO app_tenant, app_sistema;
+          GRANT USAGE ON SCHEMA public TO app_tenant, app_sistema;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_tenant, app_sistema;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_tenant, app_sistema;
+          ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+              GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_tenant, app_sistema;
+          ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+              GRANT USAGE, SELECT ON SEQUENCES TO app_tenant, app_sistema;
+          SQL
+
+      - name: Escrever .env.test
+        working-directory: back_end
+        run: |
+          cat > .env.test <<EOF
+          DATABASE_URL=postgresql+asyncpg://app_tenant:app_tenant_ci@localhost:5432/academic_db_test
+          DATABASE_URL_SISTEMA=postgresql+asyncpg://app_sistema:app_sistema_ci@localhost:5432/academic_db_test
+          DATABASE_URL_MIGRACOES=postgresql+asyncpg://postgres:postgres_ci_apenas@localhost:5432/academic_db_test
+          JWT_SECRET_KEY=chave-secreta-so-para-testes-nunca-usar-em-producao
+          SMTP_HOST=
+          PAYPAL_CLIENT_ID=
+          PAYPAL_CLIENT_SECRET=
+          ANTHROPIC_API_KEY=
+          EOF
+
+      - name: Aplicar migrações (alembic upgrade head)
+        working-directory: back_end
+        env:
+          DATABASE_URL_MIGRACOES: postgresql+asyncpg://postgres:postgres_ci_apenas@localhost:5432/academic_db_test
+        run: alembic upgrade head
+
+      - name: Correr pytest
+        working-directory: back_end
+        run: pytest -v
+
+  frontend-build:
+    name: Build de produção do Angular
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: gacademic/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: gacademic
+        run: npm ci
+
+      - name: ng build (configuração de produção — a que um deploy real usa)
+        working-directory: gacademic
+        run: npx ng build
