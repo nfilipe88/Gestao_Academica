@@ -1,11 +1,9 @@
-import time
-from collections import defaultdict
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.schemas.auth import EsqueciSenhaIn, RedefinirSenhaIn, RegistoInicial, TokenResponse
 from app.core.email import enviar_email, template_base
+from app.core.rate_limiter import excedeu_limite
 from app.cruds import auth as crud_auth
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação e Onboarding"])
@@ -13,24 +11,19 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação e Onboarding"])
 # ==========================================
 # LIMITADOR DE TENTATIVAS DE LOGIN (anti força-bruta)
 # ==========================================
-# Implementação simples em memória: suficiente para um único processo/dev.
-# Em produção com múltiplos workers/instâncias, substituir por um limitador
-# partilhado (ex.: slowapi + Redis), senão cada worker conta à parte.
-_LOGIN_TENTATIVAS: dict[str, list[float]] = defaultdict(list)
+# A implementação em si (Redis partilhado entre instâncias, com
+# fallback para memória local) vive em app/core/rate_limiter.py — só
+# fica aqui o "o quê" (chave, limites), não o "como".
 _LOGIN_MAX_TENTATIVAS = 5
 _LOGIN_JANELA_SEGUNDOS = 60
 
 
-def _verificar_limite_login(chave: str) -> None:
-    agora = time.monotonic()
-    tentativas = _LOGIN_TENTATIVAS[chave]
-    tentativas[:] = [t for t in tentativas if agora - t < _LOGIN_JANELA_SEGUNDOS]
-    if len(tentativas) >= _LOGIN_MAX_TENTATIVAS:
+async def _verificar_limite_login(chave: str) -> None:
+    if await excedeu_limite(chave, _LOGIN_MAX_TENTATIVAS, _LOGIN_JANELA_SEGUNDOS):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Demasiadas tentativas de login. Tente novamente dentro de 1 minuto."
         )
-    tentativas.append(agora)
 
 @router.post("/registo", status_code=status.HTTP_201_CREATED)
 async def registo_inicial_escola(dados: RegistoInicial, background_tasks: BackgroundTasks):
@@ -62,7 +55,7 @@ async def registo_inicial_escola(dados: RegistoInicial, background_tasks: Backgr
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     """Valida a hash da palavra-passe com o passlib e gera o JWT."""
     ip_cliente = request.client.host if request.client else "desconhecido"
-    _verificar_limite_login(f"{ip_cliente}:{form_data.username}")
+    await _verificar_limite_login(f"{ip_cliente}:{form_data.username}")
 
     return await crud_auth.autenticar(form_data.username, form_data.password)
 
@@ -80,7 +73,7 @@ async def esqueci_senha(dados: EsqueciSenhaIn, request: Request, background_task
     existe, porque manda e-mail; instantâneo quando não existe).
     """
     ip_cliente = request.client.host if request.client else "desconhecido"
-    _verificar_limite_login(f"reset:{ip_cliente}:{dados.email}")
+    await _verificar_limite_login(f"reset:{ip_cliente}:{dados.email}")
 
     background_tasks.add_task(crud_auth.solicitar_redefinicao_senha, dados.email)
 

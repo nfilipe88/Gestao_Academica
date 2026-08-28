@@ -78,3 +78,14 @@ oscrypto==1.3.0
 asn1crypto==1.5.1
 uritools==6.1.3
 webencodings==0.5.1
+
+# Redis — opcional em runtime (REDIS_URL em branco = fallback local,
+# só correto com uma única instância do back-end): coordenação entre
+# instâncias para o limitador de tentativas de login
+# (app/core/rate_limiter.py) e o lock do scheduler
+# (app/core/lock_distribuido.py).
+redis==5.2.1
+
+# Sentry — opcional em runtime (SENTRY_DSN em branco = desativado, só
+# fica nos logs locais). Ver app/core/monitorizacao.py.
+sentry-sdk[fastapi]==2.19.2

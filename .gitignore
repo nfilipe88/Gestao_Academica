@@ -198,6 +198,10 @@ activemq-data/
 .envrc
 .venv
 env/
+
+# Override pessoal de docker-compose (ex.: remapear portas já
+# ocupadas localmente) — nunca deve ser partilhado/commitado.
+docker-compose.override.yml
 venv/
 ENV/
 env.bak/

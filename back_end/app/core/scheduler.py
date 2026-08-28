@@ -1,8 +1,14 @@
 """
-Agendador interno (APScheduler, in-process — sem serviço externo tipo
-Celery/Redis) para tarefas que o documento de arquitetura pede como
-automáticas mas que, até agora, só corriam quando alguém clicava num
-botão.
+Agendador interno (APScheduler, in-process — continua sem depender de
+um serviço externo tipo Celery) para tarefas que o documento de
+arquitetura pede como automáticas mas que, até agora, só corriam
+quando alguém clicava num botão.
+
+Cada instância do back-end corre o seu próprio APScheduler — com mais
+de uma instância, todas disparam à mesma hora (CronTrigger). Os jobs
+abaixo usam app/core/lock_distribuido.py (Redis, quando configurado)
+para só a primeira a chegar processar de facto; sem REDIS_URL,
+mantém-se o pressuposto de uma única instância.
 
 RN04 do Financeiro (régua de cobrança): o endpoint
 POST /financeiro/regua-cobranca/processar continua a existir para
@@ -21,6 +27,7 @@ from app.database.models import Tenant
 from app.cruds.financeiro import processar_regua_cobranca_do_tenant
 from app.cruds.admin import processar_validade_licencas
 from app.core.email import enviar_email
+from app.core.lock_distribuido import tentar_obter_lock
 
 logger = logging.getLogger("scheduler")
 
@@ -38,7 +45,18 @@ async def job_regua_de_cobranca_diaria() -> dict:
     cada uma. Falhas numa escola ficam registadas em log mas não
     impedem o processamento das restantes (uma escola com dados
     inconsistentes não deve bloquear o envio de lembretes a todas as outras).
+
+    Lock distribuído: com mais de uma instância do back-end, todas
+    disparariam este job à mesma hora (CronTrigger) — só a primeira a
+    obter o lock chega a processar; as outras saltam e devolvem vazio.
+    Não afeta o disparo manual (POST /financeiro/regua-cobranca/processar
+    chama processar_regua_cobranca_do_tenant diretamente, nunca esta
+    função) — um Gestor a forçar manualmente nunca fica bloqueado por isto.
     """
+    if not await tentar_obter_lock("regua_cobranca_diaria", ttl_segundos=3600):
+        logger.info("Régua de cobrança diária: outra instância já está a processar isto agora — a saltar.")
+        return {}
+
     resumo: dict[str, int] = {}
 
     async with AsyncSessionLocal() as db:
@@ -74,7 +92,15 @@ async def job_validade_licenca_diaria() -> dict:
     resolver com um único set_config('app.current_tenant_id', ...)
     como o job da régua de cobrança faz (esse é mesmo de uma escola de
     cada vez, por isso continua na sessão normal).
+
+    Mesmo lock distribuído do job acima, mesma razão — o disparo manual
+    (POST /admin/validade-licenca/processar) chama processar_validade_licencas
+    diretamente, sem passar por aqui, por isso nunca fica bloqueado por isto.
     """
+    if not await tentar_obter_lock("validade_licenca_diaria", ttl_segundos=3600):
+        logger.info("Validade de licenças diária: outra instância já está a processar isto agora — a saltar.")
+        return {"suspensos": 0, "alertados": 0}
+
     async with AsyncSessionLocalSistema() as db:
         try:
             resumo = await processar_validade_licencas(db, _enviar_email_direto)

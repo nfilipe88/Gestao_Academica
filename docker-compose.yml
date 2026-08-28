@@ -1,0 +1,89 @@
+# Ambiente completo local via `docker compose up --build` — Postgres
+# com RLS a sério (mesmos roles/policies de produção), Redis
+# (coordenação entre instâncias — aqui só há uma de cada, mas a app já
+# fica pronta para mais), back-end, front-end (Angular SSR) e um nginx
+# como ponto de entrada único em http://localhost.
+#
+# NÃO é uma receita de produção tal e qual (passwords fixas abaixo,
+# sem TLS, um Postgres só sem réplica) — é o ambiente local mais
+# próximo possível da topologia real, para deixar de depender de
+# arrancar back-end e front-end à mão em dois terminais separados.
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev_apenas
+      POSTGRES_DB: academic_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/docker-init-roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./back_end
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app_tenant:app_tenant_docker@postgres:5432/academic_db
+      DATABASE_URL_SISTEMA: postgresql+asyncpg://app_sistema:app_sistema_docker@postgres:5432/academic_db
+      DATABASE_URL_MIGRACOES: postgresql+asyncpg://postgres:postgres_dev_apenas@postgres:5432/academic_db
+      JWT_SECRET_KEY: chave-secreta-so-para-docker-compose-local-trocar-em-producao
+      REDIS_URL: redis://redis:6379/0
+      CORS_ALLOWED_ORIGINS: http://localhost
+      FRONTEND_URL: http://localhost
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  frontend:
+    build: ./gacademic
+    depends_on:
+      - backend
+    environment:
+      # "localhost" cobre os pedidos que chegam via nginx (Host:
+      # localhost, quando acedido em http://localhost); "localhost:4000"
+      # (já vem por omissão do Dockerfile) cobre o healthcheck do
+      # próprio container, que fala diretamente com localhost:4000 sem
+      # passar pelo nginx.
+      NG_ALLOWED_HOSTS: localhost:4000,localhost
+    ports:
+      - "4000:4000"
+
+  nginx:
+    image: nginx:alpine
+    depends_on:
+      - backend
+      - frontend
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:

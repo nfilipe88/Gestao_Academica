@@ -1,9 +1,18 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from app.api.v1 import academico, admin, alunos, auth, comunicacoes, configuracoes, crm, diario, documentos, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, tarefas, transferencias, usuarios
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
+from app.core.monitorizacao import iniciar_sentry
+from app.database.session import engine
+
+# Antes de qualquer outra coisa, para também apanhar erros no arranque
+# da própria app (import de routers, etc.).
+iniciar_sentry()
 
 
 @asynccontextmanager
@@ -24,9 +33,18 @@ app = FastAPI(
 )
 
 # CONFIGURAÇÃO DE CORS (Essencial para o Angular comunicar com a API)
+# CORS_ALLOWED_ORIGINS: lista separada por vírgulas (ex.:
+# "https://app.escola.pt,https://staging.escola.pt"). Sem esta variável
+# definida, assume-se o dev server local do Angular — nunca deixar cair
+# nesse default em produção (ver .env.example).
+_origens_permitidas = [
+    origem.strip()
+    for origem in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:4200").split(",")
+    if origem.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"], # Permite apenas o nosso Front-end local
+    allow_origins=_origens_permitidas,
     allow_credentials=True,
     allow_methods=["*"], # Permite GET, POST, PUT, DELETE, etc.
     allow_headers=["*"], # Permite o envio do cabeçalho de Authorization (Bearer Token)
@@ -68,5 +86,17 @@ app.include_router(propinas.router)
 
 @app.get("/api/v1/health")
 async def health_check():
-    """Endpoint para verificar se a API está online."""
-    return {"status": "ok", "mensagem": "Motor FastAPI a funcionar perfeitamente."}
+    """Confirma que a API está online E que consegue mesmo falar com a
+    base de dados — usado pelo HEALTHCHECK do Docker/orquestrador para
+    só marcar a instância como pronta quando as duas coisas forem
+    verdade (só o processo estar vivo não chega: pode estar de pé mas
+    incapaz de servir um único pedido real)."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return {"status": "ok", "base_de_dados": "ok"}
+    except Exception as erro:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "erro", "base_de_dados": "inacessível", "detalhe": str(erro)},
+        )

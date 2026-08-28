@@ -15,12 +15,34 @@ teste, mapa de permissões editável e tabela de propinas.
 
 Este é um produto em desenvolvimento ativo, funcionalmente amplo mas
 **ainda não pronto para produção sem supervisão** — falta sobretudo
-infraestrutura (deploy automatizado, monitorização), não funcionalidades.
-Ver o plano de trabalho em curso mais abaixo.
+infraestrutura, não funcionalidades. Ver o plano de trabalho em curso
+mais abaixo.
 
 ---
 
-## A correr localmente
+## A correr tudo com Docker (a via mais rápida)
+
+```bash
+cp back_end/.env.example back_end/.env   # não é lido pelo docker-compose,
+                                          # mas mantém o ficheiro presente para outras ferramentas
+docker compose up --build
+```
+
+Sobe Postgres (com os roles/RLS já criados automaticamente), Redis,
+back-end, front-end (Angular SSR) e um nginx como ponto de entrada
+único — **http://localhost** já com tudo ligado (a app Angular chama a
+API com caminhos relativos, o nginx encaminha `/api/*` para o back-end
+e o resto para o front-end, por isso não há CORS nenhum a negociar
+neste caminho).
+
+Não é uma receita de produção tal e qual (passwords fixas no
+`docker-compose.yml`, sem TLS) — ver `docker-compose.yml` e
+`deploy/nginx.conf` para os detalhes, e a secção de variáveis de
+ambiente abaixo para o que muda num deploy real.
+
+---
+
+## A correr localmente (sem Docker)
 
 ### Pré-requisitos
 - Python 3.13+ e um venv
@@ -52,10 +74,20 @@ alembic upgrade head
 python -m uvicorn main:app --reload --port 8000
 ```
 
-`GET http://localhost:8000/api/v1/health` confirma que está no ar.
+`GET http://localhost:8000/api/v1/health` confirma que está no ar E que
+consegue mesmo falar com a base de dados (não só que o processo está vivo).
 `http://localhost:8000/docs` tem a documentação interativa (Swagger).
 
 Para criar a primeira conta Super Admin: `python seed_super_admin.py`.
+
+**Redis (`REDIS_URL`) e Sentry (`SENTRY_DSN`) são opcionais** — em
+branco, o back-end funciona da mesma forma, mas com duas limitações só
+seguras para UMA instância: o limitador de tentativas de login conta
+em memória local (cada instância à parte, um atacante distribuído
+entre várias nunca bate no limite) e o agendador da régua de cobrança
+não tem lock partilhado (com mais de uma instância, cada uma dispara o
+job à mesma hora, duplicando e-mails). Ver `.env.example` para os
+detalhes de cada um.
 
 ### Front-end
 
@@ -108,10 +140,15 @@ a suite real do front-end ainda está por escrever.
 
 ## CI
 
-`.github/workflows/ci.yml` corre em cada push/PR para `main`: a suite
-de pytest acima (com Postgres efémero) e `ng build` de produção —
-precisamente o comando que esteve partido, sem ninguém notar, até este
-ser corrigido.
+`.github/workflows/ci.yml` corre em cada push/PR para `main`:
+- a suite de pytest acima, duas vezes (com Postgres efémero) — uma sem
+  Redis (fallback em memória) e outra com Redis real, para os dois
+  caminhos do limitador de login/lock do scheduler ficarem cobertos;
+- `ng build` de produção — precisamente o comando que esteve partido,
+  sem ninguém notar, até este ser corrigido;
+- build das duas imagens Docker (`docker/build-push-action`, sem
+  publicar) — para um `Dockerfile` partido também deixar de poder
+  passar despercebido.
 
 ---
 
@@ -122,11 +159,18 @@ funcional incomum para o estádio em que está, mas não está pronto para
 autoatendimento de milhares de escolas sem supervisão da equipa. Fases,
 por ordem de dependência:
 
-1. **Rede de segurança** (em curso) — testes automatizados dos
-   caminhos críticos + CI a correr em cada push + este README.
-2. **Infraestrutura multi-instância** — o limitador de login e o
-   agendador da régua de cobrança são hoje in-process/em memória
-   (documentado no próprio código); Sentry/métricas; Docker.
+1. ✅ **Rede de segurança** — testes automatizados dos caminhos
+   críticos + CI a correr em cada push + este README.
+2. ✅ **Infraestrutura multi-instância** — limitador de login e lock
+   do scheduler passam a Redis quando `REDIS_URL` está definida (com
+   fallback documentado para memória local); Sentry opcional
+   (`SENTRY_DSN`); CORS deixa de estar fixo em `localhost:4200`
+   (`CORS_ALLOWED_ORIGINS`); `/api/v1/health` passa a confirmar também
+   a ligação à base de dados; Docker (`Dockerfile` em cada serviço +
+   `docker-compose.yml` com nginx como ponto de entrada único) —
+   verificado ponta a ponta: registo → login → dashboard, através do
+   stack completo em contentores. Métricas/dashboards de uptime em si
+   ainda não existem (Sentry cobre erros, não latência/disponibilidade).
 3. **Pagamentos e conformidade fiscal** — sair do sandbox do PayPal;
    moeda/via de pagamento locais consoante o mercado; faturação com
    validade fiscal.

@@ -35,6 +35,18 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Só para a suite exercitar os dois caminhos de
+      # app/core/rate_limiter.py e app/core/lock_distribuido.py (Redis
+      # real vs. fallback em memória) — ver o último passo deste job.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -89,8 +101,14 @@ jobs:
           DATABASE_URL_MIGRACOES: postgresql+asyncpg://postgres:postgres_ci_apenas@localhost:5432/academic_db_test
         run: alembic upgrade head
 
-      - name: Correr pytest
+      - name: Correr pytest (fallback em memória — sem Redis)
         working-directory: back_end
+        run: pytest -v
+
+      - name: Correr pytest (Redis real — coordenação entre instâncias)
+        working-directory: back_end
+        env:
+          REDIS_URL: redis://localhost:6379/0
         run: pytest -v
 
   frontend-build:
@@ -112,3 +130,23 @@ jobs:
       - name: ng build (configuração de produção — a que um deploy real usa)
         working-directory: gacademic
         run: npx ng build
+
+  docker-build:
+    name: Build das imagens Docker (back-end + front-end)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build da imagem do back-end
+        uses: docker/build-push-action@v6
+        with:
+          context: ./back_end
+          push: false
+
+      - name: Build da imagem do front-end
+        uses: docker/build-push-action@v6
+        with:
+          context: ./gacademic
+          push: false
