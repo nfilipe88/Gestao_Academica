@@ -2,12 +2,12 @@
 Acesso a dados e regras de negócio (RN02, RN04) do Financeiro, incluindo
 a integração com a PayPal Orders API (Transacao_Gateway).
 
-O envio de e-mails e o despacho do webhook continuam desacoplados de
-BackgroundTasks/Request do FastAPI através do parâmetro `agendar_email`
-— o mesmo padrão usado em app/core/scheduler.py para o job diário (ver
-processar_regua_cobranca_do_tenant): a rota decide *como* despachar
-(BackgroundTasks.add_task no pedido HTTP, envio direto no scheduler),
-este módulo só decide *quando*.
+O envio de e-mails e o despacho do webhook continuam desacoplados do
+transporte HTTP através do parâmetro `agendar_email` — hoje sempre
+app.core.fila_notificacoes.agendar_email (fila com retries, ver esse
+módulo), tanto vindo de um pedido HTTP como do job diário do scheduler
+(processar_regua_cobranca_do_tenant); este módulo só decide *quando*
+enviar, nunca *como*.
 """
 import logging
 import os
@@ -25,7 +25,7 @@ from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFina
 from app.database.models_matricula import Matricula
 from app.database.models_financeiro import ContadorRecibo, ContratoFinanceiro, FaturaMensalidade, Recibo, TransacaoGateway
 from app.core.email import enviar_email, template_base
-from app.core import documentos_pdf, paypal
+from app.core import documentos_pdf, paypal, storage
 from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, FaturaMarcarPago, GerarCobrancaRequest
 from app.schemas.configuracoes import MOEDAS_PAYPAL_SUPORTADAS
 from app.cruds.admin import esta_bloqueado_parcialmente
@@ -195,6 +195,7 @@ async def gerar_pdf_recibo(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, ut
         "nif": tenant.nif if tenant else None,
         "morada": tenant.morada if tenant else None,
         "contacto": tenant.telefone_contacto if tenant else None,
+        "logo_data_uri": await storage.obter_logo_data_uri(tenant),
     }
     return documentos_pdf.gerar_pdf_documento("RECIBO", escola, contexto)
 
@@ -792,26 +793,33 @@ async def _efetivar_pagamento_gateway(db: AsyncSession, transacao: TransacaoGate
 # ==========================================
 # G. RÉGUA DE COBRANÇA (RN04)
 # ==========================================
-async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agendar_email) -> dict:
+async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agendar_email, agendar_sms=None) -> dict:
     """
     Núcleo da RN04, isolado do transporte HTTP para poder ser chamado
     tanto pelo endpoint manual (POST /regua-cobranca/processar, um
-    tenant, com BackgroundTasks) como pelo scheduler diário
-    (app/core/scheduler.py, todos os tenants ATIVOS, sem request/response
-    à volta). `agendar_email` abstrai essa diferença: recebe
-    (enviar_email, **kwargs) e decide como despachar — via
-    BackgroundTasks.add_task no caso do endpoint, ou a enviar
-    imediatamente no caso do scheduler.
+    tenant) como pelo scheduler diário (app/core/scheduler.py, todos os
+    tenants ATIVOS, sem request/response à volta) — ambos passam a
+    mesma app.core.fila_notificacoes.agendar_email/agendar_sms, que já
+    decide sozinha se enfileira (Redis) ou envia de imediato.
+
+    agendar_sms é opcional (None = só e-mail) só para não partir uma
+    chamada antiga que ainda não o passe — em toda a app já é sempre
+    passado. O SMS é o canal secundário: telefone_contato é
+    obrigatório no cadastro do responsável (ao contrário do e-mail,
+    que é opcional), por isso chega a responsáveis que o e-mail sozinho
+    não alcançaria — relevante em Angola, onde nem todo o encarregado
+    de educação consulta e-mail regularmente.
 
     3 dias antes do vencimento, no dia do vencimento e 5 dias de
-    atraso, o responsável recebe um e-mail; idempotente por
+    atraso, o responsável recebe um e-mail (e um SMS, se
+    SMS_WEBHOOK_URL estiver configurado); idempotente por
     fatura+etapa (marca *_enviado_em antes de reenviar).
     """
     hoje = date.today()
     moeda = await _obter_moeda_tenant(db, tenant_id)
 
     faturas = (await db.execute(
-        select(FaturaMensalidade, ContratoFinanceiro, Aluno.nome_completo, ResponsavelFinanceiroLegal.email)
+        select(FaturaMensalidade, ContratoFinanceiro, Aluno.nome_completo, ResponsavelFinanceiroLegal.email, ResponsavelFinanceiroLegal.telefone_contato)
         .join(ContratoFinanceiro, ContratoFinanceiro.id == FaturaMensalidade.contrato_id)
         .join(Matricula, Matricula.id == ContratoFinanceiro.matricula_id)
         .join(Aluno, Aluno.id == Matricula.aluno_id)
@@ -821,48 +829,68 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
 
     contagem = {"lembrete_previo": 0, "lembrete_vencimento": 0, "aviso_atraso": 0}
 
-    for fatura, contrato, nome_aluno, email_responsavel in faturas:
-        if not email_responsavel:
+    for fatura, contrato, nome_aluno, email_responsavel, telefone_responsavel in faturas:
+        if not email_responsavel and not telefone_responsavel:
             continue
         dias_para_vencer = (fatura.data_vencimento - hoje).days
         rotulo_parcela = f"{fatura.numero_parcela}/{contrato.quantidade_parcelas}"
 
         if dias_para_vencer == 3 and fatura.lembrete_previo_enviado_em is None:
-            await agendar_email(
-                enviar_email, destinatario=email_responsavel,
-                assunto=f"Mensalidade de {nome_aluno} vence em breve",
-                corpo_html=template_base(
-                    "A sua mensalidade vence em breve",
-                    f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, "
+            if email_responsavel:
+                await agendar_email(
+                    enviar_email, destinatario=email_responsavel,
+                    assunto=f"Mensalidade de {nome_aluno} vence em breve",
+                    corpo_html=template_base(
+                        "A sua mensalidade vence em breve",
+                        f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, "
+                        f"vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
+                    )
+                )
+            if agendar_sms and telefone_responsavel:
+                await agendar_sms(
+                    telefone_responsavel,
+                    f"A mensalidade ({rotulo_parcela}) de {nome_aluno} no valor de {fatura.valor_original} {moeda} "
                     f"vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
                 )
-            )
             fatura.lembrete_previo_enviado_em = datetime.now(timezone.utc)
             contagem["lembrete_previo"] += 1
 
         elif dias_para_vencer == 0 and fatura.lembrete_vencimento_enviado_em is None:
-            await agendar_email(
-                enviar_email, destinatario=email_responsavel,
-                assunto=f"Mensalidade de {nome_aluno} vence hoje",
-                corpo_html=template_base(
-                    "A sua mensalidade vence hoje",
-                    f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, vence hoje."
+            if email_responsavel:
+                await agendar_email(
+                    enviar_email, destinatario=email_responsavel,
+                    assunto=f"Mensalidade de {nome_aluno} vence hoje",
+                    corpo_html=template_base(
+                        "A sua mensalidade vence hoje",
+                        f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, vence hoje."
+                    )
                 )
-            )
+            if agendar_sms and telefone_responsavel:
+                await agendar_sms(
+                    telefone_responsavel,
+                    f"A mensalidade ({rotulo_parcela}) de {nome_aluno} no valor de {fatura.valor_original} {moeda} vence hoje."
+                )
             fatura.lembrete_vencimento_enviado_em = datetime.now(timezone.utc)
             contagem["lembrete_vencimento"] += 1
 
         elif dias_para_vencer == -5 and fatura.aviso_atraso_enviado_em is None:
             situacao = calcular_situacao_fatura(fatura)
-            await agendar_email(
-                enviar_email, destinatario=email_responsavel,
-                assunto=f"Mensalidade de {nome_aluno} em atraso",
-                corpo_html=template_base(
-                    "A sua mensalidade está em atraso",
-                    f"A parcela {rotulo_parcela} de {nome_aluno} está em atraso há 5 dias. "
-                    f"Valor atualizado (com juros e multa): {situacao['valor_atualizado']} {moeda}."
+            if email_responsavel:
+                await agendar_email(
+                    enviar_email, destinatario=email_responsavel,
+                    assunto=f"Mensalidade de {nome_aluno} em atraso",
+                    corpo_html=template_base(
+                        "A sua mensalidade está em atraso",
+                        f"A parcela {rotulo_parcela} de {nome_aluno} está em atraso há 5 dias. "
+                        f"Valor atualizado (com juros e multa): {situacao['valor_atualizado']} {moeda}."
+                    )
                 )
-            )
+            if agendar_sms and telefone_responsavel:
+                await agendar_sms(
+                    telefone_responsavel,
+                    f"A mensalidade ({rotulo_parcela}) de {nome_aluno} está em atraso há 5 dias. "
+                    f"Valor atualizado: {situacao['valor_atualizado']} {moeda}."
+                )
             fatura.aviso_atraso_enviado_em = datetime.now(timezone.utc)
             contagem["aviso_atraso"] += 1
 

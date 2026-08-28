@@ -12,9 +12,16 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import storage
 from app.database.models import Tenant
 from app.database.models_diario import Avaliacao, TipoAvaliacaoConfig
 from app.schemas.configuracoes import ConfiguracaoTenantUpdate, TipoAvaliacaoCreate, TipoAvaliacaoUpdate
+
+# Logótipo: só imagens, e um limite generoso mas não absurdo — isto é
+# um brasão/logo para o cabeçalho de um PDF A4, não uma fotografia em
+# alta resolução.
+_TIPOS_LOGOTIPO_ACEITES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+_TAMANHO_MAXIMO_LOGOTIPO = 2 * 1024 * 1024  # 2 MB
 
 
 async def _obter_tenant(db: AsyncSession, tenant_id) -> Tenant:
@@ -48,6 +55,59 @@ async def atualizar_configuracao(db: AsyncSession, tenant_id, dados: Configuraca
     await db.commit()
     await db.refresh(tenant)
     return tenant
+
+
+# ==========================================
+# LOGÓTIPO DA ESCOLA
+# ==========================================
+async def atualizar_logotipo(db: AsyncSession, tenant_id, nome_original: str, content_type: str, conteudo: bytes) -> Tenant:
+    if content_type not in _TIPOS_LOGOTIPO_ACEITES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Formato de imagem não aceite ({content_type}). Use PNG, JPEG, GIF ou WebP."
+        )
+    if len(conteudo) > _TAMANHO_MAXIMO_LOGOTIPO:
+        raise HTTPException(status_code=400, detail="O logótipo não pode passar de 2 MB.")
+
+    tenant = await _obter_tenant(db, tenant_id)
+    chave_antiga = tenant.logotipo_chave
+    nova_chave = storage.gerar_chave(tenant_id, "logotipo", nome_original)
+    await storage.guardar_ficheiro(nova_chave, conteudo, content_type)
+
+    tenant.logotipo_chave = nova_chave
+    await db.commit()
+    await db.refresh(tenant)
+
+    if chave_antiga:
+        await storage.apagar_ficheiro(chave_antiga)  # best-effort, depois de confirmado o novo
+
+    return tenant
+
+
+async def remover_logotipo(db: AsyncSession, tenant_id) -> Tenant:
+    tenant = await _obter_tenant(db, tenant_id)
+    chave_antiga = tenant.logotipo_chave
+    tenant.logotipo_chave = None
+    await db.commit()
+    await db.refresh(tenant)
+    if chave_antiga:
+        await storage.apagar_ficheiro(chave_antiga)
+    return tenant
+
+
+async def obter_logotipo(db: AsyncSession, tenant_id) -> tuple[bytes, str]:
+    """Devolve (conteudo, content_type) para o download — 404 se a
+    escola não tiver logótipo configurado ou o ficheiro tiver
+    desaparecido do storage."""
+    tenant = await _obter_tenant(db, tenant_id)
+    if not tenant.logotipo_chave:
+        raise HTTPException(status_code=404, detail="Esta instituição ainda não tem logótipo configurado.")
+    conteudo = await storage.obter_ficheiro(tenant.logotipo_chave)
+    if not conteudo:
+        raise HTTPException(status_code=404, detail="Logótipo configurado mas o ficheiro não foi encontrado no armazenamento.")
+    extensao = tenant.logotipo_chave.rsplit(".", 1)[-1].lower()
+    content_type = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "gif": "image/gif", "webp": "image/webp"}.get(extensao, "application/octet-stream")
+    return conteudo, content_type
 
 
 # ==========================================

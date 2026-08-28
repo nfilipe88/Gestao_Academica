@@ -22,7 +22,7 @@ from app.database.models_documentos import (
 )
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, Professor, ResponsavelFinanceiroLegal
-from app.core import documentos_pdf, paypal
+from app.core import documentos_pdf, paypal, storage
 from app.core.paginacao import paginar, paginar_linhas
 from app.cruds import alunos as crud_alunos
 from app.cruds import notificacoes as crud_notificacoes
@@ -412,6 +412,7 @@ async def _construir_contexto_pdf(db: AsyncSession, tenant_id, solicitacao: Soli
         "nif": tenant.nif if tenant else "",
         "morada": tenant.morada if tenant else None,
         "contacto": " · ".join(filter(None, [tenant.telefone_contacto, tenant.email_contacto])) if tenant else None,
+        "logo_data_uri": await storage.obter_logo_data_uri(tenant),
     }
 
     if solicitacao.tipo_documento in ("CERTIFICADO", "DECLARACAO"):

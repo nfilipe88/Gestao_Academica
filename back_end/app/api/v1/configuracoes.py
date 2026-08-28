@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
@@ -34,6 +34,39 @@ async def atualizar_configuracao(
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
 ):
     return await crud_configuracoes.atualizar_configuracao(db, utilizador["tenant_id"], dados)
+
+
+# ==========================================
+# LOGÓTIPO DA ESCOLA
+# ==========================================
+@router.get("/logotipo")
+async def obter_logotipo(
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Leitura aberta a qualquer autenticado do tenant (staff E Portal) —
+    o logótipo é usado nos PDFs vistos também pelo Aluno/Responsável."""
+    conteudo, content_type = await crud_configuracoes.obter_logotipo(db, utilizador["tenant_id"])
+    return Response(content=conteudo, media_type=content_type)
+
+
+@router.put("/logotipo", response_model=ConfiguracaoTenantOut)
+async def atualizar_logotipo(
+    ficheiro: UploadFile = File(...),
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    conteudo = await ficheiro.read()
+    if not conteudo:
+        raise HTTPException(status_code=400, detail="Ficheiro vazio.")
+    return await crud_configuracoes.atualizar_logotipo(
+        db, utilizador["tenant_id"], ficheiro.filename or "logotipo", ficheiro.content_type or "application/octet-stream", conteudo
+    )
+
+
+@router.delete("/logotipo", response_model=ConfiguracaoTenantOut)
+async def remover_logotipo(
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    return await crud_configuracoes.remover_logotipo(db, utilizador["tenant_id"])
 
 
 # ==========================================

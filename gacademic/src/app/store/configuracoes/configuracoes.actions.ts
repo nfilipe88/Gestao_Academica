@@ -7,9 +7,13 @@ export const carregarConfiguracaoSucesso = createAction(
   props<{ configuracao: ConfiguracaoTenant }>()
 );
 
+// tem_logotipo é derivado (calculado a partir de logotipo_chave no
+// back-end) — nunca faz parte do corpo do PUT /configuracoes, só do
+// que se lê de volta. O logótipo em si tem os seus próprios endpoints
+// (PUT/DELETE /configuracoes/logotipo, ver configuracoes.component.ts).
 export const atualizarConfiguracao = createAction(
   '[Configuracoes] Atualizar Configuracao',
-  props<{ dados: ConfiguracaoTenant }>()
+  props<{ dados: Omit<ConfiguracaoTenant, 'tem_logotipo'> }>()
 );
 
 export const configuracoesOperacaoSucesso = createAction('[Configuracoes] Operacao Sucesso', props<{ mensagem: string }>());

@@ -1,9 +1,10 @@
 """
 Acesso a dados e regras de negócio de Comunicados/Convocatórias.
 
-O envio efetivo dos e-mails fica na camada de API (BackgroundTasks é
-um mecanismo do FastAPI) — este módulo devolve o Comunicado criado e a
-lista de destinatários para quem chamar despachar o envio.
+O envio efetivo dos e-mails fica na camada de API, via
+app.core.fila_notificacoes (fila com retries) — este módulo devolve o
+Comunicado criado e a lista de destinatários para quem chamar
+despachar o envio.
 """
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,14 +15,21 @@ from app.database.models import Usuario
 from app.database.models_academico import Turma
 from app.database.models_pessoas import Aluno, AlunoResponsavel, Professor, ResponsavelFinanceiroLegal
 from app.database.models_matricula import Matricula
-from app.database.models_comunicacoes import Comunicado
+from app.database.models_comunicacoes import AnexoComunicacao, Comunicado
 from app.database.models_diario import ProfessorTurmaDisciplina
 from app.schemas.comunicacoes import ComunicadoCreate
 from app.cruds import notificacoes as crud_notificacoes
+from app.core import storage
 from app.core.paginacao import paginar_linhas
 
 TIPOS_VALIDOS = {"COMUNICADO", "CONVOCATORIA"}
 DESTINATARIOS_VALIDOS = {"TURMA", "ALUNO", "ESCOLA"}
+
+# Anexo de um Comunicado (ex.: circular em PDF) — mesmo limite dos
+# outros uploads da plataforma (ver app/cruds/configuracoes.py, para o
+# logótipo), generoso o suficiente para um documento de algumas
+# páginas sem abrir a porta a ficheiros enormes.
+_TAMANHO_MAXIMO_ANEXO = 5 * 1024 * 1024  # 5 MB
 
 
 async def _validar_autoria_professor(
@@ -286,6 +294,18 @@ async def listar_comunicados(db: AsyncSession, tenant_id, page: int, page_size: 
         .order_by(Comunicado.data_envio.desc())
     )
     pagina = await paginar_linhas(db, query, page, page_size)
+    linhas = pagina["items"]
+
+    ids_pagina = [comunicado.id for comunicado, _ in linhas]
+    ids_com_anexo: set[uuid.UUID] = set()
+    if ids_pagina:
+        resultado = await db.execute(
+            select(AnexoComunicacao.comunicado_id).where(
+                AnexoComunicacao.tenant_id == tenant_id, AnexoComunicacao.comunicado_id.in_(ids_pagina)
+            )
+        )
+        ids_com_anexo = {comunicado_id for (comunicado_id,) in resultado.all()}
+
     pagina["items"] = [
         {
             "id": comunicado.id,
@@ -298,7 +318,74 @@ async def listar_comunicados(db: AsyncSession, tenant_id, page: int, page_size: 
             "destinatario_aluno_id": comunicado.destinatario_aluno_id,
             "total_destinatarios": comunicado.total_destinatarios,
             "data_envio": comunicado.data_envio,
+            "tem_anexo": comunicado.id in ids_com_anexo,
         }
-        for comunicado, autor_nome in pagina["items"]
+        for comunicado, autor_nome in linhas
     ]
     return pagina
+
+
+# ==========================================
+# ANEXOS
+# ==========================================
+async def _obter_comunicado(db: AsyncSession, tenant_id, comunicado_id: uuid.UUID) -> Comunicado:
+    comunicado = (await db.execute(
+        select(Comunicado).where(Comunicado.id == comunicado_id, Comunicado.tenant_id == tenant_id)
+    )).scalars().first()
+    if not comunicado:
+        raise HTTPException(status_code=404, detail="Comunicado não encontrado na sua instituição.")
+    return comunicado
+
+
+async def adicionar_anexo(db: AsyncSession, tenant_id, comunicado_id: uuid.UUID, nome_original: str, content_type: str, conteudo: bytes) -> AnexoComunicacao:
+    """Um Comunicado só pode ter um anexo — um novo upload substitui o
+    anterior (mesmo padrão do logótipo da escola, ver
+    cruds/configuracoes.py::atualizar_logotipo)."""
+    if len(conteudo) > _TAMANHO_MAXIMO_ANEXO:
+        raise HTTPException(status_code=400, detail="O anexo não pode passar de 5 MB.")
+
+    await _obter_comunicado(db, tenant_id, comunicado_id)
+
+    anexo_existente = (await db.execute(
+        select(AnexoComunicacao).where(AnexoComunicacao.comunicado_id == comunicado_id, AnexoComunicacao.tenant_id == tenant_id)
+    )).scalars().first()
+
+    chave = storage.gerar_chave(tenant_id, "comunicado", nome_original)
+    await storage.guardar_ficheiro(chave, conteudo, content_type)
+
+    if anexo_existente:
+        chave_antiga = anexo_existente.chave_storage
+        anexo_existente.chave_storage = chave
+        anexo_existente.nome_original = nome_original
+        anexo_existente.content_type = content_type
+        anexo_existente.tamanho_bytes = len(conteudo)
+        anexo = anexo_existente
+        await db.commit()
+        await db.refresh(anexo)
+        await storage.apagar_ficheiro(chave_antiga)
+    else:
+        anexo = AnexoComunicacao(
+            tenant_id=tenant_id, comunicado_id=comunicado_id, chave_storage=chave,
+            nome_original=nome_original, content_type=content_type, tamanho_bytes=len(conteudo),
+        )
+        db.add(anexo)
+        await db.commit()
+        await db.refresh(anexo)
+
+    return anexo
+
+
+async def obter_anexo_metadados(db: AsyncSession, tenant_id, comunicado_id: uuid.UUID) -> AnexoComunicacao | None:
+    return (await db.execute(
+        select(AnexoComunicacao).where(AnexoComunicacao.comunicado_id == comunicado_id, AnexoComunicacao.tenant_id == tenant_id)
+    )).scalars().first()
+
+
+async def obter_anexo_conteudo(db: AsyncSession, tenant_id, comunicado_id: uuid.UUID) -> tuple[bytes, str, str]:
+    anexo = await obter_anexo_metadados(db, tenant_id, comunicado_id)
+    if not anexo:
+        raise HTTPException(status_code=404, detail="Este comunicado não tem nenhum anexo.")
+    conteudo = await storage.obter_ficheiro(anexo.chave_storage)
+    if not conteudo:
+        raise HTTPException(status_code=404, detail="Anexo registado mas o ficheiro não foi encontrado no armazenamento.")
+    return conteudo, anexo.content_type, anexo.nome_original

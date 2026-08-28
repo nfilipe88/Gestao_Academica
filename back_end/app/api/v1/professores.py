@@ -1,10 +1,11 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.core.email import enviar_email, template_base
+from app.core import fila_notificacoes
 from app.schemas.professores import AlocacaoCreate, ProfessorCreate
 from app.cruds import professores as crud_professores
 
@@ -19,7 +20,6 @@ _PODE_ALOCAR = exigir_perfil("GESTOR", "SECRETARIA")
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def criar_professor(
     dados: ProfessorCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(obter_sessao_db),
     # Só o Gestor pode criar contas de Professor (RBAC).
     utilizador: dict = Depends(exigir_perfil("GESTOR"))
@@ -27,7 +27,7 @@ async def criar_professor(
     """Cria a conta de Professor (Usuario + Professor, numa única transação)."""
     novo_professor, novo_usuario = await crud_professores.criar_professor(db, utilizador["tenant_id"], dados)
 
-    background_tasks.add_task(
+    await fila_notificacoes.agendar_email(
         enviar_email,
         destinatario=dados.email,
         assunto="A sua conta de Professor foi criada",

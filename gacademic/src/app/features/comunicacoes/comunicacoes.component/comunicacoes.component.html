@@ -87,6 +87,15 @@
           class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
       </div>
 
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Anexo (opcional)</label>
+        <input type="file" (change)="onSelecionarAnexo($event)"
+          class="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:text-sm hover:file:bg-slate-200 cursor-pointer" />
+        <p class="text-xs text-slate-400 mt-1">
+          Fica disponível para download na plataforma — não é incluído automaticamente no e-mail já enviado aos destinatários.
+        </p>
+      </div>
+
       <button type="submit" [disabled]="comunicadoForm.invalid"
         class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
         Enviar
@@ -109,7 +118,13 @@
       <tbody>
         @for (comunicado of comunicados$ | async; track comunicado.id) {
         <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-          <td class="py-3 px-6 text-slate-800 font-medium">{{ comunicado.titulo }}</td>
+          <td class="py-3 px-6 text-slate-800 font-medium">
+            {{ comunicado.titulo }}
+            @if (comunicado.tem_anexo) {
+              <button type="button" (click)="onDescarregarAnexo(comunicado.id)" title="Descarregar anexo"
+                class="ml-1 align-middle text-slate-400 hover:text-blue-600 cursor-pointer">📎</button>
+            }
+          </td>
           <td class="py-3 px-6 text-slate-600">{{ comunicado.tipo === 'CONVOCATORIA' ? 'Convocatória' : 'Comunicado' }}</td>
           <td class="py-3 px-6 text-slate-600">{{ comunicado.destinatarioLabel }}</td>
           <td class="py-3 px-6 text-slate-600">{{ comunicado.autor_nome }}</td>

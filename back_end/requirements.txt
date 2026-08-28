@@ -82,9 +82,16 @@ webencodings==0.5.1
 # Redis — opcional em runtime (REDIS_URL em branco = fallback local,
 # só correto com uma única instância do back-end): coordenação entre
 # instâncias para o limitador de tentativas de login
-# (app/core/rate_limiter.py) e o lock do scheduler
-# (app/core/lock_distribuido.py).
+# (app/core/rate_limiter.py), o lock do scheduler
+# (app/core/lock_distribuido.py) e a fila de notificações com retries
+# (app/core/fila_notificacoes.py).
 redis==5.2.1
+
+# Armazenamento de ficheiros (logótipo da escola, anexos de Comunicados)
+# — cliente S3, compatível também com MinIO/qualquer storage S3-compatível.
+# Opcional em runtime (S3_BUCKET em branco = fallback para disco local,
+# só correto com uma única instância). Ver app/core/storage.py.
+boto3==1.35.99
 
 # Sentry — opcional em runtime (SENTRY_DSN em branco = desativado, só
 # fica nos logs locais). Ver app/core/monitorizacao.py.

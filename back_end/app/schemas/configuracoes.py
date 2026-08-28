@@ -27,6 +27,10 @@ MOEDAS_SUPORTADAS = MOEDAS_PAYPAL_SUPORTADAS | {"AOA"}
 class ConfiguracaoTenantOut(BaseModel):
     iban: str | None = None
     moeda: str
+    # Só diz SE há logótipo — o ficheiro em si sai por GET
+    # /configuracoes/logotipo (download autenticado, ver
+    # app/api/v1/configuracoes.py), nunca embutido aqui.
+    tem_logotipo: bool = False
     telefone_contacto: str | None = None
     email_contacto: str | None = None
     morada: str | None = None

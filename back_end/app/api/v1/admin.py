@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db_admin
@@ -11,15 +11,9 @@ from app.schemas.admin import (
 )
 from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
 from app.core.email import enviar_email, template_base
+from app.core import fila_notificacoes
 from app.cruds import admin as crud_admin
 from app.cruds import usuarios as crud_usuarios
-
-
-async def _via_background_tasks(background_tasks: BackgroundTasks):
-    """Fábrica do `agendar_email` esperado pelo crud — despacha via BackgroundTasks.add_task."""
-    async def agendar(func, **kwargs):
-        background_tasks.add_task(func, **kwargs)
-    return agendar
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Painel Super Admin"])
 
@@ -42,13 +36,13 @@ async def listar_tenants(
 
 @router.post("/tenants", status_code=201)
 async def criar_tenant(
-    dados: TenantCreateAdmin, background_tasks: BackgroundTasks,
+    dados: TenantCreateAdmin,
     db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
 ):
     """Cria uma escola (Tenant) + primeiro Gestor diretamente — onboarding gatekeeping pelo Super Admin, em alternativa ao auto-serviço em /auth/registo."""
     novo_tenant, novo_gestor = await crud_admin.criar_tenant_admin(db, dados)
 
-    background_tasks.add_task(
+    await fila_notificacoes.agendar_email(
         enviar_email,
         destinatario=dados.email_gestor,
         assunto=f"Bem-vindo(a), {dados.nome_fantasia} já está na plataforma!",
@@ -94,7 +88,6 @@ async def atualizar_validade_licenca(
 
 @router.post("/validade-licenca/processar")
 async def processar_validade_licencas(
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(obter_sessao_db_admin),
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
@@ -103,8 +96,7 @@ async def processar_validade_licencas(
     licença — útil para testar já; o job diário em
     app/core/scheduler.py já corre isto sozinho, todos os dias às 07:00.
     """
-    agendar_email = await _via_background_tasks(background_tasks)
-    resumo = await crud_admin.processar_validade_licencas(db, agendar_email)
+    resumo = await crud_admin.processar_validade_licencas(db, fila_notificacoes.agendar_email)
     return {"mensagem": "Validade de licenças processada.", **resumo}
 
 

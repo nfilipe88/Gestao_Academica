@@ -1,12 +1,13 @@
 from datetime import date
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.core.email import enviar_email, template_base
+from app.core import fila_notificacoes
 from app.schemas.alunos import AlunoCreate, CriarAcessoRequest, ResponsavelCreate, VincularResponsavel
 from app.cruds import alunos as crud_alunos
 
@@ -73,17 +74,16 @@ async def listar_responsaveis(
 async def vincular_responsavel(
     aluno_id: uuid.UUID,
     dados: VincularResponsavel,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(_PODE_GERIR)
 ):
     """Vincula um responsável já existente a um aluno (RN: um aluno pode ter vários responsáveis)."""
     vinculo, aluno, responsavel = await crud_alunos.vincular_responsavel(db, utilizador["tenant_id"], aluno_id, dados)
 
-    # E-mail de notificação (best-effort, em background). Só envia se o
+    # E-mail de notificação (best-effort, via fila). Só envia se o
     # responsável tiver um e-mail registado — é opcional no cadastro.
     if responsavel.email:
-        background_tasks.add_task(
+        await fila_notificacoes.agendar_email(
             enviar_email,
             destinatario=responsavel.email,
             assunto=f"Foi associado(a) como responsável de {aluno.nome_completo}",

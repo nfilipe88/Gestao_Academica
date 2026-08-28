@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app.schemas.auth import EsqueciSenhaIn, RedefinirSenhaIn, RegistoInicial, TokenResponse
 from app.core.email import enviar_email, template_base
+from app.core import fila_notificacoes
 from app.core.rate_limiter import excedeu_limite
 from app.cruds import auth as crud_auth
 
@@ -26,13 +27,14 @@ async def _verificar_limite_login(chave: str) -> None:
         )
 
 @router.post("/registo", status_code=status.HTTP_201_CREATED)
-async def registo_inicial_escola(dados: RegistoInicial, background_tasks: BackgroundTasks):
+async def registo_inicial_escola(dados: RegistoInicial):
     """Regista uma nova escola (Tenant) e o seu primeiro Gestor."""
     novo_tenant, novo_gestor = await crud_auth.registar_escola(dados)
 
-    # E-mail de boas-vindas (best-effort, em background — não atrasa a
-    # resposta nem falha o registo se o SMTP falhar)
-    background_tasks.add_task(
+    # E-mail de boas-vindas (best-effort — não atrasa a resposta nem
+    # falha o registo se o SMTP falhar; retries automáticos via fila, ver
+    # app/core/fila_notificacoes.py)
+    await fila_notificacoes.agendar_email(
         enviar_email,
         destinatario=dados.email_gestor,
         assunto=f"Bem-vindo(a), {dados.nome_fantasia} já está na plataforma!",

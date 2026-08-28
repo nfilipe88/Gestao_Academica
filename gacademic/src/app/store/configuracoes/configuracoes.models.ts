@@ -3,6 +3,10 @@
 export interface ConfiguracaoTenant {
   iban: string | null;
   moeda: string;
+  // Só diz SE há logótipo — o ficheiro em si sai por GET
+  // /configuracoes/logotipo (download autenticado com Authorization,
+  // por isso nunca é um <img src> direto — ver configuracoes.component.ts).
+  tem_logotipo: boolean;
   telefone_contacto: string | null;
   email_contacto: string | null;
   morada: string | null;
@@ -55,6 +59,7 @@ export const MOEDAS_SUPORTADAS = [...MOEDAS_PAYPAL_SUPORTADAS, 'AOA'];
 export const CONFIGURACAO_INICIAL: ConfiguracaoTenant = {
   iban: null,
   moeda: 'EUR',
+  tem_logotipo: false,
   telefone_contacto: null,
   email_contacto: null,
   morada: null,

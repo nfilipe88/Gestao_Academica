@@ -17,6 +17,28 @@
   }
 
   @if (podeEditar$ | async) {
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+    <h3 class="text-sm font-semibold text-slate-800">Logótipo</h3>
+    <p class="text-xs text-slate-400 -mt-2">Aparece no cabeçalho de todos os documentos e recibos em PDF gerados pela plataforma. PNG, JPEG, GIF ou WebP, até 2 MB.</p>
+
+    <div class="flex items-center gap-4">
+      @if (logotipoPreviewUrl()) {
+        <img [src]="logotipoPreviewUrl()" alt="Logótipo da escola" class="h-16 w-auto max-w-40 object-contain border border-slate-200 rounded-lg p-2" />
+      } @else {
+        <div class="h-16 w-16 flex items-center justify-center border border-dashed border-slate-300 rounded-lg text-slate-300 text-xs text-center px-1">Sem logótipo</div>
+      }
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer w-fit">
+          {{ logotipoAEnviar() ? 'A enviar...' : (logotipoPreviewUrl() ? 'Substituir' : 'Carregar imagem') }}
+          <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" [disabled]="logotipoAEnviar()" (change)="onSelecionarLogotipo($event)" />
+        </label>
+        @if (logotipoPreviewUrl()) {
+          <button type="button" (click)="onRemoverLogotipo()" class="text-sm font-medium text-rose-600 hover:text-rose-700 cursor-pointer w-fit">Remover</button>
+        }
+      </div>
+    </div>
+  </div>
+
   <form [formGroup]="form" (ngSubmit)="onGuardar()" class="space-y-6">
 
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">

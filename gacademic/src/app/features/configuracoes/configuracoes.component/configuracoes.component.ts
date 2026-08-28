@@ -1,5 +1,6 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import * as ConfiguracoesActions from '../../../store/configuracoes/configuracoes.actions';
@@ -18,6 +19,7 @@ import { selectIsGestor } from '../../../store/auth/auth.selectors';
 export class ConfiguracoesComponent implements OnInit {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private http = inject(HttpClient);
 
   readonly moedasSuportadas = MOEDAS_SUPORTADAS;
 
@@ -65,6 +67,20 @@ export class ConfiguracoesComponent implements OnInit {
     ativo: [true],
   });
 
+  // GET /configuracoes/logotipo exige o cabeçalho Authorization, por
+  // isso não pode ser um <img src="/api/..."> direto — vai por
+  // HttpClient como blob, e o resultado vira um object URL local.
+  //
+  // signal() e não uma propriedade simples: esta app é zoneless (sem
+  // zone.js — ver app.config.ts/main.ts), e uma mutação feita dentro
+  // de um callback .subscribe() de uma chamada HTTP não passa por
+  // nenhum mecanismo que o Angular já rastreie sozinho (nem escrita de
+  // signal, nem template binding, nem async pipe) — a vista ficava
+  // presa no valor antigo apesar da propriedade estar correta.
+  logotipoPreviewUrl = signal<string | null>(null);
+  logotipoAEnviar = signal(false);
+  private logotipoCarregado = false;
+
   ngOnInit() {
     this.store.dispatch(ConfiguracoesActions.carregarConfiguracao());
     this.store.dispatch(ConfiguracoesActions.carregarTiposAvaliacao());
@@ -92,6 +108,70 @@ export class ConfiguracoesComponent implements OnInit {
         periodo_pos_laboral_inicio: config.periodo_pos_laboral_inicio ?? '',
         periodo_pos_laboral_fim: config.periodo_pos_laboral_fim ?? '',
       }, { emitEvent: false });
+
+      // Só busca a imagem quando o estado "tem_logotipo" muda por uma
+      // via que não seja já ter sido tratada diretamente (ver
+      // onSelecionarLogotipo/onRemoverLogotipo, que atualizam
+      // logotipoCarregado e o preview logo ali, sem esperar por esta
+      // subscrição) — evita um pedido a mais a cada emissão do store,
+      // mas continua a cobrir o carregamento inicial da página.
+      if (config.tem_logotipo !== this.logotipoCarregado) {
+        this.logotipoCarregado = config.tem_logotipo;
+        if (config.tem_logotipo) {
+          this._carregarPreviewLogotipo();
+        } else {
+          this._limparPreviewLogotipo();
+        }
+      }
+    });
+  }
+
+  private _carregarPreviewLogotipo() {
+    this.http.get('/api/v1/configuracoes/logotipo', { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        this._limparPreviewLogotipo();
+        this.logotipoPreviewUrl.set(URL.createObjectURL(blob));
+      },
+      error: () => { this.logotipoPreviewUrl.set(null); },
+    });
+  }
+
+  private _limparPreviewLogotipo() {
+    const atual = this.logotipoPreviewUrl();
+    if (atual) URL.revokeObjectURL(atual);
+    this.logotipoPreviewUrl.set(null);
+  }
+
+  onSelecionarLogotipo(event: Event) {
+    const ficheiro = (event.target as HTMLInputElement).files?.[0];
+    if (!ficheiro) return;
+    const dados = new FormData();
+    dados.append('ficheiro', ficheiro);
+    this.logotipoAEnviar.set(true);
+    this.http.put('/api/v1/configuracoes/logotipo', dados).subscribe({
+      next: () => {
+        this.logotipoAEnviar.set(false);
+        // Trata o preview já aqui (não pelo efeito da subscrição acima):
+        // ao SUBSTITUIR um logótipo já existente, "tem_logotipo" continua
+        // true antes e depois — o efeito, que só reage a MUDANÇAS desse
+        // booleano, nunca disparava, e a pré-visualização ficava presa
+        // na imagem antiga.
+        this.logotipoCarregado = true;
+        this._carregarPreviewLogotipo();
+        this.store.dispatch(ConfiguracoesActions.carregarConfiguracao());
+      },
+      error: () => { this.logotipoAEnviar.set(false); },
+    });
+    (event.target as HTMLInputElement).value = ''; // permite voltar a escolher o mesmo ficheiro depois
+  }
+
+  onRemoverLogotipo() {
+    this.http.delete('/api/v1/configuracoes/logotipo').subscribe({
+      next: () => {
+        this.logotipoCarregado = false;
+        this._limparPreviewLogotipo();
+        this.store.dispatch(ConfiguracoesActions.carregarConfiguracao());
+      },
     });
   }
 

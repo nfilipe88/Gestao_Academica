@@ -31,6 +31,7 @@ from app.database.models_diario import TipoAvaliacaoConfig
 from app.database.models_usuarios import PasswordResetToken
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso
 from app.core.email import enviar_email, template_base
+from app.core import fila_notificacoes
 from app.schemas.auth import RegistoInicial
 
 # Janela de validade do link de recuperação de senha — curta de
@@ -193,7 +194,8 @@ async def solicitar_redefinicao_senha(email: str) -> None:
         await db.commit()
 
         link = f"{FRONTEND_URL}/redefinir-senha?token={token_bruto}"
-        await enviar_email(
+        await fila_notificacoes.agendar_email(
+            enviar_email,
             destinatario=usuario.email,
             assunto="Redefinir a sua palavra-passe",
             corpo_html=template_base(
@@ -232,7 +234,8 @@ async def redefinir_senha(token: str, nova_senha: str) -> None:
         registo.usado = True
         await db.commit()
 
-        await enviar_email(
+        await fila_notificacoes.agendar_email(
+            enviar_email,
             destinatario=usuario.email,
             assunto="A sua palavra-passe foi alterada",
             corpo_html=template_base(

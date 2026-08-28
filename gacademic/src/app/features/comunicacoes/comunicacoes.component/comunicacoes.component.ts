@@ -1,17 +1,20 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Actions, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
-import { combineLatest, map } from 'rxjs';
+import { combineLatest, map, take } from 'rxjs';
 import { carregarTurmas } from '../../../store/academico/academic.actions';
 import { selectTurmas } from '../../../store/academico/academic.selector';
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
 import { selectAlunos } from '../../../store/alunos/alunos.selector';
 import { selectPerfilAcesso } from '../../../store/auth/auth.selectors';
-import { carregarComunicados, criarComunicado } from '../../../store/comunicacoes/comunicacoes.actions';
+import { carregarComunicados, criarComunicado, criarComunicadoSucesso } from '../../../store/comunicacoes/comunicacoes.actions';
 import { DESTINATARIOS_COMUNICADO, TIPOS_COMUNICADO } from '../../../store/comunicacoes/comunicacoes.models';
 import { selectComunicacoesError, selectComunicados, selectPaginacaoComunicados } from '../../../store/comunicacoes/comunicacoes.selector';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
+import { abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
 
 @Component({
   selector: 'app-comunicacoes.component',
@@ -22,6 +25,8 @@ import { PaginacaoComponent } from '../../../shared/components/paginacao/paginac
 export class ComunicacoesComponent implements OnInit {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private http = inject(HttpClient);
+  private actions$ = inject(Actions);
 
   readonly tiposComunicado = TIPOS_COMUNICADO;
   readonly destinatariosComunicado = DESTINATARIOS_COMUNICADO;
@@ -49,6 +54,7 @@ export class ComunicacoesComponent implements OnInit {
   );
 
   mostrarFormulario = false;
+  ficheiroAnexo: File | null = null;
 
   comunicadoForm = this.fb.group({
     tipo: ['COMUNICADO', Validators.required],
@@ -84,11 +90,29 @@ export class ComunicacoesComponent implements OnInit {
   alternarFormulario() {
     this.mostrarFormulario = !this.mostrarFormulario;
     this.comunicadoForm.reset({ tipo: 'COMUNICADO', destinatario_tipo: 'TURMA' });
+    this.ficheiroAnexo = null;
+  }
+
+  onSelecionarAnexo(event: Event) {
+    this.ficheiroAnexo = (event.target as HTMLInputElement).files?.[0] ?? null;
   }
 
   onSubmit() {
     if (this.comunicadoForm.invalid) return;
     const v = this.comunicadoForm.value;
+    const ficheiro = this.ficheiroAnexo;
+
+    // Só interessa o PRÓXIMO comunicado criado (take(1)) — é o que esta
+    // submissão está prestes a disparar. Subscrito antes do dispatch
+    // para não perder o evento por causa da ordem de execução.
+    if (ficheiro) {
+      this.actions$.pipe(ofType(criarComunicadoSucesso), take(1)).subscribe(({ comunicado }) => {
+        const dados = new FormData();
+        dados.append('ficheiro', ficheiro);
+        this.http.put(`/api/v1/comunicados/${comunicado.id}/anexo`, dados).subscribe();
+      });
+    }
+
     this.store.dispatch(criarComunicado({
       tipo: v.tipo!,
       titulo: v.titulo!,
@@ -99,5 +123,14 @@ export class ComunicacoesComponent implements OnInit {
     }));
     this.comunicadoForm.reset({ tipo: 'COMUNICADO', destinatario_tipo: 'TURMA' });
     this.mostrarFormulario = false;
+    this.ficheiroAnexo = null;
+  }
+
+  onDescarregarAnexo(comunicadoId: string) {
+    const aba = window.open('', '_blank');
+    this.http.get(`/api/v1/comunicados/${comunicadoId}/anexo`, { responseType: 'blob' }).subscribe({
+      next: (blob) => abrirOuTransferirBlob(aba, blob, `anexo-${comunicadoId}`),
+      error: () => { if (aba) aba.close(); }
+    });
   }
 }

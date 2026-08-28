@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -27,3 +27,21 @@ class Comunicado(Base):
 
     total_destinatarios: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     data_envio: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class AnexoComunicacao(Base):
+    """Ficheiro anexado a um Comunicado/Convocatória (ex.: circular em
+    PDF, imagem) — o conteúdo em si vive no storage (app/core/storage.py,
+    S3-compatível ou disco local), aqui só a referência e os metadados
+    para listagem/download autenticado (ver app/api/v1/comunicacoes.py)."""
+    __tablename__ = "anexo_comunicacao"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    comunicado_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("comunicado.id", ondelete="CASCADE"), nullable=False)
+
+    chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)
+    nome_original: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    tamanho_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))

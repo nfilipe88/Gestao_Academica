@@ -1,7 +1,7 @@
 """Acesso a dados de Professores e Alocação (Professor <-> Turma <-> Disciplina).
 
 O envio de e-mail de boas-vindas ao Professor fica na camada de API
-(depende de BackgroundTasks do FastAPI).
+(depende de app.core.fila_notificacoes).
 """
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession

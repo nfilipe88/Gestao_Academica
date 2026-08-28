@@ -10,6 +10,10 @@ export interface Comunicado {
   destinatario_aluno_id: string | null;
   total_destinatarios: number;
   data_envio: string;
+  // Ficheiro anexado (ex.: circular em PDF) — ver
+  // PUT/GET /comunicados/{id}/anexo. Não vem no e-mail já disparado na
+  // criação, só fica disponível para download na plataforma (staff).
+  tem_anexo: boolean;
 }
 
 export const TIPOS_COMUNICADO = ['COMUNICADO', 'CONVOCATORIA'] as const;

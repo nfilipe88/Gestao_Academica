@@ -1,8 +1,9 @@
 # Ambiente completo local via `docker compose up --build` — Postgres
 # com RLS a sério (mesmos roles/policies de produção), Redis
 # (coordenação entre instâncias — aqui só há uma de cada, mas a app já
-# fica pronta para mais), back-end, front-end (Angular SSR) e um nginx
-# como ponto de entrada único em http://localhost.
+# fica pronta para mais), MinIO (storage S3-compatível para logótipo/
+# anexos, ver app/core/storage.py), back-end, front-end (Angular SSR)
+# e um nginx como ponto de entrada único em http://localhost.
 #
 # NÃO é uma receita de produção tal e qual (passwords fixas abaixo,
 # sem TLS, um Postgres só sem réplica) — é o ambiente local mais
@@ -37,6 +38,42 @@ services:
       timeout: 5s
       retries: 10
 
+  # Storage S3-compatível para o logótipo da escola e anexos de
+  # Comunicados (ver app/core/storage.py) — em produção real, isto
+  # seria antes um bucket AWS S3/equivalente gerido; aqui é o mais
+  # próximo que dá para correr localmente sem depender de uma conta
+  # cloud só para testar o fluxo.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_admin
+      MINIO_ROOT_PASSWORD: minio_dev_apenas
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Cria o bucket uma única vez no arranque (o MinIO não vem com
+  # nenhum bucket por omissão) — este serviço corre, termina, e fica
+  # "Exited (0)"; não é um bug, é o esperado (não é um servidor).
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minio_admin minio_dev_apenas &&
+      mc mb -p local/gestao-academica
+      "
+
   backend:
     build: ./back_end
     depends_on:
@@ -44,12 +81,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+asyncpg://app_tenant:app_tenant_docker@postgres:5432/academic_db
       DATABASE_URL_SISTEMA: postgresql+asyncpg://app_sistema:app_sistema_docker@postgres:5432/academic_db
       DATABASE_URL_MIGRACOES: postgresql+asyncpg://postgres:postgres_dev_apenas@postgres:5432/academic_db
       JWT_SECRET_KEY: chave-secreta-so-para-docker-compose-local-trocar-em-producao
       REDIS_URL: redis://redis:6379/0
+      S3_BUCKET: gestao-academica
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: minio_admin
+      S3_SECRET_KEY: minio_dev_apenas
       CORS_ALLOWED_ORIGINS: http://localhost
       FRONTEND_URL: http://localhost
     ports:
@@ -87,3 +130,4 @@ services:
 
 volumes:
   postgres_data:
+  minio_data:

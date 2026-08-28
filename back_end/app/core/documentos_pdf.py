@@ -47,6 +47,7 @@ _ENVELOPE = Template("""
   @page { size: A4; margin: 2.5cm 2cm; }
   body { font-family: Helvetica, Arial, sans-serif; color: #1e293b; font-size: 12pt; line-height: 1.6; }
   .cabecalho { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 28px; }
+  .cabecalho img.logotipo { max-height: 60px; max-width: 200px; margin-bottom: 8px; }
   .cabecalho h1 { color: #2563eb; font-size: 16pt; margin: 0 0 4px 0; }
   .cabecalho p { color: #64748b; font-size: 9pt; margin: 0; }
   .titulo-documento { text-align: center; font-size: 14pt; font-weight: bold; text-transform: uppercase; margin: 24px 0; letter-spacing: 1px; }
@@ -64,6 +65,7 @@ _ENVELOPE = Template("""
 </head>
 <body>
   <div class="cabecalho">
+    {% if escola_logo_data_uri %}<img class="logotipo" src="{{ escola_logo_data_uri }}">{% endif %}
     <h1>{{ escola_nome }}</h1>
     <p>{{ escola_razao_social }}{% if escola_nif %} — NIF {{ escola_nif }}{% endif %}</p>
     {% if escola_morada %}<p>{{ escola_morada }}</p>{% endif %}
@@ -213,7 +215,8 @@ def gerar_pdf_documento(
     corpo_html_personalizado: str | None = None, exigir_personalizado: bool = False
 ) -> bytes:
     """
-    escola: {"nome": ..., "razao_social": ..., "nif": ..., "morada": ..., "contacto": ...}
+    escola: {"nome": ..., "razao_social": ..., "nif": ..., "morada": ..., "contacto": ...,
+             "logo_data_uri": data:image/...;base64,... ou None (ver app/core/storage.py::obter_logo_data_uri)}
     contexto: dados específicos do tipo de documento (ver cada _corpo_*).
     corpo_html_personalizado: se o tenant tiver um layout próprio ativo
     para este tipo_documento (ver cruds/documentos.py), substitui o
@@ -250,6 +253,7 @@ def gerar_pdf_documento(
         escola_nif=escola.get("nif") or "",
         escola_morada=escola.get("morada") or "",
         escola_contacto=escola.get("contacto") or "",
+        escola_logo_data_uri=escola.get("logo_data_uri"),
         titulo_documento=_TITULOS.get(tipo_documento, "Documento Escolar"),
         corpo_html=corpo_html,
         data_emissao=hoje.strftime("%d/%m/%Y") if isinstance(hoje, date) else str(hoje),

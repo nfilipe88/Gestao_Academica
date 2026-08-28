@@ -26,17 +26,12 @@ from app.database.session import AsyncSessionLocal, AsyncSessionLocalSistema
 from app.database.models import Tenant
 from app.cruds.financeiro import processar_regua_cobranca_do_tenant
 from app.cruds.admin import processar_validade_licencas
-from app.core.email import enviar_email
+from app.core import fila_notificacoes
 from app.core.lock_distribuido import tentar_obter_lock
 
 logger = logging.getLogger("scheduler")
 
 _scheduler: AsyncIOScheduler | None = None
-
-
-async def _enviar_email_direto(func, **kwargs):
-    """No scheduler não há um pedido HTTP para não bloquear — enviar já, em vez de agendar."""
-    await func(**kwargs)
 
 
 async def job_regua_de_cobranca_diaria() -> dict:
@@ -68,7 +63,9 @@ async def job_regua_de_cobranca_diaria() -> dict:
         try:
             async with AsyncSessionLocal() as db:
                 await db.execute(text("SELECT set_config('app.current_tenant_id', :t, true)"), {"t": str(tenant.id)})
-                contagem = await processar_regua_cobranca_do_tenant(db, tenant.id, _enviar_email_direto)
+                contagem = await processar_regua_cobranca_do_tenant(
+                    db, tenant.id, fila_notificacoes.agendar_email, fila_notificacoes.agendar_sms
+                )
                 resumo[str(tenant.id)] = sum(contagem.values())
         except Exception:
             logger.exception("Falha ao processar a régua de cobrança da escola %s (%s).", tenant.nome_fantasia, tenant.id)
@@ -103,7 +100,7 @@ async def job_validade_licenca_diaria() -> dict:
 
     async with AsyncSessionLocalSistema() as db:
         try:
-            resumo = await processar_validade_licencas(db, _enviar_email_direto)
+            resumo = await processar_validade_licencas(db, fila_notificacoes.agendar_email)
         except Exception:
             logger.exception("Falha ao processar a validade das licenças.")
             return {"suspensos": 0, "alertados": 0}

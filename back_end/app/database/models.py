@@ -57,6 +57,17 @@ class Tenant(Base):
     periodo_pos_laboral_inicio: Mapped[time | None] = mapped_column(Time, nullable=True)
     periodo_pos_laboral_fim: Mapped[time | None] = mapped_column(Time, nullable=True)
 
+    # Chave do logótipo no storage (app/core/storage.py) — não guarda o
+    # ficheiro em si, só a referência; None = escola sem logótipo, os
+    # PDFs gerados (documentos_pdf.py) mostram só o nome em texto.
+    logotipo_chave: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    @property
+    def tem_logotipo(self) -> bool:
+        """Não é uma coluna — só facilita expor "há logótipo?" via
+        ConfiguracaoTenantOut sem vazar a chave interna do storage."""
+        return self.logotipo_chave is not None
+
     # Relacionamento
     usuarios: Mapped[List["Usuario"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
 

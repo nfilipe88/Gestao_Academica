@@ -1,2 +1,5 @@
 /venv
 /_pycache_
+# Fallback de disco local do storage (app/core/storage.py) quando
+# S3_BUCKET não está configurado — nunca deve ir para o repositório.
+/uploads

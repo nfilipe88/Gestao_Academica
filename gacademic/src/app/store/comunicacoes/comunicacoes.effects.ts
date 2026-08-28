@@ -31,7 +31,7 @@ export class ComunicacoesEffects {
   criarComunicado$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ComunicacoesActions.criarComunicado),
-      switchMap(action => this.http.post('/api/v1/comunicados', {
+      switchMap(action => this.http.post<Comunicado>('/api/v1/comunicados', {
         tipo: action.tipo,
         titulo: action.titulo,
         corpo: action.corpo,
@@ -39,11 +39,23 @@ export class ComunicacoesEffects {
         destinatario_turma_id: action.destinatario_turma_id,
         destinatario_aluno_id: action.destinatario_aluno_id
       }).pipe(
-        map(() => ComunicacoesActions.carregarComunicados({})), // Atualiza a lista após criar
+        map(comunicado => ComunicacoesActions.criarComunicadoSucesso({ comunicado })),
         catchError(err => of(ComunicacoesActions.comunicacoesOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível enviar o comunicado.'
         })))
       ))
+    )
+  );
+
+  // Efeito encadeado (ver criarComunicado$ acima): só depois de saber
+  // que o comunicado ficou mesmo criado é que faz sentido voltar a
+  // pedir a lista — assim o componente também tem uma ação própria
+  // (criarComunicadoSucesso) a que se pode ligar para, por exemplo,
+  // anexar um ficheiro ao comunicado que acabou de nascer.
+  atualizarListaAposCriar$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ComunicacoesActions.criarComunicadoSucesso),
+      map(() => ComunicacoesActions.carregarComunicados({}))
     )
   );
 }

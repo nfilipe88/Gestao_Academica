@@ -1,10 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db, obter_sessao_db_publica
 from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core import fila_notificacoes
 from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, FaturaMarcarPago, GerarCobrancaRequest
 from app.cruds import financeiro as crud_financeiro
 
@@ -23,13 +24,6 @@ router_webhooks = APIRouter(prefix="/api/v1/webhooks", tags=["Webhooks"])
 # ver/pagar os seus próprios educandos" vive no crud
 # (_garantir_acesso_via_matricula/_via_fatura em cruds/financeiro.py).
 _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
-
-
-async def _via_background_tasks(background_tasks: BackgroundTasks):
-    """Fábrica do `agendar_email` esperado pelo crud — despacha via BackgroundTasks.add_task."""
-    async def agendar(func, **kwargs):
-        background_tasks.add_task(func, **kwargs)
-    return agendar
 
 # ==========================================
 # A. RESPONSÁVEIS ELEGÍVEIS (para o formulário de novo contrato)
@@ -113,12 +107,10 @@ async def descarregar_recibo(
 async def marcar_fatura_paga(
     fatura_id: uuid.UUID,
     dados: FaturaMarcarPago,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(_PODE_GERIR)
 ):
-    agendar_email = await _via_background_tasks(background_tasks)
-    valor_pago = await crud_financeiro.marcar_fatura_paga(db, utilizador["tenant_id"], fatura_id, dados, agendar_email)
+    valor_pago = await crud_financeiro.marcar_fatura_paga(db, utilizador["tenant_id"], fatura_id, dados, fila_notificacoes.agendar_email)
     return {"mensagem": "Fatura marcada como paga.", "valor_pago_realizado": valor_pago}
 
 # ==========================================
@@ -141,7 +133,6 @@ async def gerar_cobranca(
 @router.post("/transacoes/capturar")
 async def capturar_pagamento(
     dados: CapturarPagamentoRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(obter_utilizador_atual)
 ):
@@ -151,8 +142,7 @@ async def capturar_pagamento(
     (POST /api/v1/webhooks/paypal/pagamentos) faz o mesmo como rede de
     segurança caso o utilizador feche a janela antes disto correr.
     """
-    agendar_email = await _via_background_tasks(background_tasks)
-    status_pagamento = await crud_financeiro.capturar_pagamento(db, utilizador["tenant_id"], dados, agendar_email, utilizador)
+    status_pagamento = await crud_financeiro.capturar_pagamento(db, utilizador["tenant_id"], dados, fila_notificacoes.agendar_email, utilizador)
     mensagem = "Pagamento já tinha sido confirmado." if status_pagamento == "PAGO" else "Pagamento confirmado com sucesso."
     return {"mensagem": mensagem, "status": status_pagamento}
 
@@ -161,7 +151,6 @@ async def capturar_pagamento(
 # ==========================================
 @router.post("/regua-cobranca/processar")
 async def processar_regua_cobranca(
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(_PODE_GERIR)
 ):
@@ -170,8 +159,9 @@ async def processar_regua_cobranca(
     testar/forçar já, mas o job diário em app/core/scheduler.py já
     corre isto automaticamente para todas as escolas, todos os dias.
     """
-    agendar_email = await _via_background_tasks(background_tasks)
-    contagem = await crud_financeiro.processar_regua_cobranca_do_tenant(db, utilizador["tenant_id"], agendar_email)
+    contagem = await crud_financeiro.processar_regua_cobranca_do_tenant(
+        db, utilizador["tenant_id"], fila_notificacoes.agendar_email, fila_notificacoes.agendar_sms
+    )
     return {"mensagem": "Régua de cobrança processada.", "emails_enviados": contagem}
 
 # ==========================================
@@ -180,7 +170,6 @@ async def processar_regua_cobranca(
 @router_webhooks.post("/paypal/pagamentos")
 async def webhook_paypal_pagamentos(
     request: Request,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(obter_sessao_db_publica)
 ):
     """
@@ -191,6 +180,5 @@ async def webhook_paypal_pagamentos(
     """
     corpo_bruto = await request.body()
     corpo_json = await request.json()
-    agendar_email = await _via_background_tasks(background_tasks)
-    await crud_financeiro.processar_webhook_paypal(db, dict(request.headers), corpo_bruto, corpo_json, agendar_email)
+    await crud_financeiro.processar_webhook_paypal(db, dict(request.headers), corpo_bruto, corpo_json, fila_notificacoes.agendar_email)
     return {"recebido": True}

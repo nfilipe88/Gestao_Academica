@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app.api.v1 import academico, admin, alunos, auth, comunicacoes, configuracoes, crm, diario, documentos, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, tarefas, transferencias, usuarios
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
+from app.core import fila_notificacoes
 from app.database.session import engine
 
 # Antes de qualquer outra coisa, para também apanhar erros no arranque
@@ -17,10 +18,14 @@ iniciar_sentry()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Arranca o agendador interno (régua de cobrança diária — RN04) e
-    # desliga-o de forma limpa quando a aplicação termina.
+    # Arranca o agendador interno (régua de cobrança diária — RN04) e o
+    # worker da fila de notificações (e-mail/SMS com retries, ver
+    # app/core/fila_notificacoes.py) — desliga os dois de forma limpa
+    # quando a aplicação termina.
     iniciar_scheduler()
+    fila_notificacoes.iniciar_worker()
     yield
+    await fila_notificacoes.parar_worker()
     parar_scheduler()
 
 

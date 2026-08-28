@@ -1,8 +1,8 @@
 """Acesso a dados de Alunos, Responsáveis e o vínculo entre eles.
 
 O envio de e-mail de notificação (RN de vínculo) fica na camada de API,
-não aqui — depende de BackgroundTasks, que é um mecanismo do FastAPI,
-não uma preocupação de acesso a dados.
+não aqui — depende de app.core.fila_notificacoes, que é uma
+preocupação de transporte, não de acesso a dados.
 """
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession

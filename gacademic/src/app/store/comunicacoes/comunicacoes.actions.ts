@@ -23,6 +23,14 @@ export const criarComunicado = createAction(
   }>()
 );
 
+// Devolve o Comunicado criado (com o id gerado pelo back-end) — o
+// componente escuta isto para, se houver um ficheiro escolhido no
+// formulário, o anexar logo a seguir (PUT /comunicados/{id}/anexo).
+export const criarComunicadoSucesso = createAction(
+  '[Comunicacoes API] Criar Comunicado Sucesso',
+  props<{ comunicado: Comunicado }>()
+);
+
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,
 // um erro HTTP dentro de um effect fica por apanhar e mata esse effect
 // para o resto da sessão.
