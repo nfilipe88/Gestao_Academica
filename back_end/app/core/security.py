@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 from jose import jwt, JWTError
 from fastapi import HTTPException, status, Depends
@@ -7,6 +7,8 @@ import uuid
 import os
 from dotenv import load_dotenv
 from passlib.context import CryptContext
+
+from app.core import revogacao
 
 load_dotenv()
 
@@ -28,19 +30,36 @@ if not SECRET_KEY:
         "com base no .env.example."
     )
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 dia
+# Curto de propósito (era 24h) — reduz a janela de risco se um token
+# for roubado (ex.: XSS, já que o front-end guarda o token em
+# localStorage). Sessões longas continuam a funcionar sem pedir login
+# outra vez: o front-end troca automaticamente por um novo access token
+# usando o refresh token, de duração muito maior mas revogável (ver
+# REFRESH_TOKEN_EXPIRE_DIAS abaixo e app/api/v1/auth.py::POST /auth/refresh).
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "20"))
+REFRESH_TOKEN_EXPIRE_DIAS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DIAS", "7"))
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 def criar_token_acesso(dados: Dict[str, Any]) -> str:
-    """Gera o JWT contendo o tenant_id e escopo de acesso do utilizador."""
+    """Gera o JWT contendo o tenant_id e escopo de acesso do utilizador.
+
+    "iat" (issued-at) e "jti" (id único deste token, usado só para o
+    revogar individualmente no logout) são o que torna a revogação de
+    sessão possível (ver app/core/revogacao.py) — um JWT não pode ser
+    "apagado" depois de emitido, só comparado com um registo de "isto
+    foi revogado depois deste momento"."""
     copia_dados = dados.copy()
-    expiracao = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    copia_dados.update({"exp": expiracao})
+    agora = datetime.now(timezone.utc)
+    expiracao = agora + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    copia_dados.update({"exp": expiracao, "iat": agora, "jti": str(uuid.uuid4())})
     return jwt.encode(copia_dados, SECRET_KEY, algorithm=ALGORITHM)
 
 async def obter_utilizador_atual(token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-    """Middleware/Dependência que valida o JWT e extrai os dados do Tenant."""
+    """Middleware/Dependência que valida o JWT, confirma que não foi
+    revogado entretanto (escola suspensa, utilizador desativado, perfil
+    mudado, ou logout deste token específico — ver
+    app/core/revogacao.py) e extrai os dados do Tenant."""
     credenciais_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Token inválido ou expirado.",
@@ -51,14 +70,20 @@ async def obter_utilizador_atual(token: str = Depends(oauth2_scheme)) -> Dict[st
         tenant_id: str = payload.get("tenant_id")
         usuario_id: str = payload.get("sub")
         perfil: str = payload.get("perfil_acesso")
-        
+        jti: str | None = payload.get("jti")
+        iat: float | None = payload.get("iat")
+
         if tenant_id is None or usuario_id is None:
             raise credenciais_exception
-            
+
+        if iat is not None and await revogacao.esta_revogado(tenant_id, usuario_id, jti, float(iat)):
+            raise credenciais_exception
+
         return {
             "usuario_id": uuid.UUID(usuario_id),
             "tenant_id": uuid.UUID(tenant_id),
-            "perfil_acesso": perfil
+            "perfil_acesso": perfil,
+            "jti": jti,
         }
     except JWTError:
         raise credenciais_exception

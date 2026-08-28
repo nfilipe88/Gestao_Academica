@@ -18,6 +18,7 @@ de API — depende do IP do pedido HTTP, não é uma preocupação de
 acesso a dados.
 """
 import hashlib
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -28,10 +29,10 @@ from sqlalchemy import select
 from app.database.session import AsyncSessionLocalSistema
 from app.database.models import Usuario, Tenant
 from app.database.models_diario import TipoAvaliacaoConfig
-from app.database.models_usuarios import PasswordResetToken
-from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso
+from app.database.models_usuarios import LoginHistorico, PasswordResetToken, RefreshToken
+from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso, REFRESH_TOKEN_EXPIRE_DIAS
 from app.core.email import enviar_email, template_base
-from app.core import fila_notificacoes
+from app.core import fila_notificacoes, revogacao
 from app.schemas.auth import RegistoInicial
 
 # Janela de validade do link de recuperação de senha — curta de
@@ -104,11 +105,61 @@ async def registar_escola(dados: RegistoInicial) -> tuple[Tenant, Usuario]:
             raise HTTPException(status_code=500, detail=f"Erro ao processar registo: {str(e)}")
 
 
-async def autenticar(email: str, palavra_passe: str) -> dict:
+async def _criar_refresh_token(db, tenant_id, usuario_id) -> str:
+    """Gera um refresh token novo, grava só o hash (mesmo princípio de
+    Usuario.senha_hash/PasswordResetToken) e devolve o valor em texto
+    limpo, que só existe aqui — nunca mais é recuperável depois disto."""
+    token_bruto = secrets.token_urlsafe(48)
+    db.add(RefreshToken(
+        tenant_id=tenant_id,
+        usuario_id=usuario_id,
+        token_hash=_hash_token(token_bruto),
+        expira_em=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DIAS),
+    ))
+    return token_bruto
+
+
+async def _registar_login_e_alertar(db, usuario: Usuario, ip: str | None, user_agent: str | None) -> None:
+    """Best-effort: uma falha aqui nunca deve impedir o login. Alerta só
+    quando este IP nunca apareceu antes para este utilizador — o
+    primeiro login de sempre não gera alerta (não há "IP habitual"
+    ainda para comparar)."""
+    if not ip:
+        return
+    try:
+        ja_visto = (await db.execute(
+            select(LoginHistorico.id).where(LoginHistorico.usuario_id == usuario.id, LoginHistorico.ip == ip).limit(1)
+        )).first()
+        historico_existe = (await db.execute(
+            select(LoginHistorico.id).where(LoginHistorico.usuario_id == usuario.id).limit(1)
+        )).first()
+
+        db.add(LoginHistorico(tenant_id=usuario.tenant_id, usuario_id=usuario.id, ip=ip, user_agent=(user_agent or "")[:255]))
+
+        if historico_existe and not ja_visto:
+            await fila_notificacoes.agendar_email(
+                enviar_email, destinatario=usuario.email,
+                assunto="Novo login detetado na sua conta",
+                corpo_html=template_base(
+                    "Novo login detetado",
+                    f"""
+                    <p>Olá {usuario.nome_completo},</p>
+                    <p>Detetámos um login na sua conta a partir de um endereço IP que nunca tinha usado antes: <strong>{ip}</strong>.</p>
+                    <p>Se foi você, pode ignorar este e-mail. Se não reconhece este acesso, mude a sua palavra-passe
+                    imediatamente (link "Esqueceu-se da palavra-passe?" no ecrã de login) e contacte a direção da escola.</p>
+                    """
+                )
+            )
+    except Exception:
+        logging.getLogger("auth").exception("Falha ao registar/alertar sobre login de %s — não impede o login.", usuario.email)
+
+
+async def autenticar(email: str, palavra_passe: str, ip: str | None = None, user_agent: str | None = None) -> dict:
     """
     Valida a hash da palavra-passe com o passlib, confirma que a escola
-    (Tenant) não está suspensa, e gera o JWT com os dados necessários
-    para o RLS (tenant_id) e RBAC (perfil_acesso).
+    (Tenant) não está suspensa, e gera o access token (JWT, curto) + o
+    refresh token (na BD, revogável, mais duradouro — ver
+    app/core/security.py e a docstring de RefreshToken).
     """
     async with AsyncSessionLocalSistema() as db:
         resultado = await db.execute(select(Usuario).where(Usuario.email == email))
@@ -145,9 +196,13 @@ async def autenticar(email: str, palavra_passe: str) -> dict:
             "perfil_acesso": usuario.perfil_acesso
         }
         token_jwt = criar_token_acesso(dados=dados_token)
+        refresh_token = await _criar_refresh_token(db, usuario.tenant_id, usuario.id)
+        await _registar_login_e_alertar(db, usuario, ip, user_agent)
+        await db.commit()
 
         return {
             "access_token": token_jwt,
+            "refresh_token": refresh_token,
             "token_type": "bearer",
             "utilizador": {
                 "id": str(usuario.id),
@@ -156,6 +211,75 @@ async def autenticar(email: str, palavra_passe: str) -> dict:
                 "tenant_id": str(usuario.tenant_id)
             }
         }
+
+
+async def renovar_access_token(refresh_token_bruto: str) -> dict:
+    """
+    Troca um refresh token válido por um access token novo — chamado
+    pelo front-end sozinho, em background, quando o access token
+    (curto) expira, sem obrigar a pessoa a fazer login outra vez.
+
+    Rotação: o refresh token usado fica marcado (revogado=True) e um
+    novo é emitido — nunca é reutilizável. Continuar a receber o MESMO
+    refresh token depois disto só pode significar que alguém copiou um
+    token antigo; por isso, se o token já usado voltar a aparecer,
+    trata-se como sinal de roubo e revoga TODOS os refresh tokens
+    desse utilizador (obriga a autenticar-se de novo em todos os
+    dispositivos) — não só o pedido é recusado.
+    """
+    credenciais_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão inválida ou expirada. Inicie sessão novamente.")
+
+    async with AsyncSessionLocalSistema() as db:
+        token_hash = _hash_token(refresh_token_bruto)
+        registo = (await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))).scalars().first()
+        if not registo:
+            raise credenciais_exception
+
+        if registo.revogado:
+            # Reuso de um token já rodado — possível roubo (ver docstring acima).
+            await db.execute(
+                RefreshToken.__table__.update()
+                .where(RefreshToken.usuario_id == registo.usuario_id, RefreshToken.revogado == False)  # noqa: E712
+                .values(revogado=True)
+            )
+            await revogacao.revogar_usuario(registo.usuario_id)
+            await db.commit()
+            raise credenciais_exception
+
+        if registo.expira_em.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            raise credenciais_exception
+
+        usuario = (await db.execute(select(Usuario).where(Usuario.id == registo.usuario_id))).scalars().first()
+        if not usuario or not usuario.ativo:
+            raise credenciais_exception
+        tenant = (await db.execute(select(Tenant).where(Tenant.id == usuario.tenant_id))).scalars().first()
+        if not tenant or tenant.status != "ATIVO":
+            raise credenciais_exception
+
+        registo.revogado = True
+        novo_refresh_token = await _criar_refresh_token(db, usuario.tenant_id, usuario.id)
+        token_jwt = criar_token_acesso(dados={
+            "sub": str(usuario.id), "tenant_id": str(usuario.tenant_id), "perfil_acesso": usuario.perfil_acesso
+        })
+        await db.commit()
+
+        return {"access_token": token_jwt, "refresh_token": novo_refresh_token, "token_type": "bearer"}
+
+
+async def terminar_sessao(refresh_token_bruto: str | None, jti_access_token: str | None) -> None:
+    """Logout com efeito real no back-end (Fase 5) — antes disto, "Sair
+    do Sistema" só apagava o token no browser; o token continuava
+    válido no back-end até expirar sozinho. Revoga só ESTA sessão (este
+    par access+refresh token), não todos os dispositivos da pessoa."""
+    if jti_access_token:
+        await revogacao.revogar_jti(jti_access_token)
+    if refresh_token_bruto:
+        async with AsyncSessionLocalSistema() as db:
+            token_hash = _hash_token(refresh_token_bruto)
+            registo = (await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))).scalars().first()
+            if registo and not registo.revogado:
+                registo.revogado = True
+                await db.commit()
 
 
 async def solicitar_redefinicao_senha(email: str) -> None:
@@ -232,7 +356,17 @@ async def redefinir_senha(token: str, nova_senha: str) -> None:
 
         usuario.senha_hash = gerar_hash_senha(nova_senha)
         registo.usado = True
+        # Uma palavra-passe só é redefinida por "esqueci-me" quando há
+        # razão para desconfiar da anterior — todas as sessões (access
+        # tokens já emitidos e refresh tokens na BD) deviam morrer já,
+        # em todos os dispositivos, não só na próxima vez que expirarem sozinhas.
+        await db.execute(
+            RefreshToken.__table__.update()
+            .where(RefreshToken.usuario_id == usuario.id, RefreshToken.revogado == False)  # noqa: E712
+            .values(revogado=True)
+        )
         await db.commit()
+        await revogacao.revogar_usuario(usuario.id)
 
         await fila_notificacoes.agendar_email(
             enviar_email,

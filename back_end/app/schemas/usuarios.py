@@ -1,7 +1,9 @@
 """Schemas Pydantic da Gestão de Acessos (RBAC) — ver cruds/usuarios.py."""
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 import uuid
+
+from app.core.validacao import validar_forca_senha
 
 
 class UsuarioListadoOut(BaseModel):
@@ -17,7 +19,9 @@ class UsuarioListadoOut(BaseModel):
 class SecretariaCreate(BaseModel):
     nome_completo: str
     email: EmailStr
-    palavra_passe: str
+    palavra_passe: str = Field(..., min_length=8)
+
+    _validar_palavra_passe = field_validator("palavra_passe")(validar_forca_senha)
 
 
 class PerfilAcessoUpdate(BaseModel):

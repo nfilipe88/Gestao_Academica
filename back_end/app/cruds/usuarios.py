@@ -28,6 +28,7 @@ from app.database.models import Usuario
 from app.database.models_usuarios import UsuarioAuditoria
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import DEFAULT_PAGE_SIZE, paginar, paginar_linhas
+from app.core import revogacao
 from app.schemas.usuarios import PerfilAcessoUpdate, SecretariaCreate
 
 # Perfis de staff "puros" — sem tabela satélite (Professor/Aluno/Responsavel
@@ -140,6 +141,11 @@ async def alterar_perfil(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, dad
     )
     await db.commit()
     await db.refresh(usuario)
+    # Sessões já abertas continuam com o PERFIL ANTIGO nas claims do JWT
+    # até expirar sozinhas (até ACCESS_TOKEN_EXPIRE_MINUTES) — sem isto,
+    # alguém acabado de rebaixar de GESTOR para SECRETARIA continuava a
+    # conseguir usar permissões de GESTOR nesse intervalo.
+    await revogacao.revogar_usuario(usuario.id)
     return usuario
 
 
@@ -161,6 +167,12 @@ async def alterar_estado_ativo(db: AsyncSession, tenant_id, usuario_id: uuid.UUI
     )
     await db.commit()
     await db.refresh(usuario)
+    if not ativo:
+        # Sem isto, uma conta suspensa continuava a conseguir usar
+        # qualquer token já emitido até ele expirar sozinho (até
+        # ACCESS_TOKEN_EXPIRE_MINUTES) — a suspensão só bloqueava LOGINS
+        # novos, não sessões já abertas.
+        await revogacao.revogar_usuario(usuario.id)
     return usuario
 
 

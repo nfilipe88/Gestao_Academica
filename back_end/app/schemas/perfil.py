@@ -9,8 +9,10 @@ a gerir a PRÓPRIA conta — nunca recebe um usuario_id, o alvo é sempre
 "quem está autenticado".
 """
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 import uuid
+
+from app.core.validacao import validar_forca_senha
 
 
 class PerfilOut(BaseModel):
@@ -32,3 +34,5 @@ class PerfilUpdate(BaseModel):
 class AlterarSenhaIn(BaseModel):
     senha_atual: str
     nova_senha: str = Field(..., min_length=8)
+
+    _validar_nova_senha = field_validator("nova_senha")(validar_forca_senha)

@@ -3,7 +3,9 @@ from datetime import date
 from decimal import Decimal
 import uuid
 
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+from app.core.validacao import validar_forca_senha
 
 
 class TenantStatusUpdate(BaseModel):
@@ -24,6 +26,8 @@ class TenantCreateAdmin(BaseModel):
     nome_gestor: str = Field(..., example="João Silva")
     email_gestor: EmailStr = Field(..., example="joao.silva@colegiofuturo.pt")
     palavra_passe: str = Field(..., min_length=8, example="SenhaSegura123!")
+
+    _validar_palavra_passe = field_validator("palavra_passe")(validar_forca_senha)
 
 
 # ==========================================

@@ -56,9 +56,10 @@ export class AuthEffects {
         return this.http.post<any>('/api/v1/auth/login', body.toString(), {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         }).pipe(
-          map(res => AuthActions.loginSuccess({ 
-            token: res.access_token, 
-            usuario: res.utilizador 
+          map(res => AuthActions.loginSuccess({
+            token: res.access_token,
+            refreshToken: res.refresh_token,
+            usuario: res.utilizador
           })),
           catchError(err => of(AuthActions.loginFalhou({ 
             erro: err.error?.detail || 'Erro na autenticação.' 
@@ -71,9 +72,10 @@ export class AuthEffects {
   saveAuthData$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AuthActions.loginSuccess),
-      tap(({ token, usuario }) => {
+      tap(({ token, refreshToken, usuario }) => {
         if (isPlatformBrowser(this.platformId)) {
           localStorage.setItem('saas_access_token', token);
+          localStorage.setItem('saas_refresh_token', refreshToken);
           localStorage.setItem('saas_user', JSON.stringify(usuario));
         }
       })
@@ -109,12 +111,31 @@ export class AuthEffects {
   // Reage também a sessaoExpirada (authGuard/jwtInterceptor) — mesma
   // limpeza de sessão, só muda a mensagem mostrada no ecrã de login
   // (ver reducer).
+  //
+  // Notifica o back-end ANTES de limpar o localStorage (revoga o access
+  // token atual — jti — e o refresh token, ver POST /auth/logout) — sem
+  // isto, "Sair do Sistema" só apagava o token no browser; ele
+  // continuava válido no back-end até expirar sozinho (Fase 5). Fetch
+  // direto (não HttpClient) e sem esperar pela resposta: um logout tem
+  // de limpar a sessão local mesmo que o back-end esteja em baixo ou o
+  // pedido demore — nunca deve bloquear ninguém a sair.
   clearAuthData$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AuthActions.logout, AuthActions.sessaoExpirada),
       tap(() => {
         if (isPlatformBrowser(this.platformId)) {
+          const token = localStorage.getItem('saas_access_token');
+          const refreshToken = localStorage.getItem('saas_refresh_token');
+          if (token) {
+            fetch('/api/v1/auth/logout', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ refresh_token: refreshToken || null }),
+              keepalive: true,
+            }).catch(() => {});
+          }
           localStorage.removeItem('saas_access_token');
+          localStorage.removeItem('saas_refresh_token');
           localStorage.removeItem('saas_user');
         }
       })

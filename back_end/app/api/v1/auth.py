@@ -1,10 +1,13 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.schemas.auth import EsqueciSenhaIn, RedefinirSenhaIn, RegistoInicial, TokenResponse
+from app.schemas.auth import (
+    EsqueciSenhaIn, LogoutIn, RedefinirSenhaIn, RefreshTokenIn, RefreshTokenOut, RegistoInicial, TokenResponse
+)
 from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes
 from app.core.rate_limiter import excedeu_limite
+from app.core.security import obter_utilizador_atual
 from app.cruds import auth as crud_auth
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação e Onboarding"])
@@ -55,11 +58,36 @@ async def registo_inicial_escola(dados: RegistoInicial):
 
 @router.post("/login", response_model=TokenResponse)
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
-    """Valida a hash da palavra-passe com o passlib e gera o JWT."""
+    """Valida a hash da palavra-passe com o passlib e gera o access token
+    (curto) + refresh token (mais duradouro, ver TokenResponse)."""
     ip_cliente = request.client.host if request.client else "desconhecido"
     await _verificar_limite_login(f"{ip_cliente}:{form_data.username}")
 
-    return await crud_auth.autenticar(form_data.username, form_data.password)
+    return await crud_auth.autenticar(form_data.username, form_data.password, ip=ip_cliente, user_agent=request.headers.get("user-agent"))
+
+
+@router.post("/refresh", response_model=RefreshTokenOut)
+async def refresh(dados: RefreshTokenIn):
+    """
+    Troca o refresh token por um access token novo, sem pedir login
+    outra vez — o front-end chama isto sozinho, em background, quando o
+    access token (curto, ~20 min) expira. Ver
+    cruds/auth.py::renovar_access_token para a rotação/deteção de roubo.
+    """
+    return await crud_auth.renovar_access_token(dados.refresh_token)
+
+
+@router.post("/logout")
+async def logout(dados: LogoutIn, utilizador: dict = Depends(obter_utilizador_atual)):
+    """
+    Logout com efeito real no back-end (Fase 5) — antes disto, "Sair do
+    Sistema" só apagava o token no browser; ele continuava válido até
+    expirar sozinho. Exige o access token atual (para saber qual jti
+    revogar) e aceita opcionalmente o refresh_token, para revogar
+    também essa sessão longa.
+    """
+    await crud_auth.terminar_sessao(dados.refresh_token, utilizador.get("jti"))
+    return {"mensagem": "Sessão terminada."}
 
 
 @router.post("/esqueci-senha")

@@ -11,7 +11,7 @@ export interface UsuarioLogado {
 
 export const loginSuccess = createAction(
   '[Auth API] Login efetuado com Sucesso',
-  props<{ token: string, usuario: UsuarioLogado }>()
+  props<{ token: string, refreshToken: string, usuario: UsuarioLogado }>()
 );
 
 export const logout = createAction('[Auth] Logout do Utilizador');

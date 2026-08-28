@@ -25,6 +25,7 @@ from app.schemas.admin import (
 )
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import paginar_linhas
+from app.core import revogacao
 from app.cruds import notificacoes as crud_notificacoes
 
 logger = logging.getLogger("admin")
@@ -217,6 +218,12 @@ async def atualizar_status_tenant(db: AsyncSession, tenant_id: uuid.UUID, dados:
     tenant.status = dados.status
     await db.commit()
     await db.refresh(tenant)
+    if tenant.status != "ATIVO":
+        # Sem isto, todos os utilizadores desta escola continuavam com
+        # acesso normal até os tokens já emitidos expirarem sozinhos
+        # (até ACCESS_TOKEN_EXPIRE_MINUTES) — a suspensão só bloqueava
+        # LOGINS novos, não sessões já abertas (ver cruds/auth.py::autenticar).
+        await revogacao.revogar_tenant(tenant.id)
     return tenant
 
 
@@ -315,6 +322,11 @@ async def processar_validade_licencas(db: AsyncSession, agendar_email) -> dict:
                 db, tenant.id, destinatarios, tipo="LICENCA", titulo=titulo, mensagem=mensagem, link="/admin"
             )
             await db.commit()
+            if dias_atraso >= DIAS_SUSPENSAO_LICENCA:
+                # Mesma razão da suspensão manual (ver atualizar_status_tenant)
+                # — sem isto, sessões já abertas continuavam a funcionar
+                # normalmente até expirarem sozinhas.
+                await revogacao.revogar_tenant(tenant.id)
         except Exception:
             logger.exception("Falha ao notificar/atualizar a licença da escola %s (%s).", tenant.nome_fantasia, tenant.id)
             await db.rollback()

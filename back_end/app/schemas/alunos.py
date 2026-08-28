@@ -1,7 +1,9 @@
 """Schemas Pydantic de Alunos, Responsáveis e o vínculo entre eles."""
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import date
 import uuid
+
+from app.core.validacao import validar_forca_senha
 
 
 class AlunoCreate(BaseModel):
@@ -28,3 +30,5 @@ class CriarAcessoRequest(BaseModel):
     """Concede login próprio (Portal do Aluno/Responsável) a um Aluno ou Responsável já cadastrado."""
     email: EmailStr
     palavra_passe: str = Field(..., min_length=8)
+
+    _validar_palavra_passe = field_validator("palavra_passe")(validar_forca_senha)
