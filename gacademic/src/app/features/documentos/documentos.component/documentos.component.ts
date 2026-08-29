@@ -1,5 +1,5 @@
 import { AsyncPipe, CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Store } from '@ngrx/store';
@@ -187,9 +187,9 @@ export class DocumentosComponent implements OnInit {
 
   // --- Modelos de documentos (layout próprio por escola) ---
   // Só um editor aberto de cada vez (mesmo padrão de solicitacaoAEntregar/respostaAberta acima).
-  templateEmEdicaoTipo: string | null = null;
+  templateEmEdicaoTipo = signal<string | null>(null);
   corpoEmEdicao = '';
-  erroPreVisualizacao: string | null = null;
+  erroPreVisualizacao = signal<string | null>(null);
 
   // Strings simples interpoladas em vez de {{ }} literais escritos
   // diretamente no template: Angular decodifica entidades HTML como
@@ -203,14 +203,14 @@ export class DocumentosComponent implements OnInit {
   readonly exemploPlaceholderTemplate = '<p>Certifico que {{ aluno_nome }} estuda na turma {{ turma_nome }} no ano {{ ano_letivo }}.</p>';
 
   onIniciarEdicaoTemplate(template: TemplateDocumento) {
-    this.templateEmEdicaoTipo = template.tipo_documento;
+    this.templateEmEdicaoTipo.set(template.tipo_documento);
     this.corpoEmEdicao = template.corpo_html ?? '';
-    this.erroPreVisualizacao = null;
+    this.erroPreVisualizacao.set(null);
   }
 
   onCancelarEdicaoTemplate() {
-    this.templateEmEdicaoTipo = null;
-    this.erroPreVisualizacao = null;
+    this.templateEmEdicaoTipo.set(null);
+    this.erroPreVisualizacao.set(null);
   }
 
   // Guardar pode falhar (template inválido/SSTI bloqueado pelo
@@ -221,21 +221,21 @@ export class DocumentosComponent implements OnInit {
   // sucesso (templateAtualizado); em caso de falha o editor e o texto
   // ficam tal como estavam, para o Gestor corrigir e tentar de novo.
   onGuardarTemplate() {
-    if (!this.templateEmEdicaoTipo || !this.corpoEmEdicao.trim()) return;
-    this.store.dispatch(DocumentosActions.guardarTemplate({ tipo_documento: this.templateEmEdicaoTipo, corpo_html: this.corpoEmEdicao }));
+    if (!this.templateEmEdicaoTipo() || !this.corpoEmEdicao.trim()) return;
+    this.store.dispatch(DocumentosActions.guardarTemplate({ tipo_documento: this.templateEmEdicaoTipo()!, corpo_html: this.corpoEmEdicao }));
     this.actions$.pipe(
       ofType(DocumentosActions.templateAtualizado, DocumentosActions.documentosOperacaoFalhou),
       take(1)
     ).subscribe(action => {
       if (action.type === DocumentosActions.templateAtualizado.type) {
-        this.templateEmEdicaoTipo = null;
+        this.templateEmEdicaoTipo.set(null);
       }
     });
   }
 
   onReporPadrao(tipo_documento: string) {
     this.store.dispatch(DocumentosActions.reporTemplatePadrao({ tipo_documento }));
-    if (this.templateEmEdicaoTipo === tipo_documento) this.templateEmEdicaoTipo = null;
+    if (this.templateEmEdicaoTipo() === tipo_documento) this.templateEmEdicaoTipo.set(null);
   }
 
   // Pré-visualiza o texto ainda por guardar (não o que já está no
@@ -246,9 +246,9 @@ export class DocumentosComponent implements OnInit {
   // de erro), por isso é preciso ler o texto do blob para extrair a
   // mensagem em vez de usar err.error.detail diretamente.
   onPreVisualizarTemplate() {
-    if (!this.templateEmEdicaoTipo || !this.corpoEmEdicao.trim()) return;
-    const tipo = this.templateEmEdicaoTipo;
-    this.erroPreVisualizacao = null;
+    if (!this.templateEmEdicaoTipo() || !this.corpoEmEdicao.trim()) return;
+    const tipo = this.templateEmEdicaoTipo()!;
+    this.erroPreVisualizacao.set(null);
     const aba = window.open('', '_blank');
     this.http.post(`/api/v1/documentos/templates/${tipo}/pre-visualizar`, { corpo_html: this.corpoEmEdicao }, { responseType: 'blob' }).subscribe({
       next: (blob) => abrirOuTransferirBlob(aba, blob, `pre-visualizacao-${tipo.toLowerCase()}.pdf`),
@@ -258,13 +258,13 @@ export class DocumentosComponent implements OnInit {
         if (corpoErro instanceof Blob) {
           corpoErro.text().then(texto => {
             try {
-              this.erroPreVisualizacao = JSON.parse(texto).detail ?? 'Não foi possível pré-visualizar o modelo.';
+              this.erroPreVisualizacao.set(JSON.parse(texto).detail ?? 'Não foi possível pré-visualizar o modelo.');
             } catch {
-              this.erroPreVisualizacao = 'Não foi possível pré-visualizar o modelo.';
+              this.erroPreVisualizacao.set('Não foi possível pré-visualizar o modelo.');
             }
           });
         } else {
-          this.erroPreVisualizacao = 'Não foi possível pré-visualizar o modelo.';
+          this.erroPreVisualizacao.set('Não foi possível pré-visualizar o modelo.');
         }
       }
     });
