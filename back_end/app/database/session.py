@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncConnection
 from fastapi import Depends
 from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core.auditoria import definir_ator_auditoria  # importar regista o listener before_flush (ver core/auditoria.py)
 from typing import Dict, Any, AsyncGenerator
 from sqlalchemy import text
 import os
@@ -129,6 +130,7 @@ async def obter_sessao_db(
     emitir um COMMIT real.
     """
     tenant_str = str(utilizador["tenant_id"])
+    definir_ator_auditoria(utilizador["usuario_id"], utilizador["tenant_id"], utilizador.get("perfil_acesso"))
     async with engine.connect() as ligacao:
         async with AsyncSession(bind=ligacao, expire_on_commit=False) as sessao:
             try:
@@ -179,6 +181,11 @@ async def obter_sessao_db_admin(
     utilizador: Dict[str, Any] = Depends(_exigir_super_admin)
 ) -> AsyncGenerator[AsyncSession, None]:
     """Sessão cross-tenant (role app_sistema) para o Painel Super Admin — ver app/api/v1/admin.py."""
+    # tenant_id aqui é o do PRÓPRIO Super Admin (pode não pertencer a
+    # nenhuma escola real) — o listener de auditoria usa o tenant_id da
+    # entidade alterada, não este, para saber a que escola pertence
+    # cada registo (ver _tenant_id_de em core/auditoria.py).
+    definir_ator_auditoria(utilizador["usuario_id"], utilizador.get("tenant_id"), utilizador.get("perfil_acesso"))
     async with AsyncSessionLocalSistema() as sessao:
         try:
             yield sessao

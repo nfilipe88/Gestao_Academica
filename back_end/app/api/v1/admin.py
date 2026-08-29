@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +15,7 @@ from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes
 from app.cruds import admin as crud_admin
 from app.cruds import usuarios as crud_usuarios
+from app.cruds import auditoria as crud_auditoria
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Painel Super Admin"])
 
@@ -234,3 +236,32 @@ async def listar_auditoria_do_tenant(
 ):
     """Histórico de gestão de acessos de uma escola específica."""
     return await crud_usuarios.listar_auditoria(db, tenant_id, page, page_size)
+
+
+# ==========================================
+# AUDITORIA GERAL — cross-tenant (qualquer escola)
+# ==========================================
+# Mesmo crud usado por app/api/v1/auditoria.py (Gestor, só a própria
+# escola) — aqui o tenant_id vem do path da URL em vez do token.
+
+@router.get("/tenants/{tenant_id}/auditoria")
+async def listar_auditoria_geral_do_tenant(
+    tenant_id: uuid.UUID,
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+    entidade: str | None = Query(None), entidade_id: str | None = Query(None),
+    acao: str | None = Query(None), autor_id: uuid.UUID | None = Query(None),
+    data_inicio: date | None = Query(None), data_fim: date | None = Query(None),
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Trilha de auditoria geral (quem criou/alterou o quê) de uma escola específica."""
+    return await crud_auditoria.listar(
+        db, tenant_id, page, page_size, entidade, entidade_id, acao, autor_id, data_inicio, data_fim
+    )
+
+
+@router.get("/tenants/{tenant_id}/auditoria/entidades")
+async def listar_entidades_auditoria_do_tenant(
+    tenant_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    return await crud_auditoria.listar_entidades_distintas(db, tenant_id)

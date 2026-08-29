@@ -131,6 +131,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/usuarios/acessos.component/acessos.component').then((m) => m.AcessosComponent)
       },
       {
+        path: 'auditoria',
+        loadComponent: () => import('./features/auditoria/auditoria.component/auditoria.component').then((m) => m.AuditoriaComponent)
+      },
+      {
         // Sem RBAC — qualquer utilizador autenticado gere a própria
         // conta (ver app/api/v1/perfil.py, sem exigir_perfil).
         path: 'perfil',
