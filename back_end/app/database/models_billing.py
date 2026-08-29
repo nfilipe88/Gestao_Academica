@@ -11,7 +11,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.models import Base
 
 
@@ -23,7 +23,12 @@ class PlanoSaaS(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     nome: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
-    preco_mensal: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # Substitui o antigo preco_mensal fixo (Fase "planos por aluno/
+    # módulo") — a mensalidade de uma escola passa a ser
+    # preco_por_aluno × nº de alunos cadastrados na escola, mais o que
+    # os módulos incluídos (ver PlanoSaaSModulo) custarem à parte. Ver
+    # cruds/admin.py::obter_resumo_mrr para o cálculo completo.
+    preco_por_aluno: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     # None = sem limite (plano topo de gama) — usado só para referência
     # comercial nesta primeira versão, ainda não faz cumprir o limite
     # em nenhum outro módulo.
@@ -37,6 +42,33 @@ class PlanoSaaS(Base):
     dias_periodo_teste: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    modulos: Mapped[list["PlanoSaaSModulo"]] = relationship(cascade="all, delete-orphan")
+
+
+class PlanoSaaSModulo(Base):
+    """Módulos da plataforma incluídos num plano, cada um com o seu
+    próprio preço adicional (0 = incluído sem custo extra) — usa a
+    MESMA lista de módulos do Mapa de Permissões
+    (alembic/versions/584537bbba2e_permissao_modulo.py::MODULOS), para
+    não haver dois vocabulários de "módulo" diferentes na plataforma.
+
+    Um módulo AUSENTE desta tabela para um plano = não incluído: a
+    plataforma bloqueia mesmo o acesso (ver app/core/modulos.py —
+    exigir_modulo), não é só uma questão de preço. Nem todos os
+    módulos são "gateáveis" — os fundamentais (Alunos, Turmas,
+    Configurações, ...) continuam sempre acessíveis independentemente
+    do plano; ver MODULOS_GATEAVEIS em app/core/modulos.py."""
+    __tablename__ = "plano_saas_modulo"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    plano_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plano_saas.id", ondelete="CASCADE"), nullable=False)
+    modulo: Mapped[str] = mapped_column(String(80), nullable=False)
+    preco_adicional: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("plano_id", "modulo", name="uq_plano_saas_modulo"),
+    )
 
 
 class AssinaturaTenant(Base):

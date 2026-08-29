@@ -125,9 +125,9 @@ export class AdminEffects {
     this.actions$.pipe(
       ofType(AdminActions.criarPlano),
       switchMap(action => this.http.post<PlanoSaaS>('/api/v1/admin/planos', {
-        nome: action.nome, preco_mensal: action.preco_mensal,
+        nome: action.nome, preco_por_aluno: action.preco_por_aluno,
         limite_alunos: action.limite_alunos, descricao: action.descricao,
-        dias_periodo_teste: action.dias_periodo_teste
+        dias_periodo_teste: action.dias_periodo_teste, modulos: action.modulos
       }).pipe(
         switchMap(plano => [
           AdminActions.carregarPlanos(),
@@ -144,9 +144,9 @@ export class AdminEffects {
     this.actions$.pipe(
       ofType(AdminActions.atualizarPlano),
       switchMap(action => this.http.patch<PlanoSaaS>(`/api/v1/admin/planos/${action.id}`, {
-        nome: action.nome, preco_mensal: action.preco_mensal,
+        nome: action.nome, preco_por_aluno: action.preco_por_aluno,
         limite_alunos: action.limite_alunos, descricao: action.descricao,
-        dias_periodo_teste: action.dias_periodo_teste, ativo: action.ativo
+        dias_periodo_teste: action.dias_periodo_teste, ativo: action.ativo, modulos: action.modulos
       }).pipe(
         switchMap(plano => [
           AdminActions.carregarPlanos(),

@@ -6,9 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from app.api.v1 import academico, admin, alunos, auth, comunicacoes, configuracoes, crm, diario, documentos, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, tarefas, transferencias, usuarios
+from fastapi import Depends
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
 from app.core import fila_notificacoes
+from app.core.modulos import exigir_modulo
 from app.database.session import engine
 
 # Antes de qualquer outra coisa, para também apanhar erros no arranque
@@ -67,21 +69,25 @@ app.include_router(auth.router)
 app.include_router(academico.router)
 app.include_router(alunos.router)
 app.include_router(matriculas.router)
-app.include_router(professores.router)
-app.include_router(comunicacoes.router)
-app.include_router(diario.router)
-app.include_router(financeiro.router)
-app.include_router(financeiro.router_webhooks)
-app.include_router(crm.router)
-app.include_router(crm.router_publico)
-app.include_router(horarios.router)
+# Módulos gateáveis por plano SaaS (ver app/core/modulos.py) — os
+# fundamentais para sequer usar a plataforma (Alunos, Cursos, Turmas,
+# Configurações, Diário base, Portal, ...) ficam de fora desta lista,
+# de propósito: nunca dependem do plano da escola.
+app.include_router(professores.router, dependencies=[Depends(exigir_modulo("Professores"))])
+app.include_router(comunicacoes.router, dependencies=[Depends(exigir_modulo("Comunicações"))])
+app.include_router(diario.router, dependencies=[Depends(exigir_modulo("Diário de Classe"))])
+app.include_router(financeiro.router, dependencies=[Depends(exigir_modulo("Financeiro"))])
+app.include_router(financeiro.router_webhooks)  # público (PayPal) — nunca gateado por módulo
+app.include_router(crm.router, dependencies=[Depends(exigir_modulo("CRM"))])
+app.include_router(crm.router_publico)  # captação pública de Lead — sem utilizador autenticado, não gateável
+app.include_router(horarios.router, dependencies=[Depends(exigir_modulo("Horários"))])
 app.include_router(portal.router)
 app.include_router(admin.router)
-app.include_router(tarefas.router)
-app.include_router(indicadores.router)
+app.include_router(tarefas.router, dependencies=[Depends(exigir_modulo("Trabalhos / Tarefas"))])
+app.include_router(indicadores.router, dependencies=[Depends(exigir_modulo("Indicadores"))])
 app.include_router(notificacoes.router)
 app.include_router(documentos.router)
-app.include_router(transferencias.router)
+app.include_router(transferencias.router, dependencies=[Depends(exigir_modulo("Transferências de Alunos"))])
 app.include_router(usuarios.router)
 app.include_router(configuracoes.router)
 app.include_router(lms.router)

@@ -10,7 +10,7 @@ import {
 } from '../../../store/admin/admin.actions';
 import { selectAdminError, selectAdminMensagem, selectPaginacaoTenants, selectTenants } from '../../../store/admin/admin.selector';
 import { selectPlanos, selectPlanosAtivos, selectMrr, selectAssinaturasPorTenant } from '../../../store/admin/admin.selector';
-import { FiltrosTenants, PlanoSaaS, StatusTenant } from '../../../store/admin/admin.models';
+import { FiltrosTenants, MODULOS_GATEAVEIS, PlanoSaaS, PlanoSaaSModulo, StatusTenant } from '../../../store/admin/admin.models';
 import * as TransferenciasActions from '../../../store/transferencias/transferencias.actions';
 import {
   selectPaginacaoTransferencias, selectSolicitacoesTransferencia, selectTransferenciasError, selectTransferenciasMensagem
@@ -103,12 +103,33 @@ export class AdminComponent implements OnInit {
   planoAEditar: PlanoSaaS | null = null;
   planoForm = this.fb.group({
     nome: ['', Validators.required],
-    preco_mensal: [0, [Validators.required, Validators.min(0)]],
+    preco_por_aluno: [0, [Validators.required, Validators.min(0)]],
     limite_alunos: [null as number | null],
     descricao: [''],
     dias_periodo_teste: [0, [Validators.required, Validators.min(0)]],
   });
   planoAApagarId: string | null = null;
+
+  // Módulos gateáveis do plano em edição — fora do formulário reativo
+  // (é uma lista de checkboxes + preço, não um único campo). Um módulo
+  // AUSENTE fica bloqueado (403) para as escolas deste plano — ver
+  // app/core/modulos.py.
+  readonly modulosGateaveis = MODULOS_GATEAVEIS;
+  modulosSelecionados: Record<string, { incluido: boolean; preco_adicional: number }> = {};
+
+  private _resetModulosSelecionados(modulosDoPlano: PlanoSaaSModulo[] = []) {
+    const porNome = new Map(modulosDoPlano.map(m => [m.modulo, m.preco_adicional]));
+    this.modulosSelecionados = {};
+    for (const modulo of this.modulosGateaveis) {
+      this.modulosSelecionados[modulo] = { incluido: porNome.has(modulo), preco_adicional: porNome.get(modulo) ?? 0 };
+    }
+  }
+
+  private _modulosParaEnviar(): PlanoSaaSModulo[] {
+    return Object.entries(this.modulosSelecionados)
+      .filter(([, v]) => v.incluido)
+      .map(([modulo, v]) => ({ modulo, preco_adicional: v.preco_adicional }));
+  }
 
   // Assinatura por escola — expandida sob um tenant de cada vez, mesmo
   // padrão da Gestão de Acessos.
@@ -312,33 +333,36 @@ export class AdminComponent implements OnInit {
   alternarFormularioPlano() {
     this.mostrarFormularioPlano = !this.mostrarFormularioPlano;
     this.planoAEditar = null;
-    this.planoForm.reset({ nome: '', preco_mensal: 0, limite_alunos: null, descricao: '', dias_periodo_teste: 0 });
+    this.planoForm.reset({ nome: '', preco_por_aluno: 0, limite_alunos: null, descricao: '', dias_periodo_teste: 0 });
+    this._resetModulosSelecionados();
   }
 
   onEditarPlano(plano: PlanoSaaS) {
     this.planoAEditar = plano;
     this.mostrarFormularioPlano = true;
     this.planoForm.reset({
-      nome: plano.nome, preco_mensal: plano.preco_mensal,
+      nome: plano.nome, preco_por_aluno: plano.preco_por_aluno,
       limite_alunos: plano.limite_alunos, descricao: plano.descricao,
       dias_periodo_teste: plano.dias_periodo_teste,
     });
+    this._resetModulosSelecionados(plano.modulos);
   }
 
   onGuardarPlano() {
     if (this.planoForm.invalid) return;
     const v = this.planoForm.value;
+    const modulos = this._modulosParaEnviar();
     if (this.planoAEditar) {
       this.store.dispatch(atualizarPlano({
-        id: this.planoAEditar.id, nome: v.nome!, preco_mensal: v.preco_mensal!,
+        id: this.planoAEditar.id, nome: v.nome!, preco_por_aluno: v.preco_por_aluno!,
         limite_alunos: v.limite_alunos ?? null, descricao: v.descricao || null,
-        dias_periodo_teste: v.dias_periodo_teste ?? 0, ativo: this.planoAEditar.ativo
+        dias_periodo_teste: v.dias_periodo_teste ?? 0, ativo: this.planoAEditar.ativo, modulos
       }));
     } else {
       this.store.dispatch(criarPlano({
-        nome: v.nome!, preco_mensal: v.preco_mensal!,
+        nome: v.nome!, preco_por_aluno: v.preco_por_aluno!,
         limite_alunos: v.limite_alunos ?? null, descricao: v.descricao || null,
-        dias_periodo_teste: v.dias_periodo_teste ?? 0,
+        dias_periodo_teste: v.dias_periodo_teste ?? 0, modulos
       }));
     }
     this.mostrarFormularioPlano = false;
@@ -347,9 +371,9 @@ export class AdminComponent implements OnInit {
 
   onAlternarAtivoPlano(plano: PlanoSaaS) {
     this.store.dispatch(atualizarPlano({
-      id: plano.id, nome: plano.nome, preco_mensal: plano.preco_mensal,
+      id: plano.id, nome: plano.nome, preco_por_aluno: plano.preco_por_aluno,
       limite_alunos: plano.limite_alunos, descricao: plano.descricao,
-      dias_periodo_teste: plano.dias_periodo_teste, ativo: !plano.ativo
+      dias_periodo_teste: plano.dias_periodo_teste, ativo: !plano.ativo, modulos: plano.modulos
     }));
   }
 

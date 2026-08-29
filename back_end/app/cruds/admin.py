@@ -14,11 +14,12 @@ from decimal import Decimal
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database.models import Tenant, Usuario
 from app.database.models_pessoas import Aluno, Professor
 from app.database.models_diario import TipoAvaliacaoConfig
-from app.database.models_billing import AssinaturaTenant, PlanoSaaS
+from app.database.models_billing import AssinaturaTenant, PlanoSaaS, PlanoSaaSModulo
 from app.schemas.admin import (
     AssinaturaTenantInput, PlanoSaaSCreate, PlanoSaaSUpdate,
     TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
@@ -361,7 +362,20 @@ async def esta_bloqueado_parcialmente(db: AsyncSession, tenant_id) -> bool:
 # SAAS BILLING — Planos e Assinaturas
 # ==========================================
 async def listar_planos(db: AsyncSession) -> list[PlanoSaaS]:
-    return (await db.execute(select(PlanoSaaS).order_by(PlanoSaaS.preco_mensal))).scalars().all()
+    return (await db.execute(
+        select(PlanoSaaS).options(selectinload(PlanoSaaS.modulos)).order_by(PlanoSaaS.preco_por_aluno)
+    )).scalars().unique().all()
+
+
+async def _substituir_modulos(db: AsyncSession, plano_id: uuid.UUID, modulos: list) -> None:
+    """Substitui por completo os módulos incluídos num plano — mais
+    simples e previsível do que um PATCH incremental (ver docstring de
+    PlanoSaaSCreate.modulos)."""
+    await db.execute(
+        PlanoSaaSModulo.__table__.delete().where(PlanoSaaSModulo.plano_id == plano_id)
+    )
+    for m in modulos:
+        db.add(PlanoSaaSModulo(plano_id=plano_id, modulo=m.modulo, preco_adicional=m.preco_adicional))
 
 
 async def criar_plano(db: AsyncSession, dados: PlanoSaaSCreate) -> PlanoSaaS:
@@ -370,18 +384,21 @@ async def criar_plano(db: AsyncSession, dados: PlanoSaaSCreate) -> PlanoSaaS:
         raise HTTPException(status_code=400, detail="Já existe um plano com este nome.")
 
     novo = PlanoSaaS(
-        nome=dados.nome.strip(), preco_mensal=dados.preco_mensal,
+        nome=dados.nome.strip(), preco_por_aluno=dados.preco_por_aluno,
         limite_alunos=dados.limite_alunos, descricao=dados.descricao,
         dias_periodo_teste=dados.dias_periodo_teste,
     )
     db.add(novo)
+    await db.flush()
+    await _substituir_modulos(db, novo.id, dados.modulos)
     await db.commit()
-    await db.refresh(novo)
-    return novo
+    return await _obter_plano(db, novo.id)
 
 
 async def _obter_plano(db: AsyncSession, plano_id: uuid.UUID) -> PlanoSaaS:
-    plano = (await db.execute(select(PlanoSaaS).where(PlanoSaaS.id == plano_id))).scalars().first()
+    plano = (await db.execute(
+        select(PlanoSaaS).options(selectinload(PlanoSaaS.modulos)).where(PlanoSaaS.id == plano_id)
+    )).scalars().unique().first()
     if not plano:
         raise HTTPException(status_code=404, detail="Plano não encontrado.")
     return plano
@@ -396,14 +413,14 @@ async def atualizar_plano(db: AsyncSession, plano_id: uuid.UUID, dados: PlanoSaa
         raise HTTPException(status_code=400, detail="Já existe um plano com este nome.")
 
     plano.nome = dados.nome.strip()
-    plano.preco_mensal = dados.preco_mensal
+    plano.preco_por_aluno = dados.preco_por_aluno
     plano.limite_alunos = dados.limite_alunos
     plano.descricao = dados.descricao
     plano.dias_periodo_teste = dados.dias_periodo_teste
     plano.ativo = dados.ativo
+    await _substituir_modulos(db, plano_id, dados.modulos)
     await db.commit()
-    await db.refresh(plano)
-    return plano
+    return await _obter_plano(db, plano_id)
 
 
 async def apagar_plano(db: AsyncSession, plano_id: uuid.UUID) -> None:
@@ -415,19 +432,36 @@ async def apagar_plano(db: AsyncSession, plano_id: uuid.UUID) -> None:
     await db.commit()
 
 
+async def _contagem_alunos_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> int:
+    return (await db.execute(
+        select(func.count(Aluno.id)).where(Aluno.tenant_id == tenant_id)
+    )).scalar_one()
+
+
+async def _calcular_mensalidade(db: AsyncSession, tenant_id: uuid.UUID, plano: PlanoSaaS) -> tuple[Decimal, int]:
+    """Mensalidade = preço por aluno × nº de alunos cadastrados na
+    escola, mais o que os módulos incluídos no plano custarem à parte
+    (0 = módulo incluído sem custo extra). Devolve também a contagem
+    de alunos usada, para o Super Admin ver de onde veio o número."""
+    total_alunos = await _contagem_alunos_tenant(db, tenant_id)
+    total_modulos = sum((m.preco_adicional for m in plano.modulos), Decimal("0.00"))
+    return (plano.preco_por_aluno * total_alunos) + total_modulos, total_alunos
+
+
 async def obter_assinatura_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> dict | None:
-    linha = (await db.execute(
-        select(AssinaturaTenant, PlanoSaaS.nome, PlanoSaaS.preco_mensal, PlanoSaaS.dias_periodo_teste)
-        .join(PlanoSaaS, PlanoSaaS.id == AssinaturaTenant.plano_id)
-        .where(AssinaturaTenant.tenant_id == tenant_id)
-    )).first()
-    if not linha:
+    assinatura = (await db.execute(
+        select(AssinaturaTenant).where(AssinaturaTenant.tenant_id == tenant_id)
+    )).scalars().first()
+    if not assinatura:
         return None
-    assinatura, nome_plano, preco_mensal, dias_periodo_teste = linha
+    plano = await _obter_plano(db, assinatura.plano_id)
+    mensalidade, total_alunos = await _calcular_mensalidade(db, tenant_id, plano)
     return {
-        "id": assinatura.id, "plano_id": assinatura.plano_id, "nome_plano": nome_plano, "preco_mensal": preco_mensal,
+        "id": assinatura.id, "plano_id": assinatura.plano_id, "nome_plano": plano.nome,
+        "preco_por_aluno": plano.preco_por_aluno, "total_alunos": total_alunos, "mensalidade": mensalidade,
+        "modulos": [{"modulo": m.modulo, "preco_adicional": m.preco_adicional} for m in plano.modulos],
         "data_inicio": assinatura.data_inicio, "proxima_cobranca": assinatura.proxima_cobranca, "status": assinatura.status,
-        "em_periodo_teste": _em_periodo_teste(assinatura.data_inicio, dias_periodo_teste),
+        "em_periodo_teste": _em_periodo_teste(assinatura.data_inicio, plano.dias_periodo_teste),
     }
 
 
@@ -461,20 +495,26 @@ async def cancelar_assinatura_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> 
 
 
 async def obter_resumo_mrr(db: AsyncSession) -> dict:
-    """MRR (receita mensal recorrente) = soma dos preços dos planos das assinaturas ATIVA — cálculo simples, sem pro-rata."""
-    linhas = (await db.execute(
-        select(PlanoSaaS.nome, PlanoSaaS.preco_mensal, func.count(AssinaturaTenant.id))
-        .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoSaaS.id)
-        .where(AssinaturaTenant.status == "ATIVA")
-        .group_by(PlanoSaaS.nome, PlanoSaaS.preco_mensal)
-    )).all()
+    """MRR (receita mensal recorrente) = soma da mensalidade calculada
+    (preço por aluno × alunos + módulos) de cada assinatura ATIVA —
+    cálculo simples, sem pro-rata. Ao contrário do antigo preco_mensal
+    fixo, isto exige uma query por tenant (para contar os alunos de
+    cada um), não dá para agregar tudo numa única query como antes."""
+    assinaturas = (await db.execute(
+        select(AssinaturaTenant).where(AssinaturaTenant.status == "ATIVA")
+    )).scalars().all()
 
-    por_plano = [
-        {"nome_plano": nome, "preco_mensal": preco, "total_assinaturas": total, "receita_mensal": preco * total}
-        for nome, preco, total in linhas
-    ]
+    por_plano: dict[str, dict] = {}
+    for assinatura in assinaturas:
+        plano = await _obter_plano(db, assinatura.plano_id)
+        mensalidade, _ = await _calcular_mensalidade(db, assinatura.tenant_id, plano)
+        linha = por_plano.setdefault(plano.nome, {"nome_plano": plano.nome, "total_assinaturas": 0, "receita_mensal": Decimal("0.00")})
+        linha["total_assinaturas"] += 1
+        linha["receita_mensal"] += mensalidade
+
+    por_plano_lista = list(por_plano.values())
     return {
-        "mrr": sum((p["receita_mensal"] for p in por_plano), Decimal("0.00")),
-        "total_assinaturas_ativas": sum(p["total_assinaturas"] for p in por_plano),
-        "por_plano": por_plano,
+        "mrr": sum((p["receita_mensal"] for p in por_plano_lista), Decimal("0.00")),
+        "total_assinaturas_ativas": sum(p["total_assinaturas"] for p in por_plano_lista),
+        "por_plano": por_plano_lista,
     }

@@ -311,7 +311,9 @@
                   @if ((assinaturasPorTenant$ | async)?.[tenant.id]; as assinatura) {
                     <div class="flex items-center gap-4 text-sm mb-3">
                       <span class="text-slate-800 font-medium">{{ assinatura.nome_plano }}</span>
-                      <span class="text-slate-500">{{ assinatura.preco_mensal | number:'1.2-2' }}/mês</span>
+                      <span class="text-slate-500" [title]="assinatura.total_alunos + ' aluno(s) × ' + (assinatura.preco_por_aluno | number:'1.2-2')">
+                        {{ assinatura.mensalidade | number:'1.2-2' }}/mês
+                      </span>
                       <span class="text-slate-500">Próxima cobrança: {{ assinatura.proxima_cobranca | date:'dd/MM/yyyy' }}</span>
                       <span class="text-xs font-medium py-1 px-3 rounded-full"
                         [class.bg-emerald-100]="assinatura.status === 'ATIVA'" [class.text-emerald-700]="assinatura.status === 'ATIVA'"
@@ -336,7 +338,7 @@
                         <select #planoSelect class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800"
                           (change)="proximaCobrancaInput.value = sugerirProximaCobranca(planoSelect.value, planosAtivos)">
                           @for (p of planosAtivos; track p.id) {
-                            <option [value]="p.id">{{ p.nome }} — {{ p.preco_mensal | number:'1.2-2' }}/mês{{ p.dias_periodo_teste > 0 ? ' (' + p.dias_periodo_teste + ' dias de teste)' : '' }}</option>
+                            <option [value]="p.id">{{ p.nome }} — {{ p.preco_por_aluno | number:'1.2-2' }}/aluno/mês{{ p.dias_periodo_teste > 0 ? ' (' + p.dias_periodo_teste + ' dias de teste)' : '' }}</option>
                           }
                         </select>
                       </div>
@@ -388,7 +390,7 @@
         <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-5">
           <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Por plano</p>
           @for (pp of mrr.por_plano; track pp.nome_plano) {
-            <p class="text-xs text-slate-600">{{ pp.nome_plano }}: {{ pp.total_assinaturas }} × {{ pp.preco_mensal | number:'1.2-2' }} = {{ pp.receita_mensal | number:'1.2-2' }}</p>
+            <p class="text-xs text-slate-600">{{ pp.nome_plano }}: {{ pp.total_assinaturas }} escola(s) — {{ pp.receita_mensal | number:'1.2-2' }}</p>
           } @empty {
             <p class="text-xs text-slate-400">Sem assinaturas ativas.</p>
           }
@@ -407,9 +409,10 @@
               class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Preço mensal</label>
-            <input type="number" step="0.01" formControlName="preco_mensal"
+            <label class="block text-sm font-medium text-slate-600 mb-1">Preço por aluno</label>
+            <input type="number" step="0.01" formControlName="preco_por_aluno"
               class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+            <p class="text-xs text-slate-400 mt-1">Multiplicado pelo nº de alunos cadastrados na escola, todos os meses.</p>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-600 mb-1">Limite de alunos</label>
@@ -427,6 +430,29 @@
               class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
           </div>
         </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-2">Módulos incluídos</label>
+          <p class="text-xs text-slate-400 -mt-1 mb-2">Um módulo não marcado fica bloqueado (acesso mesmo impedido, não só sem preço) para as escolas deste plano.</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            @for (modulo of modulosGateaveis; track modulo) {
+              <div class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
+                <input type="checkbox" [id]="'modulo-' + modulo"
+                  [checked]="modulosSelecionados[modulo]?.incluido"
+                  (change)="modulosSelecionados[modulo].incluido = $any($event.target).checked"
+                  class="rounded border-slate-300" />
+                <label [for]="'modulo-' + modulo" class="text-sm text-slate-700 flex-1 cursor-pointer">{{ modulo }}</label>
+                @if (modulosSelecionados[modulo]?.incluido) {
+                  <input type="number" step="0.01" min="0" placeholder="+preço"
+                    [value]="modulosSelecionados[modulo].preco_adicional"
+                    (input)="modulosSelecionados[modulo].preco_adicional = +$any($event.target).value"
+                    class="w-20 border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800" />
+                }
+              </div>
+            }
+          </div>
+        </div>
+
         <button type="submit" [disabled]="planoForm.invalid"
           class="bg-violet-600 hover:bg-violet-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
           {{ planoAEditar ? 'Guardar Alterações' : 'Criar Plano' }}
@@ -439,8 +465,9 @@
         <thead>
           <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
             <th class="py-3 px-6 font-medium">Nome</th>
-            <th class="py-3 px-6 font-medium text-right">Preço mensal</th>
+            <th class="py-3 px-6 font-medium text-right">Preço/aluno</th>
             <th class="py-3 px-6 font-medium text-right">Limite de alunos</th>
+            <th class="py-3 px-6 font-medium">Módulos</th>
             <th class="py-3 px-6 font-medium">Descrição</th>
             <th class="py-3 px-6 font-medium text-right">Teste</th>
             <th class="py-3 px-6 font-medium">Estado</th>
@@ -451,8 +478,15 @@
           @for (plano of (planos$ | async); track plano.id) {
             <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="py-3 px-6 text-slate-800 font-medium">{{ plano.nome }}</td>
-              <td class="py-3 px-6 text-slate-600 text-right">{{ plano.preco_mensal | number:'1.2-2' }}</td>
+              <td class="py-3 px-6 text-slate-600 text-right">{{ plano.preco_por_aluno | number:'1.2-2' }}</td>
               <td class="py-3 px-6 text-slate-600 text-right">{{ plano.limite_alunos ?? 'Sem limite' }}</td>
+              <td class="py-3 px-6 text-slate-600">
+                @if (plano.modulos.length) {
+                  <span class="text-xs" [title]="plano.modulos.length + ' módulo(s) incluído(s)'">{{ plano.modulos.length }} módulo(s)</span>
+                } @else {
+                  <span class="text-xs text-slate-300">Nenhum</span>
+                }
+              </td>
               <td class="py-3 px-6 text-slate-600">{{ plano.descricao || '—' }}</td>
               <td class="py-3 px-6 text-right">
                 @if (plano.dias_periodo_teste > 0) {
@@ -483,7 +517,7 @@
               </td>
             </tr>
           } @empty {
-            <tr><td colspan="7" class="py-8 text-center text-slate-500">Nenhum plano criado ainda.</td></tr>
+            <tr><td colspan="8" class="py-8 text-center text-slate-500">Nenhum plano criado ainda.</td></tr>
           }
         </tbody>
       </table>

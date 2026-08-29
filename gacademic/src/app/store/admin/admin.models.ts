@@ -30,23 +30,45 @@ export interface FiltrosTenants {
 // ==========================================
 // SAAS BILLING — Planos, Assinaturas e MRR
 // ==========================================
+// Mesma lista de app/core/modulos.py::MODULOS_GATEAVEIS — um módulo
+// AUSENTE dos módulos de um plano fica mesmo bloqueado (403) para as
+// escolas desse plano, não é só uma questão de preço. Os módulos
+// fundamentais (Alunos, Turmas, Cursos, Configurações, ...) nunca
+// aparecem aqui porque nunca dependem do plano.
+export const MODULOS_GATEAVEIS = [
+  'CRM', 'Financeiro', 'Indicadores', 'Comunicações', 'Horários',
+  'Diário de Classe', 'Trabalhos / Tarefas', 'Transferências de Alunos', 'Professores',
+] as const;
+
+export interface PlanoSaaSModulo {
+  modulo: string;
+  preco_adicional: number;
+}
+
 export interface PlanoSaaS {
   id: string;
   nome: string;
-  preco_mensal: number;
+  // Substitui a antiga mensalidade fixa — a fatura da escola passa a
+  // ser preco_por_aluno × nº de alunos cadastrados, mais o que os
+  // módulos incluídos (abaixo) custarem à parte.
+  preco_por_aluno: number;
   limite_alunos: number | null;
   descricao: string | null;
   // Dias de acesso grátis ao atribuir este plano a uma escola nova (0 =
   // sem período de teste, cobrança normal desde o início).
   dias_periodo_teste: number;
   ativo: boolean;
+  modulos: PlanoSaaSModulo[];
 }
 
 export interface AssinaturaTenant {
   id: string;
   plano_id: string;
   nome_plano: string;
-  preco_mensal: number;
+  preco_por_aluno: number;
+  total_alunos: number;
+  mensalidade: number;
+  modulos: PlanoSaaSModulo[];
   data_inicio: string;
   proxima_cobranca: string;
   status: 'ATIVA' | 'CANCELADA';
@@ -55,7 +77,6 @@ export interface AssinaturaTenant {
 
 export interface ResumoMrrPorPlano {
   nome_plano: string;
-  preco_mensal: number;
   total_assinaturas: number;
   receita_mensal: number;
 }

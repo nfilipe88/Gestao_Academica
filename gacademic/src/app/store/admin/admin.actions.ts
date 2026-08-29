@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { AssinaturaTenant, FiltrosTenants, PlanoSaaS, ResumoMrr, StatusTenant, TenantResumo } from './admin.models';
+import { AssinaturaTenant, FiltrosTenants, PlanoSaaS, PlanoSaaSModulo, ResumoMrr, StatusTenant, TenantResumo } from './admin.models';
 import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
 export const carregarTenants = createAction(
@@ -57,12 +57,18 @@ export const carregarPlanosSucesso = createAction(
 
 export const criarPlano = createAction(
   '[Admin] Criar Plano',
-  props<{ nome: string; preco_mensal: number; limite_alunos: number | null; descricao: string | null; dias_periodo_teste: number }>()
+  props<{
+    nome: string; preco_por_aluno: number; limite_alunos: number | null; descricao: string | null;
+    dias_periodo_teste: number; modulos: PlanoSaaSModulo[];
+  }>()
 );
 
 export const atualizarPlano = createAction(
   '[Admin] Atualizar Plano',
-  props<{ id: string; nome: string; preco_mensal: number; limite_alunos: number | null; descricao: string | null; dias_periodo_teste: number; ativo: boolean }>()
+  props<{
+    id: string; nome: string; preco_por_aluno: number; limite_alunos: number | null; descricao: string | null;
+    dias_periodo_teste: number; ativo: boolean; modulos: PlanoSaaSModulo[];
+  }>()
 );
 
 export const apagarPlano = createAction('[Admin] Apagar Plano', props<{ id: string }>());
