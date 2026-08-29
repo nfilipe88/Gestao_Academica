@@ -12,6 +12,16 @@ export const serverRoutes: ServerRoute[] = [
     path: 'captar/:tenantId',
     renderMode: RenderMode.Server
   },
+  // Página de Preços busca os planos ativos à API (GET /api/v1/public/planos)
+  // no ngOnInit — dados que mudam sem novo build (o Super Admin cria/edita
+  // planos em runtime). Pré-renderizar isto fixava os preços no que
+  // existia no momento do build (ou falhava logo o build, se o backend
+  // não estivesse acessível durante o `ng build`) — em vez disso,
+  // renderizada no servidor a cada pedido, mesmo raciocínio da rota acima.
+  {
+    path: 'precos',
+    renderMode: RenderMode.Server
+  },
   {
     path: '**',
     renderMode: RenderMode.Prerender

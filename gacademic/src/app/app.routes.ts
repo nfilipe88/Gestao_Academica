@@ -4,8 +4,24 @@ import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
 import { superAdminGuard } from './core/guards/super-admin.guard';
 import { permissoesGuard } from './core/guards/permissoes.guard';
+import { publicoMatchGuard } from './core/guards/publico.guard';
 
 export const routes: Routes = [
+  // ==========================================
+  // SITE PÚBLICO (apresentação da plataforma) — sempre acessível,
+  // mesmo com sessão iniciada, exceto a página inicial em si: quem já
+  // está autenticado é encaminhado para o Dashboard em vez da Landing
+  // (ver publicoMatchGuard — canMatch, não canActivate, para poder
+  // "cair" para o shell autenticado abaixo em vez de bloquear).
+  // ==========================================
+  {
+    path: '',
+    canMatch: [publicoMatchGuard],
+    loadComponent: () => import('./shared/components/public-layout/public-layout.component/public-layout.component').then((m) => m.PublicLayoutComponent),
+    children: [
+      { path: '', loadComponent: () => import('./features/public/landing/landing.component/landing.component').then((m) => m.LandingComponent) },
+    ]
+  },
     // ==========================================
   // ROTAS PÚBLICAS (Apenas para não logados)
   // ==========================================
@@ -142,6 +158,22 @@ export const routes: Routes = [
       },
       // Futuras rotas académicas entrarão aqui...
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
+    ]
+  },
+
+  // Restantes páginas do site público — DEPOIS do shell autenticado de
+  // propósito: como o próprio path é '' e a "/" já foi decidida acima
+  // (Landing vs Dashboard), esta entrada só entra em jogo quando o URL
+  // tem mais segmentos (/funcionalidades, /precos); se viesse antes do
+  // shell, "roubava" sempre a "/" a quem tem sessão (o Router aceita um
+  // path:'' sem filhos correspondentes como válido, com o outlet vazio,
+  // quando não sobra URL nenhum por consumir — foi o bug visto ao testar).
+  {
+    path: '',
+    loadComponent: () => import('./shared/components/public-layout/public-layout.component/public-layout.component').then((m) => m.PublicLayoutComponent),
+    children: [
+      { path: 'funcionalidades', loadComponent: () => import('./features/public/funcionalidades/funcionalidades.component/funcionalidades.component').then((m) => m.FuncionalidadesComponent) },
+      { path: 'precos', loadComponent: () => import('./features/public/precos/precos.component/precos.component').then((m) => m.PrecosComponent) },
     ]
   },
 

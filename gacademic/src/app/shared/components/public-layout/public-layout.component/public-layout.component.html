@@ -1,0 +1,91 @@
+<div class="min-h-screen bg-slate-950 text-white flex flex-col">
+
+  <header class="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <a routerLink="/" (click)="fecharMenu()" class="text-lg font-extrabold text-blue-500 tracking-tight">SaaS Académico</a>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+        <a routerLink="/funcionalidades" routerLinkActive="text-white" class="hover:text-white transition-colors">Funcionalidades</a>
+        <a routerLink="/precos" routerLinkActive="text-white" class="hover:text-white transition-colors">Preços</a>
+      </nav>
+
+      <div class="hidden md:flex items-center gap-3">
+        @if (usuario$ | async) {
+          <a routerLink="/dashboard"
+            class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg px-4 py-2 transition-colors shadow-lg shadow-blue-600/20">
+            Ir para o Dashboard
+          </a>
+        } @else {
+          <a routerLink="/login" class="text-sm font-medium text-slate-300 hover:text-white transition-colors">Entrar</a>
+          <a routerLink="/registo"
+            class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg px-4 py-2 transition-colors shadow-lg shadow-blue-600/20">
+            Registar Escola
+          </a>
+        }
+      </div>
+
+      <button type="button" (click)="alternarMenu()" aria-label="Abrir menu"
+        class="md:hidden text-slate-300 hover:text-white p-2 -mr-2 cursor-pointer">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          @if (!menuAberto()) {
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          } @else {
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          }
+        </svg>
+      </button>
+    </div>
+
+    @if (menuAberto()) {
+      <nav class="md:hidden border-t border-slate-800 px-4 sm:px-6 py-4 space-y-3 text-sm font-medium">
+        <a routerLink="/funcionalidades" (click)="fecharMenu()" class="block text-slate-300 hover:text-white">Funcionalidades</a>
+        <a routerLink="/precos" (click)="fecharMenu()" class="block text-slate-300 hover:text-white">Preços</a>
+        <div class="pt-3 border-t border-slate-800 flex flex-col gap-2">
+          @if (usuario$ | async) {
+            <a routerLink="/dashboard" (click)="fecharMenu()"
+              class="text-center bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg px-4 py-2.5 transition-colors">
+              Ir para o Dashboard
+            </a>
+          } @else {
+            <a routerLink="/login" (click)="fecharMenu()" class="text-center text-slate-300 hover:text-white py-2">Entrar</a>
+            <a routerLink="/registo" (click)="fecharMenu()"
+              class="text-center bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg px-4 py-2.5 transition-colors">
+              Registar Escola
+            </a>
+          }
+        </div>
+      </nav>
+    }
+  </header>
+
+  <main class="flex-1">
+    <router-outlet></router-outlet>
+  </main>
+
+  <footer class="border-t border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 sm:grid-cols-3 gap-8">
+      <div>
+        <p class="text-lg font-extrabold text-blue-500 tracking-tight">SaaS Académico</p>
+        <p class="mt-2 text-sm text-slate-400 max-w-xs">Gestão escolar multi-instituição num só lugar — académico, financeiro, comunicação e famílias.</p>
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Produto</p>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li><a routerLink="/funcionalidades" class="hover:text-white transition-colors">Funcionalidades</a></li>
+          <li><a routerLink="/precos" class="hover:text-white transition-colors">Preços</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Conta</p>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li><a routerLink="/login" class="hover:text-white transition-colors">Entrar</a></li>
+          <li><a routerLink="/registo" class="hover:text-white transition-colors">Registar a sua escola</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+      © 2026 SaaS Académico. Todos os direitos reservados.
+    </div>
+  </footer>
+
+</div>

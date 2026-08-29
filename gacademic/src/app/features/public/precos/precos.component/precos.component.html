@@ -1,0 +1,96 @@
+<section class="max-w-4xl mx-auto px-4 sm:px-6 pt-20 pb-12 text-center">
+  <span class="inline-block text-xs font-semibold tracking-wide uppercase text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1">
+    Preços
+  </span>
+  <h1 class="mt-6 text-4xl sm:text-5xl font-extrabold tracking-tight text-white text-balance">
+    Paga por aluno, não por adivinhação
+  </h1>
+  <p class="mt-6 text-lg text-slate-400 max-w-2xl mx-auto">
+    Cada plano tem um preço por aluno matriculado. Os módulos abaixo listados vêm incluídos — qualquer outro módulo
+    fica disponível como extra, com o preço a acrescer à mensalidade.
+  </p>
+</section>
+
+<section class="max-w-6xl mx-auto px-4 sm:px-6 pb-24">
+
+  @if (aCarregar()) {
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      @for (i of [1,2,3]; track i) {
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-7 animate-pulse h-80"></div>
+      }
+    </div>
+  } @else if (erro()) {
+    <div class="max-w-lg mx-auto text-center rounded-xl border border-rose-800 bg-rose-950/40 px-6 py-8 text-rose-300">
+      {{ erro() }}
+    </div>
+  } @else if (!planos().length) {
+    <div class="max-w-lg mx-auto text-center rounded-xl border border-slate-800 bg-slate-900/60 px-6 py-10">
+      <p class="text-white font-semibold">Ainda não há planos publicados.</p>
+      <p class="mt-2 text-sm text-slate-400">Fale connosco para uma proposta feita à medida da sua escola.</p>
+      <a routerLink="/registo" class="mt-6 inline-block bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg px-6 py-2.5 transition-colors">
+        Registar a sua escola
+      </a>
+    </div>
+  } @else {
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+      @for (plano of planos(); track plano.id) {
+        <div class="flex flex-col bg-slate-900/60 border border-slate-800 rounded-2xl p-7 hover:border-blue-500/40 transition-colors">
+          <h2 class="text-white font-semibold text-xl">{{ plano.nome }}</h2>
+          @if (plano.descricao) {
+            <p class="mt-2 text-sm text-slate-400 leading-relaxed">{{ plano.descricao }}</p>
+          }
+
+          <div class="mt-6 flex items-baseline gap-1.5">
+            <span class="text-3xl font-extrabold text-white">{{ plano.preco_por_aluno | currency:moeda }}</span>
+            <span class="text-sm text-slate-400">/ aluno / mês</span>
+          </div>
+
+          @if (plano.dias_periodo_teste > 0) {
+            <span class="mt-3 inline-block w-fit text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1">
+              {{ plano.dias_periodo_teste }} dias de período de teste
+            </span>
+          }
+          @if (plano.limite_alunos) {
+            <p class="mt-3 text-xs text-slate-500">Até {{ plano.limite_alunos }} alunos.</p>
+          }
+
+          <div class="mt-6 pt-6 border-t border-slate-800 flex-1">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Módulos incluídos</p>
+            @if (plano.modulos.length) {
+              <ul class="space-y-2">
+                @for (m of plano.modulos; track m.modulo) {
+                  <li class="flex items-center justify-between gap-2 text-sm text-slate-300">
+                    <span class="flex items-center gap-2">
+                      <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                      {{ m.modulo }}
+                    </span>
+                    @if (m.preco_adicional > 0) {
+                      <span class="text-xs text-slate-500 shrink-0">+{{ m.preco_adicional | currency:moeda }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="text-sm text-slate-500">Módulos essenciais (Alunos, Turmas, Diário, Configurações, ...) sempre incluídos; os restantes ficam disponíveis como extra.</p>
+            }
+          </div>
+
+          <a routerLink="/registo"
+            class="mt-7 text-center bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg px-6 py-2.5 transition-colors">
+            Registar a sua escola
+          </a>
+        </div>
+      }
+    </div>
+  }
+
+  <div class="mt-16 max-w-3xl mx-auto text-center border-t border-slate-800 pt-12">
+    <h2 class="text-2xl font-bold text-white">Precisa de algo diferente?</h2>
+    <p class="mt-3 text-slate-400">Escolas com necessidades específicas podem falar diretamente connosco para um plano à medida.</p>
+    <a routerLink="/registo" class="mt-6 inline-block text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors">
+      Registar a sua escola →
+    </a>
+  </div>
+</section>

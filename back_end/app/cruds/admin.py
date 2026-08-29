@@ -367,6 +367,17 @@ async def listar_planos(db: AsyncSession) -> list[PlanoSaaS]:
     )).scalars().unique().all()
 
 
+async def listar_planos_publicos(db: AsyncSession) -> list[PlanoSaaS]:
+    """Para a página de Preços do site público (ver app/api/v1/publico.py)
+    — só planos ativos, sem nenhum dado interno de gestão (o schema de
+    saída, PlanoSaaSPublicoOut, já limita os campos por si)."""
+    return (await db.execute(
+        select(PlanoSaaS).options(selectinload(PlanoSaaS.modulos))
+        .where(PlanoSaaS.ativo == True)  # noqa: E712 — comparação SQLAlchemy, não Python
+        .order_by(PlanoSaaS.preco_por_aluno)
+    )).scalars().unique().all()
+
+
 async def _substituir_modulos(db: AsyncSession, plano_id: uuid.UUID, modulos: list) -> None:
     """Substitui por completo os módulos incluídos num plano — mais
     simples e previsível do que um PATCH incremental (ver docstring de
