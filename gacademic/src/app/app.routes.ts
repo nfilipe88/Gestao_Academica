@@ -56,6 +56,15 @@ export const routes: Routes = [
     loadComponent: () => import('./features/public/escola/escola.component/escola.component').then((m) => m.EscolaComponent)
   },
   {
+    // Assistente de matrícula self-service (candidatura em 4 passos,
+    // com documentos) — rota própria, não uma secção dentro de
+    // escola.component: é um fluxo utilitário, não uma página de
+    // marketing, por isso não varia por modelo (ver
+    // features/public/matricula/matricula-wizard.component).
+    path: 'escola/:tenantId/matricula',
+    loadComponent: () => import('./features/public/matricula/matricula-wizard.component/matricula-wizard.component').then((m) => m.MatriculaWizardComponent)
+  },
+  {
     // Acedida a partir do link de e-mail — tem de funcionar mesmo com
     // uma sessão antiga aberta noutro separador, por isso sem
     // guestGuard (ver docstring do componente).

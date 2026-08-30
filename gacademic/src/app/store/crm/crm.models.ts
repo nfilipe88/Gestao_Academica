@@ -19,6 +19,12 @@ export interface LeadCandidato {
   data_entrada: string;
 }
 
+export interface LeadDocumento {
+  id: string;
+  tipo: string; // BI | CERTIFICADO_HABILITACOES | FOTO | OUTRO
+  nome_original: string;
+}
+
 export interface OportunidadeCRM {
   id: string;
   etapa_id: string;
@@ -37,5 +43,11 @@ export interface OportunidadeCRM {
     origem_lead: string;
     curso_interesse_id: string | null;
     data_entrada: string;
+    // Só presentes em candidaturas do assistente de matrícula
+    // self-service (features/public/matricula) — um Lead criado pela
+    // Secretaria (LeadStaffCreate) nunca tem documentos e fica sempre
+    // com aceitou_regulamento a false.
+    aceitou_regulamento: boolean;
+    documentos: LeadDocumento[];
   };
 }

@@ -1,0 +1,238 @@
+@if (aCarregar()) {
+  <div class="min-h-screen flex items-center justify-center bg-slate-50">
+    <p class="text-slate-400 text-sm">A carregar…</p>
+  </div>
+} @else if (naoEncontrada()) {
+  <div class="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div class="text-center max-w-sm">
+      <p class="text-slate-800 font-semibold text-lg">Página não encontrada</p>
+      <p class="text-slate-500 text-sm mt-2">Esta escola ainda não ativou a sua página pública, ou o endereço está incorreto.</p>
+    </div>
+  </div>
+} @else if (escola(); as e) {
+  <div class="min-h-screen bg-slate-50">
+
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+        @if (e.logotipo) {
+          <img [src]="e.logotipo" [alt]="e.nome_fantasia" class="h-9 w-auto object-contain" />
+        }
+        <div>
+          <p class="font-semibold text-slate-800 leading-tight">{{ e.nome_fantasia }}</p>
+          <p class="text-xs text-slate-400 leading-tight">Candidatura de matrícula</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+
+      @if (!concluido()) {
+        <!-- Stepper -->
+        <ol class="flex items-center justify-between mb-10 text-xs sm:text-sm">
+          @for (rotulo of ['Dados', 'Curso', 'Documentos', 'Confirmação']; track rotulo; let i = $index) {
+            <li class="flex items-center flex-1 last:flex-none">
+              <div class="flex items-center gap-2">
+                <span
+                  class="w-7 h-7 rounded-full flex items-center justify-center font-semibold shrink-0"
+                  [class.bg-blue-600]="passoAtual() >= i + 1" [class.text-white]="passoAtual() >= i + 1"
+                  [class.bg-slate-200]="passoAtual() < i + 1" [class.text-slate-500]="passoAtual() < i + 1">
+                  {{ i + 1 }}
+                </span>
+                <span class="hidden sm:inline font-medium" [class.text-slate-800]="passoAtual() >= i + 1" [class.text-slate-400]="passoAtual() < i + 1">{{ rotulo }}</span>
+              </div>
+              @if (i < 3) {
+                <div class="flex-1 h-px mx-2 sm:mx-3" [class.bg-blue-600]="passoAtual() > i + 1" [class.bg-slate-200]="passoAtual() <= i + 1"></div>
+              }
+            </li>
+          }
+        </ol>
+
+        @if (erro()) {
+          <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-6">{{ erro() }}</div>
+        }
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-6 sm:p-8">
+
+          <!-- Passo 1: Dados Pessoais -->
+          @if (passoAtual() === 1) {
+            <h1 class="text-lg font-bold text-slate-800 mb-1">Dados pessoais</h1>
+            <p class="text-sm text-slate-500 mb-6">Do candidato e do encarregado de educação.</p>
+            <form [formGroup]="form" (ngSubmit)="onAvancarPasso1()" class="space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Nome do candidato (aluno)</label>
+                <input type="text" formControlName="nome_aluno_candidato"
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Data de nascimento do candidato</label>
+                <input type="date" formControlName="data_nascimento_candidato"
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div class="pt-2 border-t border-slate-100">
+                <label class="block text-xs font-medium text-slate-600 mb-1">O seu nome (encarregado de educação)</label>
+                <input type="text" formControlName="nome_responsavel"
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">E-mail — opcional</label>
+                  <input type="email" formControlName="email_contato"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Telefone — opcional</label>
+                  <input type="text" formControlName="telefone"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+              </div>
+              <label class="flex items-start gap-2 text-sm text-slate-600 pt-2 cursor-pointer">
+                <input type="checkbox" formControlName="aceitou_regulamento" class="mt-0.5 rounded border-slate-300" />
+                <span>Aceito o regulamento e as condições de matrícula de {{ e.nome_fantasia }}.</span>
+              </label>
+              <div class="pt-2 flex justify-end">
+                <button type="submit"
+                  class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors cursor-pointer">
+                  Seguinte →
+                </button>
+              </div>
+            </form>
+          }
+
+          <!-- Passo 2: Curso -->
+          @if (passoAtual() === 2) {
+            <h1 class="text-lg font-bold text-slate-800 mb-1">Curso pretendido</h1>
+            <p class="text-sm text-slate-500 mb-6">Se ainda não tiver a certeza, pode deixar por definir.</p>
+            <div [formGroup]="form" class="space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Curso</label>
+                <select formControlName="curso_interesse_id"
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                  <option value="">Ainda não sei / outro</option>
+                  @for (curso of e.cursos; track curso.id) {
+                    <option [value]="curso.id">{{ curso.nome }}</option>
+                  }
+                </select>
+                @if (e.cursos.length === 0) {
+                  <p class="text-xs text-slate-400 mt-1">Esta escola ainda não publicou a lista de cursos — sem problema, pode continuar.</p>
+                }
+              </div>
+              <div class="pt-2 flex justify-between">
+                <button type="button" (click)="onVoltarPasso(1)"
+                  class="text-slate-500 hover:text-slate-700 font-medium py-2 px-4 cursor-pointer">
+                  ← Anterior
+                </button>
+                <button type="button" (click)="onAvancarPasso2()" [disabled]="aSubmeter()"
+                  class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed">
+                  {{ aSubmeter() ? 'A enviar…' : 'Seguinte →' }}
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Passo 3: Documentos -->
+          @if (passoAtual() === 3) {
+            <h1 class="text-lg font-bold text-slate-800 mb-1">Documentos</h1>
+            <p class="text-sm text-slate-500 mb-6">Opcional — pode enviar agora ou entregar pessoalmente depois. PNG, JPEG ou PDF, até 8 MB.</p>
+            <div class="space-y-3">
+              @for (tipo of tiposDocumento; track tipo.chave) {
+                <div class="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <p class="text-sm font-medium text-slate-700">{{ tipo.rotulo }}</p>
+                    @if (documentoDoTipo(tipo.chave); as doc) {
+                      <p class="text-xs text-emerald-600 mt-0.5">✓ {{ doc.nome_original }}</p>
+                    } @else {
+                      <p class="text-xs text-slate-400 mt-0.5">Nenhum ficheiro enviado</p>
+                    }
+                  </div>
+                  @if (documentoDoTipo(tipo.chave); as doc) {
+                    <button type="button" (click)="onRemoverDocumento(doc.id)"
+                      class="text-xs text-rose-600 hover:text-rose-700 font-medium cursor-pointer shrink-0">
+                      Remover
+                    </button>
+                  } @else {
+                    <label
+                      class="text-xs font-medium py-1.5 px-3 rounded-lg cursor-pointer shrink-0 transition-colors"
+                      [class.bg-slate-100]="aEnviarTipo() !== tipo.chave" [class.text-slate-400]="aEnviarTipo() === tipo.chave"
+                      [class.text-blue-700]="aEnviarTipo() !== tipo.chave" [class.hover:bg-blue-50]="aEnviarTipo() !== tipo.chave">
+                      {{ aEnviarTipo() === tipo.chave ? 'A enviar…' : '+ Escolher ficheiro' }}
+                      <input type="file" accept="image/png,image/jpeg,application/pdf" class="hidden"
+                        [disabled]="aEnviarTipo() === tipo.chave" (change)="onSelecionarDocumento($event, tipo.chave)" />
+                    </label>
+                  }
+                </div>
+              }
+            </div>
+            <div class="pt-6 flex justify-between">
+              <button type="button" (click)="onVoltarPasso(2)"
+                class="text-slate-500 hover:text-slate-700 font-medium py-2 px-4 cursor-pointer">
+                ← Anterior
+              </button>
+              <button type="button" (click)="onVoltarPasso(4)"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors cursor-pointer">
+                Seguinte →
+              </button>
+            </div>
+          }
+
+          <!-- Passo 4: Confirmação -->
+          @if (passoAtual() === 4) {
+            <h1 class="text-lg font-bold text-slate-800 mb-1">Reveja e submeta</h1>
+            <p class="text-sm text-slate-500 mb-6">Confirme os dados antes de enviar a candidatura.</p>
+            <dl class="space-y-3 text-sm">
+              <div class="flex justify-between gap-4 py-2 border-b border-slate-100">
+                <dt class="text-slate-500">Candidato</dt>
+                <dd class="text-slate-800 font-medium text-right">{{ form.value.nome_aluno_candidato }}</dd>
+              </div>
+              <div class="flex justify-between gap-4 py-2 border-b border-slate-100">
+                <dt class="text-slate-500">Data de nascimento</dt>
+                <dd class="text-slate-800 font-medium text-right">{{ form.value.data_nascimento_candidato }}</dd>
+              </div>
+              <div class="flex justify-between gap-4 py-2 border-b border-slate-100">
+                <dt class="text-slate-500">Encarregado de educação</dt>
+                <dd class="text-slate-800 font-medium text-right">{{ form.value.nome_responsavel }}</dd>
+              </div>
+              @if (form.value.email_contato || form.value.telefone) {
+                <div class="flex justify-between gap-4 py-2 border-b border-slate-100">
+                  <dt class="text-slate-500">Contacto</dt>
+                  <dd class="text-slate-800 font-medium text-right">{{ form.value.telefone }} {{ form.value.email_contato }}</dd>
+                </div>
+              }
+              <div class="flex justify-between gap-4 py-2 border-b border-slate-100">
+                <dt class="text-slate-500">Curso pretendido</dt>
+                <dd class="text-slate-800 font-medium text-right">{{ nomeCurso() ?? 'Por definir' }}</dd>
+              </div>
+              <div class="flex justify-between gap-4 py-2">
+                <dt class="text-slate-500">Documentos anexados</dt>
+                <dd class="text-slate-800 font-medium text-right">{{ documentos().length }} de {{ tiposDocumento.length }}</dd>
+              </div>
+            </dl>
+            <div class="pt-6 flex justify-between">
+              <button type="button" (click)="onVoltarPasso(3)"
+                class="text-slate-500 hover:text-slate-700 font-medium py-2 px-4 cursor-pointer">
+                ← Anterior
+              </button>
+              <button type="button" (click)="onSubmeterFinal()"
+                class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-8 rounded-lg transition-colors cursor-pointer">
+                Submeter Matrícula
+              </button>
+            </div>
+          }
+        </div>
+      } @else {
+        <!-- Sucesso -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-8 sm:p-10 text-center">
+          <div class="text-emerald-600 text-5xl mb-4">✓</div>
+          <h1 class="text-xl font-bold text-slate-800">Candidatura enviada!</h1>
+          <p class="text-slate-500 text-sm mt-3 max-w-md mx-auto leading-relaxed">
+            {{ e.nome_fantasia }} vai analisar os dados e documentos submetidos e entrará em contacto brevemente.
+            Após a aprovação, receberá as instruções para o pagamento da taxa de matrícula.
+          </p>
+        </div>
+      }
+    </main>
+
+    <footer class="py-6 text-center text-xs text-slate-400">
+      Página gerida por {{ e.nome_fantasia }} — plataforma SaaS Académico
+    </footer>
+  </div>
+}

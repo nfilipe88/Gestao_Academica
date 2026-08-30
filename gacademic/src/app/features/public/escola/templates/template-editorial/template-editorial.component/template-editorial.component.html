@@ -9,6 +9,7 @@
         @if (escola.cursos.length) { <a href="#cursos" class="hover:underline underline-offset-4">Cursos</a> }
         @if (escola.fotos.length) { <a href="#galeria" class="hover:underline underline-offset-4">Galeria</a> }
         <a href="#contacto" class="hover:underline underline-offset-4">Contacto</a>
+        <a [routerLink]="['/escola', escola.tenant_id, 'matricula']" class="border border-neutral-900 px-4 py-1.5 hover:bg-neutral-900 hover:text-white transition-colors">Matricule-se</a>
       </div>
     </div>
   </nav>

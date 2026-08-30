@@ -123,7 +123,23 @@
                 }
               </div>
 
-              <span class="inline-block text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{{ cartao.lead.origem_lead }}</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="inline-block text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{{ cartao.lead.origem_lead }}</span>
+                @if (cartao.lead.aceitou_regulamento) {
+                  <span class="inline-block text-[10px] font-medium bg-emerald-50 text-emerald-600 rounded-full px-2 py-0.5">✓ Regulamento aceite</span>
+                }
+              </div>
+
+              @if (cartao.lead.documentos.length) {
+                <div class="border-t border-slate-100 pt-2 flex flex-wrap gap-1.5">
+                  @for (doc of cartao.lead.documentos; track doc.id) {
+                    <button type="button" (click)="onVerDocumento(cartao.lead.id, doc.id)"
+                      class="text-[10px] font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full px-2 py-0.5 transition-colors cursor-pointer">
+                      📎 {{ rotuloDocumento(doc.tipo) }}
+                    </button>
+                  }
+                </div>
+              }
 
               @if (cartao.aluno_gerado_id) {
                 <p class="text-xs text-emerald-600 font-medium">✓ Convertido em aluno.</p>

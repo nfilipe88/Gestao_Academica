@@ -23,8 +23,17 @@ class LeadPublicoCreate(_NormalizaEmailOpcional):
     email_contato: EmailStr | None = None
     telefone: str | None = None
     nome_aluno_candidato: str
+    # Opcional aqui (mesmo raciocínio do LeadStaffCreate) — mas quando
+    # vem preenchido já desbloqueia a conversão automática RN01, que
+    # antes ficava sempre pendente de a Secretaria preencher isto à
+    # mão (ver assistente de matrícula em features/public/matricula).
+    data_nascimento_candidato: date | None = None
     curso_interesse_id: uuid.UUID | None = None
     origem_lead: str = "SITE"
+    # Só relevante no assistente de matrícula (candidatura completa,
+    # com documentos) — o formulário de contacto rápido não o mostra e
+    # continua a enviar False, o que é correto para esse caso.
+    aceitou_regulamento: bool = False
 
 
 class LeadStaffCreate(_NormalizaEmailOpcional):

@@ -1,4 +1,5 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -22,6 +23,28 @@ const ORIGENS = ['SITE', 'FACEBOOK', 'INDICACAO', 'PRESENCIAL', 'OUTRO'];
 export class CrmComponent implements OnInit {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private http = inject(HttpClient);
+
+  private readonly rotulosDocumento: Record<string, string> = {
+    BI: 'Cartão de Cidadão / BI', CERTIFICADO_HABILITACOES: 'Certificado de Habilitações', FOTO: 'Foto', OUTRO: 'Outro',
+  };
+  rotuloDocumento(tipo: string): string {
+    return this.rotulosDocumento[tipo] ?? tipo;
+  }
+
+  // Abre a janela já (síncrono com o clique, para não ser bloqueada
+  // como pop-up) e só preenche o conteúdo quando a data URI chega —
+  // ver app/api/v1/crm.py::obter_documento_lead (pedida só ao abrir,
+  // nunca embutida na listagem do quadro Kanban inteiro).
+  onVerDocumento(leadId: string, documentoId: string) {
+    const janela = window.open('', '_blank');
+    this.http.get<{ url: string }>(`/api/v1/crm/leads/${leadId}/documentos/${documentoId}`).subscribe({
+      next: (resp) => {
+        janela?.document.write(`<iframe src="${resp.url}" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>`);
+      },
+      error: () => janela?.close(),
+    });
+  }
 
   erro$ = this.store.select(selectCrmError);
   mensagem$ = this.store.select(selectCrmMensagem);

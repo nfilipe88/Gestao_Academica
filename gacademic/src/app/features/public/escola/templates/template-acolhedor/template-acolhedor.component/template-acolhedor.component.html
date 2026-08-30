@@ -13,7 +13,8 @@
         @if (escola.metodologia) { <a href="#sobre" class="hover:text-orange-600 transition-colors">Sobre nós</a> }
         @if (escola.cursos.length) { <a href="#cursos" class="hover:text-orange-600 transition-colors">Turmas</a> }
         @if (escola.fotos.length) { <a href="#galeria" class="hover:text-orange-600 transition-colors">Galeria</a> }
-        <a href="#contacto" class="bg-orange-400 hover:bg-orange-500 text-white font-semibold rounded-full px-4 py-1.5 transition-colors">Fale connosco</a>
+        <a href="#contacto" class="hover:text-orange-600 transition-colors">Fale connosco</a>
+        <a [routerLink]="['/escola', escola.tenant_id, 'matricula']" class="bg-orange-400 hover:bg-orange-500 text-white font-semibold rounded-full px-4 py-1.5 transition-colors">Matricule-se</a>
       </div>
     </div>
   </nav>

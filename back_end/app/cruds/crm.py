@@ -8,14 +8,23 @@ from app.database.models import Tenant
 from app.database.models_academico import Curso, Turma
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
-from app.database.models_crm import FunilEtapa, LeadCandidato, OportunidadeCRM
+from app.database.models_crm import FunilEtapa, LeadCandidato, LeadDocumento, OportunidadeCRM
 from app.schemas.crm import EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, OportunidadeCreate, OportunidadeUpdate
 from app.schemas.matriculas import MatriculaCreate
 from app.schemas.financeiro import ContratoCreate
+from app.core import storage
 from app.cruds import matriculas as matriculas_crud
 from app.cruds import financeiro as financeiro_crud
 
 ORIGENS_VALIDAS = {"SITE", "FACEBOOK", "INDICACAO", "PRESENCIAL", "OUTRO"}
+
+# Documentos do assistente de matrícula self-service (ver
+# features/public/matricula no front-end) — anexados ao Lead para a
+# Secretaria rever antes de converter em Aluno (RN01).
+TIPOS_DOCUMENTO_VALIDOS = {"BI", "CERTIFICADO_HABILITACOES", "FOTO", "OUTRO"}
+_TIPOS_FICHEIRO_ACEITES = {"image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"}
+_TAMANHO_MAXIMO_DOCUMENTO = 8 * 1024 * 1024  # 8 MB — documentos digitalizados são maiores que fotos de site
+_MAX_DOCUMENTOS_POR_LEAD = 6
 
 # Etapas por omissão criadas na primeira vez que uma escola acede ao
 # funil (ver garantir_funil_seed) — nomes tirados literalmente do
@@ -175,12 +184,15 @@ async def _tentar_matricula_e_contrato_automaticos(db: AsyncSession, tenant_id, 
 # ==========================================
 # A. CAPTAÇÃO PÚBLICA (RN03) — sem autenticação
 # ==========================================
-async def criar_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, dados: LeadPublicoCreate) -> None:
+async def criar_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, dados: LeadPublicoCreate) -> LeadCandidato:
     """
     Endpoint público para a escola incorporar um formulário no seu
-    próprio site (RN03). Sem token — qualquer visitante pode chamar
-    isto, por isso só cria um Lead + Oportunidade (nunca escreve nas
-    tabelas académicas/financeiras diretamente).
+    próprio site (RN03) — tanto o formulário rápido de contacto como o
+    assistente de matrícula self-service completo (ver
+    features/public/matricula) passam por aqui. Sem token — qualquer
+    visitante pode chamar isto, por isso só cria um Lead + Oportunidade
+    (nunca escreve nas tabelas académicas/financeiras diretamente —
+    isso só acontece via RN01, quando a Secretaria move o cartão).
     """
     tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
     if not tenant or tenant.status != "ATIVO":
@@ -207,8 +219,10 @@ async def criar_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, dados: Lead
         email_contato=dados.email_contato,
         telefone=dados.telefone,
         nome_aluno_candidato=dados.nome_aluno_candidato,
+        data_nascimento_candidato=dados.data_nascimento_candidato,
         curso_interesse_id=dados.curso_interesse_id,
         origem_lead=dados.origem_lead,
+        aceitou_regulamento=dados.aceitou_regulamento,
     )
     db.add(novo_lead)
     await db.flush()
@@ -220,6 +234,91 @@ async def criar_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, dados: Lead
     )
     db.add(nova_oportunidade)
     await db.commit()
+    await db.refresh(novo_lead)
+    return novo_lead
+
+
+# ==========================================
+# A2. DOCUMENTOS DA CANDIDATURA (assistente de matrícula) — sem autenticação
+# ==========================================
+async def _obter_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, lead_id: uuid.UUID) -> LeadCandidato:
+    await db.execute(text("SELECT set_config('app.current_tenant_id', :t, true)"), {"t": str(tenant_id)})
+    lead = (await db.execute(
+        select(LeadCandidato).where(LeadCandidato.id == lead_id, LeadCandidato.tenant_id == tenant_id)
+    )).scalars().first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Candidatura não encontrada.")
+    return lead
+
+
+async def _listar_documentos_lead(db: AsyncSession, tenant_id, lead_id) -> list[LeadDocumento]:
+    return (await db.execute(
+        select(LeadDocumento).where(LeadDocumento.tenant_id == tenant_id, LeadDocumento.lead_id == lead_id)
+        .order_by(LeadDocumento.data_criacao)
+    )).scalars().all()
+
+
+async def adicionar_documento_lead(
+    db: AsyncSession, tenant_id: uuid.UUID, lead_id: uuid.UUID,
+    tipo: str, nome_original: str, content_type: str, conteudo: bytes
+) -> list[dict]:
+    if tipo not in TIPOS_DOCUMENTO_VALIDOS:
+        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO_VALIDOS))}.")
+    if content_type not in _TIPOS_FICHEIRO_ACEITES:
+        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG, GIF, WebP ou PDF.")
+    if len(conteudo) > _TAMANHO_MAXIMO_DOCUMENTO:
+        raise HTTPException(status_code=400, detail="Cada documento não pode passar de 8 MB.")
+
+    await _obter_lead_publico(db, tenant_id, lead_id)
+    total_atual = len(await _listar_documentos_lead(db, tenant_id, lead_id))
+    if total_atual >= _MAX_DOCUMENTOS_POR_LEAD:
+        raise HTTPException(status_code=400, detail=f"Já tem o máximo de {_MAX_DOCUMENTOS_POR_LEAD} documentos anexados.")
+
+    chave = storage.gerar_chave(tenant_id, "candidatura", nome_original)
+    await storage.guardar_ficheiro(chave, conteudo, content_type)
+
+    db.add(LeadDocumento(tenant_id=tenant_id, lead_id=lead_id, tipo=tipo, nome_original=nome_original, chave_storage=chave))
+    await db.commit()
+
+    documentos = await _listar_documentos_lead(db, tenant_id, lead_id)
+    return [{"id": d.id, "tipo": d.tipo, "nome_original": d.nome_original} for d in documentos]
+
+
+async def remover_documento_lead(db: AsyncSession, tenant_id: uuid.UUID, lead_id: uuid.UUID, documento_id: uuid.UUID) -> list[dict]:
+    await _obter_lead_publico(db, tenant_id, lead_id)
+    documento = (await db.execute(
+        select(LeadDocumento).where(
+            LeadDocumento.id == documento_id, LeadDocumento.lead_id == lead_id, LeadDocumento.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not documento:
+        raise HTTPException(status_code=404, detail="Documento não encontrado.")
+    chave = documento.chave_storage
+    await db.delete(documento)
+    await db.commit()
+    await storage.apagar_ficheiro(chave)
+
+    documentos = await _listar_documentos_lead(db, tenant_id, lead_id)
+    return [{"id": d.id, "tipo": d.tipo, "nome_original": d.nome_original} for d in documentos]
+
+
+async def obter_documento_lead_url(db: AsyncSession, tenant_id, lead_id: uuid.UUID, documento_id: uuid.UUID) -> str:
+    """Vista da Secretaria — devolve o documento como data URI só quando
+    pedido (não embutido em listar_oportunidades, para não engordar o
+    carregamento do quadro Kanban inteiro com PDFs/imagens de todos os
+    cartões — mesmo raciocínio do payload da vista pública em
+    site_publico.py)."""
+    documento = (await db.execute(
+        select(LeadDocumento).where(
+            LeadDocumento.id == documento_id, LeadDocumento.lead_id == lead_id, LeadDocumento.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not documento:
+        raise HTTPException(status_code=404, detail="Documento não encontrado.")
+    url = await storage.obter_data_uri(documento.chave_storage)
+    if not url:
+        raise HTTPException(status_code=404, detail="Ficheiro do documento já não está disponível.")
+    return url
 
 
 # ==========================================
@@ -322,6 +421,21 @@ async def listar_oportunidades(db: AsyncSession, tenant_id, etapa_id: uuid.UUID 
         query = query.where(OportunidadeCRM.etapa_id == etapa_id)
 
     resultado = await db.execute(query.order_by(OportunidadeCRM.data_criacao))
+    linhas = resultado.all()
+
+    # Só metadados aqui (nunca o conteúdo/data URI) — ver
+    # obter_documento_lead_url para o porquê de não vir tudo já
+    # embutido no carregamento do quadro Kanban inteiro.
+    lead_ids = [lead.id for _, lead in linhas]
+    documentos_por_lead: dict[uuid.UUID, list[dict]] = {lid: [] for lid in lead_ids}
+    if lead_ids:
+        docs = (await db.execute(
+            select(LeadDocumento).where(LeadDocumento.tenant_id == tenant_id, LeadDocumento.lead_id.in_(lead_ids))
+            .order_by(LeadDocumento.data_criacao)
+        )).scalars().all()
+        for d in docs:
+            documentos_por_lead[d.lead_id].append({"id": d.id, "tipo": d.tipo, "nome_original": d.nome_original})
+
     return [
         {
             "id": oportunidade.id,
@@ -341,9 +455,11 @@ async def listar_oportunidades(db: AsyncSession, tenant_id, etapa_id: uuid.UUID 
                 "origem_lead": lead.origem_lead,
                 "curso_interesse_id": lead.curso_interesse_id,
                 "data_entrada": lead.data_entrada,
+                "aceitou_regulamento": lead.aceitou_regulamento,
+                "documentos": documentos_por_lead[lead.id],
             },
         }
-        for oportunidade, lead in resultado.all()
+        for oportunidade, lead in linhas
     ]
 
 

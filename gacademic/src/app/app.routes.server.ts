@@ -18,6 +18,12 @@ export const serverRoutes: ServerRoute[] = [
     path: 'escola/:tenantId',
     renderMode: RenderMode.Server
   },
+  // Assistente de matrícula self-service — mesma razão: :tenantId
+  // dinâmico e dados reais buscados no ngOnInit.
+  {
+    path: 'escola/:tenantId/matricula',
+    renderMode: RenderMode.Server
+  },
   // Página de Preços busca os planos ativos à API (GET /api/v1/public/planos)
   // no ngOnInit — dados que mudam sem novo build (o Super Admin cria/edita
   // planos em runtime). Pré-renderizar isto fixava os preços no que

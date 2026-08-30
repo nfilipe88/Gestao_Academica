@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { FormGroup } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { SitePublico } from '../../../../../../shared/models/site-publico.models';
 import { SitePublicoLeadFormComponent } from '../../../../../../shared/components/site-publico-lead-form/site-publico-lead-form.component/site-publico-lead-form.component';
 import { SitePublicoSocialLinksComponent } from '../../../../../../shared/components/site-publico-social-links/site-publico-social-links.component/site-publico-social-links.component';
@@ -14,7 +15,7 @@ import { SitePublicoGalleryComponent } from '../../../../../../shared/components
  */
 @Component({
   selector: 'app-template-editorial',
-  imports: [SitePublicoLeadFormComponent, SitePublicoSocialLinksComponent, SitePublicoGalleryComponent],
+  imports: [RouterLink, SitePublicoLeadFormComponent, SitePublicoSocialLinksComponent, SitePublicoGalleryComponent],
   templateUrl: './template-editorial.component.html',
   styleUrl: './template-editorial.component.css',
 })

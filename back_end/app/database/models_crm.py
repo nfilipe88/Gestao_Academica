@@ -32,6 +32,32 @@ class LeadCandidato(Base):
     origem_lead: Mapped[str] = mapped_column(String(30), nullable=False, default="OUTRO")  # SITE, FACEBOOK, INDICACAO, PRESENCIAL, OUTRO
     data_entrada: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
+    # Registo de consentimento da candidatura online (assistente de
+    # matrícula self-service — ver features/public/matricula no
+    # front-end) — só tem sentido/é exigido nesse fluxo; um Lead criado
+    # manualmente pela Secretaria (LeadStaffCreate) fica False, o que é
+    # correto (não houve nenhum formulário público a aceitar).
+    aceitou_regulamento: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+
+
+class LeadDocumento(Base):
+    """Um documento anexado por um candidato durante a matrícula
+    self-service (Cartão de Cidadão/BI, Certificado de Habilitações,
+    Foto) — para a Secretaria rever antes de mover a Oportunidade para
+    a etapa "Matriculado" (RN01). Só a chave no storage
+    (app/core/storage.py), nunca um URL direto do bucket — mesmo
+    princípio de SitePublicoFoto (models_site_publico.py)."""
+    __tablename__ = "lead_documento"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    lead_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lead_candidato.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    tipo: Mapped[str] = mapped_column(String(30), nullable=False)  # BI, CERTIFICADO_HABILITACOES, FOTO, OUTRO
+    nome_original: Mapped[str] = mapped_column(String(255), nullable=False)
+    chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
 
 class FunilEtapa(Base):
     """Uma coluna do quadro Kanban do CRM (ex: "Nova Lead", "Matriculado").
