@@ -2,17 +2,30 @@ import { AsyncPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import * as ConfiguracoesActions from '../../../store/configuracoes/configuracoes.actions';
 import {
   selectConfiguracao, selectConfiguracoesError, selectConfiguracoesMensagem, selectTiposAvaliacao
 } from '../../../store/configuracoes/configuracoes.selector';
 import { MOEDAS_SUPORTADAS, TipoAvaliacao } from '../../../store/configuracoes/configuracoes.models';
-import { selectIsGestor } from '../../../store/auth/auth.selectors';
+import { selectIsGestor, selectTenantId } from '../../../store/auth/auth.selectors';
+
+interface SitePublicoFoto {
+  id: string;
+  url: string;
+}
+
+interface SitePublicoConfig {
+  ativo: boolean;
+  missao: string | null;
+  metodologia: string | null;
+  fotos: SitePublicoFoto[];
+}
 
 @Component({
   selector: 'app-configuracoes.component',
-  imports: [ReactiveFormsModule, AsyncPipe],
+  imports: [ReactiveFormsModule, AsyncPipe, RouterLink],
   templateUrl: './configuracoes.component.html',
   styleUrl: './configuracoes.component.css',
 })
@@ -29,6 +42,7 @@ export class ConfiguracoesComponent implements OnInit {
   // formulário para quem não é Gestor, em vez de mostrar um botão
   // "Guardar" que pareceria funcionar e falharia só ao submeter.
   podeEditar$ = this.store.select(selectIsGestor);
+  tenantId$ = this.store.select(selectTenantId);
 
   mensagem$ = this.store.select(selectConfiguracoesMensagem);
   erro$ = this.store.select(selectConfiguracoesError);
@@ -81,9 +95,26 @@ export class ConfiguracoesComponent implements OnInit {
   logotipoAEnviar = signal(false);
   private logotipoCarregado = false;
 
+  // ==========================================
+  // SITE PÚBLICO DA ESCOLA (marketing/angariação de alunos)
+  // ==========================================
+  // Mesmo raciocínio de signal() do logótipo acima: chega por
+  // HttpClient direto (não pelo store de configuracoes), fora de
+  // qualquer mecanismo que o Angular já rastreie sozinho neste app zoneless.
+  sitePublico = signal<SitePublicoConfig | null>(null);
+  sitePublicoForm = this.fb.group({
+    ativo: [false],
+    missao: [''],
+    metodologia: [''],
+  });
+  fotoAEnviar = signal(false);
+  erroSitePublico = signal<string | null>(null);
+  mensagemSitePublico = signal<string | null>(null);
+
   ngOnInit() {
     this.store.dispatch(ConfiguracoesActions.carregarConfiguracao());
     this.store.dispatch(ConfiguracoesActions.carregarTiposAvaliacao());
+    this._carregarSitePublico();
     // Subscrição contínua (não take(1)): também reage ao próprio
     // carregarConfiguracaoSucesso disparado depois de "Guardar", para o
     // formulário refletir exatamente o que ficou persistido (ex.: a
@@ -172,6 +203,49 @@ export class ConfiguracoesComponent implements OnInit {
         this._limparPreviewLogotipo();
         this.store.dispatch(ConfiguracoesActions.carregarConfiguracao());
       },
+    });
+  }
+
+  private _carregarSitePublico() {
+    this.http.get<SitePublicoConfig>('/api/v1/configuracoes/site-publico').subscribe({
+      next: (config) => {
+        this.sitePublico.set(config);
+        this.sitePublicoForm.patchValue({
+          ativo: config.ativo, missao: config.missao ?? '', metodologia: config.metodologia ?? '',
+        }, { emitEvent: false });
+      },
+    });
+  }
+
+  onGuardarSitePublico() {
+    const v = this.sitePublicoForm.getRawValue();
+    this.erroSitePublico.set(null);
+    this.mensagemSitePublico.set(null);
+    this.http.put<SitePublicoConfig>('/api/v1/configuracoes/site-publico', {
+      ativo: !!v.ativo, missao: v.missao || null, metodologia: v.metodologia || null,
+    }).subscribe({
+      next: (config) => { this.sitePublico.set(config); this.mensagemSitePublico.set('Site público atualizado.'); },
+      error: (err) => this.erroSitePublico.set(err.error?.detail || 'Não foi possível guardar o site público.'),
+    });
+  }
+
+  onSelecionarFoto(event: Event) {
+    const ficheiro = (event.target as HTMLInputElement).files?.[0];
+    if (!ficheiro) return;
+    const dados = new FormData();
+    dados.append('ficheiro', ficheiro);
+    this.fotoAEnviar.set(true);
+    this.erroSitePublico.set(null);
+    this.http.post<SitePublicoConfig>('/api/v1/configuracoes/site-publico/fotos', dados).subscribe({
+      next: (config) => { this.fotoAEnviar.set(false); this.sitePublico.set(config); },
+      error: (err) => { this.fotoAEnviar.set(false); this.erroSitePublico.set(err.error?.detail || 'Não foi possível enviar a foto.'); },
+    });
+    (event.target as HTMLInputElement).value = '';
+  }
+
+  onRemoverFoto(fotoId: string) {
+    this.http.delete<SitePublicoConfig>(`/api/v1/configuracoes/site-publico/fotos/${fotoId}`).subscribe({
+      next: (config) => this.sitePublico.set(config),
     });
   }
 

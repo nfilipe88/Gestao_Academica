@@ -137,12 +137,15 @@ _EXTENSOES_IMAGEM = {
 }
 
 
-async def obter_logo_data_uri(tenant) -> str | None:
-    """Lê o logótipo da escola do storage e devolve como data URI, pronto
-    a embutir num <img src="..."> — usado no cabeçalho dos PDFs gerados
-    (documentos_pdf.py). None se a escola não tiver logótipo configurado
-    ou se a leitura falhar (nunca impede a geração do PDF por causa disto)."""
-    chave = getattr(tenant, "logotipo_chave", None) if tenant else None
+async def obter_data_uri(chave: str | None) -> str | None:
+    """Lê um ficheiro do storage e devolve como data URI, pronto a
+    embutir num <img src="..."> — usado tanto no cabeçalho dos PDFs
+    gerados (documentos_pdf.py, via obter_logo_data_uri abaixo) como na
+    página pública de uma escola (site_publico.py: logótipo e galeria
+    de fotos), que precisa de servir imagens a um visitante sem sessão
+    nenhuma sem nunca expor uma URL direta do bucket (ver docstring do
+    módulo). None se a chave não existir ou a leitura falhar — nunca
+    levanta, quem chamar decide o que fazer com "sem imagem"."""
     if not chave:
         return None
     conteudo = await obter_ficheiro(chave)
@@ -151,3 +154,10 @@ async def obter_logo_data_uri(tenant) -> str | None:
     extensao = Path(chave).suffix.lower()
     content_type = _EXTENSOES_IMAGEM.get(extensao, "image/png")
     return f"data:{content_type};base64,{base64.b64encode(conteudo).decode()}"
+
+
+async def obter_logo_data_uri(tenant) -> str | None:
+    """Lê o logótipo da escola do storage e devolve como data URI —
+    usado no cabeçalho dos PDFs gerados (documentos_pdf.py)."""
+    chave = getattr(tenant, "logotipo_chave", None) if tenant else None
+    return await obter_data_uri(chave)

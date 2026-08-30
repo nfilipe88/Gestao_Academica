@@ -12,6 +12,12 @@ export const serverRoutes: ServerRoute[] = [
     path: 'captar/:tenantId',
     renderMode: RenderMode.Server
   },
+  // Mesma razão da rota acima — :tenantId dinâmico, e busca dados reais
+  // à API (GET /api/v1/public/escola/:tenantId) no ngOnInit.
+  {
+    path: 'escola/:tenantId',
+    renderMode: RenderMode.Server
+  },
   // Página de Preços busca os planos ativos à API (GET /api/v1/public/planos)
   // no ngOnInit — dados que mudam sem novo build (o Super Admin cria/edita
   // planos em runtime). Pré-renderizar isto fixava os preços no que

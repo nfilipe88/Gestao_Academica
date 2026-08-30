@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime, time
 from typing import List
-from sqlalchemy import Boolean, Date, Numeric, String, ForeignKey, DateTime, Time, text
+from sqlalchemy import Boolean, Date, Numeric, String, ForeignKey, DateTime, Text, Time, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -61,6 +61,16 @@ class Tenant(Base):
     # ficheiro em si, só a referência; None = escola sem logótipo, os
     # PDFs gerados (documentos_pdf.py) mostram só o nome em texto.
     logotipo_chave: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # Página pública de apresentação da própria escola (marketing/
+    # angariação de alunos, distinta da apresentação da PLATAFORMA em
+    # si — ver app/api/v1/publico.py::obter_site_publico) — desativada
+    # por omissão: uma escola nova não fica com uma página pública a
+    # meio de preencher exposta sem querer. Texto livre, sem
+    # formatação — o frontend só quebra por parágrafos.
+    site_publico_ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    site_publico_missao: Mapped[str | None] = mapped_column(Text, nullable=True)
+    site_publico_metodologia: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     @property
     def tem_logotipo(self) -> bool:

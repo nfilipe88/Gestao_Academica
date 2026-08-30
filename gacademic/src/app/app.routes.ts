@@ -49,6 +49,13 @@ export const routes: Routes = [
     loadComponent: () => import('./features/public/captar-lead/captar-lead.component/captar-lead.component').then((m) => m.CaptarLeadComponent)
   },
   {
+    // Página pública de UMA escola (marketing/angariação de alunos) —
+    // fora de PublicLayoutComponent de propósito: mostra a marca da
+    // ESCOLA (logótipo, nome), não a da plataforma. Ver docstring do componente.
+    path: 'escola/:tenantId',
+    loadComponent: () => import('./features/public/escola/escola.component/escola.component').then((m) => m.EscolaComponent)
+  },
+  {
     // Acedida a partir do link de e-mail — tem de funcionar mesmo com
     // uma sessão antiga aberta noutro separador, por isso sem
     // guestGuard (ver docstring do componente).

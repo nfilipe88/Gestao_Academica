@@ -28,6 +28,7 @@ import app.database.models_permissoes
 import app.database.models_propinas
 import app.database.models_auditoria
 import app.database.models_suporte
+import app.database.models_site_publico
 
 from alembic import context
 

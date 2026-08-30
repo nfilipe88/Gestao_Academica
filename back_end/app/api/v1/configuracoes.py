@@ -6,9 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff, obter_utilizador_atual
 from app.cruds import configuracoes as crud_configuracoes
+from app.cruds import site_publico as crud_site_publico
 from app.schemas.configuracoes import (
     ConfiguracaoTenantOut, ConfiguracaoTenantUpdate, TipoAvaliacaoCreate, TipoAvaliacaoOut, TipoAvaliacaoUpdate
 )
+from app.schemas.site_publico import SitePublicoConfigOut, SitePublicoConfigUpdate
 
 router = APIRouter(prefix="/api/v1/configuracoes", tags=["Configurações da Escola"])
 
@@ -67,6 +69,45 @@ async def remover_logotipo(
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
 ):
     return await crud_configuracoes.remover_logotipo(db, utilizador["tenant_id"])
+
+
+# ==========================================
+# SITE PÚBLICO DA ESCOLA (marketing/angariação de alunos)
+# ==========================================
+@router.get("/site-publico", response_model=SitePublicoConfigOut)
+async def obter_site_publico_config(
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    return await crud_site_publico.obter_config(db, utilizador["tenant_id"])
+
+
+@router.put("/site-publico", response_model=SitePublicoConfigOut)
+async def atualizar_site_publico_config(
+    dados: SitePublicoConfigUpdate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    return await crud_site_publico.atualizar_config(db, utilizador["tenant_id"], dados)
+
+
+@router.post("/site-publico/fotos", response_model=SitePublicoConfigOut, status_code=status.HTTP_201_CREATED)
+async def adicionar_foto_site_publico(
+    ficheiro: UploadFile = File(...),
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    conteudo = await ficheiro.read()
+    if not conteudo:
+        raise HTTPException(status_code=400, detail="Ficheiro vazio.")
+    return await crud_site_publico.adicionar_foto(
+        db, utilizador["tenant_id"], ficheiro.filename or "foto", ficheiro.content_type or "application/octet-stream", conteudo
+    )
+
+
+@router.delete("/site-publico/fotos/{foto_id}", response_model=SitePublicoConfigOut)
+async def remover_foto_site_publico(
+    foto_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    return await crud_site_publico.remover_foto(db, utilizador["tenant_id"], foto_id)
 
 
 # ==========================================

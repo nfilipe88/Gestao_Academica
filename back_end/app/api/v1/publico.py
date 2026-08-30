@@ -4,6 +4,8 @@ captação de Lead (ver app/api/v1/crm.py::router_publico), mas ficheiro
 próprio por serem domínios diferentes (planos comerciais, tickets,
 chat de IA — não CRM).
 """
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,8 +13,10 @@ from app.database.session import obter_sessao_db_publica
 from app.core.rate_limiter import excedeu_limite
 from app.core.suporte_virtual import perguntar_suporte
 from app.cruds import admin as crud_admin
+from app.cruds import site_publico as crud_site_publico
 from app.cruds import suporte as crud_suporte
 from app.schemas.publico import PlanoSaaSPublicoOut
+from app.schemas.site_publico import SitePublicoOut
 from app.schemas.suporte import PerguntaSuporteVirtual, TicketCreate
 
 router = APIRouter(prefix="/api/v1/public", tags=["Público"])
@@ -72,3 +76,11 @@ async def criar_ticket_publico(dados: TicketCreate, db: AsyncSession = Depends(o
     """Formulário de Contacto do site público, sem sessão."""
     ticket = await crud_suporte.criar_ticket_publico(db, dados)
     return {"mensagem": "Recebemos o seu pedido — vamos responder por e-mail em breve.", "id": ticket.id}
+
+
+@router.get("/escola/{tenant_id}", response_model=SitePublicoOut)
+async def obter_site_publico(tenant_id: uuid.UUID, db: AsyncSession = Depends(obter_sessao_db_publica)):
+    """Página de apresentação pública de UMA escola cliente (marketing/
+    angariação de alunos) — 404 se a escola não existir ou não tiver
+    ativado a página em Configurações (ver api/v1/configuracoes.py)."""
+    return await crud_site_publico.obter_site_publico(db, tenant_id)
