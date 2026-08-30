@@ -89,11 +89,20 @@ export class EscolaComponent implements OnInit {
   }
 
   onSubmitLead() {
-    if (this.leadForm.invalid || !this.tenantId) return;
+    // O endpoint de leads (RN03 do CRM) só aceita o uuid do tenant, ao
+    // contrário do endpoint da página em si — que já aceita slug ou
+    // uuid (ver ngOnInit). Por isso vai sempre pelo tenant_id devolvido
+    // na resposta, nunca por this.tenantId (o segmento da URL, que pode
+    // ser o slug quando a página foi aberta por /escola/<slug>).
+    const tenantId = this.escola()?.tenant_id;
+    if (this.leadForm.invalid || !tenantId) return;
     this.erroLead.set(null);
-    this.http.post(`/api/v1/public/${this.tenantId}/leads`, this.leadForm.value).subscribe({
+    this.http.post(`/api/v1/public/${tenantId}/leads`, this.leadForm.value).subscribe({
       next: () => { this.leadEnviado.set(true); },
-      error: (err) => { this.erroLead.set(err.error?.detail || 'Não foi possível enviar o seu pedido. Tente novamente.'); }
+      error: (err) => {
+        const detail = err.error?.detail;
+        this.erroLead.set(typeof detail === 'string' ? detail : 'Não foi possível enviar o seu pedido. Tente novamente.');
+      }
     });
   }
 }
