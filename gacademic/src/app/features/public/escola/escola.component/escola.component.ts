@@ -3,7 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
-import { SitePublico } from '../site-publico.model';
+import { SitePublico } from '../../../../shared/models/site-publico.models';
 import { TemplateClassicoComponent } from '../templates/template-classico/template-classico.component/template-classico.component';
 import { TemplateModernoComponent } from '../templates/template-moderno/template-moderno.component/template-moderno.component';
 import { TemplateAcolhedorComponent } from '../templates/template-acolhedor/template-acolhedor.component/template-acolhedor.component';

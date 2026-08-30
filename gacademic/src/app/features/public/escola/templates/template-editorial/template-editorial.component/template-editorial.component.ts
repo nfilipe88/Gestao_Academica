@@ -1,7 +1,9 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
-import { FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { SitePublico } from '../../../site-publico.model';
-import { linkWhatsapp } from '../../../site-publico.util';
+import { FormGroup } from '@angular/forms';
+import { SitePublico } from '../../../../../../shared/models/site-publico.models';
+import { SitePublicoLeadFormComponent } from '../../../../../../shared/components/site-publico-lead-form/site-publico-lead-form.component/site-publico-lead-form.component';
+import { SitePublicoSocialLinksComponent } from '../../../../../../shared/components/site-publico-social-links/site-publico-social-links.component/site-publico-social-links.component';
+import { SitePublicoGalleryComponent } from '../../../../../../shared/components/site-publico-gallery/site-publico-gallery.component/site-publico-gallery.component';
 
 /**
  * Modelo "Editorial" — minimalista: preto e branco, muito espaço em
@@ -12,7 +14,7 @@ import { linkWhatsapp } from '../../../site-publico.util';
  */
 @Component({
   selector: 'app-template-editorial',
-  imports: [ReactiveFormsModule],
+  imports: [SitePublicoLeadFormComponent, SitePublicoSocialLinksComponent, SitePublicoGalleryComponent],
   templateUrl: './template-editorial.component.html',
   styleUrl: './template-editorial.component.css',
 })
@@ -27,8 +29,6 @@ export class TemplateEditorialComponent {
   alternarCurso(id: string) {
     this.cursoExpandidoId.set(this.cursoExpandidoId() === id ? null : id);
   }
-
-  readonly linkWhatsapp = linkWhatsapp;
 
   numero(indice: number): string {
     return String(indice + 1).padStart(2, '0');

@@ -1,6 +1,8 @@
-// Tipos partilhados entre o contentor (escola.component) e os 4
-// modelos visuais (./templates/*) — ver app/schemas/site_publico.py
-// no back-end para a forma exata da resposta.
+// Tipos partilhados entre o contentor (features/public/escola) e os
+// modelos visuais de página pública + as peças reutilizáveis de
+// shared/components/site-publico-* que os compõem — ver
+// app/schemas/site_publico.py no back-end para a forma exata da
+// resposta.
 
 export interface CursoPublico {
   id: string;

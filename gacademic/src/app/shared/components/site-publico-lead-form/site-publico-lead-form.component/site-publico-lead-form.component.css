@@ -1,0 +1,152 @@
+/* Tokens por tema — ver a nota em site-publico-lead-form.component.ts.
+   Cada :host([data-tema]) só define os tokens; as regras "base" a
+   seguir consomem-nos via var(), por isso um 5º modelo no futuro só
+   precisa de um novo bloco de tokens, nunca de reescrever o form. */
+:host {
+  --sp-label: #475569;
+  --sp-border: #cbd5e1;
+  --sp-border-width: 1px;
+  --sp-radius: 0.5rem;
+  --sp-bg: #ffffff;
+  --sp-accent: #2563eb;
+  --sp-btn-bg: #2563eb;
+  --sp-btn-fg: #ffffff;
+  --sp-btn-radius: var(--sp-radius);
+  display: block;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+:host([data-tema="classico"]) {
+  --sp-accent: #b45309;
+  --sp-btn-bg: #d97706;
+  --sp-radius: 0.5rem;
+}
+
+:host([data-tema="moderno"]) {
+  --sp-accent: #4f46e5;
+  --sp-btn-bg: #4f46e5;
+  --sp-radius: 0.75rem;
+  --sp-border: #e2e8f0;
+  --sp-border-width: 2px;
+  --sp-btn-radius: 0.75rem;
+}
+
+:host([data-tema="acolhedor"]) {
+  --sp-accent: #fb923c;
+  --sp-btn-bg: #fb923c;
+  --sp-radius: 1rem;
+  --sp-border: #fde8d0;
+  --sp-bg: #fff7ed;
+  --sp-btn-radius: 1rem;
+}
+
+:host([data-tema="editorial"]) {
+  --sp-accent: #171717;
+  --sp-btn-bg: #171717;
+  --sp-radius: 0;
+  --sp-btn-radius: 0;
+}
+
+.erro {
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.duplo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.campo label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--sp-label);
+  margin-bottom: 0.25rem;
+}
+
+.campo input {
+  width: 100%;
+  border: var(--sp-border-width) solid var(--sp-border);
+  border-radius: var(--sp-radius);
+  background: var(--sp-bg);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #1e293b;
+}
+
+.campo input:focus {
+  outline: none;
+  border-color: var(--sp-accent);
+}
+
+/* Editorial: campos "sublinhados", sem caixa — a diferença mais
+   estrutural entre os 4 temas, por isso é uma sobreposição completa
+   em vez de só tokens. */
+:host([data-tema="editorial"]) .campo input {
+  border: none;
+  border-bottom: 1px solid #d4d4d4;
+  border-radius: 0;
+  padding: 0.5rem 0;
+  background: transparent;
+}
+:host([data-tema="editorial"]) .campo input:focus {
+  border-bottom-color: var(--sp-accent);
+}
+:host([data-tema="editorial"]) .campo label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #a3a3a3;
+}
+
+button[type="submit"] {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.7rem;
+  border: none;
+  border-radius: var(--sp-btn-radius);
+  background: var(--sp-btn-bg);
+  color: var(--sp-btn-fg);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+button[type="submit"]:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+button[type="submit"]:disabled {
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+:host([data-tema="editorial"]) button[type="submit"] {
+  background: transparent;
+  color: var(--sp-btn-bg);
+  border: 1px solid var(--sp-btn-bg);
+}
+:host([data-tema="editorial"]) button[type="submit"]:hover:not(:disabled) {
+  background: var(--sp-btn-bg);
+  color: #ffffff;
+  opacity: 1;
+}
+:host([data-tema="editorial"]) button[type="submit"]:disabled {
+  border-color: #d4d4d4;
+  color: #a3a3a3;
+}

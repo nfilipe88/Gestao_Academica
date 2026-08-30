@@ -1,0 +1,7 @@
+@if (facebook || instagram || whatsapp) {
+  <div class="links">
+    @if (facebook) { <a data-rede="facebook" [href]="facebook" target="_blank" rel="noopener">Facebook</a> }
+    @if (instagram) { <a data-rede="instagram" [href]="instagram" target="_blank" rel="noopener">Instagram</a> }
+    @if (whatsapp) { <a data-rede="whatsapp" [href]="linkWhatsapp" target="_blank" rel="noopener">WhatsApp</a> }
+  </div>
+}

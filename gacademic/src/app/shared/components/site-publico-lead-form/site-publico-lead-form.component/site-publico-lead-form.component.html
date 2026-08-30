@@ -1,0 +1,25 @@
+@if (erro) {
+  <div class="erro">{{ erro }}</div>
+}
+
+<form [formGroup]="form" (ngSubmit)="enviar.emit()" class="grupo">
+  <div class="campo">
+    <label>O seu nome</label>
+    <input type="text" formControlName="nome_responsavel" />
+  </div>
+  <div class="campo">
+    <label>Nome do candidato (aluno)</label>
+    <input type="text" formControlName="nome_aluno_candidato" />
+  </div>
+  <div class="duplo">
+    <div class="campo">
+      <label>E-mail — opcional</label>
+      <input type="email" formControlName="email_contato" />
+    </div>
+    <div class="campo">
+      <label>Telefone — opcional</label>
+      <input type="text" formControlName="telefone" />
+    </div>
+  </div>
+  <button type="submit" [disabled]="form.invalid">Enviar Pedido de Contacto</button>
+</form>

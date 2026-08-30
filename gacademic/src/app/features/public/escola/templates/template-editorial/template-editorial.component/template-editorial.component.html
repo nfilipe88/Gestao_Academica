@@ -63,11 +63,7 @@
     @if (escola.fotos.length) {
       <section id="galeria" class="scroll-mt-20 border-t border-neutral-200 pt-10">
         <h2 class="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 mb-6">Galeria</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          @for (foto of escola.fotos; track $index) {
-            <img [src]="foto" alt="" class="w-full aspect-square object-cover grayscale hover:grayscale-0 transition-all" />
-          }
-        </div>
+        <app-site-publico-gallery [fotos]="escola.fotos" tema="editorial" />
       </section>
     }
 
@@ -79,13 +75,8 @@
           @if (escola.telefone_contacto) { <p>{{ escola.telefone_contacto }}</p> }
           @if (escola.email_contacto) { <p>{{ escola.email_contacto }}</p> }
         </div>
-        @if (escola.facebook || escola.instagram || escola.whatsapp) {
-          <div class="flex flex-wrap gap-5 mt-4 text-sm font-medium">
-            @if (escola.facebook) { <a [href]="escola.facebook" target="_blank" rel="noopener" class="hover:underline underline-offset-4">Facebook</a> }
-            @if (escola.instagram) { <a [href]="escola.instagram" target="_blank" rel="noopener" class="hover:underline underline-offset-4">Instagram</a> }
-            @if (escola.whatsapp) { <a [href]="linkWhatsapp(escola.whatsapp, escola.nome_fantasia)" target="_blank" rel="noopener" class="hover:underline underline-offset-4">WhatsApp</a> }
-          </div>
-        }
+        <app-site-publico-social-links [facebook]="escola.facebook" [instagram]="escola.instagram" [whatsapp]="escola.whatsapp"
+          [nomeEscola]="escola.nome_fantasia" tema="editorial" />
       </section>
     }
 
@@ -95,38 +86,7 @@
         <h2 class="text-2xl font-serif mb-1">Peça mais informações</h2>
         <p class="text-neutral-500 text-sm mb-6">Deixe os seus dados e a escola entrará em contacto brevemente.</p>
 
-        @if (erroLead) {
-          <div class="border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-4">{{ erroLead }}</div>
-        }
-
-        <form [formGroup]="leadForm" (ngSubmit)="submitLead.emit()" class="space-y-4 max-w-md">
-          <div>
-            <label class="block text-xs uppercase tracking-wide text-neutral-400 mb-1">O seu nome</label>
-            <input type="text" formControlName="nome_responsavel"
-              class="w-full border-0 border-b border-neutral-300 px-0 py-2 text-sm text-neutral-900 focus:outline-hidden focus:border-neutral-900 bg-transparent" />
-          </div>
-          <div>
-            <label class="block text-xs uppercase tracking-wide text-neutral-400 mb-1">Nome do candidato (aluno)</label>
-            <input type="text" formControlName="nome_aluno_candidato"
-              class="w-full border-0 border-b border-neutral-300 px-0 py-2 text-sm text-neutral-900 focus:outline-hidden focus:border-neutral-900 bg-transparent" />
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs uppercase tracking-wide text-neutral-400 mb-1">E-mail — opcional</label>
-              <input type="email" formControlName="email_contato"
-                class="w-full border-0 border-b border-neutral-300 px-0 py-2 text-sm text-neutral-900 focus:outline-hidden focus:border-neutral-900 bg-transparent" />
-            </div>
-            <div>
-              <label class="block text-xs uppercase tracking-wide text-neutral-400 mb-1">Telefone — opcional</label>
-              <input type="text" formControlName="telefone"
-                class="w-full border-0 border-b border-neutral-300 px-0 py-2 text-sm text-neutral-900 focus:outline-hidden focus:border-neutral-900 bg-transparent" />
-            </div>
-          </div>
-          <button type="submit" [disabled]="leadForm.invalid"
-            class="w-full border border-neutral-900 disabled:border-neutral-300 disabled:text-neutral-400 text-neutral-900 font-medium py-3 mt-2 hover:bg-neutral-900 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed disabled:hover:bg-transparent">
-            Enviar Pedido de Contacto
-          </button>
-        </form>
+        <app-site-publico-lead-form [form]="leadForm" [erro]="erroLead" tema="editorial" (enviar)="submitLead.emit()" />
       } @else {
         <div class="py-6">
           <h2 class="text-2xl font-serif mb-2">Pedido recebido.</h2>

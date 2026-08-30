@@ -1,0 +1,64 @@
+:host {
+  display: block;
+  margin-top: 1rem;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.links a {
+  text-decoration: none;
+}
+
+/* Clássico/Editorial: texto simples, sem "pílula". */
+:host([data-tema="classico"]) .links,
+:host([data-tema="editorial"]) .links {
+  gap: 1.25rem;
+}
+:host([data-tema="classico"]) .links a {
+  color: #b45309;
+}
+:host([data-tema="classico"]) .links a:hover {
+  color: #92400e;
+}
+:host([data-tema="classico"]) .links a::after {
+  content: " →";
+}
+:host([data-tema="editorial"]) .links a {
+  color: #171717;
+}
+:host([data-tema="editorial"]) .links a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Moderno: pílulas coloridas por rede. */
+:host([data-tema="moderno"]) .links a {
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  transition: background-color 0.15s;
+}
+:host([data-tema="moderno"]) .links a[data-rede="facebook"] { background: #eef2ff; color: #4338ca; }
+:host([data-tema="moderno"]) .links a[data-rede="facebook"]:hover { background: #e0e7ff; }
+:host([data-tema="moderno"]) .links a[data-rede="instagram"] { background: #fdf2f8; color: #be185d; }
+:host([data-tema="moderno"]) .links a[data-rede="instagram"]:hover { background: #fce7f3; }
+:host([data-tema="moderno"]) .links a[data-rede="whatsapp"] { background: #ecfdf5; color: #047857; }
+:host([data-tema="moderno"]) .links a[data-rede="whatsapp"]:hover { background: #d1fae5; }
+
+/* Acolhedor: pílulas brancas discretas. */
+:host([data-tema="acolhedor"]) .links a {
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid #ffedd5;
+  color: #57534e;
+  transition: color 0.15s;
+}
+:host([data-tema="acolhedor"]) .links a:hover {
+  color: #ea580c;
+}

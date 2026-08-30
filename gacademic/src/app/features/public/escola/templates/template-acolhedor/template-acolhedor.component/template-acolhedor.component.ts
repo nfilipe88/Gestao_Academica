@@ -1,7 +1,9 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
-import { FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { SitePublico } from '../../../site-publico.model';
-import { linkWhatsapp } from '../../../site-publico.util';
+import { FormGroup } from '@angular/forms';
+import { SitePublico } from '../../../../../../shared/models/site-publico.models';
+import { SitePublicoLeadFormComponent } from '../../../../../../shared/components/site-publico-lead-form/site-publico-lead-form.component/site-publico-lead-form.component';
+import { SitePublicoSocialLinksComponent } from '../../../../../../shared/components/site-publico-social-links/site-publico-social-links.component/site-publico-social-links.component';
+import { SitePublicoGalleryComponent } from '../../../../../../shared/components/site-publico-gallery/site-publico-gallery.component/site-publico-gallery.component';
 
 /**
  * Modelo "Acolhedor" — suave e ilustrativo: tons pastel, formas
@@ -12,7 +14,7 @@ import { linkWhatsapp } from '../../../site-publico.util';
  */
 @Component({
   selector: 'app-template-acolhedor',
-  imports: [ReactiveFormsModule],
+  imports: [SitePublicoLeadFormComponent, SitePublicoSocialLinksComponent, SitePublicoGalleryComponent],
   templateUrl: './template-acolhedor.component.html',
   styleUrl: './template-acolhedor.component.css',
 })
@@ -27,6 +29,4 @@ export class TemplateAcolhedorComponent {
   alternarCurso(id: string) {
     this.cursoExpandidoId.set(this.cursoExpandidoId() === id ? null : id);
   }
-
-  readonly linkWhatsapp = linkWhatsapp;
 }
