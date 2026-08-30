@@ -9,6 +9,10 @@ export interface EducandoResumo {
   status_matricula: string | null;
   ano_letivo: number | null;
   nome_turma: string | null;
+  // Resumo — um responsável pode ter vários educandos; isto permite
+  // assinalar quem precisa de atenção sem abrir o financeiro de cada
+  // um (ver app/cruds/portal.py::_tem_propina_em_atraso).
+  tem_propina_em_atraso: boolean;
 }
 
 // A grade horária reaproveita exatamente o formato de HorarioAula do

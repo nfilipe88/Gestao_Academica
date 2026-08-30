@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turma
 from app.database.models_diario import RegistroFrequencia, RegistroNota
+from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.database.models_lms import MaterialAula
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno
@@ -59,6 +60,24 @@ async def _obter_matricula_atual(db: AsyncSession, tenant_id, aluno_id: uuid.UUI
     )).scalars().first()
 
 
+async def _tem_propina_em_atraso(db: AsyncSession, tenant_id, matricula_id: uuid.UUID) -> bool:
+    """Para o resumo em /portal/meus-educandos — um responsável pode
+    ter vários educandos, cada um com o seu próprio contrato/faturas;
+    isto deixa o Portal assinalar quem precisa de atenção sem o
+    responsável ter de abrir o financeiro de cada um. Reaproveita
+    calcular_situacao_fatura (a mesma conta usada em Financeiro e nos
+    Indicadores) — "ATRASADO" nunca fica gravado, é sempre calculado."""
+    faturas_pendentes = (await db.execute(
+        select(FaturaMensalidade)
+        .join(ContratoFinanceiro, ContratoFinanceiro.id == FaturaMensalidade.contrato_id)
+        .where(
+            ContratoFinanceiro.matricula_id == matricula_id, FaturaMensalidade.tenant_id == tenant_id,
+            FaturaMensalidade.status_pagamento == "PENDENTE",
+        )
+    )).scalars().all()
+    return any(crud_financeiro.calcular_situacao_fatura(f)["status_efetivo"] == "ATRASADO" for f in faturas_pendentes)
+
+
 # ==========================================
 # A. MEUS EDUCANDOS
 # ==========================================
@@ -75,10 +94,12 @@ async def listar_meus_educandos(db: AsyncSession, tenant_id, utilizador: dict) -
     for aluno in alunos:
         matricula = await _obter_matricula_atual(db, tenant_id, aluno.id)
         nome_turma = None
+        tem_propina_em_atraso = False
         if matricula:
             nome_turma = (await db.execute(
                 select(Turma.nome_codigo).where(Turma.id == matricula.turma_id)
             )).scalar_one_or_none()
+            tem_propina_em_atraso = await _tem_propina_em_atraso(db, tenant_id, matricula.id)
         resultado.append({
             "aluno_id": aluno.id,
             "nome_completo": aluno.nome_completo,
@@ -87,6 +108,7 @@ async def listar_meus_educandos(db: AsyncSession, tenant_id, utilizador: dict) -
             "status_matricula": matricula.status_matricula if matricula else None,
             "ano_letivo": matricula.ano_letivo if matricula else None,
             "nome_turma": nome_turma,
+            "tem_propina_em_atraso": tem_propina_em_atraso,
         })
     return resultado
 

@@ -29,6 +29,7 @@ from app.core import documentos_pdf, paypal, storage
 from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, FaturaMarcarPago, GerarCobrancaRequest
 from app.schemas.configuracoes import MOEDAS_PAYPAL_SUPORTADAS
 from app.cruds.admin import esta_bloqueado_parcialmente
+from app.cruds import notificacoes as crud_notificacoes
 
 logger = logging.getLogger("financeiro")
 
@@ -814,12 +815,21 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
     atraso, o responsável recebe um e-mail (e um SMS, se
     SMS_WEBHOOK_URL estiver configurado); idempotente por
     fatura+etapa (marca *_enviado_em antes de reenviar).
+
+    Nos mesmos 3 momentos, também cria uma notificação in-app no
+    Portal — para o responsável (que pode representar vários
+    educandos) e para o próprio aluno, sempre que cada um tiver
+    usuario_id (login próprio criado — nem sempre existe). Ver
+    /portal/meus-educandos para o resumo consolidado por educando.
     """
     hoje = date.today()
     moeda = await _obter_moeda_tenant(db, tenant_id)
 
     faturas = (await db.execute(
-        select(FaturaMensalidade, ContratoFinanceiro, Aluno.nome_completo, ResponsavelFinanceiroLegal.email, ResponsavelFinanceiroLegal.telefone_contato)
+        select(
+            FaturaMensalidade, ContratoFinanceiro, Aluno.nome_completo, Aluno.usuario_id,
+            ResponsavelFinanceiroLegal.email, ResponsavelFinanceiroLegal.telefone_contato, ResponsavelFinanceiroLegal.usuario_id
+        )
         .join(ContratoFinanceiro, ContratoFinanceiro.id == FaturaMensalidade.contrato_id)
         .join(Matricula, Matricula.id == ContratoFinanceiro.matricula_id)
         .join(Aluno, Aluno.id == Matricula.aluno_id)
@@ -829,11 +839,23 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
 
     contagem = {"lembrete_previo": 0, "lembrete_vencimento": 0, "aviso_atraso": 0}
 
-    for fatura, contrato, nome_aluno, email_responsavel, telefone_responsavel in faturas:
-        if not email_responsavel and not telefone_responsavel:
+    for fatura, contrato, nome_aluno, usuario_id_aluno, email_responsavel, telefone_responsavel, usuario_id_responsavel in faturas:
+        if not email_responsavel and not telefone_responsavel and not usuario_id_aluno and not usuario_id_responsavel:
             continue
         dias_para_vencer = (fatura.data_vencimento - hoje).days
         rotulo_parcela = f"{fatura.numero_parcela}/{contrato.quantidade_parcelas}"
+
+        # Alerta in-app no Portal — além do e-mail/SMS, para o
+        # responsável (pode representar vários educandos, ver
+        # /portal/meus-educandos) e para o próprio aluno, quando cada
+        # um tiver login próprio (usuario_id nem sempre existe — nem
+        # todo o responsável/aluno tem acesso ao Portal criado).
+        async def _notificar_portal(titulo: str, mensagem: str) -> None:
+            for usuario_id in (usuario_id_responsavel, usuario_id_aluno):
+                if usuario_id:
+                    await crud_notificacoes.criar_notificacao(
+                        db, tenant_id, usuario_id, tipo="PROPINA", titulo=titulo, mensagem=mensagem, link="/portal"
+                    )
 
         if dias_para_vencer == 3 and fatura.lembrete_previo_enviado_em is None:
             if email_responsavel:
@@ -852,6 +874,10 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                     f"A mensalidade ({rotulo_parcela}) de {nome_aluno} no valor de {fatura.valor_original} {moeda} "
                     f"vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
                 )
+            await _notificar_portal(
+                "Mensalidade a vencer",
+                f"A mensalidade ({rotulo_parcela}) de {nome_aluno} vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
+            )
             fatura.lembrete_previo_enviado_em = datetime.now(timezone.utc)
             contagem["lembrete_previo"] += 1
 
@@ -870,6 +896,7 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                     telefone_responsavel,
                     f"A mensalidade ({rotulo_parcela}) de {nome_aluno} no valor de {fatura.valor_original} {moeda} vence hoje."
                 )
+            await _notificar_portal("Mensalidade vence hoje", f"A mensalidade ({rotulo_parcela}) de {nome_aluno} vence hoje.")
             fatura.lembrete_vencimento_enviado_em = datetime.now(timezone.utc)
             contagem["lembrete_vencimento"] += 1
 
@@ -891,6 +918,10 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                     f"A mensalidade ({rotulo_parcela}) de {nome_aluno} está em atraso há 5 dias. "
                     f"Valor atualizado: {situacao['valor_atualizado']} {moeda}."
                 )
+            await _notificar_portal(
+                "Mensalidade em atraso",
+                f"A mensalidade ({rotulo_parcela}) de {nome_aluno} está em atraso há 5 dias. Valor atualizado: {situacao['valor_atualizado']} {moeda}."
+            )
             fatura.aviso_atraso_enviado_em = datetime.now(timezone.utc)
             contagem["aviso_atraso"] += 1
 

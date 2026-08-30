@@ -11,13 +11,26 @@
     <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
 
+  @if (educandosEmAtraso$ | async; as emAtraso) {
+    @if (emAtraso.length > 0) {
+      <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        ⚠️ Tem propina em atraso em
+        {{ emAtraso.length === 1 ? '1 educando' : emAtraso.length + ' educandos' }}:
+        {{ emAtraso[0].nome_completo }}@if (emAtraso.length > 1) {<span> e mais {{ emAtraso.length - 1 }}</span>}.
+        Consulte o Financeiro de cada um abaixo para regularizar.
+      </div>
+    }
+  }
+
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
     <label class="block text-sm font-medium text-slate-600 mb-1">Educando</label>
     <select [value]="educandoSelecionadoId" (change)="onSelecionarEducando($any($event.target).value)"
       class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
       <option value="">Selecione</option>
       @for (educando of educandos$ | async; track educando.aluno_id) {
-        <option [value]="educando.aluno_id">{{ educando.nome_completo }} — {{ educando.nome_turma || 'sem turma atual' }}</option>
+        <option [value]="educando.aluno_id">
+          {{ educando.nome_completo }} — {{ educando.nome_turma || 'sem turma atual' }}{{ educando.tem_propina_em_atraso ? ' ⚠ propina em atraso' : '' }}
+        </option>
       }
     </select>
     @if ((educandos$ | async)?.length === 0) {

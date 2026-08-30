@@ -57,6 +57,9 @@ export class PortalComponent implements OnInit {
 
   usuario$ = this.store.select(selectUsuario);
   educandos$ = this.store.select(selectMeusEducandos);
+  // Resumo consolidado — quem representa vários educandos vê logo
+  // quantos têm propina em atraso, sem abrir o financeiro de cada um.
+  educandosEmAtraso$ = this.educandos$.pipe(map(educandos => educandos.filter(e => e.tem_propina_em_atraso)));
   horario$ = this.store.select(selectHorarioDoEducando);
   boletim$ = this.store.select(selectBoletimDoEducando);
   financeiro$ = this.store.select(selectFinanceiroDoEducando);
