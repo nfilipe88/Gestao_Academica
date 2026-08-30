@@ -1,6 +1,6 @@
 <div class="space-y-6">
 
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-between flex-wrap gap-2">
     <div>
       <h2 class="text-2xl font-bold text-slate-800">Gestão de Cursos</h2>
       <p class="text-slate-500 text-sm">Adicione e gira as estruturas curriculares da sua instituição.</p>
@@ -73,7 +73,7 @@
                 <div class="space-y-2">
                   @for (serie of curso.series; track serie.id) {
                     <div class="bg-white border border-slate-200 rounded-lg px-3 py-2">
-                      <div class="flex items-center justify-between">
+                      <div class="flex items-center justify-between flex-wrap gap-1">
                         <span class="text-sm font-medium text-slate-700">{{ serie.nome }}</span>
                         <button type="button" (click)="alternarSerieExpandida(serie.id)"
                           class="text-blue-500 hover:text-blue-700 text-xs font-medium cursor-pointer">
@@ -142,7 +142,7 @@
     </table>
   </div>
 
-  <div class="flex items-center justify-between pt-4">
+  <div class="flex items-center justify-between pt-4 flex-wrap gap-2">
     <div>
       <h2 class="text-xl font-bold text-slate-800">Disciplinas</h2>
       <p class="text-slate-500 text-sm">Catálogo de matérias da instituição — depois associe-as a uma Série/Ano acima.</p>

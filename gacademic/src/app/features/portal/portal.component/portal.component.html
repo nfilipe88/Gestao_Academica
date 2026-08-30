@@ -102,7 +102,7 @@
           <div class="space-y-4">
             @for (disciplina of boletim.disciplinas; track disciplina.disciplina_id) {
               <div class="border border-slate-200 rounded-lg p-4">
-                <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
                   <h4 class="text-sm font-semibold text-slate-800">{{ disciplina.nome_disciplina }}</h4>
                   <span class="text-xs text-slate-500">
                     {{ disciplina.total_faltas }} falta(s) em {{ disciplina.total_aulas }} aula(s)
@@ -551,7 +551,7 @@
             <div class="space-y-3">
               @for (s of (minhasSolicitacoesEscola$ | async); track s.id) {
                 <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
-                  <div class="flex items-center justify-between">
+                  <div class="flex items-center justify-between flex-wrap gap-2">
                     <h5 class="font-semibold text-slate-800">{{ s.titulo }}</h5>
                     <span class="px-2 py-0.5 rounded-full text-xs font-medium"
                       [class.bg-amber-100]="s.status === 'PENDENTE'" [class.text-amber-700]="s.status === 'PENDENTE'"

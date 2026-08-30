@@ -165,7 +165,7 @@
       @if (mostrarAulasPorLancar) {
         <div class="mt-4 space-y-2">
           @for (aula of aulasPorLancar$ | async; track aula.data + aula.turma_id + aula.hora_inicio) {
-            <div class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm">
+            <div class="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm flex-wrap">
               <div>
                 <span class="font-medium text-slate-800">{{ formatarData(aula.data) }}</span>
                 <span class="text-slate-500"> · {{ formatarHora(aula.hora_inicio) }}–{{ formatarHora(aula.hora_fim) }}</span>
@@ -193,7 +193,7 @@
 
     @if (turmaSelecionadaId) {
 
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between flex-wrap gap-2">
         <h3 class="text-sm font-semibold text-slate-800">Grade horária da turma</h3>
         <button type="button" (click)="mostrarFormulario ? cancelarFormulario() : abrirFormularioNovo()"
           class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
