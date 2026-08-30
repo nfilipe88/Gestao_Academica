@@ -70,7 +70,8 @@ export class FinanceiroEffects {
         valor_total_anual: action.valor_total_anual,
         quantidade_parcelas: action.quantidade_parcelas,
         dia_vencimento_padrao: action.dia_vencimento_padrao,
-        percentual_desconto_bolsa: action.percentual_desconto_bolsa
+        percentual_desconto_bolsa: action.percentual_desconto_bolsa,
+        valor_taxa_matricula: action.valor_taxa_matricula
       }).pipe(
         switchMap(contrato => [
           FinanceiroActions.carregarContratoDaMatriculaSucesso({ contrato }),

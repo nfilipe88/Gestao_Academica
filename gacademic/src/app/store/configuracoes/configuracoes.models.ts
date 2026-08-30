@@ -14,6 +14,11 @@ export interface ConfiguracaoTenant {
   codigo_postal: string | null;
   pais: string | null;
   nota_minima_aprovacao: number | null;
+  // Valor padrão da taxa de matrícula (encargo único, distinto das
+  // mensalidades) — null = a escola não cobra. Usada ao assinar um
+  // contrato em Financeiro e pela conversão automática RN01 a partir da
+  // candidatura self-service (ver features/public/matricula).
+  valor_taxa_matricula: number | null;
   // Períodos letivos — hora "HH:MM:SS" (formato devolvido pelo back-end)
   // ou null se ainda não definida. Só guarda a informação por agora;
   // não valida conflitos em Horários.
@@ -67,6 +72,7 @@ export const CONFIGURACAO_INICIAL: ConfiguracaoTenant = {
   codigo_postal: null,
   pais: null,
   nota_minima_aprovacao: null,
+  valor_taxa_matricula: null,
   periodo_manha_inicio: null,
   periodo_manha_fim: null,
   periodo_tarde_inicio: null,

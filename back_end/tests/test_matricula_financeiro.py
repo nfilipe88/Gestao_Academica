@@ -248,3 +248,61 @@ async def test_documento_matricula_isolado_por_tenant(client):
         files={"ficheiro": ("x.png", io.BytesIO(_PNG_1X1), "image/png")}
     )
     assert resp.status_code == 404
+
+
+# ==========================================
+# TAXA DE MATRÍCULA (ver Tenant.valor_taxa_matricula, criar_contrato)
+# ==========================================
+async def test_contrato_com_taxa_matricula_gera_parcela_zero_paga_primeiro(client):
+    """A taxa de matrícula (encargo único, à parte das mensalidades) sai
+    gravada como a parcela nº 0 do contrato — reaproveitando a régua de
+    ordem de pagamento (RN08) já existente para obrigar a que seja paga
+    antes de qualquer mensalidade."""
+    ano_letivo = date.today().year
+    escola = await criar_escola_e_gestor(client, "taxa-matricula")
+    headers = auth_headers(escola["token"])
+
+    turma_id = await _preparar_turma_com_vaga(client, headers, ano_letivo)
+    aluno_id = await _criar_aluno(client, headers)
+    resp = await client.post("/api/v1/responsaveis", headers=headers,
+                              json={"nome_completo": "Responsável Taxa", "telefone_contato": "+244900000001"})
+    responsavel_id = resp.json()["id"]
+    await client.post(f"/api/v1/alunos/{aluno_id}/responsaveis", headers=headers,
+                       json={"responsavel_id": responsavel_id, "tipo_parentesco": "Pai", "responsavel_financeiro": True})
+    resp = await client.post("/api/v1/matriculas", headers=headers,
+                              json={"aluno_id": aluno_id, "turma_id": turma_id, "ano_letivo": ano_letivo})
+    matricula_id = resp.json()["id"]
+
+    resp = await client.post("/api/v1/financeiro/contratos", headers=headers, json={
+        "matricula_id": matricula_id, "responsavel_id": responsavel_id,
+        "valor_total_anual": "1200.00", "quantidade_parcelas": 12,
+        "valor_taxa_matricula": "150.00",
+    })
+    assert resp.status_code == 201, resp.text
+    contrato_id = resp.json()["id"]
+
+    resp = await client.get(f"/api/v1/financeiro/contratos/{contrato_id}/faturas", headers=headers)
+    faturas = resp.json()
+    assert len(faturas) == 13, "esperava as 12 mensalidades + 1 taxa de matrícula (parcela nº 0)"
+    taxa = next(f for f in faturas if f["numero_parcela"] == 0)
+    assert float(taxa["valor_original"]) == 150.0
+    primeira_mensalidade = next(f for f in faturas if f["numero_parcela"] == 1)
+
+    # RN08: a mensalidade nº 1 não pode ser paga enquanto a taxa de
+    # matrícula (numero_parcela 0, "anterior" a todas) estiver pendente.
+    resp = await client.patch(
+        f"/api/v1/financeiro/faturas/{primeira_mensalidade['id']}/marcar-pago", headers=headers,
+        json={"forma_pagamento": "MANUAL"}
+    )
+    assert resp.status_code == 400, "não devia ser possível pagar a 1ª mensalidade antes da taxa de matrícula"
+
+    resp = await client.patch(
+        f"/api/v1/financeiro/faturas/{taxa['id']}/marcar-pago", headers=headers, json={"forma_pagamento": "MANUAL"}
+    )
+    assert resp.status_code == 200, resp.text
+
+    resp = await client.patch(
+        f"/api/v1/financeiro/faturas/{primeira_mensalidade['id']}/marcar-pago", headers=headers,
+        json={"forma_pagamento": "MANUAL"}
+    )
+    assert resp.status_code == 200, "paga a taxa de matrícula, a 1ª mensalidade já devia poder ser paga"

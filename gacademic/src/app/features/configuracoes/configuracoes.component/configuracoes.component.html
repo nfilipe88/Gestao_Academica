@@ -172,6 +172,13 @@
           </select>
           <p class="text-xs text-slate-400 mt-1">Usada em todos os preços da plataforma e nas cobranças PayPal — restrita às moedas que o PayPal aceita.</p>
         </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Taxa de matrícula (valor padrão)</label>
+          <input type="number" min="0" step="0.01" formControlName="valor_taxa_matricula" placeholder="Sem taxa de matrícula"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          <p class="text-xs text-slate-400 mt-1">Encargo único cobrado uma vez, à parte das mensalidades — em branco = a escola não cobra taxa de matrícula. Aplicado automaticamente aos contratos gerados a partir de candidaturas self-service, e sugerido ao criar um contrato à mão em Financeiro.</p>
+        </div>
       </div>
     </div>
 

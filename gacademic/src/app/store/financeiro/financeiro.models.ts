@@ -43,6 +43,9 @@ export interface TransacaoAtiva {
 export interface FaturaMensalidade {
   id: string;
   contrato_id: string;
+  // 0 = a taxa de matrícula (encargo único, ver criar_contrato no
+  // back-end) — nunca faz parte das quantidade_parcelas mensalidades
+  // do contrato; 1..N são as mensalidades normais.
   numero_parcela: number;
   valor_original: number;
   data_vencimento: string;

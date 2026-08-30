@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -35,7 +36,7 @@ const TIPOS_DOCUMENTO = [
  */
 @Component({
   selector: 'app-matricula-wizard',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, CurrencyPipe],
   templateUrl: './matricula-wizard.component.html',
   styleUrl: './matricula-wizard.component.css',
 })

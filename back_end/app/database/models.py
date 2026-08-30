@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime, time
+from decimal import Decimal
 from typing import List
 from sqlalchemy import Boolean, Date, Numeric, String, ForeignKey, DateTime, Text, Time, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -40,6 +41,18 @@ class Tenant(Base):
     cidade: Mapped[str | None] = mapped_column(String(100), nullable=True)
     codigo_postal: Mapped[str | None] = mapped_column(String(20), nullable=True)
     pais: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Taxa de matrícula — encargo único (distinto das mensalidades
+    # recorrentes) cobrado uma vez por matrícula. NULL = escola não cobra
+    # taxa de matrícula nenhuma. Serve de valor por omissão tanto para
+    # o contrato financeiro assinado à mão em Financeiro (ver
+    # ContratoCreate.valor_taxa_matricula) como para a conversão
+    # automática RN01 a partir da candidatura self-service (ver
+    # cruds/crm.py::_tentar_matricula_e_contrato_automaticos); em ambos
+    # os casos fica gravada como a parcela nº 0 do contrato — reaproveita
+    # toda a maquinaria de Fatura_Mensalidade/Transacao_Gateway já
+    # existente (cobrança PayPal, régua de cobrança RN04, recibo, RN08
+    # de ordem de pagamento) sem precisar de tabelas nem rotas novas.
+    valor_taxa_matricula: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     # Nota mínima de aprovação (escala livre — cada escola usa a sua,
     # ex.: 0-20 ou 0-10) — usada no Boletim/Indicadores para marcar
     # Aprovado/Reprovado. Sem valor definido, essa marcação não aparece.

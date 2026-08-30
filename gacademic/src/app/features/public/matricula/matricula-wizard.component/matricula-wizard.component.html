@@ -225,7 +225,12 @@
           <h1 class="text-xl font-bold text-slate-800">Candidatura enviada!</h1>
           <p class="text-slate-500 text-sm mt-3 max-w-md mx-auto leading-relaxed">
             {{ e.nome_fantasia }} vai analisar os dados e documentos submetidos e entrará em contacto brevemente.
-            Após a aprovação, receberá as instruções para o pagamento da taxa de matrícula.
+            @if (e.valor_taxa_matricula) {
+              Após a aprovação, a taxa de matrícula desta escola
+              ({{ e.valor_taxa_matricula | currency:e.moeda }}) ficará disponível para pagamento na Área do Encarregado.
+            } @else {
+              Após a aprovação, receberá as instruções para o pagamento da taxa de matrícula.
+            }
           </p>
         </div>
       }

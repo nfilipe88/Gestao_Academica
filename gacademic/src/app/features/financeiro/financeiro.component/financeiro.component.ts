@@ -55,6 +55,10 @@ export class FinanceiroComponent implements OnInit {
   // do botão PayPal, sobretudo relevante quando a moeda da escola não
   // é aceite pelo PayPal (ver moedaSuportaPaypal abaixo).
   iban$ = this.store.select(selectConfiguracao).pipe(map(c => c.iban));
+  // Valor padrão da taxa de matrícula da escola (Configurações) — só
+  // para pré-preencher o formulário de novo contrato (ver
+  // alternarFormularioContrato); o campo continua editável/removível.
+  valorTaxaMatriculaPadrao$ = this.store.select(selectConfiguracao).pipe(map(c => c.valor_taxa_matricula));
 
   formasPagamento = FORMAS_PAGAMENTO;
   estadosFatura = ESTADOS_FATURA;
@@ -95,7 +99,8 @@ export class FinanceiroComponent implements OnInit {
     valor_total_anual: [null as number | null, [Validators.required, Validators.min(0.01)]],
     quantidade_parcelas: [12, [Validators.required, Validators.min(1), Validators.max(36)]],
     dia_vencimento_padrao: [5, [Validators.required, Validators.min(1), Validators.max(28)]],
-    percentual_desconto_bolsa: [0, [Validators.min(0), Validators.max(100)]]
+    percentual_desconto_bolsa: [0, [Validators.min(0), Validators.max(100)]],
+    valor_taxa_matricula: [null as number | null, [Validators.min(0)]]
   });
 
   // Mensagem local (não vem do back-end) para o caso "cancelado" do
@@ -153,19 +158,27 @@ export class FinanceiroComponent implements OnInit {
 
   alternarFormularioContrato() {
     this.mostrarFormularioContrato = !this.mostrarFormularioContrato;
-    this.contratoForm.reset({ quantidade_parcelas: 12, dia_vencimento_padrao: 5, percentual_desconto_bolsa: 0 });
+    // Pré-preenche com a taxa de matrícula padrão da escola (Configurações)
+    // — o valor continua editável/removível para este contrato em concreto.
+    this.valorTaxaMatriculaPadrao$.pipe(take(1)).subscribe(valorPadrao => {
+      this.contratoForm.reset({
+        quantidade_parcelas: 12, dia_vencimento_padrao: 5, percentual_desconto_bolsa: 0,
+        valor_taxa_matricula: valorPadrao ?? null
+      });
+    });
   }
 
   onSubmitContrato() {
     if (this.contratoForm.invalid || !this.matriculaSelecionadaId) return;
-    const { responsavel_id, valor_total_anual, quantidade_parcelas, dia_vencimento_padrao, percentual_desconto_bolsa } = this.contratoForm.value;
+    const { responsavel_id, valor_total_anual, quantidade_parcelas, dia_vencimento_padrao, percentual_desconto_bolsa, valor_taxa_matricula } = this.contratoForm.value;
     this.store.dispatch(criarContrato({
       matricula_id: this.matriculaSelecionadaId,
       responsavel_id: responsavel_id!,
       valor_total_anual: valor_total_anual!,
       quantidade_parcelas: quantidade_parcelas!,
       dia_vencimento_padrao: dia_vencimento_padrao!,
-      percentual_desconto_bolsa: percentual_desconto_bolsa ?? 0
+      percentual_desconto_bolsa: percentual_desconto_bolsa ?? 0,
+      valor_taxa_matricula: valor_taxa_matricula ?? null
     }));
     this.mostrarFormularioContrato = false;
   }

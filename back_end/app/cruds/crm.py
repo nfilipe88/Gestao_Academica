@@ -167,11 +167,19 @@ async def _tentar_matricula_e_contrato_automaticos(db: AsyncSession, tenant_id, 
     if not oportunidade.valor_estimado_anual or not oportunidade.responsavel_gerado_id:
         return "Matrícula criada automaticamente — defina o valor anual da oportunidade para também gerar o contrato financeiro."
 
+    # Taxa de matrícula (encargo único, ver Tenant.valor_taxa_matricula):
+    # quando a escola tem um valor padrão configurado, o contrato gerado
+    # automaticamente já sai com ela incluída — o candidato que veio pelo
+    # assistente self-service (matricula-wizard) não depende de a
+    # Secretaria se lembrar de a acrescentar à mão.
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+
     try:
         await financeiro_crud.criar_contrato(db, tenant_id, ContratoCreate(
             matricula_id=matricula.id,
             responsavel_id=oportunidade.responsavel_gerado_id,
             valor_total_anual=oportunidade.valor_estimado_anual,
+            valor_taxa_matricula=tenant.valor_taxa_matricula if tenant else None,
         ))
     except HTTPException as erro:
         if erro.status_code == 400 and "Já existe um contrato" in erro.detail:

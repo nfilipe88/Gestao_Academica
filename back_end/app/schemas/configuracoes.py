@@ -1,5 +1,6 @@
 import uuid
 from datetime import time
+from decimal import Decimal
 
 from pydantic import BaseModel, field_validator
 
@@ -38,6 +39,9 @@ class ConfiguracaoTenantOut(BaseModel):
     codigo_postal: str | None = None
     pais: str | None = None
     nota_minima_aprovacao: float | None = None
+    # Valor padrão da taxa de matrícula (encargo único, distinto das
+    # mensalidades) — None = escola não cobra. Ver Tenant.valor_taxa_matricula.
+    valor_taxa_matricula: Decimal | None = None
     periodo_manha_inicio: time | None = None
     periodo_manha_fim: time | None = None
     periodo_tarde_inicio: time | None = None
@@ -58,6 +62,7 @@ class ConfiguracaoTenantUpdate(BaseModel):
     codigo_postal: str | None = None
     pais: str | None = None
     nota_minima_aprovacao: float | None = None
+    valor_taxa_matricula: Decimal | None = None
     periodo_manha_inicio: time | None = None
     periodo_manha_fim: time | None = None
     periodo_tarde_inicio: time | None = None
@@ -71,6 +76,13 @@ class ConfiguracaoTenantUpdate(BaseModel):
         valor = (valor or "").strip().upper()
         if valor not in MOEDAS_SUPORTADAS:
             raise ValueError(f"Moeda inválida. Use uma de: {', '.join(sorted(MOEDAS_SUPORTADAS))}.")
+        return valor
+
+    @field_validator("valor_taxa_matricula")
+    @classmethod
+    def validar_valor_taxa_matricula(cls, valor: Decimal | None) -> Decimal | None:
+        if valor is not None and valor < 0:
+            raise ValueError("O valor da taxa de matrícula não pode ser negativo.")
         return valor
 
     @field_validator(

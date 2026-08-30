@@ -4,8 +4,10 @@ self-service (candidatura com documentos) — ver app/cruds/crm.py.
 Cobertura mínima do que ainda não estava testado: o CRM (Kanban,
 funil, RN01) não tinha nenhum teste próprio antes desta funcionalidade."""
 import io
+from datetime import date
 
 from tests.conftest import auth_headers, criar_escola_e_gestor
+from tests.test_matricula_financeiro import _preparar_turma_com_vaga
 
 # PNG 1x1 mínimo válido — mesmo ficheiro usado em test_site_publico.py.
 _PNG_1X1 = bytes.fromhex(
@@ -134,3 +136,67 @@ async def test_documentos_isolados_por_tenant(client):
     doc_id = resp.json()["documentos"][0]["id"]
     resp = await client.get(f"/api/v1/crm/leads/{lead_id}/documentos/{doc_id}", headers=auth_headers(escola_b["token"]))
     assert resp.status_code == 404
+
+
+# ==========================================
+# RN01 — TAXA DE MATRÍCULA NA CONVERSÃO AUTOMÁTICA
+# ==========================================
+async def test_conversao_automatica_inclui_taxa_de_matricula_padrao(client):
+    """Quando a escola tem uma taxa de matrícula padrão configurada
+    (Configurações), a conversão automática RN01 (mover o cartão para a
+    etapa "Matriculado") já sai com essa taxa incluída no contrato — a
+    Secretaria não precisa de se lembrar de a acrescentar à mão a cada
+    candidatura self-service."""
+    ano_letivo = date.today().year
+    escola = await criar_escola_e_gestor(client, "crm-taxa-matricula")
+    headers = auth_headers(escola["token"])
+
+    resp = await client.put("/api/v1/configuracoes", headers=headers, json={
+        "moeda": "EUR", "valor_taxa_matricula": "150.00",
+    })
+    assert resp.status_code == 200, resp.text
+    assert float(resp.json()["valor_taxa_matricula"]) == 150.0
+
+    turma_id = await _preparar_turma_com_vaga(client, headers, ano_letivo)
+
+    resp = await client.post(f"/api/v1/public/{escola['tenant_id']}/leads", json={
+        "nome_responsavel": "Maria Candidata", "nome_aluno_candidato": "Taxa Matrícula",
+        "data_nascimento_candidato": "2015-03-10", "aceitou_regulamento": True,
+    })
+    assert resp.status_code == 201, resp.text
+
+    resp = await client.get("/api/v1/crm/oportunidades", headers=headers)
+    cartao = next(c for c in resp.json() if c["lead"]["nome_aluno_candidato"] == "Taxa Matrícula")
+
+    # Completa a oportunidade (turma pretendida + valor anual) antes de
+    # ganhar — é o que a RN01 exige para também gerar Matrícula + Contrato.
+    resp = await client.patch(f"/api/v1/crm/oportunidades/{cartao['id']}", headers=headers, json={
+        "turma_interesse_id": turma_id, "valor_estimado_anual": "1200.00",
+    })
+    assert resp.status_code == 200, resp.text
+
+    resp = await client.get("/api/v1/crm/funil", headers=headers)
+    etapa_matriculado = next(e for e in resp.json() if e["eh_etapa_ganho"])
+    resp = await client.patch(f"/api/v1/crm/oportunidades/{cartao['id']}/mover", headers=headers,
+                               json={"nova_etapa_id": etapa_matriculado["id"]})
+    assert resp.status_code == 200, resp.text
+    aluno_id = resp.json()["oportunidade"]["aluno_gerado_id"]
+    assert aluno_id, resp.text
+
+    resp = await client.get(f"/api/v1/alunos/{aluno_id}/matriculas", headers=headers)
+    assert resp.status_code == 200, resp.text
+    matricula_id = resp.json()[0]["matricula_id"]
+
+    resp = await client.get(f"/api/v1/financeiro/matriculas/{matricula_id}/contrato", headers=headers)
+    assert resp.status_code == 200, resp.text
+    contrato_id = resp.json()["id"]
+
+    resp = await client.get(f"/api/v1/financeiro/contratos/{contrato_id}/faturas", headers=headers)
+    assert resp.status_code == 200, resp.text
+    faturas = resp.json()
+
+    taxa = next((f for f in faturas if f["numero_parcela"] == 0), None)
+    assert taxa is not None, "esperava uma fatura da taxa de matrícula (parcela nº 0) gerada automaticamente"
+    assert float(taxa["valor_original"]) == 150.0
+    mensalidades = [f for f in faturas if f["numero_parcela"] > 0]
+    assert len(mensalidades) == 12

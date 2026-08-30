@@ -403,7 +403,13 @@
                 <tbody>
                   @for (fatura of financeiro.faturas; track fatura.id) {
                     <tr class="border-b border-slate-100">
-                      <td class="py-3 px-4 text-slate-800 font-medium">{{ fatura.numero_parcela }}/{{ financeiro.contrato.quantidade_parcelas }}</td>
+                      <td class="py-3 px-4 text-slate-800 font-medium">
+                        @if (fatura.numero_parcela === 0) {
+                          Taxa de Matrícula
+                        } @else {
+                          {{ fatura.numero_parcela }}/{{ financeiro.contrato.quantidade_parcelas }}
+                        }
+                      </td>
                       <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento }}</td>
                       <td class="py-3 px-4 text-right" [class.text-rose-600]="fatura.status_efetivo === 'ATRASADO'" [class.font-semibold]="fatura.status_efetivo === 'ATRASADO'">
                         {{ fatura.valor_atualizado | currency:((moeda$ | async) ?? undefined) }}

@@ -43,6 +43,15 @@ TAXA_JUROS_DIARIA = Decimal("0.00033")  # 0.033% ao dia
 TAXA_MULTA_ATRASO = Decimal("0.02")     # 2% fixo, uma vez, ao entrar em atraso
 DOIS_CASAS = Decimal("0.01")
 
+
+def _rotulo_parcela(numero_parcela: int, quantidade_parcelas) -> str:
+    """"Taxa de Matrícula" para a parcela nº 0 (ver criar_contrato), senão
+    "X/N" como sempre — usado em toda a comunicação (e-mail, recibo,
+    descrição da cobrança PayPal) sobre uma Fatura_Mensalidade."""
+    if numero_parcela == 0:
+        return "Taxa de Matrícula"
+    return f"Parcela {numero_parcela}/{quantidade_parcelas if quantidade_parcelas is not None else '?'}"
+
 STATUS_VALIDOS = {"PENDENTE", "PAGO", "CANCELADO", "NEGOCIADO"}
 
 
@@ -185,7 +194,7 @@ async def gerar_pdf_recibo(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, ut
         "nome_pagador": recibo.nome_pagador,
         "numero_documento_pagador": recibo.numero_documento_pagador,
         "aluno_nome": aluno_nome or "—",
-        "descricao": f"Parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas if contrato else '?'}",
+        "descricao": _rotulo_parcela(fatura.numero_parcela, contrato.quantidade_parcelas if contrato else None),
         "forma_pagamento": recibo.forma_pagamento,
         "valor": f"{recibo.valor:.2f}",
         "moeda": recibo.moeda,
@@ -362,6 +371,8 @@ async def criar_contrato(db: AsyncSession, tenant_id, dados: ContratoCreate) -> 
         raise HTTPException(status_code=400, detail="Valor total anual deve ser maior que zero.")
     if not (0 <= dados.percentual_desconto_bolsa <= 100):
         raise HTTPException(status_code=400, detail="Percentual de desconto de bolsa deve estar entre 0 e 100.")
+    if dados.valor_taxa_matricula is not None and dados.valor_taxa_matricula < 0:
+        raise HTTPException(status_code=400, detail="O valor da taxa de matrícula não pode ser negativo.")
 
     matricula = (await db.execute(
         select(Matricula).where(Matricula.id == dados.matricula_id, Matricula.tenant_id == tenant_id)
@@ -421,6 +432,22 @@ async def criar_contrato(db: AsyncSession, tenant_id, dados: ContratoCreate) -> 
         if mes > 12:
             mes = 1
             ano += 1
+
+    if dados.valor_taxa_matricula:
+        # Parcela nº 0: a taxa de matrícula, encargo único e separado das
+        # `quantidade_parcelas` mensalidades acima. Vence já hoje (ao
+        # contrário das mensalidades, que só começam no mês seguinte) —
+        # e por ter o número mais baixo de todas, RN08 (_pode_pagar_fatura)
+        # obriga a que seja esta a ser paga/cobrada primeiro, antes de
+        # qualquer mensalidade poder ser paga.
+        db.add(FaturaMensalidade(
+            tenant_id=tenant_id,
+            contrato_id=novo_contrato.id,
+            numero_parcela=0,
+            valor_original=dados.valor_taxa_matricula,
+            data_vencimento=hoje,
+            status_pagamento="PENDENTE",
+        ))
 
     await db.commit()
     await db.refresh(novo_contrato)
@@ -560,14 +587,14 @@ async def marcar_fatura_paga(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, 
             select(ResponsavelFinanceiroLegal).where(ResponsavelFinanceiroLegal.id == contrato.responsavel_id)
         )).scalars().first()
         if responsavel and responsavel.email:
+            rotulo = _rotulo_parcela(fatura.numero_parcela, contrato.quantidade_parcelas)
             await agendar_email(
                 enviar_email,
                 destinatario=responsavel.email,
-                assunto=f"Pagamento recebido — parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas}",
+                assunto=f"Pagamento recebido — {rotulo}",
                 corpo_html=template_base(
                     "Pagamento confirmado",
-                    f"Recebemos o pagamento da parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas}, "
-                    f"no valor de {valor_pago} {moeda}. Obrigado!"
+                    f"Recebemos o pagamento de {rotulo}, no valor de {valor_pago} {moeda}. Obrigado!"
                 )
             )
 
@@ -665,7 +692,7 @@ async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dado
         order = await paypal.criar_order(
             valor=str(valor_cobrado),
             referencia=str(fatura.id),
-            descricao=f"Parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas if contrato else '?'} — {aluno_nome or ''}",
+            descricao=f"{_rotulo_parcela(fatura.numero_parcela, contrato.quantidade_parcelas if contrato else None)} — {aluno_nome or ''}",
             return_url=f"{FRONTEND_URL}/{pagina_retorno}?paypal_retorno=sucesso{sufixo_retorno}",
             cancel_url=f"{FRONTEND_URL}/{pagina_retorno}?paypal_retorno=cancelado{sufixo_retorno}",
             moeda=moeda,
@@ -779,14 +806,14 @@ async def _efetivar_pagamento_gateway(db: AsyncSession, transacao: TransacaoGate
             select(ResponsavelFinanceiroLegal).where(ResponsavelFinanceiroLegal.id == contrato.responsavel_id)
         )).scalars().first()
         if responsavel and responsavel.email:
+            rotulo = _rotulo_parcela(fatura.numero_parcela, contrato.quantidade_parcelas)
             await agendar_email(
                 enviar_email,
                 destinatario=responsavel.email,
-                assunto=f"Pagamento recebido — parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas}",
+                assunto=f"Pagamento recebido — {rotulo}",
                 corpo_html=template_base(
                     "Pagamento confirmado",
-                    f"Recebemos via PayPal o pagamento da parcela {fatura.numero_parcela}/{contrato.quantidade_parcelas}, "
-                    f"no valor de {valor_capturado} {moeda}. Obrigado!"
+                    f"Recebemos via PayPal o pagamento de {rotulo}, no valor de {valor_capturado} {moeda}. Obrigado!"
                 )
             )
 
@@ -843,7 +870,13 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
         if not email_responsavel and not telefone_responsavel and not usuario_id_aluno and not usuario_id_responsavel:
             continue
         dias_para_vencer = (fatura.data_vencimento - hoje).days
-        rotulo_parcela = f"{fatura.numero_parcela}/{contrato.quantidade_parcelas}"
+        # A taxa de matrícula (parcela nº 0, ver criar_contrato) é um
+        # encargo único — não faz sentido chamar-lhe "mensalidade" nem
+        # dar-lhe um "X/N" que não tem, ao contrário das parcelas normais.
+        eh_taxa_matricula = fatura.numero_parcela == 0
+        nome_encargo = "taxa de matrícula" if eh_taxa_matricula else "mensalidade"
+        nome_encargo_capitalizado = "Taxa de Matrícula" if eh_taxa_matricula else "Mensalidade"
+        referencia_parcela = "" if eh_taxa_matricula else f" ({fatura.numero_parcela}/{contrato.quantidade_parcelas})"
 
         # Alerta in-app no Portal — além do e-mail/SMS, para o
         # responsável (pode representar vários educandos, ver
@@ -861,22 +894,22 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
             if email_responsavel:
                 await agendar_email(
                     enviar_email, destinatario=email_responsavel,
-                    assunto=f"Mensalidade de {nome_aluno} vence em breve",
+                    assunto=f"{nome_encargo_capitalizado} de {nome_aluno} vence em breve",
                     corpo_html=template_base(
-                        "A sua mensalidade vence em breve",
-                        f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, "
+                        f"A sua {nome_encargo} vence em breve",
+                        f"A {nome_encargo}{referencia_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, "
                         f"vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
                     )
                 )
             if agendar_sms and telefone_responsavel:
                 await agendar_sms(
                     telefone_responsavel,
-                    f"A mensalidade ({rotulo_parcela}) de {nome_aluno} no valor de {fatura.valor_original} {moeda} "
+                    f"A {nome_encargo}{referencia_parcela} de {nome_aluno} no valor de {fatura.valor_original} {moeda} "
                     f"vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
                 )
             await _notificar_portal(
-                "Mensalidade a vencer",
-                f"A mensalidade ({rotulo_parcela}) de {nome_aluno} vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
+                f"{nome_encargo_capitalizado} a vencer",
+                f"A {nome_encargo}{referencia_parcela} de {nome_aluno} vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
             )
             fatura.lembrete_previo_enviado_em = datetime.now(timezone.utc)
             contagem["lembrete_previo"] += 1
@@ -885,18 +918,18 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
             if email_responsavel:
                 await agendar_email(
                     enviar_email, destinatario=email_responsavel,
-                    assunto=f"Mensalidade de {nome_aluno} vence hoje",
+                    assunto=f"{nome_encargo_capitalizado} de {nome_aluno} vence hoje",
                     corpo_html=template_base(
-                        "A sua mensalidade vence hoje",
-                        f"A parcela {rotulo_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, vence hoje."
+                        f"A sua {nome_encargo} vence hoje",
+                        f"A {nome_encargo}{referencia_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, vence hoje."
                     )
                 )
             if agendar_sms and telefone_responsavel:
                 await agendar_sms(
                     telefone_responsavel,
-                    f"A mensalidade ({rotulo_parcela}) de {nome_aluno} no valor de {fatura.valor_original} {moeda} vence hoje."
+                    f"A {nome_encargo}{referencia_parcela} de {nome_aluno} no valor de {fatura.valor_original} {moeda} vence hoje."
                 )
-            await _notificar_portal("Mensalidade vence hoje", f"A mensalidade ({rotulo_parcela}) de {nome_aluno} vence hoje.")
+            await _notificar_portal(f"{nome_encargo_capitalizado} vence hoje", f"A {nome_encargo}{referencia_parcela} de {nome_aluno} vence hoje.")
             fatura.lembrete_vencimento_enviado_em = datetime.now(timezone.utc)
             contagem["lembrete_vencimento"] += 1
 
@@ -905,22 +938,22 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
             if email_responsavel:
                 await agendar_email(
                     enviar_email, destinatario=email_responsavel,
-                    assunto=f"Mensalidade de {nome_aluno} em atraso",
+                    assunto=f"{nome_encargo_capitalizado} de {nome_aluno} em atraso",
                     corpo_html=template_base(
-                        "A sua mensalidade está em atraso",
-                        f"A parcela {rotulo_parcela} de {nome_aluno} está em atraso há 5 dias. "
+                        f"A sua {nome_encargo} está em atraso",
+                        f"A {nome_encargo}{referencia_parcela} de {nome_aluno} está em atraso há 5 dias. "
                         f"Valor atualizado (com juros e multa): {situacao['valor_atualizado']} {moeda}."
                     )
                 )
             if agendar_sms and telefone_responsavel:
                 await agendar_sms(
                     telefone_responsavel,
-                    f"A mensalidade ({rotulo_parcela}) de {nome_aluno} está em atraso há 5 dias. "
+                    f"A {nome_encargo}{referencia_parcela} de {nome_aluno} está em atraso há 5 dias. "
                     f"Valor atualizado: {situacao['valor_atualizado']} {moeda}."
                 )
             await _notificar_portal(
-                "Mensalidade em atraso",
-                f"A mensalidade ({rotulo_parcela}) de {nome_aluno} está em atraso há 5 dias. Valor atualizado: {situacao['valor_atualizado']} {moeda}."
+                f"{nome_encargo_capitalizado} em atraso",
+                f"A {nome_encargo}{referencia_parcela} de {nome_aluno} está em atraso há 5 dias. Valor atualizado: {situacao['valor_atualizado']} {moeda}."
             )
             fatura.aviso_atraso_enviado_em = datetime.now(timezone.utc)
             contagem["aviso_atraso"] += 1

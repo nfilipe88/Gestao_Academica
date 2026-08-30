@@ -181,4 +181,5 @@ async def obter_site_publico(db: AsyncSession, identificador: str) -> SitePublic
         facebook=tenant.site_publico_facebook, instagram=tenant.site_publico_instagram,
         whatsapp=tenant.site_publico_whatsapp,
         cursos=cursos, fotos=fotos_urls,
+        moeda=tenant.moeda, valor_taxa_matricula=tenant.valor_taxa_matricula,
     )

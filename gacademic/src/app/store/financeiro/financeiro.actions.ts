@@ -36,7 +36,8 @@ export const criarContrato = createAction(
   '[Financeiro] Criar Contrato',
   props<{
     matricula_id: string, responsavel_id: string, valor_total_anual: number,
-    quantidade_parcelas: number, dia_vencimento_padrao: number, percentual_desconto_bolsa: number
+    quantidade_parcelas: number, dia_vencimento_padrao: number, percentual_desconto_bolsa: number,
+    valor_taxa_matricula: number | null
   }>()
 );
 

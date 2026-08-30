@@ -12,6 +12,10 @@ class ContratoCreate(BaseModel):
     dia_vencimento_padrao: int = 5
     percentual_desconto_bolsa: Decimal = Decimal("0.00")
     mes_primeira_parcela: int | None = None  # 1-12; default: mês seguinte a hoje
+    # Encargo único cobrado uma vez à assinatura do contrato, à parte das
+    # `quantidade_parcelas` mensalidades — None/0 = sem taxa de matrícula.
+    # Gerada como a parcela nº 0 do contrato (ver cruds/financeiro.py::criar_contrato).
+    valor_taxa_matricula: Decimal | None = None
 
 
 class FaturaMarcarPago(BaseModel):

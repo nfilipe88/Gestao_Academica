@@ -26,4 +26,8 @@ export interface SitePublico {
   whatsapp: string | null;
   cursos: CursoPublico[];
   fotos: string[];
+  moeda: string;
+  // Valor da taxa de matrícula (encargo único) — null = a escola não
+  // cobra. Ver Tenant.valor_taxa_matricula no back-end.
+  valor_taxa_matricula: number | null;
 }

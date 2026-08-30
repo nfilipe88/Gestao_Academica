@@ -9,6 +9,7 @@ filhos.
 """
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from pydantic import BaseModel
 
 
@@ -72,3 +73,9 @@ class SitePublicoOut(BaseModel):
     whatsapp: str | None
     cursos: list[CursoPublicoOut] = []
     fotos: list[str] = []  # data URIs
+    moeda: str
+    # Valor da taxa de matrícula (encargo único) — None = escola não cobra.
+    # Publicado de propósito (tal como os preços/cursos acima): uma
+    # família candidata-se a saber já quanto vai custar a matrícula em
+    # si, não só as mensalidades. Ver Tenant.valor_taxa_matricula.
+    valor_taxa_matricula: Decimal | None
