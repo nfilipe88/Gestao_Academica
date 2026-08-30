@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
 
 interface SitePublico {
@@ -13,6 +14,9 @@ interface SitePublico {
   email_contacto: string | null;
   morada: string | null;
   cidade: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  whatsapp: string | null;
   cursos: string[];
   fotos: string[];
 }
@@ -36,6 +40,8 @@ export class EscolaComponent implements OnInit {
   private http = inject(HttpClient);
   private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
+  private titleService = inject(Title);
+  private meta = inject(Meta);
 
   tenantId = this.route.snapshot.paramMap.get('tenantId') ?? '';
 
@@ -56,9 +62,30 @@ export class EscolaComponent implements OnInit {
   ngOnInit() {
     if (!this.tenantId) { this.naoEncontrada.set(true); this.aCarregar.set(false); return; }
     this.http.get<SitePublico>(`/api/v1/public/escola/${this.tenantId}`).subscribe({
-      next: (escola) => { this.escola.set(escola); this.aCarregar.set(false); },
+      next: (escola) => { this.escola.set(escola); this.aCarregar.set(false); this._definirMetaTags(escola); },
       error: () => { this.naoEncontrada.set(true); this.aCarregar.set(false); },
     });
+  }
+
+  // Título e meta tags Open Graph — para a página aparecer bem quando
+  // partilhada no WhatsApp/Facebook e com um título decente no Google,
+  // em vez de ficar sempre com o <title> genérico "Gacademic" de
+  // index.html (ver app.html/index.html).
+  private _definirMetaTags(escola: SitePublico) {
+    this.titleService.setTitle(escola.nome_fantasia);
+    const descricao = (escola.missao || `Conheça ${escola.nome_fantasia}.`).slice(0, 160);
+    this.meta.updateTag({ name: 'description', content: descricao });
+    this.meta.updateTag({ property: 'og:title', content: escola.nome_fantasia });
+    this.meta.updateTag({ property: 'og:description', content: descricao });
+    this.meta.updateTag({ property: 'og:type', content: 'website' });
+    if (escola.logotipo) this.meta.updateTag({ property: 'og:image', content: escola.logotipo });
+  }
+
+  /** Link wa.me a partir do número guardado (só dígitos) — com uma
+   * mensagem inicial já preenchida, para poupar um passo a quem clica. */
+  linkWhatsapp(whatsapp: string, nomeEscola: string): string {
+    const mensagem = encodeURIComponent(`Olá! Vi a página de ${nomeEscola} e gostava de saber mais.`);
+    return `https://wa.me/${whatsapp}?text=${mensagem}`;
   }
 
   onSubmitLead() {

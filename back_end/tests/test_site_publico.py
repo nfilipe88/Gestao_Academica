@@ -2,7 +2,7 @@
 de alunos) — ver app/cruds/site_publico.py."""
 import io
 
-from tests.conftest import auth_headers, criar_escola_e_gestor
+from tests.conftest import auth_headers, criar_escola_e_gestor, sufixo_unico
 
 
 async def test_site_publico_404_quando_desativado_por_omissao(client):
@@ -96,6 +96,72 @@ async def test_foto_rejeita_tipo_invalido(client):
         files={"ficheiro": ("nota.txt", io.BytesIO(b"nao e uma imagem"), "text/plain")}
     )
     assert resp.status_code == 400
+
+
+async def test_gestor_define_slug_e_pagina_fica_acessivel_por_ele(client):
+    escola = await criar_escola_e_gestor(client, "site-pub-slug")
+    headers = auth_headers(escola["token"])
+    # Sufixo único (não um literal fixo tipo "colegio-do-futuro"): a BD
+    # de testes não é reposta entre execuções, um slug fixo colidiria
+    # consigo mesmo numa segunda corrida da suite.
+    slug = f"colegio-{sufixo_unico()}"
+
+    resp = await client.put("/api/v1/configuracoes/site-publico", headers=headers, json={
+        "ativo": True, "slug": slug.upper(), "missao": None, "metodologia": None
+    })
+    assert resp.status_code == 200, resp.text
+    # Normalizado para minúsculas ao guardar.
+    assert resp.json()["slug"] == slug
+
+    # A página pública responde tanto pelo slug como pelo uuid original.
+    resp = await client.get(f"/api/v1/public/escola/{slug}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["tenant_id"] == escola["tenant_id"]
+
+    resp = await client.get(f"/api/v1/public/escola/{escola['tenant_id']}")
+    assert resp.status_code == 200, resp.text
+
+
+async def test_slug_invalido_e_rejeitado(client):
+    escola = await criar_escola_e_gestor(client, "site-pub-slug-invalido")
+    headers = auth_headers(escola["token"])
+    for slug_invalido in ["ab", "Tem Espaço", "maiúsculo-com-acento", "-comeca-com-hifen", "termina-com-hifen-"]:
+        resp = await client.put("/api/v1/configuracoes/site-publico", headers=headers, json={
+            "ativo": True, "slug": slug_invalido, "missao": None, "metodologia": None
+        })
+        assert resp.status_code == 400, f"{slug_invalido!r} devia ter sido rejeitado"
+
+
+async def test_slug_duplicado_entre_escolas_e_rejeitado(client):
+    escola_a = await criar_escola_e_gestor(client, "site-pub-slug-dup-a")
+    escola_b = await criar_escola_e_gestor(client, "site-pub-slug-dup-b")
+    slug = f"mesmo-endereco-{sufixo_unico()}"
+    resp = await client.put("/api/v1/configuracoes/site-publico", headers=auth_headers(escola_a["token"]), json={
+        "ativo": True, "slug": slug, "missao": None, "metodologia": None
+    })
+    assert resp.status_code == 200, resp.text
+    resp = await client.put("/api/v1/configuracoes/site-publico", headers=auth_headers(escola_b["token"]), json={
+        "ativo": True, "slug": slug, "missao": None, "metodologia": None
+    })
+    assert resp.status_code == 400
+
+
+async def test_redes_sociais_aparecem_na_pagina_publica(client):
+    escola = await criar_escola_e_gestor(client, "site-pub-redes")
+    headers = auth_headers(escola["token"])
+    resp = await client.put("/api/v1/configuracoes/site-publico", headers=headers, json={
+        "ativo": True, "missao": None, "metodologia": None,
+        "facebook": "https://facebook.com/colegiodofuturo",
+        "instagram": "https://instagram.com/colegiodofuturo",
+        "whatsapp": "+351 912 345 678",
+    })
+    assert resp.status_code == 200, resp.text
+    # Só dígitos guardados — o "+" e os espaços não fazem parte do número em si.
+    assert resp.json()["whatsapp"] == "351912345678"
+
+    resp = await client.get(f"/api/v1/public/escola/{escola['tenant_id']}")
+    assert resp.json()["facebook"] == "https://facebook.com/colegiodofuturo"
+    assert resp.json()["whatsapp"] == "351912345678"
 
 
 async def test_outra_escola_nao_edita_site_publico_de_ninguem(client):

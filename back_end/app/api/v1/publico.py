@@ -4,8 +4,6 @@ captação de Lead (ver app/api/v1/crm.py::router_publico), mas ficheiro
 próprio por serem domínios diferentes (planos comerciais, tickets,
 chat de IA — não CRM).
 """
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,9 +76,14 @@ async def criar_ticket_publico(dados: TicketCreate, db: AsyncSession = Depends(o
     return {"mensagem": "Recebemos o seu pedido — vamos responder por e-mail em breve.", "id": ticket.id}
 
 
-@router.get("/escola/{tenant_id}", response_model=SitePublicoOut)
-async def obter_site_publico(tenant_id: uuid.UUID, db: AsyncSession = Depends(obter_sessao_db_publica)):
+@router.get("/escola/{identificador}", response_model=SitePublicoOut)
+async def obter_site_publico(identificador: str, db: AsyncSession = Depends(obter_sessao_db_publica)):
     """Página de apresentação pública de UMA escola cliente (marketing/
     angariação de alunos) — 404 se a escola não existir ou não tiver
-    ativado a página em Configurações (ver api/v1/configuracoes.py)."""
-    return await crud_site_publico.obter_site_publico(db, tenant_id)
+    ativado a página em Configurações (ver api/v1/configuracoes.py).
+
+    `identificador` aceita o slug legível da escola (o caminho a
+    divulgar, ex.: "colegio-do-futuro") ou o uuid do tenant (compatível
+    com links partilhados antes de a escola escolher um slug) — ver
+    cruds/site_publico.py::obter_site_publico."""
+    return await crud_site_publico.obter_site_publico(db, identificador)

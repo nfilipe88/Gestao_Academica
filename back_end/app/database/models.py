@@ -71,6 +71,21 @@ class Tenant(Base):
     site_publico_ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
     site_publico_missao: Mapped[str | None] = mapped_column(Text, nullable=True)
     site_publico_metodologia: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Endereço legível da página pública (ex.: "colegio-do-futuro"), em
+    # vez de a escola só poder partilhar /escola/<uuid>. Único na
+    # plataforma inteira (não só no tenant) porque entra num path
+    # global, sem prefixo de tenant — ver cruds/site_publico.py para a
+    # validação de formato e verificação de disponibilidade. NULL =
+    # escola ainda não escolheu um; a página pública continua acessível
+    # pelo uuid enquanto isso.
+    site_publico_slug: Mapped[str | None] = mapped_column(String(80), unique=True, nullable=True)
+    # Redes sociais — links opcionais mostrados na página pública. O
+    # WhatsApp guarda só o número (ex.: "351912345678", sem "+" nem
+    # espaços) porque é a partir dele que se constrói o link
+    # "https://wa.me/<numero>", não é uma URL em si.
+    site_publico_facebook: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    site_publico_instagram: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    site_publico_whatsapp: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
     @property
     def tem_logotipo(self) -> bool:

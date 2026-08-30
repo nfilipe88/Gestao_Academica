@@ -22,15 +22,23 @@ class SitePublicoConfigOut(BaseModel):
     """Para o Gestor gerir em Configurações — inclui `ativo` mesmo
     quando ainda não há nada preenchido, ao contrário da versão pública."""
     ativo: bool
+    slug: str | None
     missao: str | None
     metodologia: str | None
+    facebook: str | None
+    instagram: str | None
+    whatsapp: str | None
     fotos: list[SitePublicoFotoOut] = []
 
 
 class SitePublicoConfigUpdate(BaseModel):
     ativo: bool
+    slug: str | None = None
     missao: str | None = None
     metodologia: str | None = None
+    facebook: str | None = None
+    instagram: str | None = None
+    whatsapp: str | None = None
 
 
 class SitePublicoOut(BaseModel):
@@ -47,5 +55,8 @@ class SitePublicoOut(BaseModel):
     email_contacto: str | None
     morada: str | None
     cidade: str | None
+    facebook: str | None
+    instagram: str | None
+    whatsapp: str | None
     cursos: list[str] = []
     fotos: list[str] = []  # data URIs

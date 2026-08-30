@@ -18,8 +18,12 @@ interface SitePublicoFoto {
 
 interface SitePublicoConfig {
   ativo: boolean;
+  slug: string | null;
   missao: string | null;
   metodologia: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  whatsapp: string | null;
   fotos: SitePublicoFoto[];
 }
 
@@ -104,8 +108,12 @@ export class ConfiguracoesComponent implements OnInit {
   sitePublico = signal<SitePublicoConfig | null>(null);
   sitePublicoForm = this.fb.group({
     ativo: [false],
+    slug: ['', [Validators.pattern(/^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/), Validators.minLength(3), Validators.maxLength(80)]],
     missao: [''],
     metodologia: [''],
+    facebook: [''],
+    instagram: [''],
+    whatsapp: [''],
   });
   fotoAEnviar = signal(false);
   erroSitePublico = signal<string | null>(null);
@@ -211,22 +219,36 @@ export class ConfiguracoesComponent implements OnInit {
       next: (config) => {
         this.sitePublico.set(config);
         this.sitePublicoForm.patchValue({
-          ativo: config.ativo, missao: config.missao ?? '', metodologia: config.metodologia ?? '',
+          ativo: config.ativo, slug: config.slug ?? '', missao: config.missao ?? '', metodologia: config.metodologia ?? '',
+          facebook: config.facebook ?? '', instagram: config.instagram ?? '', whatsapp: config.whatsapp ?? '',
         }, { emitEvent: false });
       },
     });
   }
 
   onGuardarSitePublico() {
+    if (this.sitePublicoForm.invalid) return;
     const v = this.sitePublicoForm.getRawValue();
     this.erroSitePublico.set(null);
     this.mensagemSitePublico.set(null);
     this.http.put<SitePublicoConfig>('/api/v1/configuracoes/site-publico', {
-      ativo: !!v.ativo, missao: v.missao || null, metodologia: v.metodologia || null,
+      ativo: !!v.ativo, slug: v.slug || null, missao: v.missao || null, metodologia: v.metodologia || null,
+      facebook: v.facebook || null, instagram: v.instagram || null, whatsapp: v.whatsapp || null,
     }).subscribe({
-      next: (config) => { this.sitePublico.set(config); this.mensagemSitePublico.set('Site público atualizado.'); },
+      next: (config) => {
+        this.sitePublico.set(config);
+        this.sitePublicoForm.patchValue({ slug: config.slug ?? '' }, { emitEvent: false });
+        this.mensagemSitePublico.set('Site público atualizado.');
+      },
       error: (err) => this.erroSitePublico.set(err.error?.detail || 'Não foi possível guardar o site público.'),
     });
+  }
+
+  /** Identificador a usar no link a divulgar — o slug legível quando já
+   * escolhido, senão o uuid do tenant (a página continua acessível por
+   * ele, só menos apresentável). */
+  linkSitePublico(tenantId: string): string {
+    return this.sitePublico()?.slug || tenantId;
   }
 
   onSelecionarFoto(event: Event) {

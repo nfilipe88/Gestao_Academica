@@ -46,7 +46,7 @@
         <p class="text-xs text-slate-400 mt-0.5">Uma página para apresentar a escola a famílias interessadas — missão, metodologia, cursos e fotos. Desativada até a ativar aqui.</p>
       </div>
       @if (sitePublico()?.ativo && (tenantId$ | async); as tid) {
-        <a [routerLink]="['/escola', tid]" target="_blank"
+        <a [routerLink]="['/escola', linkSitePublico(tid)]" target="_blank"
           class="text-xs font-medium text-blue-600 hover:text-blue-700 shrink-0">Ver página pública →</a>
       }
     </div>
@@ -64,6 +64,19 @@
         Página pública ativa
       </label>
       <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Endereço da página</label>
+        <div class="flex items-center gap-1 flex-wrap">
+          <span class="text-sm text-slate-400 whitespace-nowrap">/escola/</span>
+          <input type="text" formControlName="slug" placeholder="a-sua-escola"
+            class="min-w-0 flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        @if (sitePublicoForm.controls.slug.invalid && sitePublicoForm.controls.slug.dirty) {
+          <p class="text-xs text-rose-600 mt-1">Só letras, números e hífen (ex.: colegio-do-futuro), entre 3 e 80 carateres.</p>
+        } @else {
+          <p class="text-xs text-slate-400 mt-1">O endereço a divulgar em flyers e redes sociais. Sem ele, a página só fica acessível pelo link técnico (uuid).</p>
+        }
+      </div>
+      <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Missão</label>
         <textarea formControlName="missao" rows="3" placeholder="O que a sua escola representa e para quem…"
           class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
@@ -73,8 +86,25 @@
         <textarea formControlName="metodologia" rows="3" placeholder="Como a sua escola ensina…"
           class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
       </div>
-      <button type="submit"
-        class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Facebook — opcional</label>
+          <input type="text" formControlName="facebook" placeholder="https://facebook.com/…"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Instagram — opcional</label>
+          <input type="text" formControlName="instagram" placeholder="https://instagram.com/…"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">WhatsApp — opcional</label>
+          <input type="text" formControlName="whatsapp" placeholder="912 345 678"
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        </div>
+      </div>
+      <button type="submit" [disabled]="sitePublicoForm.invalid"
+        class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
         Guardar
       </button>
     </form>

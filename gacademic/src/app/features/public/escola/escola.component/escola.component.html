@@ -60,7 +60,7 @@
         </section>
       }
 
-      @if (e.telefone_contacto || e.email_contacto || e.morada) {
+      @if (e.telefone_contacto || e.email_contacto || e.morada || e.facebook || e.instagram || e.whatsapp) {
         <section>
           <h2 class="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-4">Contacto</h2>
           <div class="space-y-1.5 text-sm text-slate-600">
@@ -68,6 +68,13 @@
             @if (e.telefone_contacto) { <p>{{ e.telefone_contacto }}</p> }
             @if (e.email_contacto) { <p>{{ e.email_contacto }}</p> }
           </div>
+          @if (e.facebook || e.instagram || e.whatsapp) {
+            <div class="flex flex-wrap gap-4 mt-4 text-sm font-medium">
+              @if (e.facebook) { <a [href]="e.facebook" target="_blank" rel="noopener" class="text-emerald-700 hover:text-emerald-800">Facebook →</a> }
+              @if (e.instagram) { <a [href]="e.instagram" target="_blank" rel="noopener" class="text-emerald-700 hover:text-emerald-800">Instagram →</a> }
+              @if (e.whatsapp) { <a [href]="linkWhatsapp(e.whatsapp, e.nome_fantasia)" target="_blank" rel="noopener" class="text-emerald-700 hover:text-emerald-800">WhatsApp →</a> }
+            </div>
+          }
         </section>
       }
 
