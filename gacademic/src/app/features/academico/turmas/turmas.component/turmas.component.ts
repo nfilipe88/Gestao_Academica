@@ -1,6 +1,7 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { Component, inject, OnInit, signal } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { combineLatest, map, startWith } from 'rxjs';
@@ -9,21 +10,23 @@ import { selectAcademicoError, selectCursos, selectSeries, selectTurmas } from '
 import { carregarAlunos } from '../../../../store/alunos/alunos.actions';
 import { selectAlunos } from '../../../../store/alunos/alunos.selector';
 import { atualizarStatusMatricula, carregarMatriculasDaTurma, criarMatricula } from '../../../../store/matriculas/matriculas.actions';
-import { ESTADOS_MATRICULA } from '../../../../store/matriculas/matriculas.models';
+import { ESTADOS_MATRICULA, MatriculaDocumento, MOTIVOS_FIM_CICLO } from '../../../../store/matriculas/matriculas.models';
 import { selectMatriculasError, selectMatriculasPorTurma } from '../../../../store/matriculas/matriculas.selector';
 import { selectIsGestorOuSecretaria } from '../../../../store/auth/auth.selectors';
 
 @Component({
   selector: 'app-turmas.component',
-  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, RouterLink],
+  imports: [ReactiveFormsModule, FormsModule, CommonModule, AsyncPipe, RouterLink],
   templateUrl: './turmas.component.html',
   styleUrl: './turmas.component.css',
 })
 export class TurmasComponent implements OnInit {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private http = inject(HttpClient);
 
   readonly estadosMatricula = ESTADOS_MATRICULA;
+  readonly motivosFimCiclo = MOTIVOS_FIM_CICLO;
 
   cursos$ = this.store.select(selectCursos);
   erro$ = this.store.select(selectAcademicoError);
@@ -191,10 +194,101 @@ export class TurmasComponent implements OnInit {
   }
 
   onAlterarStatus(turmaId: string, matriculaId: string, novoStatus: string) {
+    // Fim de Ciclo exige motivo — nunca disparado logo ao escolher no
+    // <select>, primeiro mostra o sub-painel de confirmação (ver
+    // matriculaEmFimDeCicloId no template). Os outros estados
+    // continuam imediatos, como sempre foram.
+    if (novoStatus === 'CICLO_CONCLUIDO') {
+      this.matriculaEmFimDeCicloId.set(matriculaId);
+      return;
+    }
     this.store.dispatch(atualizarStatusMatricula({
       matricula_id: matriculaId,
       turma_id: turmaId,
       status_matricula: novoStatus
     }));
+  }
+
+  // ==========================================
+  // FIM DE CICLO (motivo obrigatório) — ver ESTADOS_VALIDOS/
+  // MOTIVOS_FIM_CICLO_VALIDOS em back_end/app/cruds/matriculas.py.
+  // ==========================================
+  matriculaEmFimDeCicloId = signal<string | null>(null);
+  motivoFimCicloEscolhido: Record<string, string> = {};
+
+  onConfirmarFimCiclo(turmaId: string, matriculaId: string) {
+    const motivo = this.motivoFimCicloEscolhido[matriculaId];
+    if (!motivo) return;
+    this.store.dispatch(atualizarStatusMatricula({
+      matricula_id: matriculaId, turma_id: turmaId, status_matricula: 'CICLO_CONCLUIDO', motivo
+    }));
+    this.matriculaEmFimDeCicloId.set(null);
+  }
+
+  onCancelarFimCiclo(turmaId: string) {
+    this.matriculaEmFimDeCicloId.set(null);
+    // Repõe o <select> no estado real — sem isto, a opção "Fim de
+    // Ciclo" ficava visualmente escolhida (é o próprio <select> nativo
+    // do browser, não muda sozinho só por o pedido nunca ter sido
+    // disparado ao back-end).
+    this.store.dispatch(carregarMatriculasDaTurma({ turma_id: turmaId }));
+  }
+
+  // ==========================================
+  // DOCUMENTOS DA MATRÍCULA (sobretudo Reingresso) — pequeno de mais
+  // para justificar um slice de NgRx próprio, mesmo padrão de
+  // logotipo/site-publico em configuracoes.component.ts.
+  // ==========================================
+  matriculaDocumentosAbertaId = signal<string | null>(null);
+  documentosPorMatricula = signal<Record<string, MatriculaDocumento[]>>({});
+  descricaoDocumentoPorMatricula: Record<string, string> = {};
+  documentoAEnviarMatriculaId = signal<string | null>(null);
+
+  onAlternarDocumentos(matriculaId: string) {
+    const abrir = this.matriculaDocumentosAbertaId() !== matriculaId;
+    this.matriculaDocumentosAbertaId.set(abrir ? matriculaId : null);
+    if (abrir) {
+      this.http.get<MatriculaDocumento[]>(`/api/v1/matriculas/${matriculaId}/documentos`).subscribe({
+        next: (documentos) => this.documentosPorMatricula.update(atual => ({ ...atual, [matriculaId]: documentos })),
+      });
+    }
+  }
+
+  onSelecionarDocumento(evento: Event, matriculaId: string) {
+    const ficheiro = (evento.target as HTMLInputElement).files?.[0];
+    if (!ficheiro) return;
+    const dados = new FormData();
+    dados.append('ficheiro', ficheiro);
+    const descricao = this.descricaoDocumentoPorMatricula[matriculaId] || '';
+    this.documentoAEnviarMatriculaId.set(matriculaId);
+    this.http.post<{ documentos: MatriculaDocumento[] }>(
+      `/api/v1/matriculas/${matriculaId}/documentos?descricao=${encodeURIComponent(descricao)}`, dados
+    ).subscribe({
+      next: (resp) => {
+        this.documentoAEnviarMatriculaId.set(null);
+        this.documentosPorMatricula.update(atual => ({ ...atual, [matriculaId]: resp.documentos }));
+        this.descricaoDocumentoPorMatricula[matriculaId] = '';
+      },
+      error: () => this.documentoAEnviarMatriculaId.set(null),
+    });
+    (evento.target as HTMLInputElement).value = '';
+  }
+
+  onRemoverDocumento(matriculaId: string, documentoId: string) {
+    this.http.delete<{ documentos: MatriculaDocumento[] }>(
+      `/api/v1/matriculas/${matriculaId}/documentos/${documentoId}`
+    ).subscribe({
+      next: (resp) => this.documentosPorMatricula.update(atual => ({ ...atual, [matriculaId]: resp.documentos })),
+    });
+  }
+
+  onVerDocumento(matriculaId: string, documentoId: string) {
+    const janela = window.open('', '_blank');
+    this.http.get<{ url: string }>(`/api/v1/matriculas/${matriculaId}/documentos/${documentoId}/url`).subscribe({
+      next: (resp) => {
+        janela?.document.write(`<iframe src="${resp.url}" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>`);
+      },
+      error: () => janela?.close(),
+    });
   }
 }

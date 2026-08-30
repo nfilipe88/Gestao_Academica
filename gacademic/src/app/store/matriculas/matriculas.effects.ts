@@ -50,7 +50,7 @@ export class MatriculasEffects {
     this.actions$.pipe(
       ofType(MatriculasActions.atualizarStatusMatricula),
       switchMap(action => this.http.patch(`/api/v1/matriculas/${action.matricula_id}/status`, {
-        status_matricula: action.status_matricula
+        status_matricula: action.status_matricula, motivo: action.motivo ?? null
       }).pipe(
         map(() => MatriculasActions.carregarMatriculasDaTurma({ turma_id: action.turma_id })),
         catchError(err => of(MatriculasActions.matriculasOperacaoFalhou({

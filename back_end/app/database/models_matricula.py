@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -9,8 +9,15 @@ class Matricula(Base):
 
     RN04 do documento de arquitetura: toda nova matrícula recebe
     status_matricula "ATIVO" automaticamente. As transições (Trancado,
-    Transferido, Evadido) são feitas via PATCH /matriculas/{id}/status,
-    nunca escritas diretamente na criação.
+    Transferido, Evadido, Ciclo Concluído) são feitas via PATCH
+    /matriculas/{id}/status, nunca escritas diretamente na criação.
+
+    CICLO_CONCLUIDO ("Fim de Ciclo", ver app/cruds/matriculas.py) é
+    distinto de desativar o login do aluno: fecha o vínculo académico
+    desta matrícula com a escola (o aluno foi para uma escola fora da
+    plataforma, ou concluiu a escolaridade), mas o acesso ao Portal só
+    é revogado se alguém desativar o Usuario explicitamente — são
+    decisões independentes.
     """
     __tablename__ = "matricula"
 
@@ -20,7 +27,13 @@ class Matricula(Base):
     turma_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("turma.id", ondelete="CASCADE"), nullable=False)
 
     ano_letivo: Mapped[int] = mapped_column(Integer, nullable=False)
-    status_matricula: Mapped[str] = mapped_column(String(20), nullable=False, default="ATIVO") # ATIVO, TRANSFERIDO, TRANCADO, EVADIDO
+    status_matricula: Mapped[str] = mapped_column(String(20), nullable=False, default="ATIVO") # ATIVO, TRANSFERIDO, TRANCADO, EVADIDO, CICLO_CONCLUIDO
+    # Motivo da transição de estado mais recente — sobretudo relevante
+    # em CICLO_CONCLUIDO (TRANSFERENCIA_EXTERNA, CONCLUSAO_ESCOLARIDADE,
+    # OUTRO — ver MOTIVOS_FIM_CICLO_VALIDOS), mas guarda o motivo de
+    # qualquer transição (o schema MatriculaStatusUpdate já previa este
+    # campo; só não estava a ser persistido).
+    motivo: Mapped[str | None] = mapped_column(Text, nullable=True)
     data_matricula: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (
@@ -31,3 +44,24 @@ class Matricula(Base):
         # portal) — cobre o filtro completo em vez de só tenant_id.
         Index("ix_matricula_tenant_status", "tenant_id", "status_matricula"),
     )
+
+
+class MatriculaDocumento(Base):
+    """Documento de apoio anexado a uma matrícula pela Secretaria/Gestor
+    — sobretudo usado no Reingresso (aluno que volta de uma escola fora
+    da plataforma, tipicamente para "outra classe": o comprovativo de
+    habilitações da escola anterior justifica em que série entra), mas
+    não é exclusivo disso — qualquer matrícula pode ter documentos de
+    apoio anexados. Só a chave no storage (app/core/storage.py), nunca
+    um URL direto do bucket — mesmo princípio de SitePublicoFoto/
+    LeadDocumento."""
+    __tablename__ = "matricula_documento"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    matricula_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matricula.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    descricao: Mapped[str | None] = mapped_column(String(255), nullable=True)  # ex.: "Certificado de habilitações — Escola X"
+    nome_original: Mapped[str] = mapped_column(String(255), nullable=False)
+    chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))

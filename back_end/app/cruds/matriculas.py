@@ -8,12 +8,28 @@ import uuid
 
 from app.database.models_academico import Turma
 from app.database.models_pessoas import Aluno
-from app.database.models_matricula import Matricula
+from app.database.models_matricula import Matricula, MatriculaDocumento
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.schemas.matriculas import MatriculaCreate, MatriculaStatusUpdate
+from app.core import storage
 from app.cruds.admin import esta_bloqueado_parcialmente
 
-ESTADOS_VALIDOS = {"ATIVO", "TRANSFERIDO", "TRANCADO", "EVADIDO"}
+ESTADOS_VALIDOS = {"ATIVO", "TRANSFERIDO", "TRANCADO", "EVADIDO", "CICLO_CONCLUIDO"}
+
+# "Fim de Ciclo" (RN06) — o aluno deixa de ter matrícula ativa nesta
+# escola porque foi para uma escola fora da plataforma, ou porque
+# concluiu a escolaridade. Distinto de TRANSFERIDO, que é só para o
+# fluxo formal entre escolas da própria plataforma (ver
+# app/cruds/transferencias.py) — aqui a escola de destino, a existir,
+# não está nesta base de dados, por isso não há automação nenhuma a
+# fazer, só o registo do motivo.
+MOTIVOS_FIM_CICLO_VALIDOS = {"TRANSFERENCIA_EXTERNA", "CONCLUSAO_ESCOLARIDADE", "OUTRO"}
+
+# Documentos de apoio a uma matrícula (sobretudo Reingresso — ver
+# MatriculaDocumento).
+_TIPOS_FICHEIRO_ACEITES = {"image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"}
+_TAMANHO_MAXIMO_DOCUMENTO = 8 * 1024 * 1024  # 8 MB
+_MAX_DOCUMENTOS_POR_MATRICULA = 10
 
 
 # ==========================================
@@ -151,11 +167,16 @@ async def listar_matriculas_da_turma(db: AsyncSession, tenant_id, turma_id: uuid
 
 
 async def atualizar_status_matricula(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, dados: MatriculaStatusUpdate) -> None:
-    """Atualiza a situação do aluno (ex: de Ativo para Trancado, Transferido ou Evadido)."""
+    """Atualiza a situação do aluno (ex: de Ativo para Trancado, Transferido, Evadido ou Ciclo Concluído — Fim de Ciclo)."""
     if dados.status_matricula not in ESTADOS_VALIDOS:
         raise HTTPException(
             status_code=400,
             detail=f"Status inválido. Use um de: {', '.join(sorted(ESTADOS_VALIDOS))}."
+        )
+    if dados.status_matricula == "CICLO_CONCLUIDO" and dados.motivo not in MOTIVOS_FIM_CICLO_VALIDOS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Indique o motivo do Fim de Ciclo — um de: {', '.join(sorted(MOTIVOS_FIM_CICLO_VALIDOS))}."
         )
 
     matricula = (await db.execute(
@@ -165,7 +186,91 @@ async def atualizar_status_matricula(db: AsyncSession, tenant_id, matricula_id: 
         raise HTTPException(status_code=404, detail="Matrícula não encontrada na sua instituição.")
 
     matricula.status_matricula = dados.status_matricula
+    matricula.motivo = dados.motivo
     await db.commit()
+
+
+# ==========================================
+# DOCUMENTOS DA MATRÍCULA (sobretudo Reingresso)
+# ==========================================
+async def _obter_matricula(db: AsyncSession, tenant_id, matricula_id: uuid.UUID) -> Matricula:
+    matricula = (await db.execute(
+        select(Matricula).where(Matricula.id == matricula_id, Matricula.tenant_id == tenant_id)
+    )).scalars().first()
+    if not matricula:
+        raise HTTPException(status_code=404, detail="Matrícula não encontrada na sua instituição.")
+    return matricula
+
+
+async def _listar_documentos_matricula(db: AsyncSession, tenant_id, matricula_id) -> list[MatriculaDocumento]:
+    return (await db.execute(
+        select(MatriculaDocumento).where(MatriculaDocumento.tenant_id == tenant_id, MatriculaDocumento.matricula_id == matricula_id)
+        .order_by(MatriculaDocumento.data_criacao)
+    )).scalars().all()
+
+
+def _serializar_documento(d: MatriculaDocumento) -> dict:
+    return {"id": d.id, "descricao": d.descricao, "nome_original": d.nome_original}
+
+
+async def listar_documentos_matricula(db: AsyncSession, tenant_id, matricula_id: uuid.UUID) -> list[dict]:
+    await _obter_matricula(db, tenant_id, matricula_id)
+    return [_serializar_documento(d) for d in await _listar_documentos_matricula(db, tenant_id, matricula_id)]
+
+
+async def adicionar_documento_matricula(
+    db: AsyncSession, tenant_id, matricula_id: uuid.UUID, descricao: str | None,
+    nome_original: str, content_type: str, conteudo: bytes
+) -> list[dict]:
+    if content_type not in _TIPOS_FICHEIRO_ACEITES:
+        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG, GIF, WebP ou PDF.")
+    if len(conteudo) > _TAMANHO_MAXIMO_DOCUMENTO:
+        raise HTTPException(status_code=400, detail="Cada documento não pode passar de 8 MB.")
+
+    await _obter_matricula(db, tenant_id, matricula_id)
+    total_atual = len(await _listar_documentos_matricula(db, tenant_id, matricula_id))
+    if total_atual >= _MAX_DOCUMENTOS_POR_MATRICULA:
+        raise HTTPException(status_code=400, detail=f"Já tem o máximo de {_MAX_DOCUMENTOS_POR_MATRICULA} documentos anexados a esta matrícula.")
+
+    chave = storage.gerar_chave(tenant_id, "matricula", nome_original)
+    await storage.guardar_ficheiro(chave, conteudo, content_type)
+
+    db.add(MatriculaDocumento(
+        tenant_id=tenant_id, matricula_id=matricula_id, descricao=(descricao or "").strip() or None,
+        nome_original=nome_original, chave_storage=chave
+    ))
+    await db.commit()
+    return [_serializar_documento(d) for d in await _listar_documentos_matricula(db, tenant_id, matricula_id)]
+
+
+async def remover_documento_matricula(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, documento_id: uuid.UUID) -> list[dict]:
+    await _obter_matricula(db, tenant_id, matricula_id)
+    documento = (await db.execute(
+        select(MatriculaDocumento).where(
+            MatriculaDocumento.id == documento_id, MatriculaDocumento.matricula_id == matricula_id, MatriculaDocumento.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not documento:
+        raise HTTPException(status_code=404, detail="Documento não encontrado.")
+    chave = documento.chave_storage
+    await db.delete(documento)
+    await db.commit()
+    await storage.apagar_ficheiro(chave)
+    return [_serializar_documento(d) for d in await _listar_documentos_matricula(db, tenant_id, matricula_id)]
+
+
+async def obter_documento_matricula_url(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, documento_id: uuid.UUID) -> str:
+    documento = (await db.execute(
+        select(MatriculaDocumento).where(
+            MatriculaDocumento.id == documento_id, MatriculaDocumento.matricula_id == matricula_id, MatriculaDocumento.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not documento:
+        raise HTTPException(status_code=404, detail="Documento não encontrado.")
+    url = await storage.obter_data_uri(documento.chave_storage)
+    if not url:
+        raise HTTPException(status_code=404, detail="Ficheiro do documento já não está disponível.")
+    return url
 
 
 async def listar_matriculas_do_aluno(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) -> list[dict]:

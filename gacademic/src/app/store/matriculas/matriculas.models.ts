@@ -9,9 +9,28 @@ export interface MatriculaDaTurma {
   aluno_id: string;
   nome_aluno: string;
   matricula_interna: string;
-  status_matricula: string; // ATIVO, TRANSFERIDO, TRANCADO, EVADIDO
+  status_matricula: string; // ATIVO, TRANSFERIDO, TRANCADO, EVADIDO, CICLO_CONCLUIDO
   ano_letivo: number;
   data_matricula: string;
 }
 
-export const ESTADOS_MATRICULA = ['ATIVO', 'TRANSFERIDO', 'TRANCADO', 'EVADIDO'] as const;
+// CICLO_CONCLUIDO ("Fim de Ciclo") tem um sub-fluxo próprio no
+// template (motivo obrigatório) — ver turmas.component.ts. Fica na
+// mesma lista para o <select> de sempre continuar a listar todos os
+// estados possíveis.
+export const ESTADOS_MATRICULA = ['ATIVO', 'TRANSFERIDO', 'TRANCADO', 'EVADIDO', 'CICLO_CONCLUIDO'] as const;
+
+// Só usados quando status_matricula === 'CICLO_CONCLUIDO' — têm de
+// ficar sincronizados com MOTIVOS_FIM_CICLO_VALIDOS em
+// back_end/app/cruds/matriculas.py.
+export const MOTIVOS_FIM_CICLO = [
+  { chave: 'TRANSFERENCIA_EXTERNA', rotulo: 'Foi para uma escola fora da plataforma' },
+  { chave: 'CONCLUSAO_ESCOLARIDADE', rotulo: 'Concluiu a escolaridade' },
+  { chave: 'OUTRO', rotulo: 'Outro motivo' },
+] as const;
+
+export interface MatriculaDocumento {
+  id: string;
+  descricao: string | null;
+  nome_original: string;
+}

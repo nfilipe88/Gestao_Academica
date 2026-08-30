@@ -17,7 +17,7 @@ export const criarMatricula = createAction(
 
 export const atualizarStatusMatricula = createAction(
   '[Matriculas] Atualizar Status Matricula',
-  props<{ matricula_id: string, turma_id: string, status_matricula: string }>()
+  props<{ matricula_id: string, turma_id: string, status_matricula: string, motivo?: string | null }>()
 );
 
 // Ação genérica de falha (mesmo padrão dos módulos académico/alunos): sem

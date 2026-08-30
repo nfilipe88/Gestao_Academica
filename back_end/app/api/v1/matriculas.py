@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
 import uuid
 
 from app.database.session import obter_sessao_db
@@ -48,9 +49,59 @@ async def atualizar_status_matricula(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(_PODE_GERIR)
 ):
-    """Atualiza a situação do aluno (ex: de Ativo para Trancado, Transferido ou Evadido)."""
+    """Atualiza a situação do aluno (ex: de Ativo para Trancado, Transferido, Evadido ou Ciclo Concluído — Fim de Ciclo)."""
     await crud_matriculas.atualizar_status_matricula(db, utilizador["tenant_id"], matricula_id, dados)
     return {"mensagem": "Status da matrícula atualizado com sucesso."}
+
+# ==========================================
+# C2. DOCUMENTOS DA MATRÍCULA (sobretudo Reingresso)
+# ==========================================
+@router.get("/matriculas/{matricula_id}/documentos")
+async def listar_documentos_matricula(
+    matricula_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    return await crud_matriculas.listar_documentos_matricula(db, utilizador["tenant_id"], matricula_id)
+
+@router.post("/matriculas/{matricula_id}/documentos", status_code=status.HTTP_201_CREATED)
+async def adicionar_documento_matricula(
+    matricula_id: uuid.UUID,
+    descricao: str | None = None,
+    ficheiro: UploadFile = File(...),
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Anexa um documento de apoio à matrícula (ex: comprovativo de habilitações no Reingresso)."""
+    conteudo = await ficheiro.read()
+    if not conteudo:
+        raise HTTPException(status_code=400, detail="Ficheiro vazio.")
+    documentos = await crud_matriculas.adicionar_documento_matricula(
+        db, utilizador["tenant_id"], matricula_id, descricao,
+        ficheiro.filename or "documento", ficheiro.content_type or "application/octet-stream", conteudo
+    )
+    return {"documentos": documentos}
+
+@router.delete("/matriculas/{matricula_id}/documentos/{documento_id}")
+async def remover_documento_matricula(
+    matricula_id: uuid.UUID,
+    documento_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    documentos = await crud_matriculas.remover_documento_matricula(db, utilizador["tenant_id"], matricula_id, documento_id)
+    return {"documentos": documentos}
+
+@router.get("/matriculas/{matricula_id}/documentos/{documento_id}/url")
+async def obter_documento_matricula(
+    matricula_id: uuid.UUID,
+    documento_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Devolve o documento como data URI para consulta — pedido só quando aberto."""
+    url = await crud_matriculas.obter_documento_matricula_url(db, utilizador["tenant_id"], matricula_id, documento_id)
+    return {"url": url}
 
 # ==========================================
 # D. CONSULTAR HISTÓRICO DO ALUNO

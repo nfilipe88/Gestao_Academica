@@ -101,6 +101,7 @@
   </div>
 
   <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+    <div class="overflow-x-auto">
     <table class="w-full text-left border-collapse">
       <thead>
         <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
@@ -132,13 +133,14 @@
               <div class="pl-3 border-l-2 border-blue-200 space-y-3">
 
                 @if (painel.matriculadas.length > 0) {
+                  <div class="overflow-x-auto">
                   <table class="w-full text-sm">
                     <tbody>
                       @for (matricula of painel.matriculadas; track matricula.matricula_id) {
                         <tr class="border-b border-slate-100 last:border-0">
                           <td class="py-1.5 pr-3 text-slate-700 font-medium">{{ matricula.nome_aluno }}</td>
                           <td class="py-1.5 pr-3 text-slate-500">{{ matricula.matricula_interna }}</td>
-                          <td class="py-1.5 text-right">
+                          <td class="py-1.5 pr-3 text-right">
                             @if (podeGerir$ | async) {
                             <select
                               class="border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700"
@@ -155,10 +157,84 @@
                               <span class="text-xs text-slate-500">{{ matricula.status_matricula }}</span>
                             }
                           </td>
+                          <td class="py-1.5 text-right">
+                            <button type="button" (click)="onAlternarDocumentos(matricula.matricula_id)"
+                              class="text-xs text-blue-500 hover:text-blue-700 font-medium cursor-pointer">
+                              {{ matriculaDocumentosAbertaId() === matricula.matricula_id ? 'Fechar' : '📎 Documentos' }}
+                            </button>
+                          </td>
                         </tr>
+
+                        @if (matriculaEmFimDeCicloId() === matricula.matricula_id) {
+                          <tr class="bg-amber-50/60 border-b border-slate-100">
+                            <td colspan="4" class="py-2 px-2">
+                              <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-xs font-medium text-amber-700">Fim de Ciclo — motivo:</span>
+                                <select
+                                  [ngModel]="motivoFimCicloEscolhido[matricula.matricula_id] ?? ''"
+                                  (ngModelChange)="motivoFimCicloEscolhido[matricula.matricula_id] = $event"
+                                  [ngModelOptions]="{ standalone: true }"
+                                  class="border border-amber-300 rounded-lg px-2 py-1 text-xs text-slate-700">
+                                  <option value="" disabled>Selecione o motivo</option>
+                                  @for (motivo of motivosFimCiclo; track motivo.chave) {
+                                    <option [value]="motivo.chave">{{ motivo.rotulo }}</option>
+                                  }
+                                </select>
+                                <button type="button" (click)="onConfirmarFimCiclo(turma.id, matricula.matricula_id)"
+                                  [disabled]="!motivoFimCicloEscolhido[matricula.matricula_id]"
+                                  class="text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-medium py-1 px-3 rounded-lg cursor-pointer disabled:cursor-not-allowed">
+                                  Confirmar
+                                </button>
+                                <button type="button" (click)="onCancelarFimCiclo(turma.id)"
+                                  class="text-xs text-slate-500 hover:text-slate-700 cursor-pointer">
+                                  Cancelar
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        }
+
+                        @if (matriculaDocumentosAbertaId() === matricula.matricula_id) {
+                          <tr class="bg-slate-50 border-b border-slate-100">
+                            <td colspan="4" class="py-2 px-2">
+                              <div class="space-y-2">
+                                @for (doc of documentosPorMatricula()[matricula.matricula_id]; track doc.id) {
+                                  <div class="flex items-center justify-between gap-2 flex-wrap bg-white border border-slate-200 rounded-lg px-2 py-1">
+                                    <button type="button" (click)="onVerDocumento(matricula.matricula_id, doc.id)"
+                                      class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer text-left">
+                                      {{ doc.descricao || doc.nome_original }}
+                                    </button>
+                                    @if (podeGerir$ | async) {
+                                      <button type="button" (click)="onRemoverDocumento(matricula.matricula_id, doc.id)"
+                                        class="text-xs text-rose-600 hover:text-rose-700 cursor-pointer">Remover</button>
+                                    }
+                                  </div>
+                                } @empty {
+                                  <p class="text-xs text-slate-400">Nenhum documento anexado.</p>
+                                }
+                                @if (podeGerir$ | async) {
+                                  <div class="flex flex-wrap items-center gap-2 pt-1">
+                                    <input type="text" placeholder="Descrição — opcional"
+                                      [ngModel]="descricaoDocumentoPorMatricula[matricula.matricula_id] ?? ''"
+                                      (ngModelChange)="descricaoDocumentoPorMatricula[matricula.matricula_id] = $event"
+                                      [ngModelOptions]="{ standalone: true }"
+                                      class="border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 flex-1 min-w-32" />
+                                    <label class="text-xs bg-slate-100 hover:bg-blue-50 text-blue-700 font-medium py-1 px-3 rounded-lg cursor-pointer">
+                                      {{ documentoAEnviarMatriculaId() === matricula.matricula_id ? 'A enviar…' : '+ Anexar ficheiro' }}
+                                      <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" class="hidden"
+                                        [disabled]="documentoAEnviarMatriculaId() === matricula.matricula_id"
+                                        (change)="onSelecionarDocumento($event, matricula.matricula_id)" />
+                                    </label>
+                                  </div>
+                                }
+                              </div>
+                            </td>
+                          </tr>
+                        }
                       }
                     </tbody>
                   </table>
+                  </div>
                 } @else {
                   <p class="text-sm text-slate-500">Ainda não há alunos matriculados nesta turma.</p>
                 }
@@ -195,6 +271,7 @@
         }
       </tbody>
     </table>
+    </div>
   </div>
 
 </div>
