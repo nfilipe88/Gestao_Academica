@@ -13,6 +13,7 @@ import {
   selectResponsaveis, selectVinculos
 } from '../../../store/alunos/alunos.selector';
 import { AlunoDocumento, FotoPerfilAluno } from '../../../store/alunos/alunos.models';
+import { abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
@@ -345,6 +346,14 @@ export class AlunosComponent implements OnInit, OnDestroy {
         janela?.document.write(`<img src="${resp.url}" style="max-width:100%;max-height:100vh;display:block;margin:0 auto">`);
       },
       error: () => janela?.close(),
+    });
+  }
+
+  onVerCartaoAcesso(alunoId: string) {
+    const aba = window.open('', '_blank');
+    this.http.get(`/api/v1/alunos/${alunoId}/cartao-acesso.pdf`, { responseType: 'blob' }).subscribe({
+      next: (blob) => abrirOuTransferirBlob(aba, blob, `cartao-acesso-${alunoId}.pdf`),
+      error: () => { if (aba) aba.close(); }
     });
   }
 }

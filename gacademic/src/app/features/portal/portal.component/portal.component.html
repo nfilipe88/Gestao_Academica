@@ -194,6 +194,10 @@
               [disabled]="fotoPerfilAEnviar()"
               (change)="onSelecionarFotoPerfil($event, educandoSelecionadoId!)" />
           </label>
+          <button type="button" (click)="onVerCartaoAcesso(educandoSelecionadoId!)"
+            class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-1.5 px-3 rounded-lg cursor-pointer shrink-0">
+            🪪 Cartão de acesso
+          </button>
         </div>
 
         @if (estatisticas$ | async; as est) {

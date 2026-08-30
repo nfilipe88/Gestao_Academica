@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
@@ -224,3 +224,17 @@ async def obter_foto_perfil(
     """Devolve a fotografia como data URI — pedida só quando aberta."""
     url = await crud_alunos.obter_foto_perfil_url(db, utilizador["tenant_id"], aluno_id, foto_id)
     return {"url": url}
+
+@router.get("/alunos/{aluno_id}/cartao-acesso.pdf")
+async def obter_cartao_acesso(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Cartão de acesso do aluno (formato cartão, foto de perfil ativa)
+    — pronto a imprimir, gerado no momento a partir dos dados atuais."""
+    pdf_bytes = await crud_alunos.gerar_cartao_acesso(db, utilizador["tenant_id"], aluno_id)
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="cartao-acesso-{aluno_id}.pdf"'}
+    )

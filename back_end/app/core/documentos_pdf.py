@@ -264,3 +264,82 @@ def gerar_pdf_documento(
     if resultado.err:
         raise RuntimeError(f"Falha ao gerar o PDF do documento ({tipo_documento}).")
     return buffer.getvalue()
+
+
+# ==========================================
+# CARTÃO DE ACESSO — fora da família dos documentos formais acima de
+# propósito: não é um "documento" que a família pede/paga (ver
+# Solicitações de Documentos), é um crachá operacional que a escola
+# emite diretamente (ver cruds/alunos.py::gerar_cartao_acesso). Por
+# isso não usa o _ENVELOPE (folha A4, assinatura, tom de carta formal)
+# nem passa por TIPOS_DOCUMENTO/TemplateDocumentoPersonalizado — layout
+# fixo, tamanho de cartão (formato CR80, o mesmo de um cartão bancário).
+# ==========================================
+_CARTAO_ACESSO = Template("""
+<html>
+<head>
+<style>
+  @page { size: 85.6mm 54mm; margin: 0; }
+  body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; }
+  .cartao { width: 85.6mm; height: 54mm; padding: 3mm; box-sizing: border-box; border: 0.4mm solid #2563eb; }
+  table.layout { width: 100%; border-collapse: collapse; }
+  td.foto-col { width: 21mm; vertical-align: top; }
+  td.dados-col { vertical-align: top; padding-left: 3mm; }
+  .foto { width: 19mm; height: 23mm; }
+  .foto-vazia { width: 18.4mm; height: 22.4mm; border: 0.3mm dashed #cbd5e1; text-align: center; font-size: 6pt; color: #94a3b8; padding-top: 8mm; }
+  .escola-nome { font-size: 8pt; font-weight: bold; color: #2563eb; margin: 0 0 1mm 0; }
+  .rotulo-cartao { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin: 0 0 2.5mm 0; }
+  .aluno-nome { font-size: 9pt; font-weight: bold; color: #1e293b; margin: 0 0 2mm 0; }
+  .linha-dado { font-size: 7pt; color: #475569; margin: 0 0 1mm 0; }
+  .rotulo-dado { color: #94a3b8; }
+  .rodape { font-size: 5.5pt; color: #94a3b8; margin-top: 2mm; }
+</style>
+</head>
+<body>
+  <div class="cartao">
+    <table class="layout">
+      <tr>
+        <td class="foto-col">
+          {% if foto_data_uri %}
+            <img class="foto" src="{{ foto_data_uri }}">
+          {% else %}
+            <div class="foto-vazia">Sem<br>fotografia</div>
+          {% endif %}
+        </td>
+        <td class="dados-col">
+          {% if escola_logo_data_uri %}<img src="{{ escola_logo_data_uri }}" style="max-height:6mm;max-width:30mm;margin-bottom:1mm;">{% endif %}
+          <p class="escola-nome">{{ escola_nome }}</p>
+          <p class="rotulo-cartao">Cartão de Acesso</p>
+          <p class="aluno-nome">{{ aluno_nome }}</p>
+          <p class="linha-dado"><span class="rotulo-dado">Matrícula:</span> {{ matricula_interna }}</p>
+          <p class="linha-dado"><span class="rotulo-dado">Turma:</span> {{ turma_nome or '—' }}</p>
+          <p class="linha-dado"><span class="rotulo-dado">Ano letivo:</span> {{ ano_letivo or '—' }}</p>
+        </td>
+      </tr>
+    </table>
+    <p class="rodape">Emitido em {{ data_emissao }}</p>
+  </div>
+</body>
+</html>
+""")
+
+
+def gerar_pdf_cartao_acesso(escola: dict, dados: dict) -> bytes:
+    """dados: {"aluno_nome", "matricula_interna", "turma_nome" (opcional),
+    "ano_letivo" (opcional), "foto_data_uri" (opcional — sem foto ativa,
+    mostra um espaço reservado em vez de bloquear a emissão)}."""
+    html = _CARTAO_ACESSO.render(
+        escola_nome=escola.get("nome") or "",
+        escola_logo_data_uri=escola.get("logo_data_uri"),
+        aluno_nome=dados.get("aluno_nome") or "",
+        matricula_interna=dados.get("matricula_interna") or "",
+        turma_nome=dados.get("turma_nome"),
+        ano_letivo=dados.get("ano_letivo"),
+        foto_data_uri=dados.get("foto_data_uri"),
+        data_emissao=date.today().strftime("%d/%m/%Y"),
+    )
+    buffer = io.BytesIO()
+    resultado = pisa.CreatePDF(io.StringIO(html), dest=buffer)
+    if resultado.err:
+        raise RuntimeError("Falha ao gerar o PDF do cartão de acesso.")
+    return buffer.getvalue()

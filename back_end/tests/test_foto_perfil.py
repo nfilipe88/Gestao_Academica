@@ -148,6 +148,83 @@ async def test_portal_foto_perfil_self_service(client):
     assert len(resp.json()) == 1
 
 
+async def test_cartao_acesso_pdf_com_foto_e_turma(client):
+    """O cartão de acesso (formato cartão, ver app/core/documentos_pdf.py
+    ::gerar_pdf_cartao_acesso) é gerado no momento, pronto a imprimir —
+    não é um documento pedido/pago (Solicitações de Documentos)."""
+    from datetime import date
+    escola = await criar_escola_e_gestor(client, "cartao-acesso-completo")
+    headers = auth_headers(escola["token"])
+    dados = await _criar_aluno_matriculado_com_portal(client, headers, date.today().year)
+
+    resp = await client.post(
+        f"/api/v1/alunos/{dados['aluno_id']}/foto-perfil", headers=headers,
+        files={"ficheiro": ("cartao.png", io.BytesIO(_PNG_1X1), "image/png")}
+    )
+    assert resp.status_code == 201, resp.text
+
+    resp = await client.get(f"/api/v1/alunos/{dados['aluno_id']}/cartao-acesso.pdf", headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["content-type"] == "application/pdf"
+    assert resp.content.startswith(b"%PDF")
+
+
+async def test_cartao_acesso_pdf_sem_foto_nao_bloqueia(client):
+    """Um aluno sem fotografia nenhuma ainda deve poder ter o cartão
+    emitido (com um espaço reservado no lugar da foto) — a Secretaria
+    não devia ficar bloqueada por isso."""
+    escola = await criar_escola_e_gestor(client, "cartao-acesso-sem-foto")
+    headers = auth_headers(escola["token"])
+    aluno_id = await _criar_aluno(client, headers)
+
+    resp = await client.get(f"/api/v1/alunos/{aluno_id}/cartao-acesso.pdf", headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.content.startswith(b"%PDF")
+
+
+async def test_cartao_acesso_isolado_por_tenant(client):
+    escola_a = await criar_escola_e_gestor(client, "cartao-acesso-iso-a")
+    escola_b = await criar_escola_e_gestor(client, "cartao-acesso-iso-b")
+    headers_a = auth_headers(escola_a["token"])
+    aluno_id = await _criar_aluno(client, headers_a)
+
+    resp = await client.get(f"/api/v1/alunos/{aluno_id}/cartao-acesso.pdf", headers=auth_headers(escola_b["token"]))
+    assert resp.status_code == 404
+
+
+async def test_portal_cartao_acesso_self_service(client):
+    from datetime import date
+    escola = await criar_escola_e_gestor(client, "portal-cartao-self")
+    headers = auth_headers(escola["token"])
+    dados = await _criar_aluno_matriculado_com_portal(client, headers, date.today().year)
+
+    resp = await client.post("/api/v1/auth/login", data={"username": dados["email_responsavel"], "password": dados["senha"]})
+    token_responsavel = resp.json()["access_token"]
+
+    resp = await client.get(
+        f"/api/v1/portal/educandos/{dados['aluno_id']}/cartao-acesso.pdf", headers=auth_headers(token_responsavel)
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.content.startswith(b"%PDF")
+
+
+async def test_portal_cartao_acesso_bloqueia_outra_familia(client):
+    from datetime import date
+    escola = await criar_escola_e_gestor(client, "portal-cartao-posse")
+    headers = auth_headers(escola["token"])
+    ano_letivo = date.today().year
+    familia_a = await _criar_aluno_matriculado_com_portal(client, headers, ano_letivo)
+    familia_b = await _criar_aluno_matriculado_com_portal(client, headers, ano_letivo)
+
+    resp = await client.post("/api/v1/auth/login", data={"username": familia_a["email_responsavel"], "password": familia_a["senha"]})
+    token_responsavel_a = resp.json()["access_token"]
+
+    resp = await client.get(
+        f"/api/v1/portal/educandos/{familia_b['aluno_id']}/cartao-acesso.pdf", headers=auth_headers(token_responsavel_a)
+    )
+    assert resp.status_code == 403, resp.text
+
+
 async def test_portal_foto_perfil_bloqueia_outra_familia(client):
     """Posse (garantir_aluno_permitido) — duas famílias na MESMA escola,
     um responsável não pode enviar/ver a foto do educando de outra."""

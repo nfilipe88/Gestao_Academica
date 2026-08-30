@@ -128,6 +128,20 @@ async def obter_foto_perfil_do_educando(
     return {"url": url}
 
 
+@router.get("/educandos/{aluno_id}/cartao-acesso.pdf")
+async def obter_cartao_acesso_do_educando(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Cartão de acesso do educando, pronto a imprimir."""
+    pdf_bytes = await crud_portal.gerar_cartao_acesso_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="cartao-acesso-{aluno_id}.pdf"'}
+    )
+
+
 @router.get("/educandos/{aluno_id}/estatisticas")
 async def obter_estatisticas_do_educando(
     aluno_id: uuid.UUID,

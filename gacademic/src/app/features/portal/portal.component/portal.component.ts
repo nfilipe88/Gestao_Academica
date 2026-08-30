@@ -289,6 +289,14 @@ export class PortalComponent implements OnInit {
     });
   }
 
+  onVerCartaoAcesso(alunoId: string) {
+    const aba = window.open('', '_blank');
+    this.http.get(`/api/v1/portal/educandos/${alunoId}/cartao-acesso.pdf`, { responseType: 'blob' }).subscribe({
+      next: (blob) => abrirOuTransferirBlob(aba, blob, `cartao-acesso-${alunoId}.pdf`),
+      error: () => { if (aba) aba.close(); }
+    });
+  }
+
   // --- Exames online (LMS) ---
 
   onIniciarExame(exameId: string) {

@@ -312,14 +312,20 @@
                     } @empty {
                       <p class="text-xs text-slate-400">Ainda sem fotografia de perfil.</p>
                     }
-                    @if (podeGerir$ | async) {
-                      <label class="inline-block text-xs bg-slate-100 hover:bg-blue-50 text-blue-700 font-medium py-1 px-3 rounded-lg cursor-pointer">
-                        {{ fotoAEnviarAlunoId() === aluno.id ? 'A enviar…' : '+ Enviar fotografia' }}
-                        <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden"
-                          [disabled]="fotoAEnviarAlunoId() === aluno.id"
-                          (change)="onSelecionarFoto($event, aluno.id)" />
-                      </label>
-                    }
+                    <div class="flex flex-wrap gap-2">
+                      @if (podeGerir$ | async) {
+                        <label class="inline-block text-xs bg-slate-100 hover:bg-blue-50 text-blue-700 font-medium py-1 px-3 rounded-lg cursor-pointer">
+                          {{ fotoAEnviarAlunoId() === aluno.id ? 'A enviar…' : '+ Enviar fotografia' }}
+                          <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden"
+                            [disabled]="fotoAEnviarAlunoId() === aluno.id"
+                            (change)="onSelecionarFoto($event, aluno.id)" />
+                        </label>
+                      }
+                      <button type="button" (click)="onVerCartaoAcesso(aluno.id)"
+                        class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-1 px-3 rounded-lg cursor-pointer">
+                        🪪 Ver cartão de acesso
+                      </button>
+                    </div>
                   </div>
                 }
               </div>

@@ -260,6 +260,13 @@ async def obter_foto_perfil_do_educando(
     return await crud_alunos.obter_foto_perfil_url(db, tenant_id, aluno_id, foto_id)
 
 
+async def gerar_cartao_acesso_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> bytes:
+    """O próprio aluno, ou o encarregado, pode ver/imprimir o cartão de
+    acesso do educando — mesmo PDF que a Secretaria gera."""
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    return await crud_alunos.gerar_cartao_acesso(db, tenant_id, aluno_id)
+
+
 # ==========================================
 # A4. ESTATÍSTICAS/DESEMPENHO DO EDUCANDO (dashboard do Portal)
 # ==========================================

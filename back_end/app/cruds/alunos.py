@@ -11,9 +11,11 @@ import uuid
 
 from datetime import date
 
-from app.database.models import Usuario
+from app.database.models import Tenant, Usuario
+from app.database.models_academico import Turma
+from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoDocumento, AlunoResponsavel, FotoPerfilAluno, ResponsavelFinanceiroLegal
-from app.core import storage
+from app.core import documentos_pdf, storage
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import paginar
 from app.schemas.alunos import AlunoCreate, CriarAcessoRequest, ResponsavelCreate, VincularResponsavel
@@ -412,3 +414,41 @@ async def obter_foto_perfil_url(db: AsyncSession, tenant_id, aluno_id: uuid.UUID
     if not url:
         raise HTTPException(status_code=404, detail="Ficheiro da fotografia já não está disponível.")
     return url
+
+
+async def gerar_cartao_acesso(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) -> bytes:
+    """PDF de formato cartão (CR80, ver documentos_pdf.py) com a foto de
+    perfil ATIVA do aluno — não é um "documento" pedido/pago pela
+    família (ver Solicitações de Documentos), é emitido diretamente
+    pela escola sob pedido. Não bloqueia se faltar foto ou matrícula
+    (mostra espaço reservado/"—") — a Secretaria pode querer emitir o
+    cartão antes de qualquer um dos dois estar pronto."""
+    aluno = await _obter_aluno(db, tenant_id, aluno_id)
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+
+    matricula_turma = (await db.execute(
+        select(Matricula.ano_letivo, Turma.nome_codigo)
+        .join(Turma, Turma.id == Matricula.turma_id)
+        .where(Matricula.tenant_id == tenant_id, Matricula.aluno_id == aluno_id)
+        .order_by(Matricula.status_matricula != "ATIVO", Matricula.ano_letivo.desc())
+    )).first()
+
+    foto_ativa = (await db.execute(
+        select(FotoPerfilAluno).where(
+            FotoPerfilAluno.tenant_id == tenant_id, FotoPerfilAluno.aluno_id == aluno_id, FotoPerfilAluno.ativa.is_(True)
+        )
+    )).scalars().first()
+    foto_data_uri = await storage.obter_data_uri(foto_ativa.chave_storage) if foto_ativa else None
+
+    escola = {
+        "nome": tenant.nome_fantasia if tenant else "",
+        "logo_data_uri": await storage.obter_logo_data_uri(tenant) if tenant else None,
+    }
+    dados = {
+        "aluno_nome": aluno.nome_completo,
+        "matricula_interna": aluno.matricula_interna,
+        "turma_nome": matricula_turma.nome_codigo if matricula_turma else None,
+        "ano_letivo": matricula_turma.ano_letivo if matricula_turma else None,
+        "foto_data_uri": foto_data_uri,
+    }
+    return documentos_pdf.gerar_pdf_cartao_acesso(escola, dados)
