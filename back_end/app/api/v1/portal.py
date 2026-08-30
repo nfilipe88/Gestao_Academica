@@ -60,6 +60,18 @@ async def obter_financeiro_do_educando(
     return await crud_portal.obter_financeiro_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)
 
 
+@router.post("/educandos/{aluno_id}/pedir-rematricula")
+async def pedir_rematricula(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Confirma interesse em renovar a matrícula do educando para o ano
+    letivo seguinte — não cria a matrícula em si, só notifica a
+    Secretaria/Gestor (que escolhem a turma de destino)."""
+    return await crud_portal.pedir_rematricula(db, utilizador["tenant_id"], utilizador, aluno_id)
+
+
 @router.get("/educandos/{aluno_id}/tarefas")
 async def listar_tarefas_do_educando(
     aluno_id: uuid.UUID,

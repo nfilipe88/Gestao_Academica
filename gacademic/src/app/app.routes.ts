@@ -94,6 +94,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/academico/turmas/turmas.component/turmas.component').then((m) => m.TurmasComponent)
       },
       {
+        path: 'rematricula',
+        loadComponent: () => import('./features/academico/rematricula/rematricula.component/rematricula.component').then((m) => m.RematriculaComponent)
+      },
+      {
         path: 'alunos',
         loadComponent: () => import('./features/pessoas/alunos.component/alunos.component').then((m) => m.AlunosComponent)
       },

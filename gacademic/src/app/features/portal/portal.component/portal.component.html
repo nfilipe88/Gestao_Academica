@@ -39,6 +39,29 @@
   </div>
 
   @if (educandoSelecionadoId) {
+    @if (educandoAtual(educandos$ | async); as edu) {
+      @if (edu.elegivel_rematricula) {
+        <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+          <h3 class="text-sm font-semibold text-slate-800 mb-1">Rematrícula {{ edu.ano_letivo_destino_rematricula }}</h3>
+          @if (edu.pedido_rematricula_confirmado) {
+            <p class="text-sm text-emerald-700">✓ Pedido de rematrícula enviado — a Secretaria vai atribuir a turma do próximo ano letivo.</p>
+          } @else if (edu.bloqueado_rematricula_por_atraso) {
+            <p class="text-sm text-rose-600">
+              Há mensalidades em atraso que bloqueiam a rematrícula — regularize a situação no separador Financeiro antes de pedir a renovação.
+            </p>
+          } @else {
+            <p class="text-sm text-slate-500 mb-3">Confirme que pretende renovar a matrícula de {{ edu.nome_completo }} para {{ edu.ano_letivo_destino_rematricula }} — a Secretaria trata da atribuição de turma a seguir.</p>
+            @if (erroRematricula) {
+              <p class="text-sm text-rose-600 mb-2">{{ erroRematricula }}</p>
+            }
+            <button type="button" (click)="onPedirRematricula(edu.aluno_id)" [disabled]="aEnviarPedidoRematricula"
+              class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+              {{ aEnviarPedidoRematricula ? 'A enviar…' : 'Pedir Rematrícula' }}
+            </button>
+          }
+        </div>
+      }
+    }
 
     <div class="flex gap-1 border-b border-slate-200">
       <button type="button" (click)="aba = 'horario'"

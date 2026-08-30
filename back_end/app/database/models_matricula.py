@@ -65,3 +65,34 @@ class MatriculaDocumento(Base):
     nome_original: Mapped[str] = mapped_column(String(255), nullable=False)
     chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class PedidoRematricula(Base):
+    """Confirmação de interesse do encarregado/aluno, via Portal, em
+    renovar a matrícula para o ano letivo seguinte ("rematrícula
+    self-service" — ver app/cruds/portal.py::pedir_rematricula).
+
+    NÃO cria a Matrícula do ano seguinte por si só — quem decide a
+    turma de destino continua a ser a Secretaria/Gestor (implica
+    progressão de série, uma decisão pedagógica, não administrativa).
+    Isto só sinaliza à escola que a família já confirmou intenção,
+    para priorizar no ecrã de Rematrícula (ver
+    cruds/matriculas.py::listar_candidatos_rematricula) — o mesmo
+    bloqueio de RN05 (mensalidade em atraso de ano anterior) aplicado
+    em criar_matricula também se aplica aqui, antes de aceitar o pedido.
+    """
+    __tablename__ = "pedido_rematricula"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    aluno_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aluno.id", ondelete="CASCADE"), nullable=False)
+    matricula_atual_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matricula.id", ondelete="CASCADE"), nullable=False)
+    ano_letivo_destino: Mapped[int] = mapped_column(Integer, nullable=False)
+    solicitado_por_usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), nullable=False)
+    data_solicitacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    __table_args__ = (
+        # Um único pedido por aluno/ano de destino — clicar duas vezes
+        # não duplica (pedir_rematricula trata isso como idempotente).
+        UniqueConstraint("aluno_id", "ano_letivo_destino", name="uq_pedido_rematricula_aluno_ano"),
+    )

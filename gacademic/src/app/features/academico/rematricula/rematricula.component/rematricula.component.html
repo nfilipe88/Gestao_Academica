@@ -1,0 +1,112 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Rematrícula</h2>
+    <p class="text-slate-500 text-sm">
+      Alunos ativos @if (anoLetivoOrigem()) {em {{ anoLetivoOrigem() }}} sem matrícula ainda para
+      @if (anoLetivoDestino()) {{{ anoLetivoDestino() }}} — renove vários de uma vez.
+    </p>
+  </div>
+
+  @if (erro()) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro() }}</div>
+  }
+
+  <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">Ano letivo de origem</label>
+      <input type="number" [value]="anoLetivoOrigem()" (change)="onMudarAnoOrigem($any($event.target).value)"
+        class="w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+    </div>
+    <p class="text-sm text-slate-400 pb-1.5">Destino: {{ anoLetivoDestino() ?? '—' }}</p>
+  </div>
+
+  @if (aCarregar()) {
+    <p class="text-sm text-slate-500">A carregar…</p>
+  } @else if (candidatos().length === 0) {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 text-sm text-slate-500">
+      Não há candidatos a rematrícula @if (anoLetivoOrigem()) {para {{ anoLetivoOrigem() }} → {{ anoLetivoDestino() }}} — ou já foram todos renovados, ou ainda não há matrículas ativas nesse ano.
+    </div>
+  } @else {
+
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Turma destino para os selecionados</label>
+        <select [(ngModel)]="turmaDestinoEmLote"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          <option value="">Selecione a turma</option>
+          @for (turma of turmasDoAnoDestino(turmas$ | async); track turma.id) {
+            <option [value]="turma.id">{{ turma.nome_codigo }}</option>
+          }
+        </select>
+      </div>
+      <button type="button" (click)="onAplicarTurmaEmLote()" [disabled]="!turmaDestinoEmLote || contagemSelecionados() === 0"
+        class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-1.5 px-3 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+        Aplicar aos {{ contagemSelecionados() }} selecionado(s)
+      </button>
+      <button type="button" (click)="onRenovarSelecionados()" [disabled]="aRenovar() || contagemProntosParaRenovar() === 0"
+        class="ml-auto bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+        {{ aRenovar() ? 'A renovar…' : 'Renovar ' + contagemProntosParaRenovar() + ' selecionado(s)' }}
+      </button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
+              <th class="py-3 px-4 font-medium">
+                <input type="checkbox" [checked]="todosSelecionados()" (change)="onAlternarTodos($any($event.target).checked)" />
+              </th>
+              <th class="py-3 px-4 font-medium">Aluno</th>
+              <th class="py-3 px-4 font-medium">Turma atual</th>
+              <th class="py-3 px-4 font-medium">Situação</th>
+              <th class="py-3 px-4 font-medium">Turma destino</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (candidato of candidatos(); track candidato.aluno_id) {
+              <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                <td class="py-3 px-4">
+                  @if (!candidato.bloqueado_por_atraso) {
+                    <input type="checkbox" [(ngModel)]="selecionados[candidato.aluno_id]" />
+                  }
+                </td>
+                <td class="py-3 px-4 text-slate-800 font-medium">
+                  {{ candidato.nome_completo }}
+                  <span class="block text-xs text-slate-400 font-normal">{{ candidato.matricula_interna }}</span>
+                </td>
+                <td class="py-3 px-4 text-slate-600">{{ candidato.nome_turma_atual }}</td>
+                <td class="py-3 px-4">
+                  @if (candidato.bloqueado_por_atraso) {
+                    <span class="text-xs font-medium py-1 px-3 rounded-full bg-rose-100 text-rose-700" title="Mensalidade em atraso de ano anterior (RN05) — resolva em Financeiro antes de renovar.">
+                      🔒 Bloqueado — atraso
+                    </span>
+                  } @else if (candidato.pedido_confirmado_pela_familia) {
+                    <span class="text-xs font-medium py-1 px-3 rounded-full bg-emerald-100 text-emerald-700">
+                      ✓ Família confirmou
+                    </span>
+                  }
+                  @if (erroPorAluno[candidato.aluno_id]) {
+                    <span class="block text-xs text-rose-600 mt-1">{{ erroPorAluno[candidato.aluno_id] }}</span>
+                  }
+                </td>
+                <td class="py-3 px-4">
+                  @if (!candidato.bloqueado_por_atraso) {
+                    <select [(ngModel)]="turmaDestinoPorAluno[candidato.aluno_id]"
+                      class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                      <option value="">Selecione a turma</option>
+                      @for (turma of turmasDoAnoDestino(turmas$ | async); track turma.id) {
+                        <option [value]="turma.id">{{ turma.nome_codigo }}</option>
+                      }
+                    </select>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

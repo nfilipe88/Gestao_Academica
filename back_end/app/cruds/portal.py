@@ -19,11 +19,14 @@ from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turm
 from app.database.models_diario import RegistroFrequencia, RegistroNota
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.database.models_lms import MaterialAula
-from app.database.models_matricula import Matricula
+from app.database.models_matricula import Matricula, PedidoRematricula
 from app.database.models_pessoas import Aluno
+from app.database.models import Usuario
 from app.cruds import alunos as crud_alunos
 from app.cruds import financeiro as crud_financeiro
 from app.cruds import horarios as crud_horarios
+from app.cruds import matriculas as crud_matriculas
+from app.cruds import notificacoes as crud_notificacoes
 from app.cruds import tarefas as crud_tarefas
 from app.cruds import lms as crud_lms
 from app.core.prof_virtual import perguntar_prof_virtual
@@ -78,6 +81,41 @@ async def _tem_propina_em_atraso(db: AsyncSession, tenant_id, matricula_id: uuid
     return any(crud_financeiro.calcular_situacao_fatura(f)["status_efetivo"] == "ATRASADO" for f in faturas_pendentes)
 
 
+async def _situacao_rematricula(db: AsyncSession, tenant_id, matricula: Matricula | None) -> dict:
+    """Rematrícula self-service (ver pedir_rematricula, abaixo): só faz
+    sentido oferecer quando a matrícula atual está ATIVO e ainda não
+    existe nenhuma matrícula para o ano seguinte — reaproveita a MESMA
+    verificação de RN05 que criar_matricula aplica de facto, para o
+    Portal nunca prometer algo que a Secretaria depois recusa."""
+    nao_disponivel = {"elegivel_rematricula": False, "bloqueado_rematricula_por_atraso": False, "pedido_rematricula_confirmado": False, "ano_letivo_destino_rematricula": None}
+    if not matricula or matricula.status_matricula != "ATIVO":
+        return nao_disponivel
+
+    ano_destino = matricula.ano_letivo + 1
+    ja_renovado = (await db.execute(
+        select(Matricula.id).where(
+            Matricula.tenant_id == tenant_id, Matricula.aluno_id == matricula.aluno_id, Matricula.ano_letivo == ano_destino
+        )
+    )).scalars().first()
+    if ja_renovado:
+        return nao_disponivel
+
+    bloqueado = await crud_matriculas.tem_mensalidade_em_atraso_de_ano_anterior(db, tenant_id, matricula.aluno_id, ano_destino)
+    pedido = (await db.execute(
+        select(PedidoRematricula.id).where(
+            PedidoRematricula.tenant_id == tenant_id, PedidoRematricula.aluno_id == matricula.aluno_id,
+            PedidoRematricula.ano_letivo_destino == ano_destino,
+        )
+    )).scalars().first()
+
+    return {
+        "elegivel_rematricula": True,
+        "bloqueado_rematricula_por_atraso": bloqueado,
+        "pedido_rematricula_confirmado": pedido is not None,
+        "ano_letivo_destino_rematricula": ano_destino,
+    }
+
+
 # ==========================================
 # A. MEUS EDUCANDOS
 # ==========================================
@@ -109,8 +147,66 @@ async def listar_meus_educandos(db: AsyncSession, tenant_id, utilizador: dict) -
             "ano_letivo": matricula.ano_letivo if matricula else None,
             "nome_turma": nome_turma,
             "tem_propina_em_atraso": tem_propina_em_atraso,
+            **(await _situacao_rematricula(db, tenant_id, matricula)),
         })
     return resultado
+
+
+# ==========================================
+# A2. REMATRÍCULA SELF-SERVICE
+# ==========================================
+async def pedir_rematricula(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> dict:
+    """O encarregado (ou o próprio aluno) confirma interesse em renovar
+    a matrícula para o ano letivo seguinte. Não cria a Matrícula em si
+    — só sinaliza a Secretaria/Gestor (que continuam a escolher a
+    turma de destino no ecrã de Rematrícula) e fica visível lá como
+    "família já confirmou interesse"."""
+    aluno = await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
+    if not matricula or matricula.status_matricula != "ATIVO":
+        raise HTTPException(status_code=400, detail="Este educando não tem uma matrícula ativa para renovar.")
+
+    ano_destino = matricula.ano_letivo + 1
+    ja_renovado = (await db.execute(
+        select(Matricula.id).where(
+            Matricula.tenant_id == tenant_id, Matricula.aluno_id == aluno_id, Matricula.ano_letivo == ano_destino
+        )
+    )).scalars().first()
+    if ja_renovado:
+        raise HTTPException(status_code=400, detail="Este educando já tem matrícula para o próximo ano letivo.")
+
+    if await crud_matriculas.tem_mensalidade_em_atraso_de_ano_anterior(db, tenant_id, aluno_id, ano_destino):
+        raise HTTPException(
+            status_code=403,
+            detail="Existem mensalidades em atraso que bloqueiam a renovação — regularize a situação em Financeiro antes de pedir a rematrícula."
+        )
+
+    existente = (await db.execute(
+        select(PedidoRematricula).where(
+            PedidoRematricula.tenant_id == tenant_id, PedidoRematricula.aluno_id == aluno_id,
+            PedidoRematricula.ano_letivo_destino == ano_destino,
+        )
+    )).scalars().first()
+    if not existente:
+        existente = PedidoRematricula(
+            tenant_id=tenant_id, aluno_id=aluno_id, matricula_atual_id=matricula.id,
+            ano_letivo_destino=ano_destino, solicitado_por_usuario_id=utilizador["usuario_id"],
+        )
+        db.add(existente)
+        await db.commit()
+
+        destinatarios = (await db.execute(
+            select(Usuario.id).where(Usuario.tenant_id == tenant_id, Usuario.perfil_acesso.in_(["GESTOR", "SECRETARIA"]))
+        )).scalars().all()
+        if destinatarios:
+            await crud_notificacoes.criar_notificacoes_em_lote(
+                db, tenant_id, list(destinatarios), tipo="REMATRICULA",
+                titulo="Pedido de rematrícula",
+                mensagem=f"A família de {aluno.nome_completo} confirmou interesse em renovar a matrícula para {ano_destino}.",
+                link="/rematricula"
+            )
+
+    return {"pedido_rematricula_confirmado": True, "ano_letivo_destino_rematricula": ano_destino}
 
 
 # ==========================================

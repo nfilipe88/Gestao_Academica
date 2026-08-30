@@ -114,3 +114,16 @@ async def listar_matriculas_do_aluno(
 ):
     """Mostra todas as turmas e anos letivos pelos quais o aluno já passou na escola."""
     return await crud_matriculas.listar_matriculas_do_aluno(db, utilizador["tenant_id"], aluno_id)
+
+# ==========================================
+# E. REMATRÍCULA (ecrã dedicado)
+# ==========================================
+@router.get("/matriculas/rematricula-candidatos")
+async def listar_candidatos_rematricula(
+    ano_letivo: int | None = None,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Alunos ATIVOS do ano letivo indicado (por omissão, o mais recente com matrículas ativas)
+    que ainda não têm matrícula no ano seguinte — para renovar em lote."""
+    return await crud_matriculas.listar_candidatos_rematricula(db, utilizador["tenant_id"], ano_letivo)

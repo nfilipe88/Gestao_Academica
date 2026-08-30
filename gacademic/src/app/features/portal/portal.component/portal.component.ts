@@ -23,7 +23,7 @@ import {
   selectHorarioDoEducando, selectMaterialAberto, selectMateriaisDoEducando, selectMeusEducandos, selectPortalError,
   selectResultadoExame, selectTarefasDoEducando, selectTentativaAtual
 } from '../../../store/portal/portal.selector';
-import { HorarioAulaPortal } from '../../../store/portal/portal.models';
+import { EducandoResumo, HorarioAulaPortal } from '../../../store/portal/portal.models';
 import * as DocumentosActions from '../../../store/documentos/documentos.actions';
 import {
   selectDocumentosError, selectMinhasSolicitacoesEscola, selectPrecosDocumento,
@@ -88,6 +88,11 @@ export class PortalComponent implements OnInit {
   educandoSelecionadoId: string | null = null;
   aba: 'horario' | 'boletim' | 'trabalhos' | 'materiais' | 'exames' | 'financeiro' | 'documentos' = 'horario';
 
+  // Rematrícula self-service — estado local do pedido em curso, para o
+  // botão mostrar "A enviar..." e não deixar clicar duas vezes.
+  aEnviarPedidoRematricula = false;
+  erroRematricula: string | null = null;
+
   // Prof. Virtual — qual material está aberto e a pergunta a meio de escrever.
   materialAbertoId: string | null = null;
   perguntaAtual = '';
@@ -151,9 +156,33 @@ export class PortalComponent implements OnInit {
     }
   }
 
+  // Objeto completo do educando atualmente selecionado — o <select>
+  // só guarda o id (educandoSelecionadoId); usado pelo cartão de
+  // Rematrícula, que precisa dos vários campos elegivel_rematricula/
+  // bloqueado_rematricula_por_atraso/etc.
+  educandoAtual(educandos: EducandoResumo[] | null): EducandoResumo | undefined {
+    return educandos?.find(e => e.aluno_id === this.educandoSelecionadoId);
+  }
+
+  onPedirRematricula(alunoId: string) {
+    this.aEnviarPedidoRematricula = true;
+    this.erroRematricula = null;
+    this.http.post(`/api/v1/portal/educandos/${alunoId}/pedir-rematricula`, {}).subscribe({
+      next: () => {
+        this.aEnviarPedidoRematricula = false;
+        this.store.dispatch(carregarMeusEducandos()); // repõe pedido_rematricula_confirmado
+      },
+      error: (err) => {
+        this.aEnviarPedidoRematricula = false;
+        this.erroRematricula = err.error?.detail || 'Não foi possível enviar o pedido de rematrícula.';
+      },
+    });
+  }
+
   onSelecionarEducando(alunoId: string) {
     this.educandoSelecionadoId = alunoId;
     this.aba = 'horario';
+    this.erroRematricula = null;
     this.materialAbertoId = null;
     this.store.dispatch(carregarHorarioDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarBoletimDoEducando({ aluno_id: alunoId }));

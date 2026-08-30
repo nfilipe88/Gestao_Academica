@@ -935,6 +935,13 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
 
         elif dias_para_vencer == -5 and fatura.aviso_atraso_enviado_em is None:
             situacao = calcular_situacao_fatura(fatura)
+            # RN05 (ver cruds/matriculas.py::tem_mensalidade_em_atraso_de_
+            # ano_anterior): um encargo que continue por pagar quando a
+            # escola tentar a rematrícula do ano seguinte bloqueia-a — só
+            # faz sentido avisar disto aqui (já está em atraso a sério),
+            # não nos lembretes de 3-dias-antes/vencimento, que ainda nem
+            # confirmam que vai mesmo ficar em atraso.
+            aviso_rematricula = " Isto também pode bloquear a rematrícula para o próximo ano letivo."
             if email_responsavel:
                 await agendar_email(
                     enviar_email, destinatario=email_responsavel,
@@ -942,18 +949,19 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                     corpo_html=template_base(
                         f"A sua {nome_encargo} está em atraso",
                         f"A {nome_encargo}{referencia_parcela} de {nome_aluno} está em atraso há 5 dias. "
-                        f"Valor atualizado (com juros e multa): {situacao['valor_atualizado']} {moeda}."
+                        f"Valor atualizado (com juros e multa): {situacao['valor_atualizado']} {moeda}.{aviso_rematricula}"
                     )
                 )
             if agendar_sms and telefone_responsavel:
                 await agendar_sms(
                     telefone_responsavel,
                     f"A {nome_encargo}{referencia_parcela} de {nome_aluno} está em atraso há 5 dias. "
-                    f"Valor atualizado: {situacao['valor_atualizado']} {moeda}."
+                    f"Valor atualizado: {situacao['valor_atualizado']} {moeda}.{aviso_rematricula}"
                 )
             await _notificar_portal(
                 f"{nome_encargo_capitalizado} em atraso",
-                f"A {nome_encargo}{referencia_parcela} de {nome_aluno} está em atraso há 5 dias. Valor atualizado: {situacao['valor_atualizado']} {moeda}."
+                f"A {nome_encargo}{referencia_parcela} de {nome_aluno} está em atraso há 5 dias. "
+                f"Valor atualizado: {situacao['valor_atualizado']} {moeda}.{aviso_rematricula}"
             )
             fatura.aviso_atraso_enviado_em = datetime.now(timezone.utc)
             contagem["aviso_atraso"] += 1

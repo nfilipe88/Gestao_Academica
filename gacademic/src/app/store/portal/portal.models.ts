@@ -13,6 +13,13 @@ export interface EducandoResumo {
   // assinalar quem precisa de atenção sem abrir o financeiro de cada
   // um (ver app/cruds/portal.py::_tem_propina_em_atraso).
   tem_propina_em_atraso: boolean;
+  // Rematrícula self-service (ver app/cruds/portal.py::pedir_rematricula)
+  // — elegivel_rematricula é false quando a matrícula não está ATIVO ou
+  // já existe matrícula para o ano seguinte (nada a pedir).
+  elegivel_rematricula: boolean;
+  bloqueado_rematricula_por_atraso: boolean;
+  pedido_rematricula_confirmado: boolean;
+  ano_letivo_destino_rematricula: number | null;
 }
 
 // A grade horária reaproveita exatamente o formato de HorarioAula do

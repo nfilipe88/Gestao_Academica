@@ -8,7 +8,7 @@ import uuid
 
 from app.database.models_academico import Turma
 from app.database.models_pessoas import Aluno
-from app.database.models_matricula import Matricula, MatriculaDocumento
+from app.database.models_matricula import Matricula, MatriculaDocumento, PedidoRematricula
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.schemas.matriculas import MatriculaCreate, MatriculaStatusUpdate
 from app.core import storage
@@ -41,7 +41,7 @@ _MAX_DOCUMENTOS_POR_MATRICULA = 10
 # o ano seguinte." — por isso o bloqueio vive aqui (criar_matricula),
 # não em lado nenhum do módulo académico do dia a dia (Diário de
 # Classe, etc. continuam sempre acessíveis).
-async def _tem_mensalidade_em_atraso_de_ano_anterior(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, ano_letivo_novo: int) -> bool:
+async def tem_mensalidade_em_atraso_de_ano_anterior(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, ano_letivo_novo: int) -> bool:
     """
     Só bloqueia se isto for de facto uma RENOVAÇÃO: o aluno já teve
     matrícula num ano letivo anterior, e essa matrícula tem um
@@ -49,6 +49,12 @@ async def _tem_mensalidade_em_atraso_de_ano_anterior(db: AsyncSession, tenant_id
     verdadeiramente em atraso (pendente e já passada a data de
     vencimento) — o cálculo de juros/multa em si (RN02) é irrelevante
     aqui, só interessa o facto de estar por pagar.
+
+    Não é privada (sem "_") de propósito: reaproveitada por
+    listar_candidatos_rematricula (ecrã de Rematrícula) e por
+    cruds/portal.py::pedir_rematricula (rematrícula self-service) para
+    mostrarem exatamente o mesmo bloqueio que criar_matricula vai
+    aplicar de facto — nunca uma cópia da regra que possa divergir.
     """
     matriculas_anteriores = (await db.execute(
         select(Matricula.id).where(
@@ -110,7 +116,7 @@ async def criar_matricula(db: AsyncSession, tenant_id, dados: MatriculaCreate) -
         raise HTTPException(status_code=400, detail="Este aluno já está matriculado nesta turma neste ano letivo.")
 
     # RN05 do Financeiro — renovação bloqueada por mensalidade em atraso de ano anterior.
-    if await _tem_mensalidade_em_atraso_de_ano_anterior(db, tenant_id, dados.aluno_id, dados.ano_letivo):
+    if await tem_mensalidade_em_atraso_de_ano_anterior(db, tenant_id, dados.aluno_id, dados.ano_letivo):
         raise HTTPException(
             status_code=403,
             detail="Renovação de matrícula bloqueada: existem mensalidades em atraso de um ano letivo anterior. "
@@ -291,3 +297,65 @@ async def listar_matriculas_do_aluno(db: AsyncSession, tenant_id, aluno_id: uuid
         }
         for matricula, nome_turma in resultado.all()
     ]
+
+
+# ==========================================
+# REMATRÍCULA (ecrã dedicado — Secretaria/Gestor)
+# ==========================================
+async def _ano_letivo_corrente(db: AsyncSession, tenant_id) -> int | None:
+    """Sem um "ano letivo corrente" explícito em Tenant, assume-se o
+    ano letivo mais recente com pelo menos uma matrícula ATIVO — é o
+    que faz sentido "renovar a partir dele" na prática."""
+    return (await db.execute(
+        select(func.max(Matricula.ano_letivo)).where(
+            Matricula.tenant_id == tenant_id, Matricula.status_matricula == "ATIVO"
+        )
+    )).scalar_one_or_none()
+
+
+async def listar_candidatos_rematricula(db: AsyncSession, tenant_id, ano_letivo: int | None = None) -> dict:
+    """Alunos com matrícula ATIVO no `ano_letivo` de origem (por omissão,
+    o mais recente com matrículas ativas) que ainda não têm matrícula
+    nenhuma no ano seguinte — candidatos a renovar. Para cada um,
+    reaproveita a MESMA verificação de RN05 que criar_matricula vai
+    aplicar de facto, e sinaliza se a família já confirmou interesse
+    pelo Portal (ver cruds/portal.py::pedir_rematricula)."""
+    ano_origem = ano_letivo if ano_letivo is not None else await _ano_letivo_corrente(db, tenant_id)
+    if ano_origem is None:
+        return {"ano_letivo_origem": None, "ano_letivo_destino": None, "candidatos": []}
+    ano_destino = ano_origem + 1
+
+    ja_renovados = set((await db.execute(
+        select(Matricula.aluno_id).where(Matricula.tenant_id == tenant_id, Matricula.ano_letivo == ano_destino)
+    )).scalars().all())
+
+    pedidos_confirmados = set((await db.execute(
+        select(PedidoRematricula.aluno_id).where(
+            PedidoRematricula.tenant_id == tenant_id, PedidoRematricula.ano_letivo_destino == ano_destino
+        )
+    )).scalars().all())
+
+    linhas = (await db.execute(
+        select(Matricula, Aluno.nome_completo, Aluno.matricula_interna, Turma.nome_codigo)
+        .join(Aluno, Aluno.id == Matricula.aluno_id)
+        .join(Turma, Turma.id == Matricula.turma_id)
+        .where(Matricula.tenant_id == tenant_id, Matricula.ano_letivo == ano_origem, Matricula.status_matricula == "ATIVO")
+        .order_by(Aluno.nome_completo)
+    )).all()
+
+    candidatos = []
+    for matricula, nome_aluno, matricula_interna, nome_turma in linhas:
+        if matricula.aluno_id in ja_renovados:
+            continue
+        candidatos.append({
+            "aluno_id": matricula.aluno_id,
+            "nome_completo": nome_aluno,
+            "matricula_interna": matricula_interna,
+            "matricula_atual_id": matricula.id,
+            "turma_atual_id": matricula.turma_id,
+            "nome_turma_atual": nome_turma,
+            "bloqueado_por_atraso": await tem_mensalidade_em_atraso_de_ano_anterior(db, tenant_id, matricula.aluno_id, ano_destino),
+            "pedido_confirmado_pela_familia": matricula.aluno_id in pedidos_confirmados,
+        })
+
+    return {"ano_letivo_origem": ano_origem, "ano_letivo_destino": ano_destino, "candidatos": candidatos}
