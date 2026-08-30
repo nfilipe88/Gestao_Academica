@@ -68,3 +68,13 @@ class TicketAdminOut(TicketOut):
     """Para a lista do Super Admin — inclui de que escola veio (None = visitante anónimo)."""
     tenant_id: uuid.UUID | None
     nome_escola: str | None
+
+
+class TicketAdminComMensagens(TicketAdminOut):
+    """Para a conversa de UM ticket vista pelo Super Admin — mesmos
+    campos da lista (TicketAdminOut) mais as mensagens. Sem isto, o
+    detalhe do ticket não sabia de que escola era (nome_escola nunca
+    chegava a existir no objeto ORM devolvido por obter_ticket_admin),
+    e o frontend mostrava sempre "Visitante (sem conta)" mesmo para
+    tickets de escolas reais."""
+    mensagens: list[TicketMensagemOut] = []

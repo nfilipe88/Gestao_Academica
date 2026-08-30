@@ -17,7 +17,7 @@ from app.cruds import admin as crud_admin
 from app.cruds import usuarios as crud_usuarios
 from app.cruds import auditoria as crud_auditoria
 from app.cruds import suporte as crud_suporte
-from app.schemas.suporte import MensagemTicketCreate, TicketEstadoUpdate
+from app.schemas.suporte import MensagemTicketCreate, TicketAdminComMensagens, TicketEstadoUpdate
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Painel Super Admin"])
 
@@ -283,12 +283,12 @@ async def listar_tickets(
     return await crud_suporte.listar_tickets_admin(db, page, page_size, estado)
 
 
-@router.get("/tickets/{ticket_id}")
+@router.get("/tickets/{ticket_id}", response_model=TicketAdminComMensagens)
 async def obter_ticket(
     ticket_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
 ):
-    return await crud_suporte.obter_ticket_admin(db, ticket_id)
+    return await crud_suporte.obter_ticket_admin_detalhe(db, ticket_id)
 
 
 @router.post("/tickets/{ticket_id}/mensagens", status_code=201)

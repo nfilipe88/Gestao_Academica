@@ -1,7 +1,15 @@
 <div class="flex h-screen bg-slate-100">
 
-  <aside class="bg-slate-900 text-white flex flex-col transition-all duration-200 overflow-x-hidden min-h-0"
-    [class.w-64]="!sidebarColapsada" [class.w-20]="sidebarColapsada">
+  <!-- Fundo escurecido, só < md e só com a gaveta aberta — fecha ao tocar fora do menu. -->
+  @if (sidebarMobileAberta) {
+    <div class="fixed inset-0 bg-black/50 z-30 md:hidden" (click)="fecharSidebarMobile()"></div>
+  }
+
+  <aside class="bg-slate-900 text-white flex flex-col transition-all duration-200 overflow-x-hidden min-h-0
+      fixed inset-y-0 left-0 z-40 w-64 md:relative md:z-auto md:translate-x-0"
+    [class.-translate-x-full]="!sidebarMobileAberta" [class.translate-x-0]="sidebarMobileAberta"
+    [class.md:w-20]="sidebarColapsada"
+    (click)="fecharSidebarMobile()">
 
     <div class="p-4 flex items-center shrink-0" [class.justify-between]="!sidebarColapsada" [class.justify-center]="sidebarColapsada">
       @if (!sidebarColapsada) {
@@ -9,13 +17,19 @@
       }
       <button type="button" (click)="alternarSidebar()"
         [title]="sidebarColapsada ? 'Expandir menu' : 'Encolher menu'"
-        class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shrink-0">
+        class="hidden md:block text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shrink-0">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           @if (sidebarColapsada) {
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
           } @else {
             <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           }
+        </svg>
+      </button>
+      <button type="button" (click)="fecharSidebarMobile()"
+        class="md:hidden text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shrink-0" title="Fechar menu">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
@@ -326,11 +340,17 @@
     </div>
   </aside>
 
-  <main class="flex-1 flex flex-col overflow-hidden">
-    <header class="h-14 shrink-0 bg-white border-b border-slate-200 flex items-center justify-end px-6">
+  <main class="flex-1 flex flex-col overflow-hidden min-w-0">
+    <header class="h-14 shrink-0 bg-white border-b border-slate-200 flex items-center justify-between md:justify-end px-4 md:px-6">
+      <button type="button" (click)="alternarSidebarMobile()" aria-label="Abrir menu"
+        class="md:hidden text-slate-500 hover:text-slate-800 p-1.5 -ml-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+      </button>
       <app-notificacoes-sino></app-notificacoes-sino>
     </header>
-    <div class="flex-1 overflow-y-auto p-8">
+    <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8">
       <router-outlet></router-outlet>
     </div>
   </main>

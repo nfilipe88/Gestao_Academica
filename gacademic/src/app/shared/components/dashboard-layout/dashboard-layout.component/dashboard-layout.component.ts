@@ -22,6 +22,12 @@ export class DashboardLayoutComponent implements OnInit {
 
   sidebarColapsada = false;
 
+  // Menu em telemóvel: gaveta escondida por omissão (< md), sem
+  // relação com sidebarColapsada (que só faz sentido em ecrã largo —
+  // "encolher para ícones"; numa gaveta de telemóvel não há esse meio-
+  // termo, ou está aberta a toda a largura ou está fechada).
+  sidebarMobileAberta = false;
+
   ngOnInit() {
     // Carregado aqui (shell comum a todo o utilizador autenticado,
     // staff e Portal) porque a moeda configurada é usada em toda a
@@ -32,6 +38,14 @@ export class DashboardLayoutComponent implements OnInit {
 
   alternarSidebar() {
     this.sidebarColapsada = !this.sidebarColapsada;
+  }
+
+  alternarSidebarMobile() {
+    this.sidebarMobileAberta = !this.sidebarMobileAberta;
+  }
+
+  fecharSidebarMobile() {
+    this.sidebarMobileAberta = false;
   }
 
   onLogout() {

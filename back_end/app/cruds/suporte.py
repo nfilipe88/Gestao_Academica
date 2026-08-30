@@ -88,12 +88,36 @@ async def listar_tickets_admin(db: AsyncSession, page: int, page_size: int = DEF
 
 
 async def obter_ticket_admin(db: AsyncSession, ticket_id: uuid.UUID) -> TicketSuporte:
+    """Objeto ORM cru — usado internamente por responder_ticket_admin/
+    atualizar_estado_admin (que precisam de o poder mutar e fazer
+    commit). A API nunca devolve isto diretamente, ver
+    obter_ticket_admin_detalhe abaixo: TicketSuporte não tem
+    nome_escola nenhum (não é uma coluna sua), por isso devolver o ORM
+    cru ao frontend fazia "Visitante (sem conta)" aparecer sempre,
+    mesmo para tickets de escolas reais."""
     ticket = (await db.execute(
         select(TicketSuporte).options(selectinload(TicketSuporte.mensagens)).where(TicketSuporte.id == ticket_id)
     )).scalars().first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não encontrado.")
     return ticket
+
+
+async def obter_ticket_admin_detalhe(db: AsyncSession, ticket_id: uuid.UUID) -> dict:
+    """Para a rota GET /api/v1/admin/tickets/{id} — mesmos campos da
+    listagem (listar_tickets_admin), incluindo nome_escola, mais as mensagens."""
+    ticket = await obter_ticket_admin(db, ticket_id)
+    nome_escola = None
+    if ticket.tenant_id:
+        nome_escola = (await db.execute(
+            select(Tenant.nome_fantasia).where(Tenant.id == ticket.tenant_id)
+        )).scalar_one_or_none()
+    return {
+        "id": ticket.id, "tenant_id": ticket.tenant_id, "nome_escola": nome_escola,
+        "autor_nome": ticket.autor_nome, "autor_email": ticket.autor_email, "assunto": ticket.assunto,
+        "estado": ticket.estado, "criado_em": ticket.criado_em, "atualizado_em": ticket.atualizado_em,
+        "mensagens": ticket.mensagens,
+    }
 
 
 async def responder_ticket_admin(db: AsyncSession, ticket_id: uuid.UUID, dados: MensagemTicketCreate) -> TicketMensagem:

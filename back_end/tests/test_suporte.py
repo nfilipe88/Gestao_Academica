@@ -147,6 +147,15 @@ async def test_admin_ve_e_responde_tickets_de_qualquer_origem(client):
     assert len(resp.json()["mensagens"]) == 2
     assert resp.json()["mensagens"][1]["autor_tipo"] == "SUPORTE"
     assert resp.json()["estado"] == "EM_ANDAMENTO"
+    assert resp.json()["nome_escola"] is None
+
+    # A conversa de UM ticket tem de mostrar de que escola veio, tal
+    # como a listagem já mostrava — regressão apanhada ao testar a
+    # área de tickets no telemóvel: o detalhe nunca incluía
+    # nome_escola, o frontend mostrava sempre "Visitante (sem conta)".
+    resp = await client.get(f"/api/v1/admin/tickets/{ticket_escola_id}", headers=headers_admin)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["nome_escola"] is not None
 
 
 async def test_admin_e_o_unico_que_gere_tickets(client):
