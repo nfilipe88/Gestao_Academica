@@ -4,7 +4,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.session import obter_sessao_db
+from app.database.session import obter_sessao_db, obter_sessao_db_admin
 from app.core.security import exigir_perfil
 from app.cruds import transferencias as crud_transferencias
 from app.schemas.transferencias import RejeitarTransferenciaRequest, SolicitacaoTransferenciaCreate
@@ -37,7 +37,12 @@ async def listar_minhas_solicitacoes(
 @router.get("")
 async def listar_solicitacoes_super_admin(
     page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
-    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_DECIDIR)
+    # Cross-tenant por natureza (pedidos de QUALQUER escola de origem)
+    # — obter_sessao_db (role app_tenant, com RLS) restringiria isto ao
+    # tenant do próprio Super Admin e nunca encontraria nada de outras
+    # escolas; obter_sessao_db_admin é o padrão já usado no resto do
+    # Painel Super Admin para exactamente este caso (ver app/api/v1/admin.py).
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_DECIDIR)
 ):
     return await crud_transferencias.listar_solicitacoes_super_admin(db, page, page_size)
 
@@ -45,7 +50,7 @@ async def listar_solicitacoes_super_admin(
 @router.patch("/{solicitacao_id}/aprovar")
 async def aprovar_e_migrar(
     solicitacao_id: uuid.UUID,
-    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_DECIDIR)
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_DECIDIR)
 ):
     return await crud_transferencias.aprovar_e_migrar(db, solicitacao_id)
 
@@ -53,6 +58,6 @@ async def aprovar_e_migrar(
 @router.patch("/{solicitacao_id}/rejeitar")
 async def rejeitar(
     solicitacao_id: uuid.UUID, dados: RejeitarTransferenciaRequest,
-    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_DECIDIR)
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_DECIDIR)
 ):
     return await crud_transferencias.rejeitar(db, solicitacao_id, dados)

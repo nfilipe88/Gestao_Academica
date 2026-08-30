@@ -221,12 +221,31 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID) -> dict:
     solicitacao.data_decisao = datetime.now(timezone.utc)
     await db.commit()
 
+    tenant_destino = (await db.execute(select(Tenant).where(Tenant.id == solicitacao.tenant_destino_id))).scalars().first()
+
     if solicitacao.solicitado_por_usuario_id:
-        tenant_destino = (await db.execute(select(Tenant).where(Tenant.id == solicitacao.tenant_destino_id))).scalars().first()
         await crud_notificacoes.criar_notificacao(
             db, solicitacao.tenant_id, solicitacao.solicitado_por_usuario_id, tipo="SOLICITACAO_TRANSFERENCIA",
             titulo="Transferência concluída",
             mensagem=f"A transferência de {aluno.nome_completo} para {tenant_destino.nome_fantasia if tenant_destino else 'a instituição de destino'} foi aprovada e concluída.",
+            link="/alunos"
+        )
+
+    # A escola de destino ganhou um aluno (já com identidade e
+    # responsáveis criados) mas SEM matrícula — precisa de o colocar
+    # numa turma. Sem isto, só ficava sabendo por acaso, ao abrir a
+    # lista de Alunos; quem pediu (escola de origem) já é notificado
+    # acima, mas quem tem de agir a seguir é a escola de destino.
+    gestores_destino = (await db.execute(
+        select(Usuario.id).where(
+            Usuario.tenant_id == solicitacao.tenant_destino_id, Usuario.perfil_acesso.in_(["GESTOR", "SECRETARIA"])
+        )
+    )).scalars().all()
+    if gestores_destino:
+        await crud_notificacoes.criar_notificacoes_em_lote(
+            db, solicitacao.tenant_destino_id, list(gestores_destino), tipo="SOLICITACAO_TRANSFERENCIA",
+            titulo="Aluno transferido — falta matricular",
+            mensagem=f"{aluno.nome_completo} foi transferido para esta escola. Os dados e responsáveis já foram criados — falta atribuir turma e concluir a matrícula.",
             link="/alunos"
         )
 
