@@ -3,8 +3,8 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as PortalActions from './portal.actions';
 import {
-  Boletim, EducandoResumo, ExameEducando, FinanceiroEducando, HorarioAulaPortal,
-  MaterialEducando, MaterialEducandoDetalhe, ResultadoExame, TarefaEducando, TentativaIniciada
+  Boletim, ComunicadoEducando, EducandoResumo, EstatisticasEducando, ExameEducando, FinanceiroEducando,
+  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, ResultadoExame, TarefaEducando, TentativaIniciada
 } from './portal.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
@@ -197,6 +197,34 @@ export class PortalEffects {
         map(resultado => PortalActions.carregarResultadoExameSucesso({ resultado })),
         catchError(err => of(PortalActions.portalOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar o resultado do exame.'
+        })))
+      ))
+    )
+  );
+
+  carregarEstatisticasDoEducando$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.carregarEstatisticasDoEducando),
+      switchMap(action => this.http.get<EstatisticasEducando>(
+        `/api/v1/portal/educandos/${action.aluno_id}/estatisticas`
+      ).pipe(
+        map(estatisticas => PortalActions.carregarEstatisticasDoEducandoSucesso({ estatisticas })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar as estatísticas deste educando.'
+        })))
+      ))
+    )
+  );
+
+  carregarComunicadosDoEducando$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.carregarComunicadosDoEducando),
+      switchMap(action => this.http.get<ComunicadoEducando[]>(
+        `/api/v1/portal/educandos/${action.aluno_id}/comunicados`
+      ).pipe(
+        map(comunicados => PortalActions.carregarComunicadosDoEducandoSucesso({ comunicados })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os comunicados deste educando.'
         })))
       ))
     )

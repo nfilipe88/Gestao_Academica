@@ -122,6 +122,23 @@ async def criar_solicitacao(db: AsyncSession, tenant_id, utilizador: dict, dados
             link="/admin/transferencias"
         )
 
+    # Pedido self-service (Portal, ver cruds/portal.py::pedir_transferencia)
+    # — a Secretaria/Gestor da própria escola de origem também não devia
+    # descobrir isto só quando o Super Admin já tiver decidido; um
+    # pedido criado pela própria Secretaria (a via normal) não precisa
+    # deste aviso, já sabem.
+    if utilizador.get("perfil_acesso") in ("ALUNO", "RESPONSAVEL"):
+        staff_origem = (await db.execute(
+            select(Usuario.id).where(Usuario.tenant_id == tenant_id, Usuario.perfil_acesso.in_(["GESTOR", "SECRETARIA"]))
+        )).scalars().all()
+        if staff_origem:
+            await crud_notificacoes.criar_notificacoes_em_lote(
+                db, tenant_id, list(staff_origem), tipo="SOLICITACAO_TRANSFERENCIA",
+                titulo="Encarregado pediu transferência/reingresso",
+                mensagem=f"A família de {aluno.nome_completo} pediu, pelo Portal, a transferência para {tenant_destino.nome_fantasia}.",
+                link="/transferencias"
+            )
+
     return _serializar(nova, aluno_nome=aluno.nome_completo, nome_destino=tenant_destino.nome_fantasia)
 
 

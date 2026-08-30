@@ -19,3 +19,5 @@ export const selectTentativaAtual = createSelector(selectPortalState, (state) =>
 export const selectResultadoExame = createSelector(selectPortalState, (state) => state.resultadoExame);
 export const selectASubmeterTentativa = createSelector(selectPortalState, (state) => state.aSubmeterTentativa);
 export const selectEventosSuspeitosTentativa = createSelector(selectPortalState, (state) => state.eventosSuspeitosTentativa);
+export const selectEstatisticasDoEducando = createSelector(selectPortalState, (state) => state.estatisticas);
+export const selectComunicadosDoEducando = createSelector(selectPortalState, (state) => state.comunicados);

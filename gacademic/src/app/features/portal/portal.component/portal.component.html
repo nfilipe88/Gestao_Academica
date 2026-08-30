@@ -61,9 +61,57 @@
           }
         </div>
       }
+
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+          <h3 class="text-sm font-semibold text-slate-800">Transferência / Reingresso</h3>
+          @if (!mostrarFormularioTransferencia()) {
+            <button type="button" (click)="mostrarFormularioTransferencia.set(true); mensagemTransferencia.set(null)"
+              class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
+              Pedir transferência para outra escola
+            </button>
+          }
+        </div>
+        @if (mensagemTransferencia()) {
+          <p class="text-sm text-emerald-700">✓ {{ mensagemTransferencia() }}</p>
+        } @else if (mostrarFormularioTransferencia()) {
+          <p class="text-sm text-slate-500 mb-3">
+            Peça a transferência (ou o reingresso, se {{ edu.nome_completo }} já concluiu o ciclo nesta escola) para outra instituição desta plataforma, identificada pelo NIF. Fica sujeito a aprovação do Super Admin da plataforma.
+          </p>
+          @if (erroTransferencia()) {
+            <p class="text-sm text-rose-600 mb-2">{{ erroTransferencia() }}</p>
+          }
+          <div class="flex flex-wrap gap-2 items-end">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">NIF da instituição de destino</label>
+              <input type="text" [ngModel]="nifDestinoTransferencia()" (ngModelChange)="nifDestinoTransferencia.set($event)" placeholder="Ex: 501234567"
+                class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div class="flex-1 min-w-40">
+              <label class="block text-xs font-medium text-slate-600 mb-1">Motivo — opcional</label>
+              <input type="text" [ngModel]="motivoTransferencia()" (ngModelChange)="motivoTransferencia.set($event)"
+                class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <button type="button" (click)="onPedirTransferencia(edu.aluno_id)" [disabled]="aEnviarPedidoTransferencia() || !nifDestinoTransferencia().trim()"
+              class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+              {{ aEnviarPedidoTransferencia() ? 'A enviar…' : 'Enviar Pedido' }}
+            </button>
+            <button type="button" (click)="mostrarFormularioTransferencia.set(false)"
+              class="text-sm text-slate-500 hover:text-slate-700 font-medium py-2 px-2 cursor-pointer">
+              Cancelar
+            </button>
+          </div>
+        }
+      </div>
     }
 
-    <div class="flex gap-1 border-b border-slate-200">
+    <div class="flex gap-1 border-b border-slate-200 overflow-x-auto">
+      <button type="button" (click)="aba = 'dashboard'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer whitespace-nowrap"
+        [class.border-blue-600]="aba === 'dashboard'" [class.text-blue-600]="aba === 'dashboard'"
+        [class.border-transparent]="aba !== 'dashboard'" [class.text-slate-500]="aba !== 'dashboard'">
+        Dashboard
+      </button>
       <button type="button" (click)="aba = 'horario'"
         class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
         [class.border-blue-600]="aba === 'horario'" [class.text-blue-600]="aba === 'horario'"
@@ -106,7 +154,63 @@
         [class.border-transparent]="aba !== 'documentos'" [class.text-slate-500]="aba !== 'documentos'">
         Documentos
       </button>
+      <button type="button" (click)="aba = 'comunicados'"
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer whitespace-nowrap"
+        [class.border-blue-600]="aba === 'comunicados'" [class.text-blue-600]="aba === 'comunicados'"
+        [class.border-transparent]="aba !== 'comunicados'" [class.text-slate-500]="aba !== 'comunicados'">
+        Comunicados
+      </button>
     </div>
+
+    @if (aba === 'dashboard') {
+      <div class="space-y-4">
+        @if (estatisticas$ | async; as est) {
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+              <p class="text-sm text-slate-500">Média geral</p>
+              <p class="text-2xl font-bold text-slate-800 mt-1">{{ est.media_geral ?? '—' }}</p>
+              @if (est.tendencia_notas === 'SUBIU') { <p class="text-xs text-emerald-600 mt-1">↑ Em subida</p> }
+              @else if (est.tendencia_notas === 'DESCEU') { <p class="text-xs text-rose-600 mt-1">↓ Em queda</p> }
+              @else if (est.tendencia_notas === 'ESTAVEL') { <p class="text-xs text-slate-400 mt-1">Estável</p> }
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+              <p class="text-sm text-slate-500">Assiduidade</p>
+              <p class="text-2xl font-bold text-slate-800 mt-1">{{ est.taxa_assiduidade !== null ? (est.taxa_assiduidade + '%') : '—' }}</p>
+              @if (est.total_aulas > 0) {
+                <p class="text-xs text-slate-400 mt-1">{{ est.total_faltas }} falta(s) em {{ est.total_aulas }} aula(s)</p>
+              }
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 col-span-2 md:col-span-2">
+              <p class="text-sm text-slate-500 mb-1">Comportamento</p>
+              <p class="text-xs text-slate-400">A escola ainda não regista incidentes/comportamento na plataforma.</p>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+            <h3 class="text-sm font-semibold text-slate-800 mb-3">Aproveitamento por disciplina</h3>
+            @if (est.media_por_disciplina.length > 0) {
+              <div class="space-y-2">
+                @for (d of est.media_por_disciplina; track d.disciplina_id) {
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm text-slate-700">{{ d.nome_disciplina }}</span>
+                    <div class="flex items-center gap-2 flex-1 max-w-xs">
+                      <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-blue-500 rounded-full" [style.width.%]="(d.media / 10) * 100"></div>
+                      </div>
+                      <span class="text-sm font-medium text-slate-800 w-10 text-right">{{ d.media }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="text-sm text-slate-400">Ainda não há notas lançadas.</p>
+            }
+          </div>
+        } @else {
+          <p class="text-sm text-slate-500">A carregar estatísticas…</p>
+        }
+      </div>
+    }
 
     @if (aba === 'horario') {
       <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -628,6 +732,32 @@
           </div>
         }
 
+      </div>
+    }
+
+    @if (aba === 'comunicados') {
+      <div class="space-y-3">
+        @for (c of (comunicados$ | async); track c.id) {
+          <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <h5 class="font-semibold text-slate-800">{{ c.titulo }}</h5>
+              <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                [class.bg-amber-100]="c.tipo === 'CONVOCATORIA'" [class.text-amber-700]="c.tipo === 'CONVOCATORIA'"
+                [class.bg-slate-100]="c.tipo === 'COMUNICADO'" [class.text-slate-600]="c.tipo === 'COMUNICADO'">
+                {{ c.tipo === 'CONVOCATORIA' ? 'Convocatória' : 'Comunicado' }}
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">{{ c.autor_nome }} · {{ c.data_envio | date:'dd/MM/yyyy HH:mm' }}</p>
+            <p class="text-sm text-slate-600 mt-2 whitespace-pre-line">{{ c.corpo }}</p>
+            @if (c.tem_anexo) {
+              <button type="button" (click)="onVerAnexoComunicado(c.id)" class="mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">
+                📎 Ver anexo
+              </button>
+            }
+          </div>
+        } @empty {
+          <p class="text-sm text-slate-500 text-center py-6">Ainda não há comunicados para este educando.</p>
+        }
       </div>
     }
 

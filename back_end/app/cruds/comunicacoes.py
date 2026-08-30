@@ -8,7 +8,7 @@ despachar o envio.
 """
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 import uuid
 
 from app.database.models import Usuario
@@ -323,6 +323,55 @@ async def listar_comunicados(db: AsyncSession, tenant_id, page: int, page_size: 
         for comunicado, autor_nome in linhas
     ]
     return pagina
+
+
+# ==========================================
+# PORTAL DO ALUNO/RESPONSÁVEL (histórico de consulta — o e-mail já foi
+# disparado na hora do envio, ver criar_comunicado acima)
+# ==========================================
+async def listar_comunicados_do_educando(db: AsyncSession, tenant_id, aluno_id, turma_id) -> list[dict]:
+    """Mesmo critério de "para quem" usado no envio (_resolver_emails_
+    destinatarios, acima): ESCOLA sempre, TURMA da matrícula atual do
+    aluno (se tiver), ALUNO diretamente para ele. turma_id=None (aluno
+    sem matrícula) simplesmente não filtra por TURMA nenhuma."""
+    condicoes = [
+        Comunicado.destinatario_tipo == "ESCOLA",
+        and_(Comunicado.destinatario_tipo == "ALUNO", Comunicado.destinatario_aluno_id == aluno_id),
+    ]
+    if turma_id:
+        condicoes.append(and_(Comunicado.destinatario_tipo == "TURMA", Comunicado.destinatario_turma_id == turma_id))
+
+    linhas = (await db.execute(
+        select(Comunicado, Usuario.nome_completo)
+        .outerjoin(Usuario, Usuario.id == Comunicado.autor_id)
+        .where(Comunicado.tenant_id == tenant_id, or_(*condicoes))
+        .order_by(Comunicado.data_envio.desc())
+        .limit(100)
+    )).all()
+
+    ids_pagina = [comunicado.id for comunicado, _ in linhas]
+    ids_com_anexo: set[uuid.UUID] = set()
+    if ids_pagina:
+        resultado = await db.execute(
+            select(AnexoComunicacao.comunicado_id).where(
+                AnexoComunicacao.tenant_id == tenant_id, AnexoComunicacao.comunicado_id.in_(ids_pagina)
+            )
+        )
+        ids_com_anexo = {comunicado_id for (comunicado_id,) in resultado.all()}
+
+    return [
+        {
+            "id": comunicado.id,
+            "autor_nome": autor_nome or "—",
+            "tipo": comunicado.tipo,
+            "titulo": comunicado.titulo,
+            "corpo": comunicado.corpo,
+            "destinatario_tipo": comunicado.destinatario_tipo,
+            "data_envio": comunicado.data_envio,
+            "tem_anexo": comunicado.id in ids_com_anexo,
+        }
+        for comunicado, autor_nome in linhas
+    ]
 
 
 # ==========================================

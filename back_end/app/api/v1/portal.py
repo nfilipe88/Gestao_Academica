@@ -1,12 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil
 from app.cruds import portal as crud_portal
 from app.schemas.lms import LMSSubmeterTentativa, ProfVirtualPerguntaCreate
+from app.schemas.portal import PedirTransferenciaRequest
 
 router = APIRouter(prefix="/api/v1/portal", tags=["Portal do Aluno/Responsável"])
 
@@ -70,6 +71,53 @@ async def pedir_rematricula(
     letivo seguinte — não cria a matrícula em si, só notifica a
     Secretaria/Gestor (que escolhem a turma de destino)."""
     return await crud_portal.pedir_rematricula(db, utilizador["tenant_id"], utilizador, aluno_id)
+
+
+@router.post("/educandos/{aluno_id}/pedir-transferencia")
+async def pedir_transferencia(
+    aluno_id: uuid.UUID,
+    dados: PedirTransferenciaRequest,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Pede a transferência/reingresso cross-escola do educando para
+    outra instituição desta plataforma (identificada pelo NIF) — sujeito
+    à mesma aprovação do Super Admin de sempre (ver POST /transferencias)."""
+    return await crud_portal.pedir_transferencia(db, utilizador["tenant_id"], utilizador, aluno_id, dados.nif_destino, dados.motivo)
+
+
+@router.get("/educandos/{aluno_id}/estatisticas")
+async def obter_estatisticas_do_educando(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Aproveitamento (médias, geral e por disciplina) e assiduidade (taxa de presença) do educando."""
+    return await crud_portal.obter_estatisticas_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)
+
+
+@router.get("/educandos/{aluno_id}/comunicados")
+async def listar_comunicados_do_educando(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Histórico de comunicados/convocatórias dirigidos ao educando (à sua turma, a ele ou a toda a escola)."""
+    return await crud_portal.listar_comunicados_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)
+
+
+@router.get("/educandos/{aluno_id}/comunicados/{comunicado_id}/anexo")
+async def obter_anexo_comunicado_do_educando(
+    aluno_id: uuid.UUID,
+    comunicado_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    conteudo, content_type, nome_original = await crud_portal.obter_anexo_comunicado_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, comunicado_id)
+    return Response(
+        content=conteudo, media_type=content_type,
+        headers={"Content-Disposition": f'inline; filename="{nome_original}"'}
+    )
 
 
 @router.get("/educandos/{aluno_id}/tarefas")

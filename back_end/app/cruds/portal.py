@@ -23,14 +23,17 @@ from app.database.models_matricula import Matricula, PedidoRematricula
 from app.database.models_pessoas import Aluno
 from app.database.models import Usuario
 from app.cruds import alunos as crud_alunos
+from app.cruds import comunicacoes as crud_comunicacoes
 from app.cruds import financeiro as crud_financeiro
 from app.cruds import horarios as crud_horarios
 from app.cruds import matriculas as crud_matriculas
 from app.cruds import notificacoes as crud_notificacoes
 from app.cruds import tarefas as crud_tarefas
+from app.cruds import transferencias as crud_transferencias
 from app.cruds import lms as crud_lms
 from app.core.prof_virtual import perguntar_prof_virtual
 from app.schemas.lms import LMSSubmeterTentativa, ProfVirtualPerguntaCreate
+from app.schemas.transferencias import SolicitacaoTransferenciaCreate
 
 # Resolução de acesso ("que aluno_id este login pode ver") vive em
 # cruds/alunos.py — também é precisa em Documentos (pedidos do
@@ -207,6 +210,113 @@ async def pedir_rematricula(db: AsyncSession, tenant_id, utilizador: dict, aluno
             )
 
     return {"pedido_rematricula_confirmado": True, "ano_letivo_destino_rematricula": ano_destino}
+
+
+# ==========================================
+# A3. TRANSFERÊNCIA / REINGRESSO CROSS-ESCOLA SELF-SERVICE
+# ==========================================
+async def pedir_transferencia(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, nif_destino: str, motivo: str | None) -> dict:
+    """O encarregado (ou o próprio aluno) pede, a partir do Portal, a
+    transferência/reingresso do educando para outra escola desta
+    plataforma — sem depender de pedir à Secretaria para o fazer por
+    eles. Reaproveita EXATAMENTE o mesmo crud/regras que a Secretaria
+    usa (cruds/transferencias.py::criar_solicitacao, que já aceita
+    tanto matrícula ATIVO como CICLO_CONCLUIDO — ver docstring de
+    models_transferencias.py) — só acrescenta a verificação de posse
+    (o encarregado só pode pedir para os seus próprios educandos)."""
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    return await crud_transferencias.criar_solicitacao(
+        db, tenant_id, utilizador, SolicitacaoTransferenciaCreate(aluno_id=aluno_id, nif_destino=nif_destino, motivo=motivo)
+    )
+
+
+# ==========================================
+# A4. ESTATÍSTICAS/DESEMPENHO DO EDUCANDO (dashboard do Portal)
+# ==========================================
+async def obter_estatisticas_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> dict:
+    """Aproveitamento (médias de notas, geral e por disciplina) e
+    assiduidade (taxa de presença) da matrícula atual do educando —
+    mesmos dados e cálculos já usados em Indicadores (ver
+    cruds/indicadores.py::obter_risco_evasao), só que aqui devolvidos
+    para UM aluno em concreto, não uma lista de risco da escola
+    inteira. Comportamento (incidentes disciplinares) não está aqui:
+    a plataforma ainda não tem nenhum módulo que registe isso."""
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
+    if not matricula:
+        return {
+            "media_geral": None, "media_por_disciplina": [], "taxa_assiduidade": None,
+            "total_faltas": 0, "total_aulas": 0, "tendencia_notas": None,
+        }
+
+    linhas_notas = (await db.execute(
+        select(RegistroNota.valor_nota, RegistroNota.data_atualizacao, Disciplina.id, Disciplina.nome)
+        .join(Disciplina, Disciplina.id == RegistroNota.disciplina_id)
+        .where(RegistroNota.matricula_id == matricula.id, RegistroNota.tenant_id == tenant_id)
+        .order_by(RegistroNota.data_atualizacao)
+    )).all()
+
+    por_disciplina: dict[uuid.UUID, dict] = {}
+    todas_notas_cronologicas: list[float] = []
+    for valor_nota, _data, disciplina_id, nome_disciplina in linhas_notas:
+        valor = float(valor_nota)
+        todas_notas_cronologicas.append(valor)
+        entrada = por_disciplina.setdefault(disciplina_id, {"disciplina_id": disciplina_id, "nome_disciplina": nome_disciplina, "notas": []})
+        entrada["notas"].append(valor)
+
+    media_por_disciplina = [
+        {
+            "disciplina_id": d["disciplina_id"], "nome_disciplina": d["nome_disciplina"],
+            "media": round(sum(d["notas"]) / len(d["notas"]), 2), "quantidade_notas": len(d["notas"]),
+        }
+        for d in sorted(por_disciplina.values(), key=lambda d: d["nome_disciplina"])
+    ]
+    media_geral = round(sum(todas_notas_cronologicas) / len(todas_notas_cronologicas), 2) if todas_notas_cronologicas else None
+
+    # Tendência: mesma divisão em 2 metades cronológicas de obter_risco_evasao.
+    tendencia_notas = None
+    if len(todas_notas_cronologicas) >= 2:
+        metade = len(todas_notas_cronologicas) // 2
+        media_antiga = sum(todas_notas_cronologicas[:metade]) / metade
+        media_recente = sum(todas_notas_cronologicas[metade:]) / (len(todas_notas_cronologicas) - metade)
+        if media_recente > media_antiga * 1.05:
+            tendencia_notas = "SUBIU"
+        elif media_recente < media_antiga * 0.95:
+            tendencia_notas = "DESCEU"
+        else:
+            tendencia_notas = "ESTAVEL"
+
+    soma_faltas, soma_aulas = (await db.execute(
+        select(func.coalesce(func.sum(RegistroFrequencia.faltas), 0), func.coalesce(func.sum(RegistroFrequencia.quantidade_aulas), 0))
+        .where(RegistroFrequencia.matricula_id == matricula.id, RegistroFrequencia.tenant_id == tenant_id)
+    )).one()
+    total_faltas, total_aulas = int(soma_faltas), int(soma_aulas)
+    taxa_assiduidade = round((1 - total_faltas / total_aulas) * 100, 1) if total_aulas else None
+
+    return {
+        "media_geral": media_geral,
+        "media_por_disciplina": media_por_disciplina,
+        "taxa_assiduidade": taxa_assiduidade,
+        "total_faltas": total_faltas,
+        "total_aulas": total_aulas,
+        "tendencia_notas": tendencia_notas,
+    }
+
+
+# ==========================================
+# A5. COMUNICADOS DO EDUCANDO (histórico dentro da plataforma — o
+# e-mail já é disparado na hora do envio, ver cruds/comunicacoes.py)
+# ==========================================
+async def listar_comunicados_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> list[dict]:
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
+    turma_id = matricula.turma_id if matricula else None
+    return await crud_comunicacoes.listar_comunicados_do_educando(db, tenant_id, aluno_id, turma_id)
+
+
+async def obter_anexo_comunicado_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, comunicado_id: uuid.UUID) -> tuple[bytes, str, str]:
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    return await crud_comunicacoes.obter_anexo_conteudo(db, tenant_id, comunicado_id)
 
 
 # ==========================================

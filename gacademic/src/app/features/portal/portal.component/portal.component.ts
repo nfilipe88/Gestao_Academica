@@ -1,5 +1,5 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, HostListener, inject, OnInit } from '@angular/core';
+import { Component, HostListener, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -12,15 +12,16 @@ import { MOEDAS_PAYPAL_SUPORTADAS } from '../../../store/configuracoes/configura
 import { capturarPagamento, financeiroOperacaoSucesso, gerarCobranca } from '../../../store/financeiro/financeiro.actions';
 import { selectUltimaCobranca } from '../../../store/financeiro/financeiro.selector';
 import {
-  carregarBoletimDoEducando, carregarExamesDoEducando, carregarFinanceiroDoEducando, carregarHorarioDoEducando,
-  carregarMaterialDoEducando, carregarMateriaisDoEducando, carregarMeusEducandos, carregarResultadoExame,
-  carregarTarefasDoEducando, iniciarTentativaExame, limparMaterialAberto, limparTentativaExame,
-  perguntarProfVirtual, registarEventoSuspeito, submeterTentativaExame
+  carregarBoletimDoEducando, carregarComunicadosDoEducando, carregarEstatisticasDoEducando, carregarExamesDoEducando,
+  carregarFinanceiroDoEducando, carregarHorarioDoEducando, carregarMaterialDoEducando, carregarMateriaisDoEducando,
+  carregarMeusEducandos, carregarResultadoExame, carregarTarefasDoEducando, iniciarTentativaExame,
+  limparMaterialAberto, limparTentativaExame, perguntarProfVirtual, registarEventoSuspeito, submeterTentativaExame
 } from '../../../store/portal/portal.actions';
 import {
-  selectAProcessarPerguntaProfVirtual, selectASubmeterTentativa, selectBoletimDoEducando, selectConversaProfVirtual,
-  selectErroProfVirtual, selectEventosSuspeitosTentativa, selectExamesDoEducando, selectFinanceiroDoEducando,
-  selectHorarioDoEducando, selectMaterialAberto, selectMateriaisDoEducando, selectMeusEducandos, selectPortalError,
+  selectAProcessarPerguntaProfVirtual, selectASubmeterTentativa, selectBoletimDoEducando,
+  selectComunicadosDoEducando, selectConversaProfVirtual, selectErroProfVirtual, selectEstatisticasDoEducando,
+  selectEventosSuspeitosTentativa, selectExamesDoEducando, selectFinanceiroDoEducando, selectHorarioDoEducando,
+  selectMaterialAberto, selectMateriaisDoEducando, selectMeusEducandos, selectPortalError,
   selectResultadoExame, selectTarefasDoEducando, selectTentativaAtual
 } from '../../../store/portal/portal.selector';
 import { EducandoResumo, HorarioAulaPortal } from '../../../store/portal/portal.models';
@@ -75,6 +76,8 @@ export class PortalComponent implements OnInit {
   resultadoExame$ = this.store.select(selectResultadoExame);
   aSubmeterTentativa$ = this.store.select(selectASubmeterTentativa);
   eventosSuspeitosTentativa$ = this.store.select(selectEventosSuspeitosTentativa);
+  estatisticas$ = this.store.select(selectEstatisticasDoEducando);
+  comunicados$ = this.store.select(selectComunicadosDoEducando);
 
   precosDocumento$ = this.store.select(selectPrecosDocumento);
   solicitacoesDocumento$ = this.store.select(selectSolicitacoesEmissao);
@@ -86,12 +89,29 @@ export class PortalComponent implements OnInit {
   dias = DIAS_DA_SEMANA;
 
   educandoSelecionadoId: string | null = null;
-  aba: 'horario' | 'boletim' | 'trabalhos' | 'materiais' | 'exames' | 'financeiro' | 'documentos' = 'horario';
+  aba: 'dashboard' | 'horario' | 'boletim' | 'trabalhos' | 'materiais' | 'exames' | 'financeiro' | 'documentos' | 'comunicados' = 'dashboard';
 
   // Rematrícula self-service — estado local do pedido em curso, para o
   // botão mostrar "A enviar..." e não deixar clicar duas vezes.
   aEnviarPedidoRematricula = false;
   erroRematricula: string | null = null;
+
+  // Transferência/Reingresso cross-escola self-service — mesmo
+  // mecanismo de sempre (POST /transferencias), só que a partir do
+  // Portal e restrito aos próprios educandos (ver
+  // cruds/portal.py::pedir_transferencia).
+  //
+  // signal() e não propriedades simples de propósito: as mutações
+  // abaixo acontecem dentro do callback .subscribe() de uma chamada
+  // HTTP — nesta app zoneless, isso só passa a re-render se for escrita
+  // de signal (um clique síncrono já dispara deteção sozinho; o que
+  // acontece DEPOIS, quando a resposta HTTP chega, não).
+  mostrarFormularioTransferencia = signal(false);
+  nifDestinoTransferencia = signal('');
+  motivoTransferencia = signal('');
+  aEnviarPedidoTransferencia = signal(false);
+  erroTransferencia = signal<string | null>(null);
+  mensagemTransferencia = signal<string | null>(null);
 
   // Prof. Virtual — qual material está aberto e a pergunta a meio de escrever.
   materialAbertoId: string | null = null;
@@ -179,10 +199,34 @@ export class PortalComponent implements OnInit {
     });
   }
 
+  onPedirTransferencia(alunoId: string) {
+    const nif = this.nifDestinoTransferencia().trim();
+    if (!nif) return;
+    this.aEnviarPedidoTransferencia.set(true);
+    this.erroTransferencia.set(null);
+    this.http.post(`/api/v1/portal/educandos/${alunoId}/pedir-transferencia`, {
+      nif_destino: nif, motivo: this.motivoTransferencia().trim() || null,
+    }).subscribe({
+      next: () => {
+        this.aEnviarPedidoTransferencia.set(false);
+        this.mostrarFormularioTransferencia.set(false);
+        this.nifDestinoTransferencia.set('');
+        this.motivoTransferencia.set('');
+        this.mensagemTransferencia.set('Pedido enviado — sujeito a aprovação do Super Admin da plataforma.');
+      },
+      error: (err) => {
+        this.aEnviarPedidoTransferencia.set(false);
+        this.erroTransferencia.set(err.error?.detail || 'Não foi possível enviar o pedido de transferência.');
+      },
+    });
+  }
+
   onSelecionarEducando(alunoId: string) {
     this.educandoSelecionadoId = alunoId;
-    this.aba = 'horario';
+    this.aba = 'dashboard';
     this.erroRematricula = null;
+    this.erroTransferencia.set(null);
+    this.mostrarFormularioTransferencia.set(false);
     this.materialAbertoId = null;
     this.store.dispatch(carregarHorarioDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarBoletimDoEducando({ aluno_id: alunoId }));
@@ -190,6 +234,8 @@ export class PortalComponent implements OnInit {
     this.store.dispatch(carregarTarefasDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarMateriaisDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarExamesDoEducando({ aluno_id: alunoId }));
+    this.store.dispatch(carregarEstatisticasDoEducando({ aluno_id: alunoId }));
+    this.store.dispatch(carregarComunicadosDoEducando({ aluno_id: alunoId }));
     this.exameEmCursoId = null;
     this.exameResultadoAbertoId = null;
     this.store.dispatch(limparTentativaExame());
@@ -376,6 +422,16 @@ export class PortalComponent implements OnInit {
     const aba = window.open('', '_blank');
     this.http.get(`/api/v1/documentos/solicitacoes/${solicitacaoId}/pdf`, { responseType: 'blob' }).subscribe({
       next: (blob) => abrirOuTransferirBlob(aba, blob, `documento-${solicitacaoId}.pdf`),
+      error: () => { if (aba) aba.close(); }
+    });
+  }
+
+  // --- Comunicados ---
+  onVerAnexoComunicado(comunicadoId: string) {
+    if (!this.educandoSelecionadoId) return;
+    const aba = window.open('', '_blank');
+    this.http.get(`/api/v1/portal/educandos/${this.educandoSelecionadoId}/comunicados/${comunicadoId}/anexo`, { responseType: 'blob' }).subscribe({
+      next: (blob) => abrirOuTransferirBlob(aba, blob, 'anexo'),
       error: () => { if (aba) aba.close(); }
     });
   }

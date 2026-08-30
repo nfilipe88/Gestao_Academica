@@ -1,7 +1,8 @@
 import { createAction, props } from '@ngrx/store';
 import {
-  Boletim, EducandoResumo, ExameEducando, FinanceiroEducando, HorarioAulaPortal,
-  MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, ResultadoExame, TarefaEducando, TentativaIniciada
+  Boletim, ComunicadoEducando, EducandoResumo, EstatisticasEducando, ExameEducando, FinanceiroEducando,
+  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, ResultadoExame,
+  TarefaEducando, TentativaIniciada
 } from './portal.models';
 
 export const carregarMeusEducandos = createAction('[Portal] Carregar Meus Educandos');
@@ -137,6 +138,27 @@ export const registarEventoSuspeito = createAction(
 export const registarEventoSuspeitoSucesso = createAction(
   '[Portal] Registar Evento Suspeito Sucesso',
   props<{ eventos_suspeitos: number }>()
+);
+
+// ==========================================
+// Dashboard (Estatísticas) e Comunicados
+// ==========================================
+export const carregarEstatisticasDoEducando = createAction(
+  '[Portal] Carregar Estatisticas Do Educando',
+  props<{ aluno_id: string }>()
+);
+export const carregarEstatisticasDoEducandoSucesso = createAction(
+  '[Portal] Carregar Estatisticas Do Educando Sucesso',
+  props<{ estatisticas: EstatisticasEducando }>()
+);
+
+export const carregarComunicadosDoEducando = createAction(
+  '[Portal] Carregar Comunicados Do Educando',
+  props<{ aluno_id: string }>()
+);
+export const carregarComunicadosDoEducandoSucesso = createAction(
+  '[Portal] Carregar Comunicados Do Educando Sucesso',
+  props<{ comunicados: ComunicadoEducando[] }>()
 );
 
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,

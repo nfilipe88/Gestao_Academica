@@ -1,8 +1,9 @@
 import { createReducer, on } from '@ngrx/store';
 import * as PortalActions from './portal.actions';
 import {
-  Boletim, EducandoResumo, ExameEducando, FinanceiroEducando, HorarioAulaPortal,
-  MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, ResultadoExame, TarefaEducando, TentativaIniciada
+  Boletim, ComunicadoEducando, EducandoResumo, EstatisticasEducando, ExameEducando, FinanceiroEducando,
+  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, ResultadoExame,
+  TarefaEducando, TentativaIniciada
 } from './portal.models';
 
 export interface PortalState {
@@ -21,6 +22,8 @@ export interface PortalState {
   resultadoExame: ResultadoExame | null;
   aSubmeterTentativa: boolean;
   eventosSuspeitosTentativa: number;
+  estatisticas: EstatisticasEducando | null;
+  comunicados: ComunicadoEducando[];
   erro: string | null;
 }
 
@@ -40,6 +43,8 @@ export const initialState: PortalState = {
   resultadoExame: null,
   aSubmeterTentativa: false,
   eventosSuspeitosTentativa: 0,
+  estatisticas: null,
+  comunicados: [],
   erro: null
 };
 
@@ -49,6 +54,7 @@ export const portalReducer = createReducer(
      PortalActions.carregarBoletimDoEducando, PortalActions.carregarFinanceiroDoEducando,
      PortalActions.carregarTarefasDoEducando, PortalActions.carregarMateriaisDoEducando,
      PortalActions.carregarMaterialDoEducando, PortalActions.carregarExamesDoEducando,
+     PortalActions.carregarEstatisticasDoEducando, PortalActions.carregarComunicadosDoEducando,
     (state) => ({ ...state, erro: null })
   ),
   on(PortalActions.carregarMeusEducandosSucesso, (state, { educandos }) => ({ ...state, educandos })),
@@ -84,5 +90,7 @@ export const portalReducer = createReducer(
   on(PortalActions.perguntarProfVirtualFalhou, (state, { erro }) => ({
     ...state, aProcessarPerguntaProfVirtual: false, erroProfVirtual: erro
   })),
+  on(PortalActions.carregarEstatisticasDoEducandoSucesso, (state, { estatisticas }) => ({ ...state, estatisticas })),
+  on(PortalActions.carregarComunicadosDoEducandoSucesso, (state, { comunicados }) => ({ ...state, comunicados })),
   on(PortalActions.portalOperacaoFalhou, (state, { erro }) => ({ ...state, erro }))
 );
