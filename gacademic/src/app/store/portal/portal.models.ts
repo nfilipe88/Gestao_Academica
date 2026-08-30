@@ -158,14 +158,30 @@ export interface ResultadoExame {
 
 // ==========================================
 // Dashboard (Estatísticas) — ver cruds/portal.py::obter_estatisticas_do_educando.
-// "Comportamento" fica de fora: a plataforma ainda não tem nenhum
-// módulo que registe incidentes disciplinares.
 // ==========================================
 export interface DisciplinaEstatistica {
   disciplina_id: string;
   nome_disciplina: string;
   media: number;
   quantidade_notas: number;
+}
+
+// Ver app/cruds/comportamento.py — registos de comportamento
+// (positivo/negativo) da matrícula atual do educando.
+export interface RegistoComportamento {
+  id: string;
+  tipo: 'POSITIVO' | 'NEGATIVO';
+  descricao: string;
+  data_ocorrencia: string;
+  disciplina_id: string | null;
+  registrado_por_nome: string;
+  data_criacao: string;
+}
+
+export interface ResumoComportamento {
+  total_positivos: number;
+  total_negativos: number;
+  recentes: RegistoComportamento[];
 }
 
 export interface EstatisticasEducando {
@@ -175,6 +191,7 @@ export interface EstatisticasEducando {
   total_faltas: number;
   total_aulas: number;
   tendencia_notas: 'SUBIU' | 'DESCEU' | 'ESTAVEL' | null;
+  comportamento: ResumoComportamento;
 }
 
 // Comunicados — histórico de consulta (o e-mail já foi enviado na hora

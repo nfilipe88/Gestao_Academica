@@ -23,6 +23,7 @@ from app.database.models_matricula import Matricula, PedidoRematricula
 from app.database.models_pessoas import Aluno
 from app.database.models import Usuario
 from app.cruds import alunos as crud_alunos
+from app.cruds import comportamento as crud_comportamento
 from app.cruds import comunicacoes as crud_comunicacoes
 from app.cruds import financeiro as crud_financeiro
 from app.cruds import horarios as crud_horarios
@@ -234,19 +235,20 @@ async def pedir_transferencia(db: AsyncSession, tenant_id, utilizador: dict, alu
 # A4. ESTATÍSTICAS/DESEMPENHO DO EDUCANDO (dashboard do Portal)
 # ==========================================
 async def obter_estatisticas_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> dict:
-    """Aproveitamento (médias de notas, geral e por disciplina) e
-    assiduidade (taxa de presença) da matrícula atual do educando —
-    mesmos dados e cálculos já usados em Indicadores (ver
-    cruds/indicadores.py::obter_risco_evasao), só que aqui devolvidos
-    para UM aluno em concreto, não uma lista de risco da escola
-    inteira. Comportamento (incidentes disciplinares) não está aqui:
-    a plataforma ainda não tem nenhum módulo que registe isso."""
+    """Aproveitamento (médias de notas, geral e por disciplina),
+    assiduidade (taxa de presença) e comportamento (contagem de
+    registos positivos/negativos, ver cruds/comportamento.py) da
+    matrícula atual do educando — mesmos dados e cálculos já usados em
+    Indicadores (cruds/indicadores.py::obter_risco_evasao), só que
+    aqui devolvidos para UM aluno em concreto, não uma lista de risco
+    da escola inteira."""
     await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
     matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
     if not matricula:
         return {
             "media_geral": None, "media_por_disciplina": [], "taxa_assiduidade": None,
             "total_faltas": 0, "total_aulas": 0, "tendencia_notas": None,
+            "comportamento": {"total_positivos": 0, "total_negativos": 0, "recentes": []},
         }
 
     linhas_notas = (await db.execute(
@@ -293,6 +295,8 @@ async def obter_estatisticas_do_educando(db: AsyncSession, tenant_id, utilizador
     total_faltas, total_aulas = int(soma_faltas), int(soma_aulas)
     taxa_assiduidade = round((1 - total_faltas / total_aulas) * 100, 1) if total_aulas else None
 
+    comportamento = await crud_comportamento.obter_resumo_comportamento_da_matricula(db, tenant_id, matricula.id)
+
     return {
         "media_geral": media_geral,
         "media_por_disciplina": media_por_disciplina,
@@ -300,6 +304,7 @@ async def obter_estatisticas_do_educando(db: AsyncSession, tenant_id, utilizador
         "total_faltas": total_faltas,
         "total_aulas": total_aulas,
         "tendencia_notas": tendencia_notas,
+        "comportamento": comportamento,
     }
 
 

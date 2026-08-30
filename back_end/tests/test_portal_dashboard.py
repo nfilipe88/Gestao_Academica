@@ -1,11 +1,6 @@
 """Área do Encarregado — dashboard de estatísticas (aproveitamento +
-assiduidade), pedido self-service de transferência/reingresso e
-histórico de comunicados. Ver app/cruds/portal.py.
-
-"Comportamento" (pedido pelo utilizador, junto com estas outras 3
-funcionalidades) fica de fora — a plataforma ainda não tem nenhum
-módulo que registe incidentes/comportamento, seria uma funcionalidade
-nova à parte, não só mais um número a mostrar no Portal."""
+assiduidade + comportamento), pedido self-service de transferência/
+reingresso e histórico de comunicados. Ver app/cruds/portal.py."""
 from datetime import date
 
 from tests.conftest import auth_headers, criar_escola_e_gestor
@@ -43,6 +38,15 @@ async def test_estatisticas_do_educando_calcula_media_e_assiduidade(client):
     )
     assert resp.status_code == 201, resp.text
 
+    resp = await client.post(f"/api/v1/comportamento/turmas/{dados['turma_id']}/alunos/{dados['aluno_id']}", headers=headers, json={
+        "tipo": "POSITIVO", "descricao": "Ajudou um colega."
+    })
+    assert resp.status_code == 201, resp.text
+    resp = await client.post(f"/api/v1/comportamento/turmas/{dados['turma_id']}/alunos/{dados['aluno_id']}", headers=headers, json={
+        "tipo": "NEGATIVO", "descricao": "Chegou atrasado."
+    })
+    assert resp.status_code == 201, resp.text
+
     resp = await client.post("/api/v1/auth/login", data={"username": dados["email_responsavel"], "password": dados["senha"]})
     token_responsavel = resp.json()["access_token"]
 
@@ -54,6 +58,9 @@ async def test_estatisticas_do_educando_calcula_media_e_assiduidade(client):
     assert stats["total_faltas"] == 1
     assert stats["total_aulas"] == 4
     assert stats["taxa_assiduidade"] == 75.0
+    assert stats["comportamento"]["total_positivos"] == 1
+    assert stats["comportamento"]["total_negativos"] == 1
+    assert len(stats["comportamento"]["recentes"]) == 2
 
 
 async def test_comunicados_do_educando_filtra_por_destinatario(client):

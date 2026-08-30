@@ -227,3 +227,31 @@ class RegistroNotaAuditoria(Base):
     valor_antigo: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
     valor_novo: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
     alterado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class RegistroComportamento(Base):
+    """Incidente ou nota de comportamento de um aluno — positivo (elogio,
+    destaque) ou negativo (advertência, infração) — complementar às
+    notas/frequência académicas (Nível 1 do Diário de Classe, mesmo
+    módulo comercial — ver app/core/modulos.py).
+
+    Fica ligado à Matrícula (não só ao Aluno), como RegistroNota/
+    RegistroFrequencia: é o percurso NESTE ano letivo/turma que
+    interessa mostrar, mesmo raciocínio de sempre nesta plataforma.
+    disciplina_id é opcional — regista o contexto quando o incidente
+    aconteceu numa aula em concreto, mas Gestor/Secretaria também
+    registam comportamento fora de qualquer disciplina (ex.: no
+    recreio, na entrada).
+    """
+    __tablename__ = "registro_comportamento"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    matricula_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matricula.id", ondelete="CASCADE"), nullable=False, index=True)
+    disciplina_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disciplina.id", ondelete="SET NULL"), nullable=True)
+    registrado_por_usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
+
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False)  # POSITIVO, NEGATIVO
+    descricao: Mapped[str] = mapped_column(String(1000), nullable=False)
+    data_ocorrencia: Mapped[date] = mapped_column(Date, nullable=False)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))

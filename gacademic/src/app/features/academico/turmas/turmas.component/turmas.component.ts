@@ -10,7 +10,9 @@ import { selectAcademicoError, selectCursos, selectSeries, selectTurmas } from '
 import { carregarAlunos } from '../../../../store/alunos/alunos.actions';
 import { selectAlunos } from '../../../../store/alunos/alunos.selector';
 import { atualizarStatusMatricula, carregarMatriculasDaTurma, criarMatricula } from '../../../../store/matriculas/matriculas.actions';
-import { ESTADOS_MATRICULA, MatriculaDocumento, MOTIVOS_FIM_CICLO } from '../../../../store/matriculas/matriculas.models';
+import {
+  ESTADOS_MATRICULA, MatriculaDocumento, MOTIVOS_FIM_CICLO, RegistoComportamento, TIPOS_COMPORTAMENTO
+} from '../../../../store/matriculas/matriculas.models';
 import { selectMatriculasError, selectMatriculasPorTurma } from '../../../../store/matriculas/matriculas.selector';
 import { selectIsGestorOuSecretaria } from '../../../../store/auth/auth.selectors';
 
@@ -289,6 +291,54 @@ export class TurmasComponent implements OnInit {
         janela?.document.write(`<iframe src="${resp.url}" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>`);
       },
       error: () => janela?.close(),
+    });
+  }
+
+  // ==========================================
+  // COMPORTAMENTO (positivo/negativo) — mesmo padrão de DOCUMENTOS
+  // acima, só que indexado por aluno_id (não por matricula_id: as
+  // rotas de comportamento são /comportamento/turmas/{turma}/alunos/{aluno}
+  // — ver app/api/v1/comportamento.py).
+  // ==========================================
+  readonly tiposComportamento = TIPOS_COMPORTAMENTO;
+  comportamentoAbertoAlunoId = signal<string | null>(null);
+  comportamentoPorAluno = signal<Record<string, RegistoComportamento[]>>({});
+  novoComportamentoTipo: Record<string, string> = {};
+  novoComportamentoDescricao: Record<string, string> = {};
+  aRegistarComportamentoAlunoId = signal<string | null>(null);
+
+  onAlternarComportamento(alunoId: string) {
+    const abrir = this.comportamentoAbertoAlunoId() !== alunoId;
+    this.comportamentoAbertoAlunoId.set(abrir ? alunoId : null);
+    if (abrir && this.turmaExpandidaId) {
+      this.http.get<RegistoComportamento[]>(`/api/v1/comportamento/turmas/${this.turmaExpandidaId}/alunos/${alunoId}`).subscribe({
+        next: (registos) => this.comportamentoPorAluno.update(atual => ({ ...atual, [alunoId]: registos })),
+      });
+    }
+  }
+
+  onRegistarComportamento(alunoId: string) {
+    const tipo = this.novoComportamentoTipo[alunoId];
+    const descricao = (this.novoComportamentoDescricao[alunoId] || '').trim();
+    if (!this.turmaExpandidaId || !tipo || !descricao) return;
+    this.aRegistarComportamentoAlunoId.set(alunoId);
+    this.http.post<RegistoComportamento>(`/api/v1/comportamento/turmas/${this.turmaExpandidaId}/alunos/${alunoId}`, {
+      tipo, descricao
+    }).subscribe({
+      next: (novo) => {
+        this.aRegistarComportamentoAlunoId.set(null);
+        this.comportamentoPorAluno.update(atual => ({ ...atual, [alunoId]: [novo, ...(atual[alunoId] || [])] }));
+        this.novoComportamentoDescricao[alunoId] = '';
+      },
+      error: () => this.aRegistarComportamentoAlunoId.set(null),
+    });
+  }
+
+  onRemoverComportamento(alunoId: string, registoId: string) {
+    this.http.delete(`/api/v1/comportamento/registos/${registoId}`).subscribe({
+      next: () => this.comportamentoPorAluno.update(atual => ({
+        ...atual, [alunoId]: (atual[alunoId] || []).filter(r => r.id !== registoId)
+      })),
     });
   }
 }

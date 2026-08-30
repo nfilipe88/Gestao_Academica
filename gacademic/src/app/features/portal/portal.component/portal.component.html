@@ -180,9 +180,13 @@
                 <p class="text-xs text-slate-400 mt-1">{{ est.total_faltas }} falta(s) em {{ est.total_aulas }} aula(s)</p>
               }
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 col-span-2 md:col-span-2">
-              <p class="text-sm text-slate-500 mb-1">Comportamento</p>
-              <p class="text-xs text-slate-400">A escola ainda não regista incidentes/comportamento na plataforma.</p>
+            <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+              <p class="text-sm text-slate-500">Comportamento positivo</p>
+              <p class="text-2xl font-bold text-emerald-600 mt-1">{{ est.comportamento.total_positivos }}</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
+              <p class="text-sm text-slate-500">Comportamento negativo</p>
+              <p class="text-2xl font-bold text-rose-600 mt-1">{{ est.comportamento.total_negativos }}</p>
             </div>
           </div>
 
@@ -204,6 +208,29 @@
               </div>
             } @else {
               <p class="text-sm text-slate-400">Ainda não há notas lançadas.</p>
+            }
+          </div>
+
+          <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+            <h3 class="text-sm font-semibold text-slate-800 mb-3">Comportamento — registos recentes</h3>
+            @if (est.comportamento.recentes.length > 0) {
+              <div class="space-y-2">
+                @for (r of est.comportamento.recentes; track r.id) {
+                  <div class="flex items-start gap-3 border border-slate-100 rounded-lg p-3">
+                    <span class="text-xs font-medium py-1 px-2 rounded-full shrink-0"
+                      [class.bg-emerald-100]="r.tipo === 'POSITIVO'" [class.text-emerald-700]="r.tipo === 'POSITIVO'"
+                      [class.bg-rose-100]="r.tipo === 'NEGATIVO'" [class.text-rose-700]="r.tipo === 'NEGATIVO'">
+                      {{ r.tipo === 'POSITIVO' ? 'Positivo' : 'Negativo' }}
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-sm text-slate-700">{{ r.descricao }}</p>
+                      <p class="text-xs text-slate-400 mt-0.5">{{ r.registrado_por_nome }} · {{ r.data_ocorrencia | date:'dd/MM/yyyy' }}</p>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="text-sm text-slate-400">Ainda não há registos de comportamento.</p>
             }
           </div>
         } @else {

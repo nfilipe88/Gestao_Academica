@@ -34,3 +34,17 @@ export interface MatriculaDocumento {
   descricao: string | null;
   nome_original: string;
 }
+
+// Ver app/database/models_diario.py::RegistroComportamento — incidente
+// ou nota de comportamento (positivo/negativo) de um aluno numa turma.
+export const TIPOS_COMPORTAMENTO = ['POSITIVO', 'NEGATIVO'] as const;
+
+export interface RegistoComportamento {
+  id: string;
+  tipo: 'POSITIVO' | 'NEGATIVO';
+  descricao: string;
+  data_ocorrencia: string;
+  disciplina_id: string | null;
+  registrado_por_nome: string;
+  data_criacao: string;
+}

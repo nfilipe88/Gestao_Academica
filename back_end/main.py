@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from app.api.v1 import academico, admin, alunos, auditoria, auth, comunicacoes, configuracoes, crm, diario, documentos, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
+from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, comunicacoes, configuracoes, crm, diario, documentos, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
 from fastapi import Depends
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
@@ -76,6 +76,7 @@ app.include_router(matriculas.router)
 app.include_router(professores.router, dependencies=[Depends(exigir_modulo("Professores"))])
 app.include_router(comunicacoes.router, dependencies=[Depends(exigir_modulo("Comunicações"))])
 app.include_router(diario.router, dependencies=[Depends(exigir_modulo("Diário de Classe"))])
+app.include_router(comportamento.router, dependencies=[Depends(exigir_modulo("Diário de Classe"))])
 app.include_router(financeiro.router, dependencies=[Depends(exigir_modulo("Financeiro"))])
 app.include_router(financeiro.router_webhooks)  # público (PayPal) — nunca gateado por módulo
 app.include_router(crm.router, dependencies=[Depends(exigir_modulo("CRM"))])
