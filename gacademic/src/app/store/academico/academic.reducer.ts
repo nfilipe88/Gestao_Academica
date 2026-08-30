@@ -24,7 +24,7 @@ export const initialState: AcademicoState = {
 
 export const academicoReducer = createReducer(
   initialState,
-  on(AcademicoActions.carregarCursos, AcademicoActions.criarCurso,
+  on(AcademicoActions.carregarCursos, AcademicoActions.criarCurso, AcademicoActions.atualizarCursoSitePublico,
      AcademicoActions.carregarSeries, AcademicoActions.criarSerieAno,
      AcademicoActions.carregarTurmas, AcademicoActions.criarTurma,
      AcademicoActions.carregarDisciplinas, AcademicoActions.criarDisciplina,

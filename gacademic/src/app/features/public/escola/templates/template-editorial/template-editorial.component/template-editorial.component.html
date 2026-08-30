@@ -1,0 +1,142 @@
+<div class="min-h-screen bg-white text-neutral-900">
+
+  <!-- Navegação -->
+  <nav class="border-b border-neutral-900">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+      <span class="font-semibold tracking-tight truncate">{{ escola.nome_fantasia }}</span>
+      <div class="hidden sm:flex items-center gap-6 text-sm">
+        @if (escola.metodologia) { <a href="#sobre" class="hover:underline underline-offset-4">Sobre</a> }
+        @if (escola.cursos.length) { <a href="#cursos" class="hover:underline underline-offset-4">Cursos</a> }
+        @if (escola.fotos.length) { <a href="#galeria" class="hover:underline underline-offset-4">Galeria</a> }
+        <a href="#contacto" class="hover:underline underline-offset-4">Contacto</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="max-w-3xl mx-auto px-4 sm:px-6 pt-20 pb-16">
+    @if (escola.logotipo) {
+      <img [src]="escola.logotipo" [alt]="escola.nome_fantasia" class="h-10 w-auto object-contain mb-8" />
+    }
+    <h1 class="text-5xl sm:text-6xl font-serif tracking-tight text-balance leading-[1.05]">{{ escola.nome_fantasia }}</h1>
+    @if (escola.missao) {
+      <p class="mt-8 text-lg text-neutral-600 max-w-xl leading-relaxed">{{ escola.missao }}</p>
+    }
+    <a href="#contacto"
+      class="mt-10 inline-flex items-center gap-2 border border-neutral-900 text-neutral-900 font-medium px-6 py-3 hover:bg-neutral-900 hover:text-white transition-colors">
+      Peça mais informações →
+    </a>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 pb-20 space-y-20">
+
+    @if (escola.metodologia) {
+      <section id="sobre" class="scroll-mt-20 border-t border-neutral-200 pt-10">
+        <h2 class="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 mb-4">Como ensinamos</h2>
+        <p class="text-neutral-700 leading-relaxed whitespace-pre-wrap text-lg font-serif">{{ escola.metodologia }}</p>
+      </section>
+    }
+
+    @if (escola.cursos.length) {
+      <section id="cursos" class="scroll-mt-20 border-t border-neutral-200 pt-10">
+        <h2 class="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 mb-6">Cursos</h2>
+        <div>
+          @for (curso of escola.cursos; track curso.id; let i = $index) {
+            <div class="border-b border-neutral-200 py-5">
+              <button type="button" (click)="alternarCurso(curso.id)"
+                class="w-full flex items-baseline gap-4 text-left cursor-pointer group">
+                <span class="text-sm text-neutral-400 font-mono shrink-0">{{ numero(i) }}</span>
+                <span class="text-xl font-serif group-hover:text-neutral-500 transition-colors">{{ curso.nome }}</span>
+                @if (curso.descricao) {
+                  <span class="ml-auto text-sm text-neutral-400 shrink-0">{{ cursoExpandidoId() === curso.id ? '−' : '+' }}</span>
+                }
+              </button>
+              @if (cursoExpandidoId() === curso.id && curso.descricao) {
+                <p class="mt-4 pl-9 text-neutral-600 leading-relaxed whitespace-pre-wrap">{{ curso.descricao }}</p>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    @if (escola.fotos.length) {
+      <section id="galeria" class="scroll-mt-20 border-t border-neutral-200 pt-10">
+        <h2 class="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 mb-6">Galeria</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          @for (foto of escola.fotos; track $index) {
+            <img [src]="foto" alt="" class="w-full aspect-square object-cover grayscale hover:grayscale-0 transition-all" />
+          }
+        </div>
+      </section>
+    }
+
+    @if (escola.telefone_contacto || escola.email_contacto || escola.morada || escola.facebook || escola.instagram || escola.whatsapp) {
+      <section class="border-t border-neutral-200 pt-10">
+        <h2 class="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 mb-4">Contacto</h2>
+        <div class="space-y-1.5 text-neutral-600">
+          @if (escola.morada) { <p>{{ escola.morada }}{{ escola.cidade ? ', ' + escola.cidade : '' }}</p> }
+          @if (escola.telefone_contacto) { <p>{{ escola.telefone_contacto }}</p> }
+          @if (escola.email_contacto) { <p>{{ escola.email_contacto }}</p> }
+        </div>
+        @if (escola.facebook || escola.instagram || escola.whatsapp) {
+          <div class="flex flex-wrap gap-5 mt-4 text-sm font-medium">
+            @if (escola.facebook) { <a [href]="escola.facebook" target="_blank" rel="noopener" class="hover:underline underline-offset-4">Facebook</a> }
+            @if (escola.instagram) { <a [href]="escola.instagram" target="_blank" rel="noopener" class="hover:underline underline-offset-4">Instagram</a> }
+            @if (escola.whatsapp) { <a [href]="linkWhatsapp(escola.whatsapp, escola.nome_fantasia)" target="_blank" rel="noopener" class="hover:underline underline-offset-4">WhatsApp</a> }
+          </div>
+        }
+      </section>
+    }
+
+    <!-- Formulário de contacto (RN03 do CRM) -->
+    <section id="contacto" class="scroll-mt-20 border-t border-neutral-200 pt-10">
+      @if (!leadEnviado) {
+        <h2 class="text-2xl font-serif mb-1">Peça mais informações</h2>
+        <p class="text-neutral-500 text-sm mb-6">Deixe os seus dados e a escola entrará em contacto brevemente.</p>
+
+        @if (erroLead) {
+          <div class="border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-4">{{ erroLead }}</div>
+        }
+
+        <form [formGroup]="leadForm" (ngSubmit)="submitLead.emit()" class="space-y-4 max-w-md">
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-neutral-400 mb-1">O seu nome</label>
+            <input type="text" formControlName="nome_responsavel"
+              class="w-full border-0 border-b border-neutral-300 px-0 py-2 text-sm text-neutral-900 focus:outline-hidden focus:border-neutral-900 bg-transparent" />
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-wide text-neutral-400 mb-1">Nome do candidato (aluno)</label>
+            <input type="text" formControlName="nome_aluno_candidato"
+              class="w-full border-0 border-b border-neutral-300 px-0 py-2 text-sm text-neutral-900 focus:outline-hidden focus:border-neutral-900 bg-transparent" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase tracking-wide text-neutral-400 mb-1">E-mail — opcional</label>
+              <input type="email" formControlName="email_contato"
+                class="w-full border-0 border-b border-neutral-300 px-0 py-2 text-sm text-neutral-900 focus:outline-hidden focus:border-neutral-900 bg-transparent" />
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wide text-neutral-400 mb-1">Telefone — opcional</label>
+              <input type="text" formControlName="telefone"
+                class="w-full border-0 border-b border-neutral-300 px-0 py-2 text-sm text-neutral-900 focus:outline-hidden focus:border-neutral-900 bg-transparent" />
+            </div>
+          </div>
+          <button type="submit" [disabled]="leadForm.invalid"
+            class="w-full border border-neutral-900 disabled:border-neutral-300 disabled:text-neutral-400 text-neutral-900 font-medium py-3 mt-2 hover:bg-neutral-900 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed disabled:hover:bg-transparent">
+            Enviar Pedido de Contacto
+          </button>
+        </form>
+      } @else {
+        <div class="py-6">
+          <h2 class="text-2xl font-serif mb-2">Pedido recebido.</h2>
+          <p class="text-neutral-500 text-sm">Obrigado pelo contacto — a escola entrará em contacto consigo brevemente.</p>
+        </div>
+      }
+    </section>
+  </main>
+
+  <footer class="border-t border-neutral-900 py-6 text-center text-xs text-neutral-400">
+    Página gerida por {{ escola.nome_fantasia }} — plataforma SaaS Académico
+  </footer>
+</div>

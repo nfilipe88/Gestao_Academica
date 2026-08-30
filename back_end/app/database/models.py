@@ -79,6 +79,11 @@ class Tenant(Base):
     # escola ainda não escolheu um; a página pública continua acessível
     # pelo uuid enquanto isso.
     site_publico_slug: Mapped[str | None] = mapped_column(String(80), unique=True, nullable=True)
+    # Modelo visual da página pública — um dos TEMPLATES_VALIDOS em
+    # cruds/site_publico.py. String livre (não um Enum do Postgres) de
+    # propósito: acrescentar um 5º modelo no futuro fica só no código
+    # Python, sem migração de schema.
+    site_publico_template: Mapped[str] = mapped_column(String(30), nullable=False, default="classico", server_default="classico")
     # Redes sociais — links opcionais mostrados na página pública. O
     # WhatsApp guarda só o número (ex.: "351912345678", sem "+" nem
     # espaços) porque é a partir dele que se constrói o link

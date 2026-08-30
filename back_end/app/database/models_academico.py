@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, String, Integer, ForeignKey, UniqueConstraint, text
+from sqlalchemy import Boolean, DateTime, String, Integer, ForeignKey, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.models import Base # A nossa Base declarativa original
 
@@ -15,6 +15,17 @@ class Curso(Base):
 
     # Relacionamento (Um Curso tem muitas Séries/Anos, ex: "Ensino Secundário" -> "10º Ano", "11º Ano")
     series: Mapped[list["SerieAno"]] = relationship(back_populates="curso", cascade="all, delete-orphan")
+
+    # Presença deste curso na página pública da escola (ver
+    # app/api/v1/publico.py::obter_site_publico) — nada aparece por
+    # omissão, o Gestor/Secretaria decide curso a curso o que mostrar
+    # (gerido em Cursos, não em Configurações > Site Público, já que é
+    # informação do próprio curso). "descricao" é o conteúdo
+    # programático em texto livre (o que o aluno vai aprender) — nada a
+    # ver com a grade curricular interna (Disciplina/GradeCurricular),
+    # que é informação de gestão, não de marketing.
+    site_publico_visivel: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    site_publico_descricao: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 class SerieAno(Base):
     """Camada intermédia entre Curso e Turma (ex: "10º Ano" dentro de "Ensino Secundário").

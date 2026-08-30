@@ -18,11 +18,21 @@ class SitePublicoFotoOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CursoPublicoOut(BaseModel):
+    """Um curso publicado na página pública — só os que o Gestor marcou
+    como visíveis (ver Curso.site_publico_visivel em
+    app/database/models_academico.py), nunca todos os cursos da escola."""
+    id: uuid.UUID
+    nome: str
+    descricao: str | None  # conteúdo programático, texto livre
+
+
 class SitePublicoConfigOut(BaseModel):
     """Para o Gestor gerir em Configurações — inclui `ativo` mesmo
     quando ainda não há nada preenchido, ao contrário da versão pública."""
     ativo: bool
     slug: str | None
+    template: str
     missao: str | None
     metodologia: str | None
     facebook: str | None
@@ -34,6 +44,7 @@ class SitePublicoConfigOut(BaseModel):
 class SitePublicoConfigUpdate(BaseModel):
     ativo: bool
     slug: str | None = None
+    template: str = "classico"
     missao: str | None = None
     metodologia: str | None = None
     facebook: str | None = None
@@ -48,6 +59,7 @@ class SitePublicoOut(BaseModel):
     contagens internas)."""
     tenant_id: uuid.UUID
     nome_fantasia: str
+    template: str
     logotipo: str | None  # data URI, None = sem logótipo
     missao: str | None
     metodologia: str | None
@@ -58,5 +70,5 @@ class SitePublicoOut(BaseModel):
     facebook: str | None
     instagram: str | None
     whatsapp: str | None
-    cursos: list[str] = []
+    cursos: list[CursoPublicoOut] = []
     fotos: list[str] = []  # data URIs

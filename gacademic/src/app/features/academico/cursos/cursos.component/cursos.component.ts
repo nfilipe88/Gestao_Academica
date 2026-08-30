@@ -4,9 +4,10 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { combineLatest, map, startWith } from 'rxjs';
 import {
-  adicionarDisciplinaASerie, carregarCursos, carregarDisciplinas, carregarGradeCurricular,
+  adicionarDisciplinaASerie, atualizarCursoSitePublico, carregarCursos, carregarDisciplinas, carregarGradeCurricular,
   carregarObjetivosAprendizagem, carregarSeries, criarCurso, criarDisciplina, criarObjetivoAprendizagem, criarSerieAno
 } from '../../../../store/academico/academic.actions';
+import { Curso } from '../../../../store/academico/academic.models';
 import {
   selectAcademicoError, selectCursos, selectDisciplinas, selectGradeCurricular, selectObjetivosAprendizagem, selectSeries
 } from '../../../../store/academico/academic.selector';
@@ -91,6 +92,16 @@ export class CursosComponent implements OnInit {
     nome: ['', Validators.required]
   });
 
+  // Publicação deste curso na página pública da escola (ver
+  // features/public/escola) — um único formulário reaproveitado para
+  // o curso que estiver expandido de cada vez, à semelhança de
+  // serieForm/gradeForm acima.
+  sitePublicoCursoForm = this.fb.group({
+    visivel: [false],
+    descricao: [''],
+  });
+  mensagemSitePublicoCursoId: string | null = null;
+
   serieForm = this.fb.group({
     nome: ['', Validators.required]
   });
@@ -134,10 +145,20 @@ export class CursosComponent implements OnInit {
     }
   }
 
-  alternarExpandido(cursoId: string) {
-    this.cursoExpandidoId = this.cursoExpandidoId === cursoId ? null : cursoId;
+  alternarExpandido(curso: Curso) {
+    this.cursoExpandidoId = this.cursoExpandidoId === curso.id ? null : curso.id;
     this.serieExpandidaId = null;
     this.serieForm.reset();
+    this.mensagemSitePublicoCursoId = null;
+    this.sitePublicoCursoForm.patchValue({
+      visivel: curso.site_publico_visivel, descricao: curso.site_publico_descricao ?? '',
+    });
+  }
+
+  onGuardarSitePublicoCurso(cursoId: string) {
+    const { visivel, descricao } = this.sitePublicoCursoForm.value;
+    this.store.dispatch(atualizarCursoSitePublico({ curso_id: cursoId, visivel: !!visivel, descricao: descricao || null }));
+    this.mensagemSitePublicoCursoId = cursoId;
   }
 
   onSubmitSerie(cursoId: string) {

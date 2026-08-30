@@ -77,6 +77,26 @@
         }
       </div>
       <div>
+        <label class="block text-xs font-medium text-slate-600 mb-2">Modelo do site</label>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup">
+          @for (t of templatesSitePublico; track t.chave) {
+            <label
+              class="cursor-pointer rounded-xl border-2 p-2 transition-colors"
+              [class.border-blue-500]="sitePublicoForm.value.template === t.chave"
+              [class.bg-blue-50]="sitePublicoForm.value.template === t.chave"
+              [class.border-slate-200]="sitePublicoForm.value.template !== t.chave">
+              <input type="radio" formControlName="template" [value]="t.chave" class="sr-only" />
+              <div class="h-16 rounded-lg overflow-hidden border border-slate-200 preview-template" [attr.data-template]="t.chave">
+                <div class="preview-hero"></div>
+                <div class="preview-body"><span></span><span></span></div>
+              </div>
+              <p class="text-xs font-semibold text-slate-700 mt-1.5">{{ t.nome }}</p>
+              <p class="text-[11px] text-slate-400 leading-snug">{{ t.descricao }}</p>
+            </label>
+          }
+        </div>
+      </div>
+      <div>
         <label class="block text-xs font-medium text-slate-600 mb-1">Missão</label>
         <textarea formControlName="missao" rows="3" placeholder="O que a sua escola representa e para quem…"
           class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>

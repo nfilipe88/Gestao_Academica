@@ -1,0 +1,148 @@
+<div class="min-h-screen bg-white text-slate-800">
+
+  <!-- Navegação -->
+  <nav class="sticky top-0 z-20 bg-slate-900/95 backdrop-blur text-white border-b border-white/10">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-2.5 min-w-0">
+        @if (escola.logotipo) {
+          <img [src]="escola.logotipo" [alt]="escola.nome_fantasia" class="h-8 w-auto object-contain shrink-0" />
+        }
+        <span class="font-semibold truncate">{{ escola.nome_fantasia }}</span>
+      </div>
+      <div class="hidden sm:flex items-center gap-6 text-sm text-slate-300 shrink-0">
+        @if (escola.metodologia) { <a href="#sobre" class="hover:text-white transition-colors">Sobre</a> }
+        @if (escola.cursos.length) { <a href="#cursos" class="hover:text-white transition-colors">Cursos</a> }
+        @if (escola.fotos.length) { <a href="#galeria" class="hover:text-white transition-colors">Galeria</a> }
+        <a href="#contacto" class="bg-amber-600 hover:bg-amber-500 text-white font-medium rounded-md px-4 py-1.5 transition-colors">Contacto</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="bg-slate-900 text-white">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-16 text-center">
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance font-serif">{{ escola.nome_fantasia }}</h1>
+      @if (escola.missao) {
+        <p class="mt-5 text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">{{ escola.missao }}</p>
+      }
+      <a href="#contacto"
+        class="mt-8 inline-block bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-md px-8 py-3 transition-colors">
+        Peça mais informações
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 py-16 space-y-16">
+
+    @if (escola.metodologia) {
+      <section id="sobre" class="scroll-mt-20">
+        <h2 class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">Como ensinamos</h2>
+        <p class="text-slate-700 leading-relaxed whitespace-pre-wrap">{{ escola.metodologia }}</p>
+      </section>
+    }
+
+    @if (escola.cursos.length) {
+      <section id="cursos" class="scroll-mt-20">
+        <h2 class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-4">Cursos</h2>
+        <div class="border border-slate-200 rounded-lg divide-y divide-slate-200">
+          @for (curso of escola.cursos; track curso.id) {
+            <div>
+              <button type="button" (click)="alternarCurso(curso.id)"
+                class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors cursor-pointer">
+                <span class="font-medium text-slate-800">{{ curso.nome }}</span>
+                @if (curso.descricao) {
+                  <span class="text-xs text-amber-700 font-medium shrink-0">{{ cursoExpandidoId() === curso.id ? 'Fechar −' : 'Conteúdo programático +' }}</span>
+                }
+              </button>
+              @if (cursoExpandidoId() === curso.id && curso.descricao) {
+                <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{{ curso.descricao }}</div>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    @if (escola.fotos.length) {
+      <section id="galeria" class="scroll-mt-20">
+        <h2 class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-4">Galeria</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          @for (foto of escola.fotos; track $index) {
+            <img [src]="foto" alt="" class="w-full aspect-square object-cover rounded-lg border border-slate-200" />
+          }
+        </div>
+      </section>
+    }
+
+    @if (escola.telefone_contacto || escola.email_contacto || escola.morada || escola.facebook || escola.instagram || escola.whatsapp) {
+      <section>
+        <h2 class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-4">Contacto</h2>
+        <div class="space-y-1.5 text-sm text-slate-600">
+          @if (escola.morada) { <p>{{ escola.morada }}{{ escola.cidade ? ', ' + escola.cidade : '' }}</p> }
+          @if (escola.telefone_contacto) { <p>{{ escola.telefone_contacto }}</p> }
+          @if (escola.email_contacto) { <p>{{ escola.email_contacto }}</p> }
+        </div>
+        @if (escola.facebook || escola.instagram || escola.whatsapp) {
+          <div class="flex flex-wrap gap-4 mt-4 text-sm font-medium">
+            @if (escola.facebook) { <a [href]="escola.facebook" target="_blank" rel="noopener" class="text-amber-700 hover:text-amber-800">Facebook →</a> }
+            @if (escola.instagram) { <a [href]="escola.instagram" target="_blank" rel="noopener" class="text-amber-700 hover:text-amber-800">Instagram →</a> }
+            @if (escola.whatsapp) { <a [href]="linkWhatsapp(escola.whatsapp, escola.nome_fantasia)" target="_blank" rel="noopener" class="text-amber-700 hover:text-amber-800">WhatsApp →</a> }
+          </div>
+        }
+      </section>
+    }
+
+    <!-- Formulário de contacto (RN03 do CRM) -->
+    <section id="contacto" class="bg-slate-50 border border-slate-200 rounded-lg p-6 sm:p-8 scroll-mt-20">
+      @if (!leadEnviado) {
+        <div class="text-center mb-6">
+          <h2 class="text-xl font-bold text-slate-800 font-serif">Peça mais informações</h2>
+          <p class="text-slate-500 text-sm mt-1">Deixe os seus dados e a escola entrará em contacto brevemente.</p>
+        </div>
+
+        @if (erroLead) {
+          <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-4">{{ erroLead }}</div>
+        }
+
+        <form [formGroup]="leadForm" (ngSubmit)="submitLead.emit()" class="space-y-3 max-w-md mx-auto">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">O seu nome</label>
+            <input type="text" formControlName="nome_responsavel"
+              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-amber-600 focus:ring-1 focus:ring-amber-600" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Nome do candidato (aluno)</label>
+            <input type="text" formControlName="nome_aluno_candidato"
+              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-amber-600 focus:ring-1 focus:ring-amber-600" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">E-mail — opcional</label>
+              <input type="email" formControlName="email_contato"
+                class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-amber-600 focus:ring-1 focus:ring-amber-600" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Telefone — opcional</label>
+              <input type="text" formControlName="telefone"
+                class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-amber-600 focus:ring-1 focus:ring-amber-600" />
+            </div>
+          </div>
+          <button type="submit" [disabled]="leadForm.invalid"
+            class="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-300 disabled:text-slate-500 text-white font-semibold rounded-md py-2.5 mt-2 transition-colors cursor-pointer disabled:cursor-not-allowed">
+            Enviar Pedido de Contacto
+          </button>
+        </form>
+      } @else {
+        <div class="text-center py-6">
+          <div class="text-amber-700 text-4xl mb-3">✓</div>
+          <h2 class="text-lg font-bold text-slate-800">Pedido recebido!</h2>
+          <p class="text-slate-500 text-sm mt-2">Obrigado pelo contacto — a escola entrará em contacto consigo brevemente.</p>
+        </div>
+      }
+    </section>
+  </main>
+
+  <footer class="border-t border-slate-100 py-6 text-center text-xs text-slate-400">
+    Página gerida por {{ escola.nome_fantasia }} — plataforma SaaS Académico
+  </footer>
+</div>

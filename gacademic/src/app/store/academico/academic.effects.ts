@@ -37,6 +37,20 @@ export class AcademicoEffects {
     )
   );
 
+  atualizarCursoSitePublico$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.atualizarCursoSitePublico),
+      switchMap(action => this.http.put(`/api/v1/academico/cursos/${action.curso_id}/site-publico`, {
+        visivel: action.visivel, descricao: action.descricao
+      }).pipe(
+        map(() => AcademicoActions.carregarCursos()), // Atualiza a lista após guardar
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível guardar as definições do site público deste curso.'
+        })))
+      ))
+    )
+  );
+
   // --- SÉRIES/ANOS ---
   carregarSeries$ = createEffect(() =>
     this.actions$.pipe(

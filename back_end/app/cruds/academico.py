@@ -18,7 +18,8 @@ import uuid
 
 from app.database.models_academico import Curso, Disciplina, GradeCurricular, ObjetivoAprendizagem, SerieAno, Turma
 from app.schemas.academico import (
-    CursoCreate, DisciplinaCreate, GradeCurricularCreate, ObjetivoAprendizagemCreate, SerieAnoCreate, TurmaCreate
+    CursoCreate, CursoSitePublicoUpdate, DisciplinaCreate, GradeCurricularCreate, ObjetivoAprendizagemCreate,
+    SerieAnoCreate, TurmaCreate
 )
 
 
@@ -36,6 +37,19 @@ async def criar_curso(db: AsyncSession, tenant_id, dados: CursoCreate) -> Curso:
 async def listar_cursos(db: AsyncSession, tenant_id) -> list[Curso]:
     resultado = await db.execute(select(Curso).where(Curso.tenant_id == tenant_id))
     return resultado.scalars().all()
+
+
+async def atualizar_curso_site_publico(db: AsyncSession, tenant_id, curso_id, dados: CursoSitePublicoUpdate) -> Curso:
+    curso = (await db.execute(
+        select(Curso).where(Curso.id == curso_id, Curso.tenant_id == tenant_id)
+    )).scalars().first()
+    if not curso:
+        raise HTTPException(status_code=404, detail="Curso não encontrado.")
+    curso.site_publico_visivel = dados.visivel
+    curso.site_publico_descricao = (dados.descricao or "").strip() or None
+    await db.commit()
+    await db.refresh(curso)
+    return curso
 
 
 # ==========================================

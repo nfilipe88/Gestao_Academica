@@ -1,0 +1,47 @@
+/* Mini-mockups do seletor de modelo do site público — puramente
+   decorativos (dão uma ideia da paleta/disposição de cada modelo sem
+   precisar de screenshots reais), ver TEMPLATES_SITE_PUBLICO em
+   configuracoes.component.ts e os componentes reais em
+   features/public/escola/templates/. */
+.preview-template {
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-hero {
+  flex: 1 1 auto;
+}
+
+.preview-body {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+}
+
+.preview-body span {
+  height: 3px;
+  border-radius: 2px;
+  flex: 1 1 auto;
+}
+
+.preview-template[data-template="classico"] .preview-hero { background: #0f172a; }
+.preview-template[data-template="classico"] .preview-body { background: #f8fafc; }
+.preview-template[data-template="classico"] .preview-body span { background: #cbd5e1; }
+.preview-template[data-template="classico"] .preview-body span:first-child { background: #b45309; flex: 0 0 30%; }
+
+.preview-template[data-template="moderno"] .preview-hero { background: linear-gradient(135deg, #6366f1, #ec4899); }
+.preview-template[data-template="moderno"] .preview-body { background: #ffffff; }
+.preview-template[data-template="moderno"] .preview-body span { background: #e2e8f0; border-radius: 4px; }
+.preview-template[data-template="moderno"] .preview-body span:first-child { background: #6366f1; flex: 0 0 35%; }
+
+.preview-template[data-template="acolhedor"] .preview-hero { background: #fde8e8; }
+.preview-template[data-template="acolhedor"] .preview-body { background: #fffaf3; }
+.preview-template[data-template="acolhedor"] .preview-body span { background: #fed7aa; border-radius: 5px; }
+.preview-template[data-template="acolhedor"] .preview-body span:first-child { background: #fb923c; flex: 0 0 30%; }
+
+.preview-template[data-template="editorial"] .preview-hero { background: #ffffff; border-bottom: 2px solid #111827; }
+.preview-template[data-template="editorial"] .preview-body { background: #ffffff; }
+.preview-template[data-template="editorial"] .preview-body span { background: #e5e7eb; }
+.preview-template[data-template="editorial"] .preview-body span:first-child { background: #111827; flex: 0 0 25%; }

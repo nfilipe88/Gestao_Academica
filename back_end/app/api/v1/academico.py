@@ -6,7 +6,8 @@ import uuid
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.academico import (
-    CursoCreate, DisciplinaCreate, GradeCurricularCreate, ObjetivoAprendizagemCreate, SerieAnoCreate, TurmaCreate
+    CursoCreate, CursoSitePublicoUpdate, DisciplinaCreate, GradeCurricularCreate, ObjetivoAprendizagemCreate,
+    SerieAnoCreate, TurmaCreate
 )
 from app.cruds import academico as crud_academico
 
@@ -36,6 +37,17 @@ async def listar_cursos(
 ):
     """Lista os cursos da escola do utilizador logado."""
     return await crud_academico.listar_cursos(db, utilizador["tenant_id"])
+
+@router.put("/cursos/{curso_id}/site-publico")
+async def atualizar_curso_site_publico(
+    curso_id: uuid.UUID,
+    dados: CursoSitePublicoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Define se este curso aparece na página pública da escola e o seu
+    conteúdo programático (ver app/schemas/site_publico.py::CursoPublicoOut)."""
+    return await crud_academico.atualizar_curso_site_publico(db, utilizador["tenant_id"], curso_id, dados)
 
 # ==========================================
 # ROTAS PARA SÉRIES/ANOS

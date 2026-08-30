@@ -5,6 +5,8 @@ export interface Curso {
   id: string;
   tenant_id: string;
   nome: string;
+  site_publico_visivel: boolean;
+  site_publico_descricao: string | null;
 }
 
 export interface SerieAno {

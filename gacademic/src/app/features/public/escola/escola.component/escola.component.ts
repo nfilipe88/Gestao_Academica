@@ -3,23 +3,11 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
-
-interface SitePublico {
-  tenant_id: string;
-  nome_fantasia: string;
-  logotipo: string | null;
-  missao: string | null;
-  metodologia: string | null;
-  telefone_contacto: string | null;
-  email_contacto: string | null;
-  morada: string | null;
-  cidade: string | null;
-  facebook: string | null;
-  instagram: string | null;
-  whatsapp: string | null;
-  cursos: string[];
-  fotos: string[];
-}
+import { SitePublico } from '../site-publico.model';
+import { TemplateClassicoComponent } from '../templates/template-classico/template-classico.component/template-classico.component';
+import { TemplateModernoComponent } from '../templates/template-moderno/template-moderno.component/template-moderno.component';
+import { TemplateAcolhedorComponent } from '../templates/template-acolhedor/template-acolhedor.component/template-acolhedor.component';
+import { TemplateEditorialComponent } from '../templates/template-editorial/template-editorial.component/template-editorial.component';
 
 /**
  * Página pública de apresentação de UMA escola cliente (marketing/
@@ -29,10 +17,17 @@ interface SitePublico {
  * fica FORA de PublicLayoutComponent (sem o nav/rodapé "SaaS
  * Académico") — mesmo raciocínio de captar-lead.component, que também
  * é uma página standalone por pertencer à escola, não à plataforma.
+ *
+ * Este componente é só o CONTENTOR: busca os dados, é dono do
+ * formulário de contacto/lead (RN03 do CRM) e das meta tags — a
+ * apresentação em si fica nos 4 modelos visuais (./templates/*),
+ * escolhidos pela escola em Configurações (SitePublico.template).
+ * Cada modelo recebe os mesmos dados/estado e só decide COMO os
+ * desenha, nunca duplica a lógica de submissão do formulário.
  */
 @Component({
   selector: 'app-escola.component',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, TemplateClassicoComponent, TemplateModernoComponent, TemplateAcolhedorComponent, TemplateEditorialComponent],
   templateUrl: './escola.component.html',
   styleUrl: './escola.component.css',
 })
@@ -43,7 +38,7 @@ export class EscolaComponent implements OnInit {
   private titleService = inject(Title);
   private meta = inject(Meta);
 
-  tenantId = this.route.snapshot.paramMap.get('tenantId') ?? '';
+  identificador = this.route.snapshot.paramMap.get('tenantId') ?? '';
 
   escola = signal<SitePublico | null>(null);
   aCarregar = signal(true);
@@ -60,8 +55,8 @@ export class EscolaComponent implements OnInit {
   });
 
   ngOnInit() {
-    if (!this.tenantId) { this.naoEncontrada.set(true); this.aCarregar.set(false); return; }
-    this.http.get<SitePublico>(`/api/v1/public/escola/${this.tenantId}`).subscribe({
+    if (!this.identificador) { this.naoEncontrada.set(true); this.aCarregar.set(false); return; }
+    this.http.get<SitePublico>(`/api/v1/public/escola/${this.identificador}`).subscribe({
       next: (escola) => { this.escola.set(escola); this.aCarregar.set(false); this._definirMetaTags(escola); },
       error: () => { this.naoEncontrada.set(true); this.aCarregar.set(false); },
     });
@@ -81,19 +76,12 @@ export class EscolaComponent implements OnInit {
     if (escola.logotipo) this.meta.updateTag({ property: 'og:image', content: escola.logotipo });
   }
 
-  /** Link wa.me a partir do número guardado (só dígitos) — com uma
-   * mensagem inicial já preenchida, para poupar um passo a quem clica. */
-  linkWhatsapp(whatsapp: string, nomeEscola: string): string {
-    const mensagem = encodeURIComponent(`Olá! Vi a página de ${nomeEscola} e gostava de saber mais.`);
-    return `https://wa.me/${whatsapp}?text=${mensagem}`;
-  }
-
   onSubmitLead() {
     // O endpoint de leads (RN03 do CRM) só aceita o uuid do tenant, ao
     // contrário do endpoint da página em si — que já aceita slug ou
     // uuid (ver ngOnInit). Por isso vai sempre pelo tenant_id devolvido
-    // na resposta, nunca por this.tenantId (o segmento da URL, que pode
-    // ser o slug quando a página foi aberta por /escola/<slug>).
+    // na resposta, nunca por this.identificador (o segmento da URL, que
+    // pode ser o slug quando a página foi aberta por /escola/<slug>).
     const tenantId = this.escola()?.tenant_id;
     if (this.leadForm.invalid || !tenantId) return;
     this.erroLead.set(null);

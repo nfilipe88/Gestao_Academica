@@ -32,7 +32,7 @@ async def test_gestor_ativa_e_edita_site_publico(client):
     assert resp.json()["missao"] == "Formar cidadãos íntegros."
 
 
-async def test_site_publico_mostra_cursos_reais_e_dados_da_escola(client):
+async def test_site_publico_mostra_dados_da_escola_e_so_cursos_visiveis(client):
     escola = await criar_escola_e_gestor(client, "site-pub-cursos")
     headers = auth_headers(escola["token"])
 
@@ -42,15 +42,74 @@ async def test_site_publico_mostra_cursos_reais_e_dados_da_escola(client):
     resp = await client.post("/api/v1/academico/cursos", headers=headers, json={"nome": "Ensino Secundário"})
     assert resp.status_code == 201, resp.text
 
+    # Por omissão o curso não aparece — cada curso só entra na página
+    # pública depois de o Gestor o marcar como visível explicitamente
+    # (ver test_curso_so_aparece_no_site_apos_marcado_visivel abaixo).
     resp = await client.get(f"/api/v1/public/escola/{escola['tenant_id']}")
     assert resp.status_code == 200, resp.text
     corpo = resp.json()
     assert corpo["missao"] == "Missão de teste"
-    assert "Ensino Secundário" in corpo["cursos"]
+    assert corpo["cursos"] == []
     assert corpo["nome_fantasia"]
+    assert corpo["template"] == "classico"  # omissão
     # Nunca deve vazar dados internos de gestão.
     assert "nif" not in corpo
     assert "iban" not in corpo
+
+
+async def test_curso_so_aparece_no_site_apos_marcado_visivel(client):
+    escola = await criar_escola_e_gestor(client, "site-pub-curso-visivel")
+    headers = auth_headers(escola["token"])
+    await client.put("/api/v1/configuracoes/site-publico", headers=headers, json={"ativo": True})
+
+    resp = await client.post("/api/v1/academico/cursos", headers=headers, json={"nome": "Ensino Secundário"})
+    curso_id = resp.json()["id"]
+
+    resp = await client.put(f"/api/v1/academico/cursos/{curso_id}/site-publico", headers=headers, json={
+        "visivel": True, "descricao": "Matemática, Português, Ciências e Inglês ao longo de 3 anos."
+    })
+    assert resp.status_code == 200, resp.text
+
+    resp = await client.get(f"/api/v1/public/escola/{escola['tenant_id']}")
+    cursos = resp.json()["cursos"]
+    assert len(cursos) == 1
+    assert cursos[0]["nome"] == "Ensino Secundário"
+    assert cursos[0]["descricao"] == "Matemática, Português, Ciências e Inglês ao longo de 3 anos."
+
+    # Voltar a esconder tira-o de novo da página pública.
+    await client.put(f"/api/v1/academico/cursos/{curso_id}/site-publico", headers=headers, json={"visivel": False})
+    resp = await client.get(f"/api/v1/public/escola/{escola['tenant_id']}")
+    assert resp.json()["cursos"] == []
+
+
+async def test_curso_site_publico_isolado_por_tenant(client):
+    escola_a = await criar_escola_e_gestor(client, "site-pub-curso-iso-a")
+    escola_b = await criar_escola_e_gestor(client, "site-pub-curso-iso-b")
+    resp = await client.post("/api/v1/academico/cursos", headers=auth_headers(escola_a["token"]), json={"nome": "Curso A"})
+    curso_id = resp.json()["id"]
+
+    resp = await client.put(f"/api/v1/academico/cursos/{curso_id}/site-publico", headers=auth_headers(escola_b["token"]), json={"visivel": True})
+    assert resp.status_code == 404
+
+
+async def test_gestor_define_template_do_site(client):
+    escola = await criar_escola_e_gestor(client, "site-pub-template")
+    headers = auth_headers(escola["token"])
+
+    for template in ["classico", "moderno", "acolhedor", "editorial"]:
+        resp = await client.put("/api/v1/configuracoes/site-publico", headers=headers, json={"ativo": True, "template": template})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["template"] == template
+
+    resp = await client.get(f"/api/v1/public/escola/{escola['tenant_id']}")
+    assert resp.json()["template"] == "editorial"
+
+
+async def test_template_invalido_e_rejeitado(client):
+    escola = await criar_escola_e_gestor(client, "site-pub-template-invalido")
+    headers = auth_headers(escola["token"])
+    resp = await client.put("/api/v1/configuracoes/site-publico", headers=headers, json={"ativo": True, "template": "futurista-3000"})
+    assert resp.status_code == 400
 
 
 async def test_site_publico_desativado_de_novo_volta_a_dar_404(client):

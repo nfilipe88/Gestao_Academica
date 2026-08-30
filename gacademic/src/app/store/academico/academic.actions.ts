@@ -11,6 +11,10 @@ export const criarCurso = createAction(
   '[Academico] Criar Curso',
   props<{ nome: string }>()
 );
+export const atualizarCursoSitePublico = createAction(
+  '[Academico] Atualizar Curso Site Publico',
+  props<{ curso_id: string, visivel: boolean, descricao: string | null }>()
+);
 
 // Ações para Séries/Anos (camada entre Curso e Turma, ex: "10º Ano" dentro
 // de "Ensino Secundário")

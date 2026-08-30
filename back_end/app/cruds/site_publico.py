@@ -13,7 +13,16 @@ from app.core import storage
 from app.database.models import Tenant
 from app.database.models_academico import Curso
 from app.database.models_site_publico import SitePublicoFoto
-from app.schemas.site_publico import SitePublicoConfigUpdate, SitePublicoOut
+from app.schemas.site_publico import CursoPublicoOut, SitePublicoConfigUpdate, SitePublicoOut
+
+# Os 4 modelos visuais entre os quais a escola escolhe (ver
+# gacademic/src/app/features/public/escola/templates/) — cada um com
+# uma identidade própria (não é só cor: navegação, disposição do
+# hero e dos cursos mudam de facto), pensados para "personalidades"
+# de escola diferentes. Lista fechada de propósito: um modelo tem de
+# ter componente Angular correspondente, não pode ser texto livre.
+TEMPLATES_VALIDOS = {"classico", "moderno", "acolhedor", "editorial"}
+_TEMPLATE_OMISSAO = "classico"
 
 # Galeria pequena de propósito — isto é uma página de apresentação, não
 # uma rede social; um limite baixo também mantém o payload da vista
@@ -62,6 +71,7 @@ async def obter_config(db: AsyncSession, tenant_id) -> dict:
     return {
         "ativo": tenant.site_publico_ativo,
         "slug": tenant.site_publico_slug,
+        "template": tenant.site_publico_template,
         "missao": tenant.site_publico_missao,
         "metodologia": tenant.site_publico_metodologia,
         "facebook": tenant.site_publico_facebook,
@@ -81,8 +91,12 @@ async def atualizar_config(db: AsyncSession, tenant_id, dados: SitePublicoConfig
         if em_uso:
             raise HTTPException(status_code=400, detail="Este endereço já está a ser usado por outra escola. Escolha outro.")
 
+    if dados.template not in TEMPLATES_VALIDOS:
+        raise HTTPException(status_code=400, detail=f"Modelo inválido. Escolha um de: {', '.join(sorted(TEMPLATES_VALIDOS))}.")
+
     tenant.site_publico_ativo = dados.ativo
     tenant.site_publico_slug = novo_slug
+    tenant.site_publico_template = dados.template
     tenant.site_publico_missao = (dados.missao or "").strip() or None
     tenant.site_publico_metodologia = (dados.metodologia or "").strip() or None
     tenant.site_publico_facebook = (dados.facebook or "").strip() or None
@@ -144,9 +158,10 @@ async def obter_site_publico(db: AsyncSession, identificador: str) -> SitePublic
         # qual dos dois casos é.
         raise HTTPException(status_code=404, detail="Esta página não está disponível.")
 
-    cursos = (await db.execute(
-        select(Curso.nome).where(Curso.tenant_id == tenant.id).order_by(Curso.nome)
+    cursos_rows = (await db.execute(
+        select(Curso).where(Curso.tenant_id == tenant.id, Curso.site_publico_visivel.is_(True)).order_by(Curso.nome)
     )).scalars().all()
+    cursos = [CursoPublicoOut(id=c.id, nome=c.nome, descricao=c.site_publico_descricao) for c in cursos_rows]
     fotos_rows = await _listar_fotos(db, tenant.id)
     # NOTA: "await ... for f in fotos_rows" dentro de uma expressão
     # geradora (parênteses) seria um async generator — precisaria de
@@ -157,11 +172,13 @@ async def obter_site_publico(db: AsyncSession, identificador: str) -> SitePublic
     logotipo = await storage.obter_data_uri(tenant.logotipo_chave)
 
     return SitePublicoOut(
-        tenant_id=tenant.id, nome_fantasia=tenant.nome_fantasia, logotipo=logotipo,
+        tenant_id=tenant.id, nome_fantasia=tenant.nome_fantasia,
+        template=tenant.site_publico_template if tenant.site_publico_template in TEMPLATES_VALIDOS else _TEMPLATE_OMISSAO,
+        logotipo=logotipo,
         missao=tenant.site_publico_missao, metodologia=tenant.site_publico_metodologia,
         telefone_contacto=tenant.telefone_contacto, email_contacto=tenant.email_contacto,
         morada=tenant.morada, cidade=tenant.cidade,
         facebook=tenant.site_publico_facebook, instagram=tenant.site_publico_instagram,
         whatsapp=tenant.site_publico_whatsapp,
-        cursos=list(cursos), fotos=fotos_urls,
+        cursos=cursos, fotos=fotos_urls,
     )

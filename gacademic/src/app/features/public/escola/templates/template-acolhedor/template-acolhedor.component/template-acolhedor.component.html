@@ -1,0 +1,153 @@
+<div class="min-h-screen bg-orange-50/40 text-stone-700">
+
+  <!-- Navegação -->
+  <nav class="bg-white/80 backdrop-blur border-b border-orange-100">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-2.5 min-w-0">
+        @if (escola.logotipo) {
+          <img [src]="escola.logotipo" [alt]="escola.nome_fantasia" class="h-9 w-auto object-contain shrink-0 rounded-full" />
+        }
+        <span class="font-bold text-stone-800 truncate">{{ escola.nome_fantasia }}</span>
+      </div>
+      <div class="hidden sm:flex items-center gap-5 text-sm text-stone-500 shrink-0">
+        @if (escola.metodologia) { <a href="#sobre" class="hover:text-orange-600 transition-colors">Sobre nós</a> }
+        @if (escola.cursos.length) { <a href="#cursos" class="hover:text-orange-600 transition-colors">Turmas</a> }
+        @if (escola.fotos.length) { <a href="#galeria" class="hover:text-orange-600 transition-colors">Galeria</a> }
+        <a href="#contacto" class="bg-orange-400 hover:bg-orange-500 text-white font-semibold rounded-full px-4 py-1.5 transition-colors">Fale connosco</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="relative overflow-hidden">
+    <div class="absolute -top-10 -left-10 w-56 h-56 rounded-full bg-orange-200/50 blur-2xl"></div>
+    <div class="absolute -bottom-10 -right-10 w-64 h-64 rounded-full bg-rose-200/50 blur-2xl"></div>
+    <div class="relative max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
+      @if (escola.logotipo) {
+        <img [src]="escola.logotipo" [alt]="escola.nome_fantasia" class="h-20 w-20 mx-auto mb-6 object-contain rounded-full bg-white p-2 shadow-md" />
+      }
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-balance text-stone-800">{{ escola.nome_fantasia }}</h1>
+      @if (escola.missao) {
+        <p class="mt-5 text-lg text-stone-600 max-w-xl mx-auto leading-relaxed">{{ escola.missao }}</p>
+      }
+      <a href="#contacto"
+        class="mt-8 inline-block bg-orange-400 hover:bg-orange-500 text-white font-bold rounded-full px-8 py-3.5 shadow-lg shadow-orange-200 transition-colors">
+        Quero conhecer a escola
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 py-14 space-y-14">
+
+    @if (escola.metodologia) {
+      <section id="sobre" class="scroll-mt-20 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-orange-100">
+        <h2 class="text-sm font-bold text-orange-600 mb-3">🌤️ Como cuidamos e ensinamos</h2>
+        <p class="text-stone-600 leading-relaxed whitespace-pre-wrap">{{ escola.metodologia }}</p>
+      </section>
+    }
+
+    @if (escola.cursos.length) {
+      <section id="cursos" class="scroll-mt-20">
+        <h2 class="text-sm font-bold text-orange-600 mb-4">🎒 As nossas turmas</h2>
+        <div class="space-y-3">
+          @for (curso of escola.cursos; track curso.id) {
+            <div class="bg-white rounded-2xl border border-orange-100 shadow-sm p-4">
+              <button type="button" (click)="alternarCurso(curso.id)"
+                class="w-full flex items-center justify-between gap-3 text-left cursor-pointer">
+                <span class="font-semibold text-stone-800">{{ curso.nome }}</span>
+                @if (curso.descricao) {
+                  <span class="text-xs text-orange-600 font-medium shrink-0 bg-orange-50 rounded-full px-2.5 py-1">{{ cursoExpandidoId() === curso.id ? 'Fechar' : 'Saber mais' }}</span>
+                }
+              </button>
+              @if (cursoExpandidoId() === curso.id && curso.descricao) {
+                <p class="mt-3 pt-3 border-t border-orange-50 text-sm text-stone-600 leading-relaxed whitespace-pre-wrap">{{ curso.descricao }}</p>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    @if (escola.fotos.length) {
+      <section id="galeria" class="scroll-mt-20">
+        <h2 class="text-sm font-bold text-orange-600 mb-4">📸 Momentos na escola</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          @for (foto of escola.fotos; track $index) {
+            <img [src]="foto" alt="" class="w-full aspect-square object-cover rounded-2xl border-2 border-white shadow-sm" />
+          }
+        </div>
+      </section>
+    }
+
+    @if (escola.telefone_contacto || escola.email_contacto || escola.morada || escola.facebook || escola.instagram || escola.whatsapp) {
+      <section>
+        <h2 class="text-sm font-bold text-orange-600 mb-4">💬 Fale connosco</h2>
+        <div class="space-y-1.5 text-sm text-stone-600">
+          @if (escola.morada) { <p>{{ escola.morada }}{{ escola.cidade ? ', ' + escola.cidade : '' }}</p> }
+          @if (escola.telefone_contacto) { <p>{{ escola.telefone_contacto }}</p> }
+          @if (escola.email_contacto) { <p>{{ escola.email_contacto }}</p> }
+        </div>
+        @if (escola.facebook || escola.instagram || escola.whatsapp) {
+          <div class="flex flex-wrap gap-2 mt-4 text-sm font-semibold">
+            @if (escola.facebook) { <a [href]="escola.facebook" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-full bg-white border border-orange-100 text-stone-600 hover:text-orange-600 transition-colors">Facebook</a> }
+            @if (escola.instagram) { <a [href]="escola.instagram" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-full bg-white border border-orange-100 text-stone-600 hover:text-orange-600 transition-colors">Instagram</a> }
+            @if (escola.whatsapp) { <a [href]="linkWhatsapp(escola.whatsapp, escola.nome_fantasia)" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-full bg-white border border-orange-100 text-stone-600 hover:text-orange-600 transition-colors">WhatsApp</a> }
+          </div>
+        }
+      </section>
+    }
+
+    <!-- Formulário de contacto (RN03 do CRM) -->
+    <section id="contacto" class="bg-white rounded-3xl border border-orange-100 shadow-sm p-6 sm:p-8 scroll-mt-20">
+      @if (!leadEnviado) {
+        <div class="text-center mb-6">
+          <h2 class="text-xl font-bold text-stone-800">Vamos conhecer o seu filho? 💛</h2>
+          <p class="text-stone-500 text-sm mt-1">Deixe os seus dados e entraremos em contacto com todo o carinho.</p>
+        </div>
+
+        @if (erroLead) {
+          <div class="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-4">{{ erroLead }}</div>
+        }
+
+        <form [formGroup]="leadForm" (ngSubmit)="submitLead.emit()" class="space-y-3 max-w-md mx-auto">
+          <div>
+            <label class="block text-xs font-medium text-stone-500 mb-1">O seu nome</label>
+            <input type="text" formControlName="nome_responsavel"
+              class="w-full bg-orange-50/50 border border-orange-100 rounded-2xl px-4 py-2.5 text-sm text-stone-800 focus:outline-hidden focus:border-orange-400 focus:ring-1 focus:ring-orange-400" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-stone-500 mb-1">Nome da criança</label>
+            <input type="text" formControlName="nome_aluno_candidato"
+              class="w-full bg-orange-50/50 border border-orange-100 rounded-2xl px-4 py-2.5 text-sm text-stone-800 focus:outline-hidden focus:border-orange-400 focus:ring-1 focus:ring-orange-400" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-stone-500 mb-1">E-mail — opcional</label>
+              <input type="email" formControlName="email_contato"
+                class="w-full bg-orange-50/50 border border-orange-100 rounded-2xl px-4 py-2.5 text-sm text-stone-800 focus:outline-hidden focus:border-orange-400 focus:ring-1 focus:ring-orange-400" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-stone-500 mb-1">Telefone — opcional</label>
+              <input type="text" formControlName="telefone"
+                class="w-full bg-orange-50/50 border border-orange-100 rounded-2xl px-4 py-2.5 text-sm text-stone-800 focus:outline-hidden focus:border-orange-400 focus:ring-1 focus:ring-orange-400" />
+            </div>
+          </div>
+          <button type="submit" [disabled]="leadForm.invalid"
+            class="w-full bg-orange-400 hover:bg-orange-500 disabled:bg-stone-200 disabled:text-stone-400 text-white font-bold rounded-2xl py-3 mt-2 transition-colors cursor-pointer disabled:cursor-not-allowed">
+            Enviar Pedido de Contacto
+          </button>
+        </form>
+      } @else {
+        <div class="text-center py-6">
+          <div class="text-4xl mb-3">🎉</div>
+          <h2 class="text-lg font-bold text-stone-800">Pedido recebido!</h2>
+          <p class="text-stone-500 text-sm mt-2">Obrigado pelo contacto — vamos falar consigo muito em breve.</p>
+        </div>
+      }
+    </section>
+  </main>
+
+  <footer class="py-6 text-center text-xs text-stone-400">
+    Página gerida por {{ escola.nome_fantasia }} — plataforma SaaS Académico
+  </footer>
+</div>

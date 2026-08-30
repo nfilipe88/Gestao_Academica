@@ -19,6 +19,7 @@ interface SitePublicoFoto {
 interface SitePublicoConfig {
   ativo: boolean;
   slug: string | null;
+  template: string;
   missao: string | null;
   metodologia: string | null;
   facebook: string | null;
@@ -26,6 +27,17 @@ interface SitePublicoConfig {
   whatsapp: string | null;
   fotos: SitePublicoFoto[];
 }
+
+// Os 4 modelos entre os quais a escola escolhe — ver
+// TEMPLATES_VALIDOS em back_end/app/cruds/site_publico.py (a mesma
+// lista, tem de ficar sincronizada) e os componentes em
+// features/public/escola/templates/.
+export const TEMPLATES_SITE_PUBLICO = [
+  { chave: 'classico', nome: 'Clássico', descricao: 'Sóbrio e institucional — tons escuros, tipografia tradicional.' },
+  { chave: 'moderno', nome: 'Moderno', descricao: 'Vibrante e arrojado — gradientes, cartões arredondados.' },
+  { chave: 'acolhedor', nome: 'Acolhedor', descricao: 'Suave e ilustrativo — tons pastel, ideal para infância.' },
+  { chave: 'editorial', nome: 'Editorial', descricao: 'Minimalista — muito espaço em branco, tipografia grande.' },
+] as const;
 
 @Component({
   selector: 'app-configuracoes.component',
@@ -36,6 +48,7 @@ interface SitePublicoConfig {
 export class ConfiguracoesComponent implements OnInit {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  protected readonly templatesSitePublico = TEMPLATES_SITE_PUBLICO;
   private http = inject(HttpClient);
 
   readonly moedasSuportadas = MOEDAS_SUPORTADAS;
@@ -109,6 +122,7 @@ export class ConfiguracoesComponent implements OnInit {
   sitePublicoForm = this.fb.group({
     ativo: [false],
     slug: ['', [Validators.pattern(/^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/), Validators.minLength(3), Validators.maxLength(80)]],
+    template: ['classico', Validators.required],
     missao: [''],
     metodologia: [''],
     facebook: [''],
@@ -219,7 +233,8 @@ export class ConfiguracoesComponent implements OnInit {
       next: (config) => {
         this.sitePublico.set(config);
         this.sitePublicoForm.patchValue({
-          ativo: config.ativo, slug: config.slug ?? '', missao: config.missao ?? '', metodologia: config.metodologia ?? '',
+          ativo: config.ativo, slug: config.slug ?? '', template: config.template || 'classico',
+          missao: config.missao ?? '', metodologia: config.metodologia ?? '',
           facebook: config.facebook ?? '', instagram: config.instagram ?? '', whatsapp: config.whatsapp ?? '',
         }, { emitEvent: false });
       },
@@ -232,7 +247,8 @@ export class ConfiguracoesComponent implements OnInit {
     this.erroSitePublico.set(null);
     this.mensagemSitePublico.set(null);
     this.http.put<SitePublicoConfig>('/api/v1/configuracoes/site-publico', {
-      ativo: !!v.ativo, slug: v.slug || null, missao: v.missao || null, metodologia: v.metodologia || null,
+      ativo: !!v.ativo, slug: v.slug || null, template: v.template || 'classico',
+      missao: v.missao || null, metodologia: v.metodologia || null,
       facebook: v.facebook || null, instagram: v.instagram || null, whatsapp: v.whatsapp || null,
     }).subscribe({
       next: (config) => {

@@ -8,6 +8,13 @@ class CursoCreate(BaseModel):
     nome: str
 
 
+class CursoSitePublicoUpdate(BaseModel):
+    """Presença e conteúdo programático deste curso na página pública
+    da escola — ver app/schemas/site_publico.py::CursoPublicoOut."""
+    visivel: bool
+    descricao: str | None = None
+
+
 class SerieAnoCreate(BaseModel):
     curso_id: uuid.UUID
     nome: str
