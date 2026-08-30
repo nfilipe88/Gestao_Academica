@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
@@ -81,9 +81,51 @@ async def pedir_transferencia(
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
     """Pede a transferência/reingresso cross-escola do educando para
-    outra instituição desta plataforma (identificada pelo NIF) — sujeito
-    à mesma aprovação do Super Admin de sempre (ver POST /transferencias)."""
+    outra instituição desta plataforma (identificada pelo NIF) — quem
+    decide é a escola de destino, diretamente (ver POST /transferencias)."""
     return await crud_portal.pedir_transferencia(db, utilizador["tenant_id"], utilizador, aluno_id, dados.nif_destino, dados.motivo)
+
+
+@router.get("/educandos/{aluno_id}/fotos-perfil")
+async def listar_fotos_perfil_do_educando(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Histórico de fotografias de perfil do educando — a mais recente
+    é a ativa (a que vale para o cartão de acesso)."""
+    return await crud_portal.listar_fotos_perfil_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)
+
+
+@router.post("/educandos/{aluno_id}/foto-perfil", status_code=status.HTTP_201_CREATED)
+async def enviar_foto_perfil_do_educando(
+    aluno_id: uuid.UUID,
+    ficheiro: UploadFile = File(...),
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """O próprio aluno, ou o encarregado em nome do educando, envia a
+    foto de perfil — deve ser renovada todos os anos; a anterior fica
+    arquivada, nunca é apagada."""
+    conteudo = await ficheiro.read()
+    if not conteudo:
+        raise HTTPException(status_code=400, detail="Ficheiro vazio.")
+    fotos = await crud_portal.enviar_foto_perfil_do_educando(
+        db, utilizador["tenant_id"], utilizador, aluno_id,
+        ficheiro.filename or "foto", ficheiro.content_type or "application/octet-stream", conteudo
+    )
+    return {"fotos": fotos}
+
+
+@router.get("/educandos/{aluno_id}/fotos-perfil/{foto_id}/url")
+async def obter_foto_perfil_do_educando(
+    aluno_id: uuid.UUID,
+    foto_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    url = await crud_portal.obter_foto_perfil_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, foto_id)
+    return {"url": url}
 
 
 @router.get("/educandos/{aluno_id}/estatisticas")

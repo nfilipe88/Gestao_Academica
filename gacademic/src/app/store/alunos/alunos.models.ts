@@ -21,6 +21,18 @@ export interface AlunoDocumento {
   nome_original: string;
 }
 
+// Ver app/database/models_pessoas.py::FotoPerfilAluno — a foto que
+// vale para o cartão de acesso. Deve ser renovada todos os anos; a
+// mais recente é sempre a "ativa" (a antiga fica arquivada, nunca é
+// apagada — histórico da evolução do aluno).
+export interface FotoPerfilAluno {
+  id: string;
+  ano_letivo: number;
+  ativa: boolean;
+  nome_original: string;
+  data_envio: string;
+}
+
 export interface Responsavel {
   id: string;
   tenant_id: string;

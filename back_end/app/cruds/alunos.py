@@ -6,11 +6,13 @@ preocupação de transporte, não de acesso a dados.
 """
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 import uuid
 
+from datetime import date
+
 from app.database.models import Usuario
-from app.database.models_pessoas import Aluno, AlunoDocumento, AlunoResponsavel, ResponsavelFinanceiroLegal
+from app.database.models_pessoas import Aluno, AlunoDocumento, AlunoResponsavel, FotoPerfilAluno, ResponsavelFinanceiroLegal
 from app.core import storage
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import paginar
@@ -23,6 +25,13 @@ from app.schemas.alunos import AlunoCreate, CriarAcessoRequest, ResponsavelCreat
 _TIPOS_FICHEIRO_ACEITES = {"image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"}
 _TAMANHO_MAXIMO_DOCUMENTO = 8 * 1024 * 1024  # 8 MB
 _MAX_DOCUMENTOS_POR_ALUNO = 10
+
+# Foto de perfil (a que vale para o cartão de acesso — ver
+# FotoPerfilAluno). Só imagens (sem PDF/GIF — não faz sentido para uma
+# foto tipo cartão) e um limite mais apertado do que os documentos de
+# apoio, que costumam ser digitalizações.
+_TIPOS_FOTO_ACEITES = {"image/png", "image/jpeg", "image/webp"}
+_TAMANHO_MAXIMO_FOTO = 5 * 1024 * 1024  # 5 MB
 
 
 # ==========================================
@@ -333,3 +342,73 @@ async def anexar_documento_gerado(db: AsyncSession, tenant_id, aluno_id: uuid.UU
     chave = storage.gerar_chave(tenant_id, "aluno", nome_ficheiro)
     await storage.guardar_ficheiro(chave, conteudo_pdf, "application/pdf")
     db.add(AlunoDocumento(tenant_id=tenant_id, aluno_id=aluno_id, descricao=descricao, nome_original=nome_ficheiro, chave_storage=chave))
+
+
+# ==========================================
+# FOTO DE PERFIL (a que vale para o cartão de acesso — ver
+# FotoPerfilAluno, models_pessoas.py). Deve ser renovada todos os
+# anos, mas isso não é um bloqueio: enviar não apaga nada, arquiva.
+# ==========================================
+def _serializar_foto_perfil(f: FotoPerfilAluno) -> dict:
+    return {
+        "id": f.id, "ano_letivo": f.ano_letivo, "ativa": f.ativa,
+        "nome_original": f.nome_original, "data_envio": f.data_envio,
+    }
+
+
+async def _listar_fotos_perfil(db: AsyncSession, tenant_id, aluno_id) -> list[FotoPerfilAluno]:
+    return (await db.execute(
+        select(FotoPerfilAluno).where(FotoPerfilAluno.tenant_id == tenant_id, FotoPerfilAluno.aluno_id == aluno_id)
+        .order_by(FotoPerfilAluno.data_envio.desc())
+    )).scalars().all()
+
+
+async def listar_fotos_perfil(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) -> list[dict]:
+    await _obter_aluno(db, tenant_id, aluno_id)
+    return [_serializar_foto_perfil(f) for f in await _listar_fotos_perfil(db, tenant_id, aluno_id)]
+
+
+async def enviar_foto_perfil(
+    db: AsyncSession, tenant_id, aluno_id: uuid.UUID, usuario_id,
+    nome_original: str, content_type: str, conteudo: bytes
+) -> list[dict]:
+    if content_type not in _TIPOS_FOTO_ACEITES:
+        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG ou WebP.")
+    if len(conteudo) > _TAMANHO_MAXIMO_FOTO:
+        raise HTTPException(status_code=400, detail="A fotografia não pode passar de 5 MB.")
+
+    await _obter_aluno(db, tenant_id, aluno_id)
+
+    # Arquiva a ativa atual (se houver) — nunca é apagada, só deixa de
+    # valer para o cartão. É assim que a evolução do aluno ao longo
+    # dos anos fica visível no histórico.
+    await db.execute(
+        update(FotoPerfilAluno)
+        .where(FotoPerfilAluno.tenant_id == tenant_id, FotoPerfilAluno.aluno_id == aluno_id, FotoPerfilAluno.ativa.is_(True))
+        .values(ativa=False)
+    )
+
+    chave = storage.gerar_chave(tenant_id, "aluno", nome_original)
+    await storage.guardar_ficheiro(chave, conteudo, content_type)
+
+    db.add(FotoPerfilAluno(
+        tenant_id=tenant_id, aluno_id=aluno_id, ano_letivo=date.today().year,
+        nome_original=nome_original, chave_storage=chave, ativa=True,
+        enviada_por_usuario_id=usuario_id,
+    ))
+    await db.commit()
+    return [_serializar_foto_perfil(f) for f in await _listar_fotos_perfil(db, tenant_id, aluno_id)]
+
+
+async def obter_foto_perfil_url(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, foto_id: uuid.UUID) -> str:
+    foto = (await db.execute(
+        select(FotoPerfilAluno).where(
+            FotoPerfilAluno.id == foto_id, FotoPerfilAluno.aluno_id == aluno_id, FotoPerfilAluno.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not foto:
+        raise HTTPException(status_code=404, detail="Fotografia não encontrada.")
+    url = await storage.obter_data_uri(foto.chave_storage)
+    if not url:
+        raise HTTPException(status_code=404, detail="Ficheiro da fotografia já não está disponível.")
+    return url

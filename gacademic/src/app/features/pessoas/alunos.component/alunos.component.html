@@ -286,6 +286,44 @@
                 }
               </div>
 
+              <!-- Foto de perfil — a que vale para o cartão de acesso.
+                   Deve ser renovada todos os anos; a antiga fica
+                   arquivada (não é apagada) para acompanhar a evolução
+                   do aluno ao longo dos anos. -->
+              <div class="pt-2 border-t border-slate-200">
+                <button type="button" (click)="onAlternarFotos(aluno.id)"
+                  class="text-xs text-blue-500 hover:text-blue-700 font-medium cursor-pointer">
+                  {{ alunoFotosAbertoId() === aluno.id ? 'Fechar foto de perfil' : '📷 Foto de Perfil' }}
+                </button>
+                @if (alunoFotosAbertoId() === aluno.id) {
+                  <div class="space-y-2 mt-2">
+                    @for (foto of fotosPorAluno()[aluno.id]; track foto.id) {
+                      <div class="flex items-center justify-between gap-2 flex-wrap bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                        <button type="button" (click)="onVerFoto(aluno.id, foto.id)"
+                          class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer text-left">
+                          {{ foto.ano_letivo }} — {{ foto.nome_original }}
+                        </button>
+                        @if (foto.ativa) {
+                          <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-100 rounded-full py-0.5 px-2">Ativa — cartão de acesso</span>
+                        } @else {
+                          <span class="text-[10px] font-medium text-slate-400">Arquivada</span>
+                        }
+                      </div>
+                    } @empty {
+                      <p class="text-xs text-slate-400">Ainda sem fotografia de perfil.</p>
+                    }
+                    @if (podeGerir$ | async) {
+                      <label class="inline-block text-xs bg-slate-100 hover:bg-blue-50 text-blue-700 font-medium py-1 px-3 rounded-lg cursor-pointer">
+                        {{ fotoAEnviarAlunoId() === aluno.id ? 'A enviar…' : '+ Enviar fotografia' }}
+                        <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden"
+                          [disabled]="fotoAEnviarAlunoId() === aluno.id"
+                          (change)="onSelecionarFoto($event, aluno.id)" />
+                      </label>
+                    }
+                  </div>
+                }
+              </div>
+
             </div>
           </td>
         </tr>

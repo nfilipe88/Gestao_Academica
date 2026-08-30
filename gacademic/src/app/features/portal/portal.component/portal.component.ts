@@ -25,6 +25,7 @@ import {
   selectResultadoExame, selectTarefasDoEducando, selectTentativaAtual
 } from '../../../store/portal/portal.selector';
 import { EducandoResumo, HorarioAulaPortal } from '../../../store/portal/portal.models';
+import { FotoPerfilAluno } from '../../../store/alunos/alunos.models';
 import * as DocumentosActions from '../../../store/documentos/documentos.actions';
 import {
   selectDocumentosError, selectMinhasSolicitacoesEscola, selectPrecosDocumento,
@@ -112,6 +113,13 @@ export class PortalComponent implements OnInit {
   aEnviarPedidoTransferencia = signal(false);
   erroTransferencia = signal<string | null>(null);
   mensagemTransferencia = signal<string | null>(null);
+
+  // Foto de perfil do educando — a que vale para o cartão de acesso
+  // (ver app/database/models_pessoas.py::FotoPerfilAluno). Deve ser
+  // renovada todos os anos; a antiga fica arquivada.
+  fotosPerfilEducando = signal<FotoPerfilAluno[]>([]);
+  fotoPerfilAEnviar = signal(false);
+  erroFotoPerfil = signal<string | null>(null);
 
   // Prof. Virtual — qual material está aberto e a pergunta a meio de escrever.
   materialAbertoId: string | null = null;
@@ -212,7 +220,7 @@ export class PortalComponent implements OnInit {
         this.mostrarFormularioTransferencia.set(false);
         this.nifDestinoTransferencia.set('');
         this.motivoTransferencia.set('');
-        this.mensagemTransferencia.set('Pedido enviado — sujeito a aprovação do Super Admin da plataforma.');
+        this.mensagemTransferencia.set('Pedido enviado — a instituição de destino vai decidir diretamente.');
       },
       error: (err) => {
         this.aEnviarPedidoTransferencia.set(false);
@@ -239,6 +247,46 @@ export class PortalComponent implements OnInit {
     this.exameEmCursoId = null;
     this.exameResultadoAbertoId = null;
     this.store.dispatch(limparTentativaExame());
+    this.carregarFotosPerfil(alunoId);
+  }
+
+  // --- Foto de perfil (self-service) ---
+
+  private carregarFotosPerfil(alunoId: string) {
+    this.erroFotoPerfil.set(null);
+    this.http.get<FotoPerfilAluno[]>(`/api/v1/portal/educandos/${alunoId}/fotos-perfil`).subscribe({
+      next: (fotos) => this.fotosPerfilEducando.set(fotos),
+    });
+  }
+
+  onSelecionarFotoPerfil(evento: Event, alunoId: string) {
+    const ficheiro = (evento.target as HTMLInputElement).files?.[0];
+    if (!ficheiro) return;
+    const dados = new FormData();
+    dados.append('ficheiro', ficheiro);
+    this.fotoPerfilAEnviar.set(true);
+    this.erroFotoPerfil.set(null);
+    this.http.post<{ fotos: FotoPerfilAluno[] }>(`/api/v1/portal/educandos/${alunoId}/foto-perfil`, dados).subscribe({
+      next: (resp) => {
+        this.fotoPerfilAEnviar.set(false);
+        this.fotosPerfilEducando.set(resp.fotos);
+      },
+      error: (err) => {
+        this.fotoPerfilAEnviar.set(false);
+        this.erroFotoPerfil.set(err.error?.detail || 'Não foi possível enviar a fotografia.');
+      },
+    });
+    (evento.target as HTMLInputElement).value = '';
+  }
+
+  onVerFotoPerfil(alunoId: string, fotoId: string) {
+    const janela = window.open('', '_blank');
+    this.http.get<{ url: string }>(`/api/v1/portal/educandos/${alunoId}/fotos-perfil/${fotoId}/url`).subscribe({
+      next: (resp) => {
+        janela?.document.write(`<img src="${resp.url}" style="max-width:100%;max-height:100vh;display:block;margin:0 auto">`);
+      },
+      error: () => janela?.close(),
+    });
   }
 
   // --- Exames online (LMS) ---

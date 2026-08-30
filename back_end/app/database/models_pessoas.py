@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, datetime
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, UniqueConstraint, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.models import Base
 
@@ -112,3 +112,31 @@ class AlunoDocumento(Base):
     nome_original: Mapped[str] = mapped_column(String(255), nullable=False)
     chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class FotoPerfilAluno(Base):
+    """Fotografia de perfil do aluno — a que vale para o cartão de
+    acesso (ver cruds/alunos.py::enviar_foto_perfil). Deve ser renovada
+    todos os anos, mas isso não é imposto aqui como bloqueio: enviar
+    uma nova NUNCA apaga a anterior, só a arquiva (ativa=False) — é
+    assim que se acompanha a evolução do aluno ao longo dos anos.
+    Só uma linha por aluno tem ativa=True a cada momento; é essa a
+    "foto atual". Mesmo princípio de sempre para o ficheiro em si: só a
+    chave no storage é persistida, nunca um URL direto do bucket."""
+    __tablename__ = "foto_perfil_aluno"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    aluno_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aluno.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    ano_letivo: Mapped[int] = mapped_column(Integer, nullable=False)
+    nome_original: Mapped[str] = mapped_column(String(255), nullable=False)
+    chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)
+    ativa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Quem enviou — GESTOR/SECRETARIA (ecrã de Alunos) ou o próprio
+    # ALUNO/RESPONSAVEL (Portal, self-service). SET NULL porque o envio
+    # em si (o registo histórico da foto) deve sobreviver à conta que a
+    # enviou ser desativada/apagada — não é um vínculo que precise de
+    # continuar a existir para a foto continuar válida.
+    enviada_por_usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
+    data_envio: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))

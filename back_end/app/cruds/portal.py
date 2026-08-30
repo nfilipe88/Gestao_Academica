@@ -232,6 +232,35 @@ async def pedir_transferencia(db: AsyncSession, tenant_id, utilizador: dict, alu
 
 
 # ==========================================
+# A3.5. FOTO DE PERFIL DO EDUCANDO (self-service — a que vale para o
+# cartão de acesso, ver cruds/alunos.py::enviar_foto_perfil)
+# ==========================================
+async def enviar_foto_perfil_do_educando(
+    db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID,
+    nome_original: str, content_type: str, conteudo: bytes
+) -> list[dict]:
+    """O próprio aluno, ou o encarregado em nome do educando, envia a
+    foto — mesma validação/arquivamento de cruds/alunos.py, só
+    acrescenta a verificação de posse."""
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    return await crud_alunos.enviar_foto_perfil(
+        db, tenant_id, aluno_id, utilizador["usuario_id"], nome_original, content_type, conteudo
+    )
+
+
+async def listar_fotos_perfil_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> list[dict]:
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    return await crud_alunos.listar_fotos_perfil(db, tenant_id, aluno_id)
+
+
+async def obter_foto_perfil_do_educando(
+    db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, foto_id: uuid.UUID
+) -> str:
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    return await crud_alunos.obter_foto_perfil_url(db, tenant_id, aluno_id, foto_id)
+
+
+# ==========================================
 # A4. ESTATÍSTICAS/DESEMPENHO DO EDUCANDO (dashboard do Portal)
 # ==========================================
 async def obter_estatisticas_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID) -> dict:

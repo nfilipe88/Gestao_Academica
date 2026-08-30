@@ -12,7 +12,7 @@ import {
   selectAlunos, selectAlunosError, selectAlunosMensagem, selectPaginacaoAlunos,
   selectResponsaveis, selectVinculos
 } from '../../../store/alunos/alunos.selector';
-import { AlunoDocumento } from '../../../store/alunos/alunos.models';
+import { AlunoDocumento, FotoPerfilAluno } from '../../../store/alunos/alunos.models';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
@@ -298,6 +298,51 @@ export class AlunosComponent implements OnInit, OnDestroy {
     this.http.get<{ url: string }>(`/api/v1/alunos/${alunoId}/documentos/${documentoId}/url`).subscribe({
       next: (resp) => {
         janela?.document.write(`<iframe src="${resp.url}" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>`);
+      },
+      error: () => janela?.close(),
+    });
+  }
+
+  // ==========================================
+  // FOTO DE PERFIL (a que vale para o cartão de acesso — ver
+  // app/database/models_pessoas.py::FotoPerfilAluno). Mesmo padrão do
+  // painel de Documentos acima: pequeno de mais para um slice próprio.
+  // ==========================================
+  alunoFotosAbertoId = signal<string | null>(null);
+  fotosPorAluno = signal<Record<string, FotoPerfilAluno[]>>({});
+  fotoAEnviarAlunoId = signal<string | null>(null);
+
+  onAlternarFotos(alunoId: string) {
+    const abrir = this.alunoFotosAbertoId() !== alunoId;
+    this.alunoFotosAbertoId.set(abrir ? alunoId : null);
+    if (abrir) {
+      this.http.get<FotoPerfilAluno[]>(`/api/v1/alunos/${alunoId}/fotos-perfil`).subscribe({
+        next: (fotos) => this.fotosPorAluno.update(atual => ({ ...atual, [alunoId]: fotos })),
+      });
+    }
+  }
+
+  onSelecionarFoto(evento: Event, alunoId: string) {
+    const ficheiro = (evento.target as HTMLInputElement).files?.[0];
+    if (!ficheiro) return;
+    const dados = new FormData();
+    dados.append('ficheiro', ficheiro);
+    this.fotoAEnviarAlunoId.set(alunoId);
+    this.http.post<{ fotos: FotoPerfilAluno[] }>(`/api/v1/alunos/${alunoId}/foto-perfil`, dados).subscribe({
+      next: (resp) => {
+        this.fotoAEnviarAlunoId.set(null);
+        this.fotosPorAluno.update(atual => ({ ...atual, [alunoId]: resp.fotos }));
+      },
+      error: () => this.fotoAEnviarAlunoId.set(null),
+    });
+    (evento.target as HTMLInputElement).value = '';
+  }
+
+  onVerFoto(alunoId: string, fotoId: string) {
+    const janela = window.open('', '_blank');
+    this.http.get<{ url: string }>(`/api/v1/alunos/${alunoId}/fotos-perfil/${fotoId}/url`).subscribe({
+      next: (resp) => {
+        janela?.document.write(`<img src="${resp.url}" style="max-width:100%;max-height:100vh;display:block;margin:0 auto">`);
       },
       error: () => janela?.close(),
     });

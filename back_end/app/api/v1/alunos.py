@@ -184,3 +184,43 @@ async def obter_documento_aluno(
     """Devolve o documento como data URI para consulta — pedido só quando aberto."""
     url = await crud_alunos.obter_documento_aluno_url(db, utilizador["tenant_id"], aluno_id, documento_id)
     return {"url": url}
+
+# ==========================================
+# FOTO DE PERFIL (a que vale para o cartão de acesso)
+# ==========================================
+@router.get("/alunos/{aluno_id}/fotos-perfil")
+async def listar_fotos_perfil(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    return await crud_alunos.listar_fotos_perfil(db, utilizador["tenant_id"], aluno_id)
+
+@router.post("/alunos/{aluno_id}/foto-perfil", status_code=status.HTTP_201_CREATED)
+async def enviar_foto_perfil(
+    aluno_id: uuid.UUID,
+    ficheiro: UploadFile = File(...),
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Envia uma nova fotografia de perfil (a que vale para o cartão de
+    acesso) — arquiva a anterior, nunca a apaga."""
+    conteudo = await ficheiro.read()
+    if not conteudo:
+        raise HTTPException(status_code=400, detail="Ficheiro vazio.")
+    fotos = await crud_alunos.enviar_foto_perfil(
+        db, utilizador["tenant_id"], aluno_id, utilizador["usuario_id"],
+        ficheiro.filename or "foto", ficheiro.content_type or "application/octet-stream", conteudo
+    )
+    return {"fotos": fotos}
+
+@router.get("/alunos/{aluno_id}/fotos-perfil/{foto_id}/url")
+async def obter_foto_perfil(
+    aluno_id: uuid.UUID,
+    foto_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Devolve a fotografia como data URI — pedida só quando aberta."""
+    url = await crud_alunos.obter_foto_perfil_url(db, utilizador["tenant_id"], aluno_id, foto_id)
+    return {"url": url}

@@ -76,7 +76,7 @@
           <p class="text-sm text-emerald-700">✓ {{ mensagemTransferencia() }}</p>
         } @else if (mostrarFormularioTransferencia()) {
           <p class="text-sm text-slate-500 mb-3">
-            Peça a transferência (ou o reingresso, se {{ edu.nome_completo }} já concluiu o ciclo nesta escola) para outra instituição desta plataforma, identificada pelo NIF. Fica sujeito a aprovação do Super Admin da plataforma.
+            Peça a transferência (ou o reingresso, se {{ edu.nome_completo }} já concluiu o ciclo nesta escola) para outra instituição desta plataforma, identificada pelo NIF. A instituição de destino decide diretamente — aceita ou nega.
           </p>
           @if (erroTransferencia()) {
             <p class="text-sm text-rose-600 mb-2">{{ erroTransferencia() }}</p>
@@ -164,6 +164,38 @@
 
     @if (aba === 'dashboard') {
       <div class="space-y-4">
+
+        <!-- Foto de perfil — a que vale para o cartão de acesso. Deve
+             ser renovada todos os anos; a antiga fica arquivada, não é
+             apagada, para acompanhar a evolução do educando. -->
+        <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-center gap-4">
+          <div class="flex-1 min-w-48">
+            <h3 class="text-sm font-semibold text-slate-800">Foto de perfil</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Usada no cartão de acesso — renove todos os anos; as anteriores ficam guardadas no histórico.</p>
+            @if (erroFotoPerfil()) { <p class="text-xs text-rose-600 mt-1">{{ erroFotoPerfil() }}</p> }
+          </div>
+          @if (fotosPerfilEducando().length > 0) {
+            <div class="flex items-center gap-2 flex-wrap">
+              @for (foto of fotosPerfilEducando(); track foto.id) {
+                <button type="button" (click)="onVerFotoPerfil(educandoSelecionadoId!, foto.id)"
+                  class="text-xs py-1 px-2.5 rounded-full cursor-pointer font-medium"
+                  [class.bg-emerald-100]="foto.ativa" [class.text-emerald-700]="foto.ativa"
+                  [class.bg-slate-100]="!foto.ativa" [class.text-slate-500]="!foto.ativa">
+                  {{ foto.ano_letivo }}
+                </button>
+              }
+            </div>
+          } @else {
+            <p class="text-xs text-slate-400">Ainda sem fotografia enviada.</p>
+          }
+          <label class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg cursor-pointer shrink-0">
+            {{ fotoPerfilAEnviar() ? 'A enviar…' : (fotosPerfilEducando().length > 0 ? 'Renovar fotografia' : '+ Enviar fotografia') }}
+            <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden"
+              [disabled]="fotoPerfilAEnviar()"
+              (change)="onSelecionarFotoPerfil($event, educandoSelecionadoId!)" />
+          </label>
+        </div>
+
         @if (estatisticas$ | async; as est) {
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
