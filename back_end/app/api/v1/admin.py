@@ -16,6 +16,8 @@ from app.core import fila_notificacoes
 from app.cruds import admin as crud_admin
 from app.cruds import usuarios as crud_usuarios
 from app.cruds import auditoria as crud_auditoria
+from app.cruds import suporte as crud_suporte
+from app.schemas.suporte import MensagemTicketCreate, TicketEstadoUpdate
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Painel Super Admin"])
 
@@ -265,3 +267,44 @@ async def listar_entidades_auditoria_do_tenant(
     db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
 ):
     return await crud_auditoria.listar_entidades_distintas(db, tenant_id)
+
+
+# ==========================================
+# TICKETS DE SUPORTE — cross-tenant (qualquer escola, incluindo
+# visitantes sem tenant nenhum — ver models_suporte.py::TicketSuporte)
+# ==========================================
+
+@router.get("/tickets")
+async def listar_tickets(
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+    estado: str | None = Query(None),
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    return await crud_suporte.listar_tickets_admin(db, page, page_size, estado)
+
+
+@router.get("/tickets/{ticket_id}")
+async def obter_ticket(
+    ticket_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    return await crud_suporte.obter_ticket_admin(db, ticket_id)
+
+
+@router.post("/tickets/{ticket_id}/mensagens", status_code=201)
+async def responder_ticket(
+    ticket_id: uuid.UUID, dados: MensagemTicketCreate,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Responde ao ticket; se for de um visitante sem conta (tenant_id None), a resposta é também enviada por e-mail."""
+    await crud_suporte.responder_ticket_admin(db, ticket_id, dados)
+    return {"mensagem": "Resposta enviada."}
+
+
+@router.patch("/tickets/{ticket_id}/estado")
+async def alterar_estado_ticket(
+    ticket_id: uuid.UUID, dados: TicketEstadoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    ticket = await crud_suporte.atualizar_estado_admin(db, ticket_id, dados.estado)
+    return {"mensagem": f"Ticket marcado como {ticket.estado}.", "estado": ticket.estado}

@@ -1,0 +1,138 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Suporte</h2>
+    <p class="text-slate-500 text-sm">Pedidos de apoio à equipa que gere a plataforma — dúvidas, problemas técnicos ou sugestões.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (mensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  @if (!ticketAbertoId) {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800">Os meus pedidos</h3>
+          <p class="text-xs text-slate-500">Fica visível a resposta da equipa assim que chegar.</p>
+        </div>
+        <button type="button" (click)="alternarFormularioNovo()"
+          class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+          {{ mostrarFormularioNovo ? 'Cancelar' : '+ Novo Pedido' }}
+        </button>
+      </div>
+
+      @if (mostrarFormularioNovo) {
+        <form [formGroup]="ticketForm" (ngSubmit)="onCriarTicket()" class="space-y-3 mb-4 pb-4 border-b border-slate-100">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">O seu nome</label>
+              <input type="text" formControlName="nome"
+                class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">E-mail para resposta</label>
+              <input type="email" formControlName="email" placeholder="voce@escola.pt"
+                class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Assunto</label>
+            <input type="text" formControlName="assunto" placeholder="Ex: Erro ao gerar recibo"
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Mensagem</label>
+            <textarea formControlName="mensagem" rows="4" placeholder="Descreva o pedido com detalhe…"
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+          </div>
+          <button type="submit" [disabled]="ticketForm.invalid"
+            class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+            Enviar Pedido
+          </button>
+        </form>
+      }
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-600">
+              <th class="py-2 pr-4 font-medium">Assunto</th>
+              <th class="py-2 pr-4 font-medium">Estado</th>
+              <th class="py-2 font-medium">Última atividade</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of (tickets$ | async); track t.id) {
+              <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" (click)="onAbrirTicket(t.id)">
+                <td class="py-2.5 pr-4 text-slate-800 font-medium">{{ t.assunto }}</td>
+                <td class="py-2.5 pr-4">
+                  <span class="text-xs font-medium py-0.5 px-2 rounded-full"
+                    [class.bg-blue-100]="t.estado === 'ABERTO'" [class.text-blue-700]="t.estado === 'ABERTO'"
+                    [class.bg-amber-100]="t.estado === 'EM_ANDAMENTO'" [class.text-amber-700]="t.estado === 'EM_ANDAMENTO'"
+                    [class.bg-emerald-100]="t.estado === 'RESOLVIDO'" [class.text-emerald-700]="t.estado === 'RESOLVIDO'"
+                    [class.bg-slate-100]="t.estado === 'FECHADO'" [class.text-slate-500]="t.estado === 'FECHADO'">
+                    {{ rotulosEstado[t.estado] }}
+                  </span>
+                </td>
+                <td class="py-2.5 text-slate-500">{{ t.atualizado_em | date: 'dd/MM/yyyy HH:mm' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-6 text-center text-slate-500">Ainda não abriu nenhum pedido de suporte.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (paginacao$ | async; as paginacao) {
+        <app-paginacao [estado]="paginacao" (paginaChange)="onPagina($event)" (tamanhoChange)="onTamanho($event)"></app-paginacao>
+      }
+    </div>
+  }
+
+  @if (ticketAbertoId) {
+    @if (ticketAtual$ | async; as ticket) {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <div class="flex items-start justify-between gap-4 mb-1">
+          <div>
+            <button type="button" (click)="onFecharTicket()" class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer mb-2">← Voltar aos meus pedidos</button>
+            <h3 class="text-sm font-semibold text-slate-800">{{ ticket.assunto }}</h3>
+          </div>
+          <span class="text-xs font-medium py-0.5 px-2 rounded-full shrink-0"
+            [class.bg-blue-100]="ticket.estado === 'ABERTO'" [class.text-blue-700]="ticket.estado === 'ABERTO'"
+            [class.bg-amber-100]="ticket.estado === 'EM_ANDAMENTO'" [class.text-amber-700]="ticket.estado === 'EM_ANDAMENTO'"
+            [class.bg-emerald-100]="ticket.estado === 'RESOLVIDO'" [class.text-emerald-700]="ticket.estado === 'RESOLVIDO'"
+            [class.bg-slate-100]="ticket.estado === 'FECHADO'" [class.text-slate-500]="ticket.estado === 'FECHADO'">
+            {{ rotulosEstado[ticket.estado] }}
+          </span>
+        </div>
+
+        <div class="mt-4 space-y-3 max-h-96 overflow-y-auto pr-1">
+          @for (m of ticket.mensagens; track m.id) {
+            <div class="flex" [class.justify-end]="m.autor_tipo === 'CLIENTE'">
+              <div class="max-w-[80%] rounded-lg px-3 py-2 text-sm"
+                [class.bg-blue-600]="m.autor_tipo === 'CLIENTE'" [class.text-white]="m.autor_tipo === 'CLIENTE'"
+                [class.bg-slate-100]="m.autor_tipo === 'SUPORTE'" [class.text-slate-800]="m.autor_tipo === 'SUPORTE'">
+                <p class="text-[11px] font-medium opacity-70 mb-0.5">{{ m.autor_tipo === 'SUPORTE' ? 'Equipa de Suporte' : m.autor_nome }}</p>
+                <p class="whitespace-pre-wrap">{{ m.corpo }}</p>
+                <p class="text-[10px] opacity-60 mt-1">{{ m.criado_em | date: 'dd/MM/yyyy HH:mm' }}</p>
+              </div>
+            </div>
+          }
+        </div>
+
+        <form (ngSubmit)="onEnviarResposta(ticket.id)" class="mt-4 pt-4 border-t border-slate-100 flex gap-2">
+          <input type="text" [(ngModel)]="respostaTexto" name="respostaTexto" placeholder="Escreva uma resposta…"
+            class="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          <button type="submit" [disabled]="!respostaTexto.trim()"
+            class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+            Enviar
+          </button>
+        </form>
+      </div>
+    }
+  }
+
+</div>

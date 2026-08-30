@@ -1,6 +1,6 @@
 import { createReducer, on } from '@ngrx/store';
 import * as AdminActions from './admin.actions';
-import { AssinaturaTenant, PlanoSaaS, ResumoMrr, TenantResumo } from './admin.models';
+import { AssinaturaTenant, PlanoSaaS, ResumoMrr, TenantResumo, TicketAdminComMensagens, TicketAdminRegisto } from './admin.models';
 import { EstadoPaginacao, PAGINACAO_INICIAL } from '../../shared/models/paginacao.models';
 
 export interface AdminState {
@@ -12,6 +12,9 @@ export interface AdminState {
   mrr: ResumoMrr | null;
   // Assinatura da escola atualmente a ser vista/editada no painel de tenants.
   assinaturasPorTenant: Record<string, AssinaturaTenant | null>;
+  tickets: TicketAdminRegisto[];
+  paginacaoTickets: EstadoPaginacao;
+  ticketAtual: TicketAdminComMensagens | null;
 }
 
 export const initialState: AdminState = {
@@ -21,7 +24,10 @@ export const initialState: AdminState = {
   erro: null,
   planos: [],
   mrr: null,
-  assinaturasPorTenant: {}
+  assinaturasPorTenant: {},
+  tickets: [],
+  paginacaoTickets: PAGINACAO_INICIAL,
+  ticketAtual: null,
 };
 
 export const adminReducer = createReducer(
@@ -38,5 +44,8 @@ export const adminReducer = createReducer(
   on(AdminActions.carregarAssinaturaTenantSucesso, (state, { tenant_id, assinatura }) => ({
     ...state,
     assinaturasPorTenant: { ...state.assinaturasPorTenant, [tenant_id]: assinatura }
-  }))
+  })),
+
+  on(AdminActions.carregarTicketsAdminSucesso, (state, { tickets, paginacao }) => ({ ...state, tickets, paginacaoTickets: paginacao })),
+  on(AdminActions.carregarTicketAdminSucesso, (state, { ticket }) => ({ ...state, ticketAtual: ticket }))
 );

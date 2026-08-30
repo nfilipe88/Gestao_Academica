@@ -27,6 +27,7 @@ import app.database.models_billing
 import app.database.models_permissoes
 import app.database.models_propinas
 import app.database.models_auditoria
+import app.database.models_suporte
 
 from alembic import context
 

@@ -123,6 +123,13 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/permissoes.component/permissoes.component').then((m) => m.PermissoesComponent)
       },
       {
+        // Sem guard próprio (mesmo padrão de 'admin' acima) — o link só
+        // aparece no menu para SUPER_ADMIN, e a API já recusa (403)
+        // qualquer outro perfil em /api/v1/admin/tickets.
+        path: 'admin/tickets',
+        loadComponent: () => import('./features/admin/tickets.component/tickets.component').then((m) => m.TicketsComponent)
+      },
+      {
         path: 'tarefas',
         loadComponent: () => import('./features/tarefas/tarefas.component/tarefas.component').then((m) => m.TarefasComponent)
       },
@@ -151,6 +158,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/auditoria/auditoria.component/auditoria.component').then((m) => m.AuditoriaComponent)
       },
       {
+        path: 'suporte',
+        loadComponent: () => import('./features/suporte/suporte.component/suporte.component').then((m) => m.SuporteComponent)
+      },
+      {
         // Sem RBAC — qualquer utilizador autenticado gere a própria
         // conta (ver app/api/v1/perfil.py, sem exigir_perfil).
         path: 'perfil',
@@ -174,6 +185,7 @@ export const routes: Routes = [
     children: [
       { path: 'funcionalidades', loadComponent: () => import('./features/public/funcionalidades/funcionalidades.component/funcionalidades.component').then((m) => m.FuncionalidadesComponent) },
       { path: 'precos', loadComponent: () => import('./features/public/precos/precos.component/precos.component').then((m) => m.PrecosComponent) },
+      { path: 'contacto', loadComponent: () => import('./features/public/contacto/contacto.component/contacto.component').then((m) => m.ContactoComponent) },
     ]
   },
 

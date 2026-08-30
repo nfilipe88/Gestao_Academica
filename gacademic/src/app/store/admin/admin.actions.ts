@@ -1,5 +1,8 @@
 import { createAction, props } from '@ngrx/store';
-import { AssinaturaTenant, FiltrosTenants, PlanoSaaS, PlanoSaaSModulo, ResumoMrr, StatusTenant, TenantResumo } from './admin.models';
+import {
+  AssinaturaTenant, EstadoTicket, FiltrosTenants, PlanoSaaS, PlanoSaaSModulo, ResumoMrr,
+  StatusTenant, TenantResumo, TicketAdminComMensagens, TicketAdminRegisto
+} from './admin.models';
 import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
 export const carregarTenants = createAction(
@@ -96,4 +99,36 @@ export const definirAssinaturaTenant = createAction(
 export const cancelarAssinaturaTenant = createAction(
   '[Admin] Cancelar Assinatura Tenant',
   props<{ tenant_id: string }>()
+);
+
+// ==========================================
+// TICKETS DE SUPORTE — cross-tenant
+// ==========================================
+
+export const carregarTicketsAdmin = createAction(
+  '[Admin] Carregar Tickets',
+  props<{ page?: number; page_size?: number; estado?: EstadoTicket }>()
+);
+export const carregarTicketsAdminSucesso = createAction(
+  '[Admin] Carregar Tickets Sucesso',
+  props<{ tickets: TicketAdminRegisto[]; paginacao: EstadoPaginacao }>()
+);
+
+export const carregarTicketAdmin = createAction(
+  '[Admin] Carregar Ticket',
+  props<{ id: string }>()
+);
+export const carregarTicketAdminSucesso = createAction(
+  '[Admin] Carregar Ticket Sucesso',
+  props<{ ticket: TicketAdminComMensagens }>()
+);
+
+export const responderTicketAdmin = createAction(
+  '[Admin] Responder Ticket',
+  props<{ id: string; corpo: string }>()
+);
+
+export const alterarEstadoTicketAdmin = createAction(
+  '[Admin] Alterar Estado Ticket',
+  props<{ id: string; estado: EstadoTicket }>()
 );

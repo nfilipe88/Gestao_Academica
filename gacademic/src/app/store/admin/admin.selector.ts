@@ -12,3 +12,7 @@ export const selectPlanos = createSelector(selectAdminState, (state) => state.pl
 export const selectPlanosAtivos = createSelector(selectPlanos, (planos) => planos.filter(p => p.ativo));
 export const selectMrr = createSelector(selectAdminState, (state) => state.mrr);
 export const selectAssinaturasPorTenant = createSelector(selectAdminState, (state) => state.assinaturasPorTenant);
+
+export const selectTicketsAdmin = createSelector(selectAdminState, (state) => state.tickets);
+export const selectPaginacaoTicketsAdmin = createSelector(selectAdminState, (state) => state.paginacaoTickets);
+export const selectTicketAtualAdmin = createSelector(selectAdminState, (state) => state.ticketAtual);

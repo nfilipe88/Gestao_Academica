@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as AdminActions from './admin.actions';
-import { AssinaturaTenant, PlanoSaaS, ResumoMrr, TenantResumo } from './admin.models';
+import { AssinaturaTenant, PlanoSaaS, ResumoMrr, TenantResumo, TicketAdminComMensagens, TicketAdminRegisto } from './admin.models';
 import { PaginaResultado } from '../../shared/models/paginacao.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
@@ -230,6 +230,70 @@ export class AdminEffects {
         ]),
         catchError(err => of(AdminActions.adminOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível cancelar a assinatura desta escola.'
+        })))
+      ))
+    )
+  );
+
+  // ==========================================
+  // TICKETS DE SUPORTE — cross-tenant
+  // ==========================================
+
+  carregarTicketsAdmin$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.carregarTicketsAdmin),
+      switchMap(action => this.http.get<PaginaResultado<TicketAdminRegisto>>('/api/v1/admin/tickets', {
+        params: {
+          page: action.page ?? 1, page_size: action.page_size ?? 25,
+          ...(action.estado ? { estado: action.estado } : {})
+        }
+      }).pipe(
+        map(resp => AdminActions.carregarTicketsAdminSucesso({
+          tickets: resp.items,
+          paginacao: { total: resp.total, page: resp.page, page_size: resp.page_size, total_pages: resp.total_pages }
+        })),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os tickets.'
+        })))
+      ))
+    )
+  );
+
+  carregarTicketAdmin$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.carregarTicketAdmin),
+      switchMap(action => this.http.get<TicketAdminComMensagens>(`/api/v1/admin/tickets/${action.id}`).pipe(
+        map(ticket => AdminActions.carregarTicketAdminSucesso({ ticket })),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar este ticket.'
+        })))
+      ))
+    )
+  );
+
+  responderTicketAdmin$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.responderTicketAdmin),
+      switchMap(action => this.http.post<{ mensagem: string }>(`/api/v1/admin/tickets/${action.id}/mensagens`, { corpo: action.corpo }).pipe(
+        switchMap(() => [AdminActions.carregarTicketAdmin({ id: action.id })]),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível enviar a resposta.'
+        })))
+      ))
+    )
+  );
+
+  alterarEstadoTicketAdmin$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.alterarEstadoTicketAdmin),
+      switchMap(action => this.http.patch<{ mensagem: string }>(`/api/v1/admin/tickets/${action.id}/estado`, { estado: action.estado }).pipe(
+        switchMap(resp => [
+          AdminActions.carregarTicketAdmin({ id: action.id }),
+          AdminActions.carregarTicketsAdmin({}),
+          AdminActions.adminOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível alterar o estado do ticket.'
         })))
       ))
     )

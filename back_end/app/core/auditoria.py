@@ -42,7 +42,7 @@ def definir_ator_auditoria(usuario_id, tenant_id, perfil_acesso: str | None) -> 
 _TABELAS_EXCLUIDAS = {
     "audit_log", "usuario_auditoria", "registro_nota_auditoria",
     "login_historico", "refresh_token", "password_reset_token",
-    "notificacao",
+    "notificacao", "ticket_suporte", "ticket_mensagem",
 }
 
 # Nunca gravar segredos em claro num campo de auditoria, mesmo que o

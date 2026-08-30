@@ -86,3 +86,32 @@ export interface ResumoMrr {
   total_assinaturas_ativas: number;
   por_plano: ResumoMrrPorPlano[];
 }
+
+// ==========================================
+// TICKETS DE SUPORTE — cross-tenant
+// ==========================================
+export type EstadoTicket = 'ABERTO' | 'EM_ANDAMENTO' | 'RESOLVIDO' | 'FECHADO';
+
+export interface TicketAdminRegisto {
+  id: string;
+  tenant_id: string | null;
+  nome_escola: string | null; // null = visitante do site público, sem conta
+  autor_nome: string;
+  autor_email: string;
+  assunto: string;
+  estado: EstadoTicket;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface TicketMensagemRegisto {
+  id: string;
+  autor_tipo: 'CLIENTE' | 'SUPORTE';
+  autor_nome: string;
+  corpo: string;
+  criado_em: string;
+}
+
+export interface TicketAdminComMensagens extends TicketAdminRegisto {
+  mensagens: TicketMensagemRegisto[];
+}

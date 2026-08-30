@@ -1,0 +1,56 @@
+<section class="max-w-2xl mx-auto px-4 sm:px-6 pt-20 pb-24">
+  <div class="text-center mb-10">
+    <span class="inline-block text-xs font-semibold tracking-wide uppercase text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1">
+      Contacto
+    </span>
+    <h1 class="mt-6 text-4xl font-extrabold tracking-tight text-white text-balance">Fale connosco</h1>
+    <p class="mt-4 text-slate-400">
+      Dúvidas sobre a plataforma, um plano à medida da sua escola, ou já é cliente e precisa de ajuda? Escreva-nos.
+    </p>
+  </div>
+
+  @if (enviado()) {
+    <div class="rounded-2xl border border-emerald-800 bg-emerald-950/40 px-6 py-10 text-center">
+      <svg class="w-10 h-10 mx-auto text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <h2 class="mt-4 text-lg font-semibold text-white">Mensagem enviada</h2>
+      <p class="mt-2 text-sm text-emerald-300">Recebemos o seu pedido — vamos responder pelo e-mail indicado em breve.</p>
+      <a routerLink="/" class="mt-6 inline-block text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors">← Voltar ao início</a>
+    </div>
+  } @else {
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8">
+      @if (erro(); as msg) {
+        <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">{{ msg }}</div>
+      }
+      <form [formGroup]="contactoForm" (ngSubmit)="onSubmit()" class="space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5">O seu nome</label>
+            <input type="text" formControlName="nome"
+              class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5">E-mail</label>
+            <input type="email" formControlName="email" placeholder="voce@email.pt"
+              class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5">Assunto</label>
+          <input type="text" formControlName="assunto" placeholder="Ex: Quero saber mais sobre os planos"
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5">Mensagem</label>
+          <textarea formControlName="mensagem" rows="5" placeholder="Escreva a sua mensagem…"
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors"></textarea>
+        </div>
+        <button type="submit" [disabled]="contactoForm.invalid || aEnviar()"
+          class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-lg py-3 transition-colors cursor-pointer disabled:cursor-not-allowed shadow-lg shadow-blue-600/20">
+          {{ aEnviar() ? 'A enviar…' : 'Enviar Mensagem' }}
+        </button>
+      </form>
+    </div>
+  }
+</section>

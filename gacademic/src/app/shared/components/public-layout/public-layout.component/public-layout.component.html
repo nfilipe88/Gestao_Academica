@@ -7,6 +7,7 @@
       <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
         <a routerLink="/funcionalidades" routerLinkActive="text-white" class="hover:text-white transition-colors">Funcionalidades</a>
         <a routerLink="/precos" routerLinkActive="text-white" class="hover:text-white transition-colors">Preços</a>
+        <a routerLink="/contacto" routerLinkActive="text-white" class="hover:text-white transition-colors">Contacto</a>
       </nav>
 
       <div class="hidden md:flex items-center gap-3">
@@ -40,6 +41,7 @@
       <nav class="md:hidden border-t border-slate-800 px-4 sm:px-6 py-4 space-y-3 text-sm font-medium">
         <a routerLink="/funcionalidades" (click)="fecharMenu()" class="block text-slate-300 hover:text-white">Funcionalidades</a>
         <a routerLink="/precos" (click)="fecharMenu()" class="block text-slate-300 hover:text-white">Preços</a>
+        <a routerLink="/contacto" (click)="fecharMenu()" class="block text-slate-300 hover:text-white">Contacto</a>
         <div class="pt-3 border-t border-slate-800 flex flex-col gap-2">
           @if (usuario$ | async) {
             <a routerLink="/dashboard" (click)="fecharMenu()"
@@ -73,6 +75,7 @@
         <ul class="space-y-2 text-sm text-slate-400">
           <li><a routerLink="/funcionalidades" class="hover:text-white transition-colors">Funcionalidades</a></li>
           <li><a routerLink="/precos" class="hover:text-white transition-colors">Preços</a></li>
+          <li><a routerLink="/contacto" class="hover:text-white transition-colors">Contacto</a></li>
         </ul>
       </div>
       <div>

@@ -3,10 +3,14 @@ import { Component, Inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { restoreAuth } from './store/auth/auth.actions';
+import { SuporteVirtualWidgetComponent } from './shared/components/suporte-virtual-widget/suporte-virtual-widget.component/suporte-virtual-widget.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  // Widget flutuante montado uma única vez aqui na raiz — fica visível
+  // tanto no site público como dentro da app autenticada, sem precisar
+  // de o duplicar em public-layout e em dashboard-layout.
+  imports: [RouterOutlet, SuporteVirtualWidgetComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
