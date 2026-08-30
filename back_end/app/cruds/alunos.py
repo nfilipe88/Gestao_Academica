@@ -10,10 +10,19 @@ from sqlalchemy import or_, select
 import uuid
 
 from app.database.models import Usuario
-from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
+from app.database.models_pessoas import Aluno, AlunoDocumento, AlunoResponsavel, ResponsavelFinanceiroLegal
+from app.core import storage
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import paginar
 from app.schemas.alunos import AlunoCreate, CriarAcessoRequest, ResponsavelCreate, VincularResponsavel
+
+# Documentos do aluno (sobretudo Histórico Escolar anexado
+# automaticamente na Transferência/Reingresso cross-escola — ver
+# cruds/transferencias.py::aprovar_e_migrar) — mesmos limites de
+# MatriculaDocumento (cruds/matriculas.py).
+_TIPOS_FICHEIRO_ACEITES = {"image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"}
+_TAMANHO_MAXIMO_DOCUMENTO = 8 * 1024 * 1024  # 8 MB
+_MAX_DOCUMENTOS_POR_ALUNO = 10
 
 
 # ==========================================
@@ -229,3 +238,98 @@ async def criar_acesso_responsavel(db: AsyncSession, tenant_id, responsavel_id: 
         raise
     await db.refresh(novo_usuario)
     return novo_usuario
+
+
+# ==========================================
+# DOCUMENTOS DO ALUNO (sobretudo Histórico Escolar de Transferência/Reingresso)
+# ==========================================
+async def _obter_aluno(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) -> Aluno:
+    aluno = (await db.execute(select(Aluno).where(Aluno.id == aluno_id, Aluno.tenant_id == tenant_id))).scalars().first()
+    if not aluno:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado na sua instituição.")
+    return aluno
+
+
+async def _listar_documentos_aluno(db: AsyncSession, tenant_id, aluno_id) -> list[AlunoDocumento]:
+    return (await db.execute(
+        select(AlunoDocumento).where(AlunoDocumento.tenant_id == tenant_id, AlunoDocumento.aluno_id == aluno_id)
+        .order_by(AlunoDocumento.data_criacao)
+    )).scalars().all()
+
+
+def _serializar_documento_aluno(d: AlunoDocumento) -> dict:
+    return {"id": d.id, "descricao": d.descricao, "nome_original": d.nome_original}
+
+
+async def listar_documentos_aluno(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) -> list[dict]:
+    await _obter_aluno(db, tenant_id, aluno_id)
+    return [_serializar_documento_aluno(d) for d in await _listar_documentos_aluno(db, tenant_id, aluno_id)]
+
+
+async def adicionar_documento_aluno(
+    db: AsyncSession, tenant_id, aluno_id: uuid.UUID, descricao: str | None,
+    nome_original: str, content_type: str, conteudo: bytes
+) -> list[dict]:
+    if content_type not in _TIPOS_FICHEIRO_ACEITES:
+        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG, GIF, WebP ou PDF.")
+    if len(conteudo) > _TAMANHO_MAXIMO_DOCUMENTO:
+        raise HTTPException(status_code=400, detail="Cada documento não pode passar de 8 MB.")
+
+    await _obter_aluno(db, tenant_id, aluno_id)
+    total_atual = len(await _listar_documentos_aluno(db, tenant_id, aluno_id))
+    if total_atual >= _MAX_DOCUMENTOS_POR_ALUNO:
+        raise HTTPException(status_code=400, detail=f"Já tem o máximo de {_MAX_DOCUMENTOS_POR_ALUNO} documentos anexados a este aluno.")
+
+    chave = storage.gerar_chave(tenant_id, "aluno", nome_original)
+    await storage.guardar_ficheiro(chave, conteudo, content_type)
+
+    db.add(AlunoDocumento(
+        tenant_id=tenant_id, aluno_id=aluno_id, descricao=(descricao or "").strip() or None,
+        nome_original=nome_original, chave_storage=chave
+    ))
+    await db.commit()
+    return [_serializar_documento_aluno(d) for d in await _listar_documentos_aluno(db, tenant_id, aluno_id)]
+
+
+async def remover_documento_aluno(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, documento_id: uuid.UUID) -> list[dict]:
+    await _obter_aluno(db, tenant_id, aluno_id)
+    documento = (await db.execute(
+        select(AlunoDocumento).where(
+            AlunoDocumento.id == documento_id, AlunoDocumento.aluno_id == aluno_id, AlunoDocumento.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not documento:
+        raise HTTPException(status_code=404, detail="Documento não encontrado.")
+    chave = documento.chave_storage
+    await db.delete(documento)
+    await db.commit()
+    await storage.apagar_ficheiro(chave)
+    return [_serializar_documento_aluno(d) for d in await _listar_documentos_aluno(db, tenant_id, aluno_id)]
+
+
+async def obter_documento_aluno_url(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, documento_id: uuid.UUID) -> str:
+    documento = (await db.execute(
+        select(AlunoDocumento).where(
+            AlunoDocumento.id == documento_id, AlunoDocumento.aluno_id == aluno_id, AlunoDocumento.tenant_id == tenant_id
+        )
+    )).scalars().first()
+    if not documento:
+        raise HTTPException(status_code=404, detail="Documento não encontrado.")
+    url = await storage.obter_data_uri(documento.chave_storage)
+    if not url:
+        raise HTTPException(status_code=404, detail="Ficheiro do documento já não está disponível.")
+    return url
+
+
+async def anexar_documento_gerado(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, descricao: str, nome_ficheiro: str, conteudo_pdf: bytes) -> None:
+    """Anexa um PDF gerado internamente pela plataforma (não um upload
+    do utilizador) — usada por cruds/transferencias.py::aprovar_e_migrar
+    para o Histórico Escolar automático. Sem validação de tipo/tamanho
+    de ficheiro (o PDF já foi gerado por nós) nem do limite de
+    _MAX_DOCUMENTOS_POR_ALUNO (o aluno acabou de ser criado, nunca terá
+    outros documentos ainda). Não faz commit — quem chama decide
+    quando fechar a transação, para ficar na mesma unidade atómica que
+    a criação do próprio aluno."""
+    chave = storage.gerar_chave(tenant_id, "aluno", nome_ficheiro)
+    await storage.guardar_ficheiro(chave, conteudo_pdf, "application/pdf")
+    db.add(AlunoDocumento(tenant_id=tenant_id, aluno_id=aluno_id, descricao=descricao, nome_original=nome_ficheiro, chave_storage=chave))

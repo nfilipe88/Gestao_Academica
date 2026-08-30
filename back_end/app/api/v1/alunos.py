@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
@@ -134,3 +134,53 @@ async def criar_acesso_responsavel(
     """Concede ao responsável login próprio no Portal (ver/pagar as faturas dos seus educandos)."""
     novo_usuario = await crud_alunos.criar_acesso_responsavel(db, utilizador["tenant_id"], responsavel_id, dados)
     return {"mensagem": "Acesso ao Portal criado com sucesso.", "usuario_id": novo_usuario.id}
+
+# ==========================================
+# DOCUMENTOS DO ALUNO (sobretudo Histórico Escolar de Transferência/Reingresso)
+# ==========================================
+@router.get("/alunos/{aluno_id}/documentos")
+async def listar_documentos_aluno(
+    aluno_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    return await crud_alunos.listar_documentos_aluno(db, utilizador["tenant_id"], aluno_id)
+
+@router.post("/alunos/{aluno_id}/documentos", status_code=status.HTTP_201_CREATED)
+async def adicionar_documento_aluno(
+    aluno_id: uuid.UUID,
+    descricao: str | None = None,
+    ficheiro: UploadFile = File(...),
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Anexa um documento de apoio ao aluno (ex: Histórico Escolar recebido em papel de outra escola)."""
+    conteudo = await ficheiro.read()
+    if not conteudo:
+        raise HTTPException(status_code=400, detail="Ficheiro vazio.")
+    documentos = await crud_alunos.adicionar_documento_aluno(
+        db, utilizador["tenant_id"], aluno_id, descricao,
+        ficheiro.filename or "documento", ficheiro.content_type or "application/octet-stream", conteudo
+    )
+    return {"documentos": documentos}
+
+@router.delete("/alunos/{aluno_id}/documentos/{documento_id}")
+async def remover_documento_aluno(
+    aluno_id: uuid.UUID,
+    documento_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    documentos = await crud_alunos.remover_documento_aluno(db, utilizador["tenant_id"], aluno_id, documento_id)
+    return {"documentos": documentos}
+
+@router.get("/alunos/{aluno_id}/documentos/{documento_id}/url")
+async def obter_documento_aluno(
+    aluno_id: uuid.UUID,
+    documento_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Devolve o documento como data URI para consulta — pedido só quando aberto."""
+    url = await crud_alunos.obter_documento_aluno_url(db, utilizador["tenant_id"], aluno_id, documento_id)
+    return {"url": url}

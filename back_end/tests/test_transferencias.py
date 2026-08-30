@@ -120,12 +120,29 @@ async def test_reingresso_cross_escola_apos_fim_de_ciclo(client):
     token_super_admin = await _criar_super_admin(client)
     resp = await client.patch(f"/api/v1/transferencias/{solicitacao_id}/aprovar", headers=auth_headers(token_super_admin))
     assert resp.status_code == 200, resp.text
+    aluno_novo_id = resp.json()["aluno_novo_id"]
+    assert aluno_novo_id
 
     # A matrícula de origem continua CICLO_CONCLUIDO — nunca reescrita
     # para TRANSFERIDO (o Fim de Ciclo já tinha acontecido de facto).
     resp = await client.get(f"/api/v1/alunos/{aluno_id}/matriculas", headers=headers_a)
     assert resp.status_code == 200, resp.text
     assert resp.json()[0]["status_matricula"] == "CICLO_CONCLUIDO"
+
+    # O Histórico Escolar (notas/anos da escola A) fica anexado
+    # automaticamente ao aluno recém-criado na escola B — sem a família
+    # ter de o pedir/pagar à parte.
+    headers_b = auth_headers(escola_b["token"])
+    resp = await client.get(f"/api/v1/alunos/{aluno_novo_id}/documentos", headers=headers_b)
+    assert resp.status_code == 200, resp.text
+    documentos = resp.json()
+    assert len(documentos) == 1
+    assert "Histórico Escolar" in documentos[0]["descricao"]
+    documento_id = documentos[0]["id"]
+
+    resp = await client.get(f"/api/v1/alunos/{aluno_novo_id}/documentos/{documento_id}/url", headers=headers_b)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["url"].startswith("data:application/pdf;base64,")
 
     # A escola B é notificada com a redação de reingresso, não de transferência.
     resp = await client.get("/api/v1/notificacoes", headers=auth_headers(escola_b["token"]))

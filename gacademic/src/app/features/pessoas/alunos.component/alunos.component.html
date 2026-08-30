@@ -243,6 +243,49 @@
               </form>
               }
 
+              <!-- Documentos do aluno — sobretudo o Histórico Escolar
+                   anexado automaticamente numa Transferência/Reingresso
+                   cross-escola, mas aberto a qualquer documento de apoio. -->
+              <div class="pt-2 border-t border-slate-200">
+                <button type="button" (click)="onAlternarDocumentos(aluno.id)"
+                  class="text-xs text-blue-500 hover:text-blue-700 font-medium cursor-pointer">
+                  {{ alunoDocumentosAbertoId() === aluno.id ? 'Fechar documentos' : '📎 Documentos' }}
+                </button>
+                @if (alunoDocumentosAbertoId() === aluno.id) {
+                  <div class="space-y-2 mt-2">
+                    @for (doc of documentosPorAluno()[aluno.id]; track doc.id) {
+                      <div class="flex items-center justify-between gap-2 flex-wrap bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                        <button type="button" (click)="onVerDocumento(aluno.id, doc.id)"
+                          class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer text-left">
+                          {{ doc.descricao || doc.nome_original }}
+                        </button>
+                        @if (podeGerir$ | async) {
+                          <button type="button" (click)="onRemoverDocumento(aluno.id, doc.id)"
+                            class="text-xs text-rose-600 hover:text-rose-700 cursor-pointer">Remover</button>
+                        }
+                      </div>
+                    } @empty {
+                      <p class="text-xs text-slate-400">Nenhum documento anexado.</p>
+                    }
+                    @if (podeGerir$ | async) {
+                      <div class="flex flex-wrap items-center gap-2 pt-1">
+                        <input type="text" placeholder="Descrição — opcional"
+                          [ngModel]="descricaoDocumentoPorAluno[aluno.id] ?? ''"
+                          (ngModelChange)="descricaoDocumentoPorAluno[aluno.id] = $event"
+                          [ngModelOptions]="{ standalone: true }"
+                          class="border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 flex-1 min-w-32" />
+                        <label class="text-xs bg-slate-100 hover:bg-blue-50 text-blue-700 font-medium py-1 px-3 rounded-lg cursor-pointer">
+                          {{ documentoAEnviarAlunoId() === aluno.id ? 'A enviar…' : '+ Anexar ficheiro' }}
+                          <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" class="hidden"
+                            [disabled]="documentoAEnviarAlunoId() === aluno.id"
+                            (change)="onSelecionarDocumento($event, aluno.id)" />
+                        </label>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+
             </div>
           </td>
         </tr>

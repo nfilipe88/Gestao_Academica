@@ -400,6 +400,49 @@ async def capturar_pagamento_documento(db: AsyncSession, tenant_id, order_id: st
     return _serializar_emissao(solicitacao)
 
 
+async def construir_contexto_historico_escolar(db: AsyncSession, tenant_id, aluno: Aluno) -> dict:
+    """Todas as matrículas do aluno nesta instituição (qualquer status —
+    um Histórico Escolar existe precisamente para mostrar o percurso
+    completo, TRANSFERIDO/CICLO_CONCLUIDO incluídos) com as respetivas
+    notas. Não é privada (sem "_") de propósito: também reaproveitada
+    por cruds/transferencias.py::aprovar_e_migrar para anexar
+    automaticamente o histórico ao aluno criado na escola de destino,
+    sem depender de a família o pedir/pagar à parte (ver
+    AlunoDocumento) — mesmos dados, dois pontos de entrada."""
+    matriculas = (await db.execute(
+        select(Matricula).where(Matricula.aluno_id == aluno.id, Matricula.tenant_id == tenant_id).order_by(Matricula.ano_letivo)
+    )).scalars().all()
+    anos = []
+    for matricula in matriculas:
+        turma_nome = (await db.execute(select(Turma.nome_codigo).where(Turma.id == matricula.turma_id))).scalar_one_or_none()
+        linhas = (await db.execute(
+            select(RegistroNota, Disciplina.nome)
+            .join(Disciplina, Disciplina.id == RegistroNota.disciplina_id)
+            .where(RegistroNota.matricula_id == matricula.id, RegistroNota.tenant_id == tenant_id)
+            .order_by(Disciplina.nome, RegistroNota.periodo_avaliacao)
+        )).all()
+        anos.append({
+            "ano_letivo": matricula.ano_letivo, "turma_nome": turma_nome, "status_matricula": matricula.status_matricula,
+            "notas": [{"disciplina": nome, "periodo": nota.periodo_avaliacao, "valor": nota.valor_nota} for nota, nome in linhas],
+        })
+    return {"aluno_nome": aluno.nome_completo, "numero_documento": aluno.numero_documento, "data_nascimento": aluno.data_nascimento, "anos": anos}
+
+
+async def obter_template_personalizado_ativo(db: AsyncSession, tenant_id, tipo_documento: str) -> TemplateDocumentoPersonalizado | None:
+    """Layout próprio do tenant para este tipo de documento, se tiver um
+    ativo — reaproveitado por gerar_pdf_solicitacao (abaixo) e por
+    cruds/transferencias.py::aprovar_e_migrar (Histórico Escolar
+    automático), para o PDF gerado na migração sair com a mesma cara
+    dos que a escola de origem emite normalmente."""
+    return (await db.execute(
+        select(TemplateDocumentoPersonalizado).where(
+            TemplateDocumentoPersonalizado.tenant_id == tenant_id,
+            TemplateDocumentoPersonalizado.tipo_documento == tipo_documento,
+            TemplateDocumentoPersonalizado.ativo == True,  # noqa: E712
+        )
+    )).scalars().first()
+
+
 async def _construir_contexto_pdf(db: AsyncSession, tenant_id, solicitacao: SolicitacaoDocumentoEmissao) -> tuple[dict, dict]:
     aluno = (await db.execute(select(Aluno).where(Aluno.id == solicitacao.aluno_id, Aluno.tenant_id == tenant_id))).scalars().first()
     if not aluno:
@@ -449,23 +492,7 @@ async def _construir_contexto_pdf(db: AsyncSession, tenant_id, solicitacao: Soli
         }
 
     elif solicitacao.tipo_documento == "HISTORICO_ESCOLAR":
-        matriculas = (await db.execute(
-            select(Matricula).where(Matricula.aluno_id == aluno.id, Matricula.tenant_id == tenant_id).order_by(Matricula.ano_letivo)
-        )).scalars().all()
-        anos = []
-        for matricula in matriculas:
-            turma_nome = (await db.execute(select(Turma.nome_codigo).where(Turma.id == matricula.turma_id))).scalar_one_or_none()
-            linhas = (await db.execute(
-                select(RegistroNota, Disciplina.nome)
-                .join(Disciplina, Disciplina.id == RegistroNota.disciplina_id)
-                .where(RegistroNota.matricula_id == matricula.id, RegistroNota.tenant_id == tenant_id)
-                .order_by(Disciplina.nome, RegistroNota.periodo_avaliacao)
-            )).all()
-            anos.append({
-                "ano_letivo": matricula.ano_letivo, "turma_nome": turma_nome, "status_matricula": matricula.status_matricula,
-                "notas": [{"disciplina": nome, "periodo": nota.periodo_avaliacao, "valor": nota.valor_nota} for nota, nome in linhas],
-            })
-        contexto = {"aluno_nome": aluno.nome_completo, "numero_documento": aluno.numero_documento, "data_nascimento": aluno.data_nascimento, "anos": anos}
+        contexto = await construir_contexto_historico_escolar(db, tenant_id, aluno)
 
     else:  # OUTRO
         contexto = {"aluno_nome": aluno.nome_completo, "descricao": solicitacao.descricao_outro or "—"}
@@ -481,13 +508,7 @@ async def gerar_pdf_solicitacao(db: AsyncSession, tenant_id, solicitacao_id: uui
 
     escola, contexto = await _construir_contexto_pdf(db, tenant_id, solicitacao)
 
-    template_personalizado = (await db.execute(
-        select(TemplateDocumentoPersonalizado).where(
-            TemplateDocumentoPersonalizado.tenant_id == tenant_id,
-            TemplateDocumentoPersonalizado.tipo_documento == solicitacao.tipo_documento,
-            TemplateDocumentoPersonalizado.ativo == True,  # noqa: E712
-        )
-    )).scalars().first()
+    template_personalizado = await obter_template_personalizado_ativo(db, tenant_id, solicitacao.tipo_documento)
     pdf_bytes = documentos_pdf.gerar_pdf_documento(
         solicitacao.tipo_documento, escola, contexto,
         corpo_html_personalizado=template_personalizado.corpo_html if template_personalizado else None

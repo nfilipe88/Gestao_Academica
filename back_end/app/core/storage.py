@@ -135,24 +135,33 @@ _EXTENSOES_IMAGEM = {
     ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
     ".gif": "image/gif", ".webp": "image/webp",
 }
+# Documentos anexados (LeadDocumento, MatriculaDocumento, AlunoDocumento
+# — ver docstrings respetivas) aceitam PDF além de imagem, e são vistos
+# através deste mesmo obter_data_uri (ex.: onVerDocumento no front-end,
+# que embute o resultado num <iframe src="...">). Sem esta entrada, um
+# PDF caía no "senão" abaixo e saía rotulado como image/png — o iframe
+# então tentava desenhar bytes de PDF como se fossem PNG e falhava
+# silenciosamente (nunca apanhado antes por faltar um teste que
+# efetivamente subisse e voltasse a ver um PDF, só PNGs de amostra).
+_EXTENSOES_DOCUMENTO = {**_EXTENSOES_IMAGEM, ".pdf": "application/pdf"}
 
 
 async def obter_data_uri(chave: str | None) -> str | None:
-    """Lê um ficheiro do storage e devolve como data URI, pronto a
-    embutir num <img src="..."> — usado tanto no cabeçalho dos PDFs
-    gerados (documentos_pdf.py, via obter_logo_data_uri abaixo) como na
-    página pública de uma escola (site_publico.py: logótipo e galeria
-    de fotos), que precisa de servir imagens a um visitante sem sessão
-    nenhuma sem nunca expor uma URL direta do bucket (ver docstring do
-    módulo). None se a chave não existir ou a leitura falhar — nunca
-    levanta, quem chamar decide o que fazer com "sem imagem"."""
+    """Lê um ficheiro do storage e devolve como data URI — usado tanto
+    para imagens (cabeçalho dos PDFs gerados em documentos_pdf.py via
+    obter_logo_data_uri abaixo, site_publico.py: logótipo e galeria de
+    fotos) como para os documentos anexados que aceitam PDF além de
+    imagem (LeadDocumento/MatriculaDocumento/AlunoDocumento). Nunca
+    expõe uma URL direta do bucket a quem não tem sessão. None se a
+    chave não existir ou a leitura falhar — nunca levanta, quem chamar
+    decide o que fazer com "sem ficheiro"."""
     if not chave:
         return None
     conteudo = await obter_ficheiro(chave)
     if not conteudo:
         return None
     extensao = Path(chave).suffix.lower()
-    content_type = _EXTENSOES_IMAGEM.get(extensao, "image/png")
+    content_type = _EXTENSOES_DOCUMENTO.get(extensao, "image/png")
     return f"data:{content_type};base64,{base64.b64encode(conteudo).decode()}"
 
 

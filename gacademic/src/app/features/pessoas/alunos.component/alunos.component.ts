@@ -1,6 +1,7 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, inject, OnDestroy, OnInit } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { combineLatest, debounceTime, distinctUntilChanged, map, Subscription } from 'rxjs';
 import {
@@ -11,18 +12,20 @@ import {
   selectAlunos, selectAlunosError, selectAlunosMensagem, selectPaginacaoAlunos,
   selectResponsaveis, selectVinculos
 } from '../../../store/alunos/alunos.selector';
+import { AlunoDocumento } from '../../../store/alunos/alunos.models';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 
 @Component({
   selector: 'app-alunos.component',
-  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, PaginacaoComponent],
+  imports: [ReactiveFormsModule, FormsModule, CommonModule, AsyncPipe, PaginacaoComponent],
   templateUrl: './alunos.component.html',
   styleUrl: './alunos.component.css',
 })
 export class AlunosComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private http = inject(HttpClient);
   private subscricoes = new Subscription();
 
   erro$ = this.store.select(selectAlunosError);
@@ -239,5 +242,64 @@ export class AlunosComponent implements OnInit, OnDestroy {
     const { email, palavra_passe } = this.acessoForm.value;
     this.store.dispatch(criarAcessoResponsavel({ responsavel_id: responsavelId, email: email!, palavra_passe: palavra_passe! }));
     this.acessoFormAbertoPara = null;
+  }
+
+  // ==========================================
+  // DOCUMENTOS DO ALUNO (sobretudo Histórico Escolar automático de
+  // Transferência/Reingresso) — pequeno de mais para justificar um
+  // slice de NgRx próprio, mesmo padrão de MatriculaDocumento em
+  // turmas.component.ts.
+  // ==========================================
+  alunoDocumentosAbertoId = signal<string | null>(null);
+  documentosPorAluno = signal<Record<string, AlunoDocumento[]>>({});
+  descricaoDocumentoPorAluno: Record<string, string> = {};
+  documentoAEnviarAlunoId = signal<string | null>(null);
+
+  onAlternarDocumentos(alunoId: string) {
+    const abrir = this.alunoDocumentosAbertoId() !== alunoId;
+    this.alunoDocumentosAbertoId.set(abrir ? alunoId : null);
+    if (abrir) {
+      this.http.get<AlunoDocumento[]>(`/api/v1/alunos/${alunoId}/documentos`).subscribe({
+        next: (documentos) => this.documentosPorAluno.update(atual => ({ ...atual, [alunoId]: documentos })),
+      });
+    }
+  }
+
+  onSelecionarDocumento(evento: Event, alunoId: string) {
+    const ficheiro = (evento.target as HTMLInputElement).files?.[0];
+    if (!ficheiro) return;
+    const dados = new FormData();
+    dados.append('ficheiro', ficheiro);
+    const descricao = this.descricaoDocumentoPorAluno[alunoId] || '';
+    this.documentoAEnviarAlunoId.set(alunoId);
+    this.http.post<{ documentos: AlunoDocumento[] }>(
+      `/api/v1/alunos/${alunoId}/documentos?descricao=${encodeURIComponent(descricao)}`, dados
+    ).subscribe({
+      next: (resp) => {
+        this.documentoAEnviarAlunoId.set(null);
+        this.documentosPorAluno.update(atual => ({ ...atual, [alunoId]: resp.documentos }));
+        this.descricaoDocumentoPorAluno[alunoId] = '';
+      },
+      error: () => this.documentoAEnviarAlunoId.set(null),
+    });
+    (evento.target as HTMLInputElement).value = '';
+  }
+
+  onRemoverDocumento(alunoId: string, documentoId: string) {
+    this.http.delete<{ documentos: AlunoDocumento[] }>(
+      `/api/v1/alunos/${alunoId}/documentos/${documentoId}`
+    ).subscribe({
+      next: (resp) => this.documentosPorAluno.update(atual => ({ ...atual, [alunoId]: resp.documentos })),
+    });
+  }
+
+  onVerDocumento(alunoId: string, documentoId: string) {
+    const janela = window.open('', '_blank');
+    this.http.get<{ url: string }>(`/api/v1/alunos/${alunoId}/documentos/${documentoId}/url`).subscribe({
+      next: (resp) => {
+        janela?.document.write(`<iframe src="${resp.url}" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>`);
+      },
+      error: () => janela?.close(),
+    });
   }
 }

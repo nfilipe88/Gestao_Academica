@@ -8,6 +8,7 @@ fora do tenant de quem pediu — ver comentário em cruds/admin.py sobre
 o porquê de ser seguro (RLS é reforço, o isolamento real vem do filtro
 explícito por tenant_id, e aqui o filtro é deliberadamente cruzado).
 """
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -19,10 +20,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import Tenant, Usuario
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
+from app.core import documentos_pdf, storage
 from app.core.paginacao import paginar_linhas
+from app.cruds import alunos as crud_alunos
+from app.cruds import documentos as crud_documentos
 from app.cruds import notificacoes as crud_notificacoes
 from app.schemas.transferencias import RejeitarTransferenciaRequest, SolicitacaoTransferenciaCreate
 from app.database.models_transferencias import SolicitacaoTransferencia
+
+logger = logging.getLogger("transferencias")
 
 NIF_PLATAFORMA = "00000000000"
 
@@ -241,6 +247,44 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID) -> dict:
     await db.commit()
 
     tenant_destino = (await db.execute(select(Tenant).where(Tenant.id == solicitacao.tenant_destino_id))).scalars().first()
+
+    # Histórico Escolar automático: a migração em si nunca copia
+    # notas/frequência para as tabelas académicas da escola de destino
+    # (currículos e escalas de nota diferem de escola para escola — ver
+    # docstring de models_transferencias.py), mas a escola de destino
+    # não devia ficar com um aluno sem NENHUM rasto do percurso anterior
+    # à espera que a família peça e pague um Histórico Escolar à parte
+    # (ver Solicitações de Documentos). Em vez disso, gera-se aqui o
+    # mesmo PDF que esse pedido geraria — a partir dos dados da escola
+    # de ORIGEM — e anexa-se como documento opaco ao aluno recém-criado
+    # na escola de destino (AlunoDocumento, ver cruds/alunos.py).
+    # Best-effort de propósito: uma falha aqui (ex.: storage em baixo)
+    # nunca deve desfazer a migração de identidade já confirmada acima.
+    try:
+        tenant_origem = (await db.execute(select(Tenant).where(Tenant.id == solicitacao.tenant_id))).scalars().first()
+        escola_origem = {
+            "nome": tenant_origem.nome_fantasia if tenant_origem else "",
+            "razao_social": tenant_origem.razao_social if tenant_origem else "",
+            "nif": tenant_origem.nif if tenant_origem else "",
+            "morada": tenant_origem.morada if tenant_origem else None,
+            "contacto": " · ".join(filter(None, [tenant_origem.telefone_contacto, tenant_origem.email_contacto])) if tenant_origem else None,
+            "logo_data_uri": await storage.obter_logo_data_uri(tenant_origem),
+        }
+        contexto = await crud_documentos.construir_contexto_historico_escolar(db, solicitacao.tenant_id, aluno)
+        template_personalizado = await crud_documentos.obter_template_personalizado_ativo(db, solicitacao.tenant_id, "HISTORICO_ESCOLAR")
+        pdf_bytes = documentos_pdf.gerar_pdf_documento(
+            "HISTORICO_ESCOLAR", escola_origem, contexto,
+            corpo_html_personalizado=template_personalizado.corpo_html if template_personalizado else None
+        )
+        await crud_alunos.anexar_documento_gerado(
+            db, solicitacao.tenant_destino_id, novo_aluno.id,
+            descricao=f"Histórico Escolar — {escola_origem['nome'] or 'instituição de origem'}",
+            nome_ficheiro="historico-escolar.pdf", conteudo_pdf=pdf_bytes,
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.exception("Falha a gerar/anexar o Histórico Escolar automático na migração %s", solicitacao.id)
 
     if solicitacao.solicitado_por_usuario_id:
         await crud_notificacoes.criar_notificacao(

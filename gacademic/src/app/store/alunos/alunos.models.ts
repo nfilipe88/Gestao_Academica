@@ -12,6 +12,15 @@ export interface Aluno {
   data_criacao: string;
 }
 
+// Ver app/database/models_pessoas.py::AlunoDocumento — sobretudo o
+// Histórico Escolar anexado automaticamente numa Transferência/
+// Reingresso cross-escola (app/cruds/transferencias.py::aprovar_e_migrar).
+export interface AlunoDocumento {
+  id: string;
+  descricao: string | null;
+  nome_original: string;
+}
+
 export interface Responsavel {
   id: string;
   tenant_id: string;

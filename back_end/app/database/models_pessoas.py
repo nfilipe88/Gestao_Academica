@@ -90,3 +90,25 @@ class Professor(Base):
 
     formacao_academica: Mapped[str] = mapped_column(String(255), nullable=True)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class AlunoDocumento(Base):
+    """Documento de apoio anexado ao Aluno como um todo — não a uma
+    Matrícula em concreto (essa é MatriculaDocumento, ver
+    models_matricula.py). Sobretudo o Histórico Escolar anexado
+    automaticamente ao concluir uma Transferência/Reingresso cross-
+    escola (ver cruds/transferencias.py::aprovar_e_migrar): nesse
+    momento o aluno acabou de ser criado na escola de destino e ainda
+    não tem matrícula nenhuma para anexar a um documento — daí precisar
+    de existir ao nível do aluno, não da matrícula. Mesmo princípio de
+    sempre (só a chave no storage, nunca um URL direto do bucket)."""
+    __tablename__ = "aluno_documento"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    aluno_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aluno.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    descricao: Mapped[str | None] = mapped_column(String(255), nullable=True)  # ex.: "Histórico Escolar — Escola X"
+    nome_original: Mapped[str] = mapped_column(String(255), nullable=False)
+    chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
