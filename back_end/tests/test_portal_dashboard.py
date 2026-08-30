@@ -121,3 +121,31 @@ async def test_pedir_transferencia_self_service_notifica_secretaria_origem(clien
     resp = await client.get("/api/v1/transferencias/minhas", headers=headers_a)
     assert resp.status_code == 200, resp.text
     assert any(s["aluno_id"] == dados["aluno_id"] and s["status"] == "PENDENTE" for s in resp.json()["items"])
+
+
+async def test_responsavel_nao_acede_a_educando_de_outra_familia(client):
+    """Posse (ver cruds/alunos.py::garantir_aluno_permitido), não só
+    isolamento por tenant — as duas famílias estão na MESMA escola, o
+    que bloqueia é o vínculo AlunoResponsavel, não RLS."""
+    escola = await criar_escola_e_gestor(client, "portal-dash-posse")
+    headers = auth_headers(escola["token"])
+    ano_letivo = date.today().year
+    familia_a = await _criar_aluno_matriculado_com_portal(client, headers, ano_letivo)
+    familia_b = await _criar_aluno_matriculado_com_portal(client, headers, ano_letivo)
+
+    resp = await client.post("/api/v1/auth/login", data={"username": familia_a["email_responsavel"], "password": familia_a["senha"]})
+    token_responsavel_a = resp.json()["access_token"]
+    headers_resp_a = auth_headers(token_responsavel_a)
+
+    resp = await client.get(f"/api/v1/portal/educandos/{familia_b['aluno_id']}/estatisticas", headers=headers_resp_a)
+    assert resp.status_code == 403, resp.text
+
+    resp = await client.get(f"/api/v1/portal/educandos/{familia_b['aluno_id']}/comunicados", headers=headers_resp_a)
+    assert resp.status_code == 403, resp.text
+
+    resp = await client.post(f"/api/v1/portal/educandos/{familia_b['aluno_id']}/pedir-transferencia", headers=headers_resp_a,
+                              json={"nif_destino": "00000000", "motivo": "teste"})
+    assert resp.status_code == 403, resp.text
+
+    resp = await client.post(f"/api/v1/portal/educandos/{familia_b['aluno_id']}/pedir-rematricula", headers=headers_resp_a)
+    assert resp.status_code == 403, resp.text

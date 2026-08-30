@@ -69,6 +69,19 @@ async def test_comportamento_rejeita_tipo_invalido(client):
     assert resp.status_code == 400
 
 
+async def test_comportamento_rejeita_descricao_vazia(client):
+    ano_letivo = date.today().year
+    escola = await criar_escola_e_gestor(client, "comportamento-descricao-vazia")
+    headers = auth_headers(escola["token"])
+    turma_id = await _preparar_turma_com_vaga(client, headers, ano_letivo)
+    aluno_id = await _matricular_aluno(client, headers, turma_id, ano_letivo)
+
+    resp = await client.post(f"/api/v1/comportamento/turmas/{turma_id}/alunos/{aluno_id}", headers=headers, json={
+        "tipo": "POSITIVO", "descricao": "   "
+    })
+    assert resp.status_code == 400, resp.text
+
+
 async def test_professor_so_regista_em_turmas_onde_lecciona(client):
     ano_letivo = date.today().year
     escola = await criar_escola_e_gestor(client, "comportamento-prof")

@@ -306,3 +306,61 @@ async def test_contrato_com_taxa_matricula_gera_parcela_zero_paga_primeiro(clien
         json={"forma_pagamento": "MANUAL"}
     )
     assert resp.status_code == 200, "paga a taxa de matrícula, a 1ª mensalidade já devia poder ser paga"
+
+
+async def test_contrato_com_taxa_matricula_negativa_e_rejeitado(client):
+    ano_letivo = date.today().year
+    escola = await criar_escola_e_gestor(client, "taxa-matricula-negativa")
+    headers = auth_headers(escola["token"])
+
+    turma_id = await _preparar_turma_com_vaga(client, headers, ano_letivo)
+    aluno_id = await _criar_aluno(client, headers)
+    resp = await client.post("/api/v1/responsaveis", headers=headers,
+                              json={"nome_completo": "Responsável Taxa Negativa", "telefone_contato": "+244900000002"})
+    responsavel_id = resp.json()["id"]
+    await client.post(f"/api/v1/alunos/{aluno_id}/responsaveis", headers=headers,
+                       json={"responsavel_id": responsavel_id, "tipo_parentesco": "Pai", "responsavel_financeiro": True})
+    resp = await client.post("/api/v1/matriculas", headers=headers,
+                              json={"aluno_id": aluno_id, "turma_id": turma_id, "ano_letivo": ano_letivo})
+    matricula_id = resp.json()["id"]
+
+    resp = await client.post("/api/v1/financeiro/contratos", headers=headers, json={
+        "matricula_id": matricula_id, "responsavel_id": responsavel_id,
+        "valor_total_anual": "1200.00", "quantidade_parcelas": 12,
+        "valor_taxa_matricula": "-50.00",
+    })
+    assert resp.status_code == 400, resp.text
+    assert "negativ" in resp.json()["detail"].lower()
+
+
+async def test_contrato_com_taxa_matricula_zero_nao_gera_parcela_zero(client):
+    """Decimal("0.00") é falsy em Python — `if dados.valor_taxa_matricula:`
+    em criar_contrato deliberadamente não cria a fatura da taxa nesse
+    caso (equivalente a não ter passado taxa nenhuma)."""
+    ano_letivo = date.today().year
+    escola = await criar_escola_e_gestor(client, "taxa-matricula-zero")
+    headers = auth_headers(escola["token"])
+
+    turma_id = await _preparar_turma_com_vaga(client, headers, ano_letivo)
+    aluno_id = await _criar_aluno(client, headers)
+    resp = await client.post("/api/v1/responsaveis", headers=headers,
+                              json={"nome_completo": "Responsável Taxa Zero", "telefone_contato": "+244900000003"})
+    responsavel_id = resp.json()["id"]
+    await client.post(f"/api/v1/alunos/{aluno_id}/responsaveis", headers=headers,
+                       json={"responsavel_id": responsavel_id, "tipo_parentesco": "Pai", "responsavel_financeiro": True})
+    resp = await client.post("/api/v1/matriculas", headers=headers,
+                              json={"aluno_id": aluno_id, "turma_id": turma_id, "ano_letivo": ano_letivo})
+    matricula_id = resp.json()["id"]
+
+    resp = await client.post("/api/v1/financeiro/contratos", headers=headers, json={
+        "matricula_id": matricula_id, "responsavel_id": responsavel_id,
+        "valor_total_anual": "1200.00", "quantidade_parcelas": 12,
+        "valor_taxa_matricula": "0.00",
+    })
+    assert resp.status_code == 201, resp.text
+    contrato_id = resp.json()["id"]
+
+    resp = await client.get(f"/api/v1/financeiro/contratos/{contrato_id}/faturas", headers=headers)
+    faturas = resp.json()
+    assert len(faturas) == 12, "taxa 0 não deve gerar a parcela nº 0"
+    assert not any(f["numero_parcela"] == 0 for f in faturas)

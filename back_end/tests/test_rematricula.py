@@ -9,6 +9,7 @@ self-service), não uma cópia da regra."""
 from datetime import date
 
 from tests.conftest import auth_headers, criar_escola_e_gestor, sufixo_unico
+from tests.test_comportamento import _criar_professor_com_token
 from tests.test_matricula_financeiro import _preparar_turma_com_vaga
 from tests.test_portal_alertas_propina import _login, _preparar_aluno_com_fatura_em_atraso
 
@@ -131,3 +132,28 @@ async def test_pedir_rematricula_bloqueado_por_atraso(client):
     resp = await client.post(f"/api/v1/portal/educandos/{dados['aluno_id']}/pedir-rematricula",
                               headers=auth_headers(token_responsavel))
     assert resp.status_code == 403, resp.text
+
+
+async def test_candidatos_rematricula_bloqueado_para_professor(client):
+    """_PODE_GERIR em api/v1/matriculas.py é GESTOR + SECRETARIA só —
+    o ecrã de Rematrícula é operação de secretaria, não do dia-a-dia
+    do Professor na turma."""
+    escola = await criar_escola_e_gestor(client, "rematricula-rbac-professor")
+    headers = auth_headers(escola["token"])
+    _, token_professor = await _criar_professor_com_token(client, headers, "Prof. Rematrícula")
+
+    resp = await client.get("/api/v1/matriculas/rematricula-candidatos", headers=auth_headers(token_professor))
+    assert resp.status_code == 403, resp.text
+
+
+async def test_candidatos_rematricula_ano_sem_matriculas_devolve_lista_vazia(client):
+    """Um ano_letivo sem nenhuma matrícula ATIVO (ex.: escola acabada
+    de criar) não deve rebentar — devolve a lista vazia, não erro."""
+    escola = await criar_escola_e_gestor(client, "rematricula-ano-vazio")
+    headers = auth_headers(escola["token"])
+
+    resp = await client.get("/api/v1/matriculas/rematricula-candidatos?ano_letivo=1999", headers=headers)
+    assert resp.status_code == 200, resp.text
+    corpo = resp.json()
+    assert corpo["ano_letivo_origem"] == 1999
+    assert corpo["candidatos"] == []

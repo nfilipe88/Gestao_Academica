@@ -184,3 +184,93 @@ async def test_transferencia_recusada_para_aluno_sem_matricula_valida(client):
         "aluno_id": aluno_id, "nif_destino": escola_b["nif"], "motivo": "teste"
     })
     assert resp.status_code == 400, resp.text
+
+
+async def _matricular_aluno_ativo(client, headers, nome: str) -> str:
+    resp = await client.post("/api/v1/alunos", headers=headers, json={
+        "matricula_interna": f"AL{sufixo_unico()}", "nome_completo": nome, "data_nascimento": "2012-05-10"
+    })
+    aluno_id = resp.json()["id"]
+    resp = await client.post("/api/v1/academico/cursos", headers=headers, json={"nome": "Curso"})
+    curso_id = resp.json()["id"]
+    resp = await client.post("/api/v1/academico/series", headers=headers, json={"curso_id": curso_id, "nome": "Série"})
+    serie_id = resp.json()["id"]
+    resp = await client.post("/api/v1/academico/turmas", headers=headers, json={
+        "serie_ano_id": serie_id, "nome_codigo": f"Turma {sufixo_unico()}", "ano_letivo": date.today().year, "vagas_maximas": 30
+    })
+    turma_id = resp.json()["id"]
+    resp = await client.post("/api/v1/matriculas", headers=headers,
+                              json={"aluno_id": aluno_id, "turma_id": turma_id, "ano_letivo": date.today().year})
+    assert resp.status_code == 201, resp.text
+    return aluno_id
+
+
+async def test_pedido_de_transferencia_duplicado_e_rejeitado(client):
+    escola_a = await criar_escola_e_gestor(client, "transf-duplicado-origem")
+    escola_b = await criar_escola_e_gestor(client, "transf-duplicado-destino")
+    headers_a = auth_headers(escola_a["token"])
+    aluno_id = await _matricular_aluno_ativo(client, headers_a, "Aluno Duplicado")
+
+    resp = await client.post("/api/v1/transferencias", headers=headers_a, json={
+        "aluno_id": aluno_id, "nif_destino": escola_b["nif"], "motivo": "Primeiro pedido"
+    })
+    assert resp.status_code == 200, resp.text
+
+    resp = await client.post("/api/v1/transferencias", headers=headers_a, json={
+        "aluno_id": aluno_id, "nif_destino": escola_b["nif"], "motivo": "Segundo pedido, ainda pendente o primeiro"
+    })
+    assert resp.status_code == 400, resp.text
+    assert "já existe um pedido" in resp.json()["detail"].lower()
+
+
+async def test_transferencia_com_nif_destino_inexistente(client):
+    escola_a = await criar_escola_e_gestor(client, "transf-nif-inexistente")
+    headers_a = auth_headers(escola_a["token"])
+    aluno_id = await _matricular_aluno_ativo(client, headers_a, "Aluno Nif Inexistente")
+
+    resp = await client.post("/api/v1/transferencias", headers=headers_a, json={
+        "aluno_id": aluno_id, "nif_destino": "999999999", "motivo": "teste"
+    })
+    assert resp.status_code == 404, resp.text
+
+
+async def test_transferencia_com_nif_destino_igual_a_origem(client):
+    escola_a = await criar_escola_e_gestor(client, "transf-nif-propria-escola")
+    headers_a = auth_headers(escola_a["token"])
+    aluno_id = await _matricular_aluno_ativo(client, headers_a, "Aluno Mesma Escola")
+
+    resp = await client.post("/api/v1/transferencias", headers=headers_a, json={
+        "aluno_id": aluno_id, "nif_destino": escola_a["nif"], "motivo": "teste"
+    })
+    assert resp.status_code == 400, resp.text
+    assert "não pode ser a mesma" in resp.json()["detail"].lower()
+
+
+async def test_rejeitar_pedido_de_transferencia(client):
+    escola_a = await criar_escola_e_gestor(client, "transf-rejeitar-origem")
+    escola_b = await criar_escola_e_gestor(client, "transf-rejeitar-destino")
+    headers_a = auth_headers(escola_a["token"])
+    aluno_id = await _matricular_aluno_ativo(client, headers_a, "Aluno Rejeitado")
+
+    resp = await client.post("/api/v1/transferencias", headers=headers_a, json={
+        "aluno_id": aluno_id, "nif_destino": escola_b["nif"], "motivo": "Mudança de área"
+    })
+    assert resp.status_code == 200, resp.text
+    solicitacao_id = resp.json()["id"]
+
+    token_super_admin = await _criar_super_admin(client)
+    resp = await client.patch(f"/api/v1/transferencias/{solicitacao_id}/rejeitar", headers=auth_headers(token_super_admin),
+                               json={"observacoes": "Documentação insuficiente."})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "REJEITADA"
+
+    # Decidido — um segundo pedido para o mesmo aluno já não colide com este.
+    resp = await client.post("/api/v1/transferencias", headers=headers_a, json={
+        "aluno_id": aluno_id, "nif_destino": escola_b["nif"], "motivo": "Novo pedido, desta vez completo"
+    })
+    assert resp.status_code == 200, resp.text
+
+    # Rejeitar um pedido já decidido não é aceite outra vez.
+    resp = await client.patch(f"/api/v1/transferencias/{solicitacao_id}/rejeitar", headers=auth_headers(token_super_admin),
+                               json={"observacoes": "segunda tentativa"})
+    assert resp.status_code == 400, resp.text
