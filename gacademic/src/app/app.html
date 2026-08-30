@@ -1,3 +1,5 @@
 
 <router-outlet />
-<app-suporte-virtual-widget />
+@if (mostrarWidgetSuporte()) {
+  <app-suporte-virtual-widget />
+}
