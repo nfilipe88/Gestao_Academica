@@ -46,16 +46,41 @@
   </div>
 
   <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+    <div class="overflow-x-auto">
     <table class="w-full text-left border-collapse">
       <thead>
         <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
           <th class="py-3 px-6 font-medium">Nome do Curso</th>
           <th class="py-3 px-6 font-medium">Site Público</th>
           <th class="py-3 px-6 font-medium text-right">Séries/Anos</th>
+          @if (podeGerir$ | async) {
+            <th class="py-3 px-6 font-medium text-right">Ações</th>
+          }
         </tr>
       </thead>
       <tbody>
         @for (curso of cursos$ | async; track curso.id) {
+        @if (edicaoCursoId === curso.id) {
+        <tr class="bg-blue-50/40 border-b border-slate-100">
+          <td colspan="4" class="px-6 py-3">
+            <form [formGroup]="edicaoCursoForm" (ngSubmit)="onGuardarEdicaoCurso()" class="flex flex-wrap items-end gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Nome do Curso</label>
+                <input type="text" formControlName="nome"
+                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <button type="submit" [disabled]="edicaoCursoForm.invalid"
+                class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                Guardar
+              </button>
+              <button type="button" (click)="onCancelarEdicaoCurso()"
+                class="text-sm font-medium text-slate-500 hover:text-slate-700 cursor-pointer">
+                Cancelar
+              </button>
+            </form>
+          </td>
+        </tr>
+        } @else {
         <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
           <td class="py-3 px-6 text-slate-800 font-medium">{{ curso.nome }}</td>
           <td class="py-3 px-6">
@@ -71,10 +96,18 @@
               {{ cursoExpandidoId === curso.id ? 'Fechar' : 'Ver séries (' + curso.series.length + ')' }}
             </button>
           </td>
+          @if (podeGerir$ | async) {
+            <td class="py-3 px-6 text-right">
+              <button type="button" (click)="onEditarCurso(curso)"
+                class="text-slate-500 hover:text-slate-700 text-sm font-medium cursor-pointer">
+                Editar
+              </button>
+            </td>
+          }
         </tr>
         @if (cursoExpandidoId === curso.id) {
         <tr class="bg-slate-50/60 border-b border-slate-100">
-          <td colspan="3" class="px-6 pb-4 pt-1">
+          <td [attr.colspan]="(podeGerir$ | async) ? 4 : 3" class="px-6 pb-4 pt-1">
             <div class="pl-3 border-l-2 border-blue-200 space-y-3">
 
               @if (podeGerir$ | async) {
@@ -165,15 +198,17 @@
           </td>
         </tr>
         }
+        }
         } @empty {
         <tr>
-          <td colspan="3" class="py-8 text-center text-slate-500">
+          <td [attr.colspan]="(podeGerir$ | async) ? 4 : 3" class="py-8 text-center text-slate-500">
             Nenhum curso registado na sua instituição.
           </td>
         </tr>
         }
       </tbody>
     </table>
+    </div>
   </div>
 
   <div class="flex items-center justify-between pt-4 flex-wrap gap-2">

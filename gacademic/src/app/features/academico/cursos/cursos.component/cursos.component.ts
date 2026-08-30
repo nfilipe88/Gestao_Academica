@@ -4,8 +4,9 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { combineLatest, map, startWith } from 'rxjs';
 import {
-  adicionarDisciplinaASerie, atualizarCursoSitePublico, carregarCursos, carregarDisciplinas, carregarGradeCurricular,
-  carregarObjetivosAprendizagem, carregarSeries, criarCurso, criarDisciplina, criarObjetivoAprendizagem, criarSerieAno
+  adicionarDisciplinaASerie, atualizarCurso, atualizarCursoSitePublico, carregarCursos, carregarDisciplinas,
+  carregarGradeCurricular, carregarObjetivosAprendizagem, carregarSeries, criarCurso, criarDisciplina,
+  criarObjetivoAprendizagem, criarSerieAno
 } from '../../../../store/academico/academic.actions';
 import { Curso } from '../../../../store/academico/academic.models';
 import {
@@ -92,6 +93,14 @@ export class CursosComponent implements OnInit {
     nome: ['', Validators.required]
   });
 
+  // Renomear um curso já criado — mesmo padrão de edicaoTipoId/
+  // edicaoTipoForm em configuracoes.component.ts (Tipos de Avaliação):
+  // um único formulário reaproveitado para o curso em edição de cada vez.
+  edicaoCursoId: string | null = null;
+  edicaoCursoForm = this.fb.group({
+    nome: ['', Validators.required]
+  });
+
   // Publicação deste curso na página pública da escola (ver
   // features/public/escola) — um único formulário reaproveitado para
   // o curso que estiver expandido de cada vez, à semelhança de
@@ -150,9 +159,26 @@ export class CursosComponent implements OnInit {
     this.serieExpandidaId = null;
     this.serieForm.reset();
     this.mensagemSitePublicoCursoId = null;
+    this.edicaoCursoId = null;
     this.sitePublicoCursoForm.patchValue({
       visivel: curso.site_publico_visivel, descricao: curso.site_publico_descricao ?? '',
     });
+  }
+
+  onEditarCurso(curso: Curso) {
+    this.cursoExpandidoId = null;
+    this.edicaoCursoId = curso.id;
+    this.edicaoCursoForm.setValue({ nome: curso.nome });
+  }
+
+  onCancelarEdicaoCurso() {
+    this.edicaoCursoId = null;
+  }
+
+  onGuardarEdicaoCurso() {
+    if (this.edicaoCursoForm.invalid || !this.edicaoCursoId) return;
+    this.store.dispatch(atualizarCurso({ curso_id: this.edicaoCursoId, nome: this.edicaoCursoForm.value.nome! }));
+    this.edicaoCursoId = null;
   }
 
   onGuardarSitePublicoCurso(cursoId: string) {

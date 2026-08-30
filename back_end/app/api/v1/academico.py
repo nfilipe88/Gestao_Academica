@@ -6,8 +6,8 @@ import uuid
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.academico import (
-    CursoCreate, CursoSitePublicoUpdate, DisciplinaCreate, GradeCurricularCreate, ObjetivoAprendizagemCreate,
-    SerieAnoCreate, TurmaCreate
+    CursoCreate, CursoSitePublicoUpdate, CursoUpdate, DisciplinaCreate, GradeCurricularCreate,
+    ObjetivoAprendizagemCreate, SerieAnoCreate, TurmaCreate
 )
 from app.cruds import academico as crud_academico
 
@@ -37,6 +37,16 @@ async def listar_cursos(
 ):
     """Lista os cursos da escola do utilizador logado."""
     return await crud_academico.listar_cursos(db, utilizador["tenant_id"])
+
+@router.put("/cursos/{curso_id}")
+async def atualizar_curso(
+    curso_id: uuid.UUID,
+    dados: CursoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Renomeia um curso da escola do utilizador logado."""
+    return await crud_academico.atualizar_curso(db, utilizador["tenant_id"], curso_id, dados)
 
 @router.put("/cursos/{curso_id}/site-publico")
 async def atualizar_curso_site_publico(

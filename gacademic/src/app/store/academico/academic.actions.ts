@@ -11,6 +11,10 @@ export const criarCurso = createAction(
   '[Academico] Criar Curso',
   props<{ nome: string }>()
 );
+export const atualizarCurso = createAction(
+  '[Academico] Atualizar Curso',
+  props<{ curso_id: string, nome: string }>()
+);
 export const atualizarCursoSitePublico = createAction(
   '[Academico] Atualizar Curso Site Publico',
   props<{ curso_id: string, visivel: boolean, descricao: string | null }>()

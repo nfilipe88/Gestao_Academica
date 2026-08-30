@@ -1,11 +1,15 @@
 """Schemas Pydantic do Módulo Académico (Curso, Série/Ano, Turma, Disciplina, Grade Curricular)."""
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 import uuid
 
 
 class CursoCreate(BaseModel):
     nome: str
+
+
+class CursoUpdate(BaseModel):
+    nome: str = Field(min_length=1, max_length=150)
 
 
 class CursoSitePublicoUpdate(BaseModel):

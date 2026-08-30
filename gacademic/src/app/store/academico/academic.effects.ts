@@ -37,6 +37,18 @@ export class AcademicoEffects {
     )
   );
 
+  atualizarCurso$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AcademicoActions.atualizarCurso),
+      switchMap(action => this.http.put(`/api/v1/academico/cursos/${action.curso_id}`, { nome: action.nome }).pipe(
+        map(() => AcademicoActions.carregarCursos()), // Atualiza a lista após renomear
+        catchError(err => of(AcademicoActions.academicoOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível guardar o novo nome do curso.'
+        })))
+      ))
+    )
+  );
+
   atualizarCursoSitePublico$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AcademicoActions.atualizarCursoSitePublico),
