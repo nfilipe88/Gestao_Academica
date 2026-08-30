@@ -104,22 +104,31 @@ async def criar_solicitacao(db: AsyncSession, tenant_id, utilizador: dict, dados
         status="PENDENTE",
     )
     db.add(nova)
+
+    # Transferência "a quente" (matrícula ainda ATIVO): fica suspensa
+    # (EM_TRANSFERENCIA) enquanto a escola de destino decide — evita
+    # que a origem continue a tratá-la como normal (turma, rematrícula)
+    # a meio de um pedido em curso. Reingresso (CICLO_CONCLUIDO) não
+    # mexe em nada aqui: não há "ativo" para suspender.
+    if matricula.status_matricula == "ATIVO":
+        matricula.status_matricula = "EM_TRANSFERENCIA"
+
     await db.commit()
     await db.refresh(nova)
 
-    # Notifica todos os logins SUPER_ADMIN — só eles têm alcance sobre
-    # duas instituições ao mesmo tempo para poder decidir isto.
-    tenant_plataforma = (await db.execute(select(Tenant.id).where(Tenant.nif == NIF_PLATAFORMA))).scalar_one_or_none()
-    if tenant_plataforma:
-        tenant_origem = (await db.execute(select(Tenant.nome_fantasia).where(Tenant.id == tenant_id))).scalar_one_or_none()
-        super_admins = (await db.execute(
-            select(Usuario.id).where(Usuario.tenant_id == tenant_plataforma, Usuario.perfil_acesso == "SUPER_ADMIN")
-        )).scalars().all()
+    # Decisão é direta entre instituições — quem precisa de saber é a
+    # Secretaria/Gestor da escola de DESTINO, não o Super Admin (ver
+    # docstring de models_transferencias.py).
+    tenant_origem = (await db.execute(select(Tenant.nome_fantasia).where(Tenant.id == tenant_id))).scalar_one_or_none()
+    staff_destino = (await db.execute(
+        select(Usuario.id).where(Usuario.tenant_id == tenant_destino.id, Usuario.perfil_acesso.in_(["GESTOR", "SECRETARIA"]))
+    )).scalars().all()
+    if staff_destino:
         await crud_notificacoes.criar_notificacoes_em_lote(
-            db, tenant_plataforma, list(super_admins), tipo="SOLICITACAO_TRANSFERENCIA",
-            titulo="Novo pedido de transferência de aluno",
-            mensagem=f"{aluno.nome_completo} — de {tenant_origem or 'instituição de origem'} para {tenant_destino.nome_fantasia}.",
-            link="/admin/transferencias"
+            db, tenant_destino.id, list(staff_destino), tipo="SOLICITACAO_TRANSFERENCIA",
+            titulo="Novo pedido de transferência recebido",
+            mensagem=f"{aluno.nome_completo} — de {tenant_origem or 'instituição de origem'}. Aceite ou negue em Transferências.",
+            link="/transferencias"
         )
 
     # Pedido self-service (Portal, ver cruds/portal.py::pedir_transferencia)
@@ -165,7 +174,8 @@ async def listar_minhas_solicitacoes(
 
 
 async def listar_solicitacoes_super_admin(db: AsyncSession, page: int, page_size: int) -> dict:
-    """Cross-tenant deliberado — ver docstring do módulo."""
+    """Cross-tenant deliberado — ver docstring do módulo. Só auditoria/
+    leitura: quem decide é a escola de destino (listar_solicitacoes_recebidas)."""
     OrigemTenant = Tenant
     from sqlalchemy.orm import aliased
     DestinoTenant = aliased(Tenant)
@@ -185,6 +195,26 @@ async def listar_solicitacoes_super_admin(db: AsyncSession, page: int, page_size
     return pagina
 
 
+async def listar_solicitacoes_recebidas(db: AsyncSession, tenant_destino_id, page: int, page_size: int) -> dict:
+    """Caixa de entrada da escola de DESTINO — cross-tenant deliberado
+    (lê Aluno/Tenant da escola de ORIGEM, que não é a do próprio
+    utilizador), por isso usa obter_sessao_db_admin no router e filtra
+    explicitamente por tenant_destino_id aqui, o mesmo padrão de
+    listar_solicitacoes_super_admin, mas com o filtro que a torna
+    segura para o Gestor/Secretaria de destino (só vê os pedidos
+    dirigidos à sua própria instituição)."""
+    query = (
+        select(SolicitacaoTransferencia, Aluno.nome_completo, Tenant.nome_fantasia)
+        .join(Aluno, Aluno.id == SolicitacaoTransferencia.aluno_id)
+        .join(Tenant, Tenant.id == SolicitacaoTransferencia.tenant_id)
+        .where(SolicitacaoTransferencia.tenant_destino_id == tenant_destino_id)
+        .order_by(SolicitacaoTransferencia.data_solicitacao.desc())
+    )
+    pagina = await paginar_linhas(db, query, page, page_size)
+    pagina["items"] = [_serializar(s, aluno_nome=nome_aluno, nome_origem=nome_origem) for s, nome_aluno, nome_origem in pagina["items"]]
+    return pagina
+
+
 async def _obter_solicitacao(db: AsyncSession, solicitacao_id: uuid.UUID) -> SolicitacaoTransferencia:
     solicitacao = (await db.execute(
         select(SolicitacaoTransferencia).where(SolicitacaoTransferencia.id == solicitacao_id)
@@ -194,8 +224,10 @@ async def _obter_solicitacao(db: AsyncSession, solicitacao_id: uuid.UUID) -> Sol
     return solicitacao
 
 
-async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID) -> dict:
+async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID, tenant_destino_utilizador) -> dict:
     solicitacao = await _obter_solicitacao(db, solicitacao_id)
+    if solicitacao.tenant_destino_id != tenant_destino_utilizador:
+        raise HTTPException(status_code=403, detail="Este pedido não é dirigido à sua instituição.")
     if solicitacao.status != "PENDENTE":
         raise HTTPException(status_code=400, detail="Este pedido já foi decidido.")
 
@@ -203,12 +235,13 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID) -> dict:
     if not aluno:
         raise HTTPException(status_code=404, detail="Aluno de origem não encontrado.")
     matricula = (await db.execute(select(Matricula).where(Matricula.id == solicitacao.matricula_id))).scalars().first()
-    if not matricula or matricula.status_matricula not in ("ATIVO", "CICLO_CONCLUIDO"):
+    if not matricula or matricula.status_matricula not in ("EM_TRANSFERENCIA", "CICLO_CONCLUIDO"):
         raise HTTPException(
             status_code=400,
             detail="A matrícula de origem já não está num estado válido para aprovar este pedido — peça um novo pedido."
         )
-    # Só uma transferência "a quente" (matrícula ainda ATIVO) fecha a
+    # Só uma transferência "a quente" (matrícula suspensa como
+    # EM_TRANSFERENCIA ao pedir — ver criar_solicitacao) fecha a
     # matrícula de origem como TRANSFERIDO. Reingresso cross-escola
     # (origem já CICLO_CONCLUIDO — ver docstring de
     # models_transferencias.py) não mexe nela: o Fim de Ciclo já
@@ -342,14 +375,25 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID) -> dict:
     return _serializar(solicitacao, aluno_nome=aluno.nome_completo)
 
 
-async def rejeitar(db: AsyncSession, solicitacao_id: uuid.UUID, dados: RejeitarTransferenciaRequest) -> dict:
+async def rejeitar(db: AsyncSession, solicitacao_id: uuid.UUID, tenant_destino_utilizador, dados: RejeitarTransferenciaRequest) -> dict:
     solicitacao = await _obter_solicitacao(db, solicitacao_id)
+    if solicitacao.tenant_destino_id != tenant_destino_utilizador:
+        raise HTTPException(status_code=403, detail="Este pedido não é dirigido à sua instituição.")
     if solicitacao.status != "PENDENTE":
         raise HTTPException(status_code=400, detail="Este pedido já foi decidido.")
 
     solicitacao.status = "REJEITADA"
     solicitacao.observacoes_decisao = dados.observacoes
     solicitacao.data_decisao = datetime.now(timezone.utc)
+
+    # Devolve a matrícula de origem a ATIVO se tinha ficado suspensa
+    # (EM_TRANSFERENCIA) ao pedir — ver criar_solicitacao. Reingresso
+    # (origem CICLO_CONCLUIDO) nunca chega a ser mexido, não há nada a
+    # devolver.
+    matricula = (await db.execute(select(Matricula).where(Matricula.id == solicitacao.matricula_id))).scalars().first()
+    if matricula and matricula.status_matricula == "EM_TRANSFERENCIA":
+        matricula.status_matricula = "ATIVO"
+
     await db.commit()
 
     if solicitacao.solicitado_por_usuario_id:

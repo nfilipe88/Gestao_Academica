@@ -14,7 +14,16 @@ from app.schemas.matriculas import MatriculaCreate, MatriculaStatusUpdate
 from app.core import storage
 from app.cruds.admin import esta_bloqueado_parcialmente
 
-ESTADOS_VALIDOS = {"ATIVO", "TRANSFERIDO", "TRANCADO", "EVADIDO", "CICLO_CONCLUIDO"}
+ESTADOS_VALIDOS = {"ATIVO", "TRANSFERIDO", "TRANCADO", "EVADIDO", "CICLO_CONCLUIDO", "EM_TRANSFERENCIA"}
+
+# EM_TRANSFERENCIA: colocado automaticamente por
+# transferencias.py::criar_solicitacao quando uma transferência "a
+# quente" (matrícula ATIVO) é pedida — o aluno fica "em suspenso" na
+# escola de origem enquanto a escola de destino decide (por isso some
+# das listagens que filtram por ATIVO, ex. turmas/rematrícula). Volta
+# a ATIVO se a escola de destino rejeitar, ou passa a TRANSFERIDO se
+# aprovar. Tal como TRANSFERIDO, também pode ser corrigido à mão por
+# aqui em caso de necessidade.
 
 # "Fim de Ciclo" (RN06) — o aluno deixa de ter matrícula ativa nesta
 # escola porque foi para uma escola fora da plataforma, ou porque

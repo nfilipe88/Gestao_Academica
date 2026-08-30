@@ -5,7 +5,8 @@
       <h2 class="text-2xl font-bold text-slate-800">Transferência de Alunos</h2>
       <p class="text-slate-500 text-sm">
         Peça a transferência de um aluno para outra instituição desta plataforma (identificada pelo NIF), ou o
-        reingresso de um aluno com Fim de Ciclo nesta escola que agora quer continuar noutra. Sujeito a aprovação do Super Admin.
+        reingresso de um aluno com Fim de Ciclo nesta escola que agora quer continuar noutra. Direto entre as
+        duas instituições — é a escola de destino que aceita ou nega, sem passar pelo Super Admin.
       </p>
     </div>
     <button type="button" (click)="mostrarFormulario = !mostrarFormulario"
@@ -20,6 +21,21 @@
   @if (mensagem$ | async; as mensagem) {
     <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
+
+  <div class="flex gap-1 border-b border-slate-200">
+    <button type="button" (click)="mudarAba('recebidos')"
+      class="text-sm font-medium py-2 px-4 border-b-2 -mb-px transition-colors cursor-pointer"
+      [class.border-blue-600]="aba === 'recebidos'" [class.text-blue-600]="aba === 'recebidos'"
+      [class.border-transparent]="aba !== 'recebidos'" [class.text-slate-500]="aba !== 'recebidos'">
+      Recebidos <span class="text-xs">(de outras escolas, para decidir)</span>
+    </button>
+    <button type="button" (click)="mudarAba('enviados')"
+      class="text-sm font-medium py-2 px-4 border-b-2 -mb-px transition-colors cursor-pointer"
+      [class.border-blue-600]="aba === 'enviados'" [class.text-blue-600]="aba === 'enviados'"
+      [class.border-transparent]="aba !== 'enviados'" [class.text-slate-500]="aba !== 'enviados'">
+      Enviados <span class="text-xs">(pedidos desta escola)</span>
+    </button>
+  </div>
 
   @if (mostrarFormulario) {
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
@@ -50,50 +66,56 @@
     </div>
   }
 
-  <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
-    <div>
-      <label class="block text-xs font-medium text-slate-600 mb-1">Estado</label>
-      <select [(ngModel)]="filtroStatus" (ngModelChange)="aplicarFiltro()"
-        class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-        <option value="">Todos</option>
-        @for (estado of estados; track estado) {
-          <option [value]="estado">{{ estado }}</option>
-        }
-      </select>
+  @if (aba === 'enviados') {
+    <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+        <select [(ngModel)]="filtroStatus" (ngModelChange)="aplicarFiltro()"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          <option value="">Todos</option>
+          @for (estado of estados; track estado) {
+            <option [value]="estado">{{ estado }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Pedido entre</label>
+        <input type="date" [(ngModel)]="filtroDataInicio" (ngModelChange)="aplicarFiltro()"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+        <input type="date" [(ngModel)]="filtroDataFim" (ngModelChange)="aplicarFiltro()"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <button type="button" (click)="limparFiltro()"
+        class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
+        Limpar
+      </button>
     </div>
-    <div>
-      <label class="block text-xs font-medium text-slate-600 mb-1">Pedido entre</label>
-      <input type="date" [(ngModel)]="filtroDataInicio" (ngModelChange)="aplicarFiltro()"
-        class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-    </div>
-    <div>
-      <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
-      <input type="date" [(ngModel)]="filtroDataFim" (ngModelChange)="aplicarFiltro()"
-        class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-    </div>
-    <button type="button" (click)="limparFiltro()"
-      class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
-      Limpar
-    </button>
-  </div>
+  }
 
   <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="bg-slate-50 text-slate-500 text-left">
         <tr>
           <th class="px-4 py-3">Aluno</th>
-          <th class="px-4 py-3">Instituição de destino</th>
+          <th class="px-4 py-3">{{ aba === 'recebidos' ? 'Instituição de origem' : 'Instituição de destino' }}</th>
           <th class="px-4 py-3">Motivo</th>
           <th class="px-4 py-3">Estado</th>
           <th class="px-4 py-3">Observações</th>
           <th class="px-4 py-3">Pedido em</th>
+          @if (aba === 'recebidos') { <th class="px-4 py-3">Ações</th> }
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
         @for (s of (solicitacoes$ | async); track s.id) {
           <tr>
             <td class="px-4 py-3 font-medium text-slate-800">{{ s.aluno_nome }}</td>
-            <td class="px-4 py-3">{{ s.nome_instituicao_destino }} <span class="text-slate-400 text-xs">({{ s.nif_destino }})</span></td>
+            <td class="px-4 py-3">
+              {{ aba === 'recebidos' ? s.nome_instituicao_origem : s.nome_instituicao_destino }}
+              @if (aba === 'enviados') { <span class="text-slate-400 text-xs">({{ s.nif_destino }})</span> }
+            </td>
             <td class="px-4 py-3 text-slate-600 max-w-xs">{{ s.motivo || '—' }}</td>
             <td class="px-4 py-3">
               <span class="px-2 py-0.5 rounded-full text-xs font-medium"
@@ -105,9 +127,38 @@
             </td>
             <td class="px-4 py-3 text-slate-600 max-w-xs">{{ s.observacoes_decisao || '—' }}</td>
             <td class="px-4 py-3 text-slate-500">{{ s.data_solicitacao | date:'dd/MM/yyyy' }}</td>
+            @if (aba === 'recebidos') {
+              <td class="px-4 py-3">
+                @if (s.status === 'PENDENTE') {
+                  @if (solicitacaoARejeitar === s.id) {
+                    <div class="flex flex-col gap-1.5 min-w-48">
+                      <textarea [(ngModel)]="observacoesRejeicao" rows="2" placeholder="Motivo da recusa (obrigatório)"
+                        class="w-full border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800"></textarea>
+                      <div class="flex gap-1.5">
+                        <button type="button" (click)="confirmarRejeicao()" [disabled]="!observacoesRejeicao.trim()"
+                          class="text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium py-1 px-2.5 rounded disabled:opacity-50 cursor-pointer">Confirmar</button>
+                        <button type="button" (click)="cancelarRejeicao()"
+                          class="text-xs text-slate-500 hover:text-slate-700 font-medium py-1 px-2 cursor-pointer">Cancelar</button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="flex gap-1.5">
+                      <button type="button" (click)="aceitar(s.id)"
+                        class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1 px-2.5 rounded cursor-pointer">Aceitar</button>
+                      <button type="button" (click)="abrirRejeicao(s.id)"
+                        class="text-xs bg-white border border-rose-300 text-rose-600 hover:bg-rose-50 font-medium py-1 px-2.5 rounded cursor-pointer">Negar</button>
+                    </div>
+                  }
+                } @else {
+                  <span class="text-slate-400 text-xs">—</span>
+                }
+              </td>
+            }
           </tr>
         } @empty {
-          <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">Sem pedidos de transferência.</td></tr>
+          <tr><td [attr.colspan]="aba === 'recebidos' ? 7 : 6" class="px-4 py-8 text-center text-slate-400">
+            {{ aba === 'recebidos' ? 'Sem pedidos recebidos.' : 'Sem pedidos de transferência enviados.' }}
+          </td></tr>
         }
       </tbody>
     </table>

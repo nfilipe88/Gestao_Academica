@@ -11,18 +11,25 @@ e pode ser pedido como Histórico Escolar via Solicitações de Documentos.
 Cobre dois cenários, distinguidos pelo status da matrícula de origem
 no momento do pedido (ver cruds/transferencias.py::criar_solicitacao):
 - ATIVO: transferência "a quente" — o aluno ainda frequenta a escola
-  de origem, que passa a TRANSFERIDO ao concluir a migração.
+  de origem. Ao pedir, a matrícula passa a EM_TRANSFERENCIA (suspensa
+  enquanto a escola de destino decide — ver ESTADOS_VALIDOS em
+  cruds/matriculas.py); aprovar conclui para TRANSFERIDO, rejeitar
+  devolve a ATIVO.
 - CICLO_CONCLUIDO ("Fim de Ciclo" — ver cruds/matriculas.py): o aluno
   já tinha saído desta escola (concluiu o que ela oferece, ou foi para
   fora da plataforma) e só agora aparece a querer continuar noutra
   escola DESTA plataforma — "Reingresso cross-escola". A matrícula de
-  origem fica como estava (CICLO_CONCLUIDO), nunca é reescrita para
-  TRANSFERIDO: o Fim de Ciclo continua a ser um facto histórico
-  verdadeiro, só porque o aluno reapareceu meses depois não deixou de
-  ter acontecido.
+  origem fica como estava (CICLO_CONCLUIDO) em qualquer desfecho: o
+  Fim de Ciclo continua a ser um facto histórico verdadeiro, só porque
+  o aluno reapareceu meses depois não deixou de ter acontecido.
 
-Só o Super Admin pode aprovar/rejeitar (é a única entidade com alcance
-legítimo sobre duas instituições ao mesmo tempo).
+Decisão direta entre instituições: quem aprova/rejeita é o Gestor/
+Secretaria da instituição de DESTINO (não o Super Admin — ver
+histórico deste ficheiro para o desenho anterior, que passava por
+aprovação centralizada e foi removido por ser burocrático sem
+necessidade). O Super Admin mantém só uma listagem de leitura,
+cross-tenant, para efeitos de auditoria (GET /transferencias) — não
+decide.
 """
 import uuid
 from datetime import datetime

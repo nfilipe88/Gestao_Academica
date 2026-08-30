@@ -525,8 +525,8 @@
   </div>
 
   <div>
-    <h3 class="text-lg font-bold text-slate-800 mb-1">Pedidos de Transferência de Aluno</h3>
-    <p class="text-slate-500 text-sm mb-4">Migração real entre duas instituições desta plataforma — aprovar cria o aluno na instituição de destino e marca a matrícula de origem como transferida.</p>
+    <h3 class="text-lg font-bold text-slate-800 mb-1">Pedidos de Transferência de Aluno — auditoria</h3>
+    <p class="text-slate-500 text-sm mb-4">Migração real entre duas instituições desta plataforma. Só consulta: quem aceita ou nega é o Gestor/Secretaria da instituição de destino, diretamente — não o Super Admin.</p>
 
     @if (erroTransferencias$ | async; as erroT) {
       <div class="mb-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erroT }}</div>
@@ -544,7 +544,6 @@
             <th class="py-3 px-6 font-medium">Destino</th>
             <th class="py-3 px-6 font-medium">Motivo</th>
             <th class="py-3 px-6 font-medium">Estado</th>
-            <th class="py-3 px-6 font-medium text-right">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -565,26 +564,9 @@
                   <p class="text-xs text-slate-400 mt-1">{{ s.observacoes_decisao }}</p>
                 }
               </td>
-              <td class="py-3 px-6 text-right">
-                @if (s.status === 'PENDENTE') {
-                  @if (solicitacaoARejeitar === s.id) {
-                    <div class="flex items-center justify-end gap-2">
-                      <input type="text" [(ngModel)]="observacoesRejeicao" placeholder="Motivo da rejeição"
-                        class="border border-slate-300 rounded px-2 py-1 text-xs w-48" />
-                      <button type="button" (click)="onConfirmarRejeicao(s.id)" class="text-xs font-medium py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer">Confirmar</button>
-                      <button type="button" (click)="solicitacaoARejeitar = null" class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Cancelar</button>
-                    </div>
-                  } @else {
-                    <div class="flex items-center justify-end gap-2">
-                      <button type="button" (click)="onAprovarTransferencia(s.id)" class="text-xs font-medium py-1.5 px-3 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 transition-colors cursor-pointer">Aprovar</button>
-                      <button type="button" (click)="onAbrirRejeicao(s.id)" class="text-xs font-medium py-1.5 px-3 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 transition-colors cursor-pointer">Rejeitar</button>
-                    </div>
-                  }
-                }
-              </td>
             </tr>
           } @empty {
-            <tr><td colspan="6" class="py-8 text-center text-slate-500">Sem pedidos de transferência.</td></tr>
+            <tr><td colspan="5" class="py-8 text-center text-slate-500">Sem pedidos de transferência.</td></tr>
           }
         </tbody>
       </table>

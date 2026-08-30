@@ -193,6 +193,31 @@ async def obter_sessao_db_admin(
             await sessao.close()
 
 
+def obter_sessao_db_cross_tenant(*perfis_permitidos: str):
+    """Fábrica de sessão cross-tenant (role app_sistema, bypassrls) para
+    fluxos que precisam de ler/escrever fora do próprio tenant SEM
+    serem o Super Admin — hoje só a decisão de Transferências pela
+    escola de DESTINO (ver app/api/v1/transferencias.py: aprovar um
+    pedido lê o Aluno/Matricula da escola de ORIGEM, que o RLS de
+    obter_sessao_db bloquearia). Mesma mecânica de obter_sessao_db_admin
+    (gated pelo seu próprio exigir_perfil(*perfis_permitidos), antes de
+    a rota sequer correr — nunca uma sessão cross-tenant "nua"), só com
+    o perfil parametrizável em vez de fixo a SUPER_ADMIN. O isolamento
+    real continua a vir do filtro explícito por tenant_id em cada crud,
+    nunca do RLS (que aqui está desligado de propósito)."""
+    exigir = exigir_perfil(*perfis_permitidos)
+
+    async def sessao_dependency(utilizador: Dict[str, Any] = Depends(exigir)) -> AsyncGenerator[AsyncSession, None]:
+        definir_ator_auditoria(utilizador["usuario_id"], utilizador.get("tenant_id"), utilizador.get("perfil_acesso"))
+        async with AsyncSessionLocalSistema() as sessao:
+            try:
+                yield sessao
+            finally:
+                await sessao.close()
+
+    return sessao_dependency
+
+
 async def obter_sessao_db_publica() -> AsyncGenerator[AsyncSession, None]:
     """
     Sessão sem utilizador autenticado (role app_sistema, bypassrls),

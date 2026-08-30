@@ -13,7 +13,7 @@ import { selectPlanos, selectPlanosAtivos, selectMrr, selectAssinaturasPorTenant
 import { FiltrosTenants, MODULOS_GATEAVEIS, PlanoSaaS, PlanoSaaSModulo, StatusTenant } from '../../../store/admin/admin.models';
 import * as TransferenciasActions from '../../../store/transferencias/transferencias.actions';
 import {
-  selectPaginacaoTransferencias, selectSolicitacoesTransferencia, selectTransferenciasError, selectTransferenciasMensagem
+  selectPaginacaoAuditoria, selectSolicitacoesAuditoria, selectTransferenciasError, selectTransferenciasMensagem
 } from '../../../store/transferencias/transferencias.selector';
 import * as UsuariosActions from '../../../store/usuarios/usuarios.actions';
 import { selectPaginacaoUsuarios, selectUsuarios, selectUsuariosError, selectUsuariosMensagem } from '../../../store/usuarios/usuarios.selector';
@@ -35,8 +35,8 @@ export class AdminComponent implements OnInit {
   erro$ = this.store.select(selectAdminError);
   mensagem$ = this.store.select(selectAdminMensagem);
 
-  solicitacoesTransferencia$ = this.store.select(selectSolicitacoesTransferencia);
-  paginacaoTransferencias$ = this.store.select(selectPaginacaoTransferencias);
+  solicitacoesTransferencia$ = this.store.select(selectSolicitacoesAuditoria);
+  paginacaoTransferencias$ = this.store.select(selectPaginacaoAuditoria);
   erroTransferencias$ = this.store.select(selectTransferenciasError);
   mensagemTransferencias$ = this.store.select(selectTransferenciasMensagem);
 
@@ -73,10 +73,6 @@ export class AdminComponent implements OnInit {
     email_gestor: ['', [Validators.required, Validators.email]],
     palavra_passe: ['', [Validators.required, Validators.minLength(8)]],
   });
-
-  // Rejeição de transferência: id do pedido com o campo de observações aberto.
-  solicitacaoARejeitar: string | null = null;
-  observacoesRejeicao = '';
 
   paginaTenants = 1;
   tamanhoTenants = 25;
@@ -137,7 +133,7 @@ export class AdminComponent implements OnInit {
 
   ngOnInit() {
     this.store.dispatch(carregarTenants({ page: this.paginaTenants, page_size: this.tamanhoTenants }));
-    this.store.dispatch(TransferenciasActions.carregarSolicitacoesSuperAdmin({ page: this.paginaTransferencias, page_size: this.tamanhoTransferencias }));
+    this.store.dispatch(TransferenciasActions.carregarSolicitacoesAuditoria({ page: this.paginaTransferencias, page_size: this.tamanhoTransferencias }));
     this.store.dispatch(carregarPlanos());
     this.store.dispatch(carregarMrr());
 
@@ -186,13 +182,13 @@ export class AdminComponent implements OnInit {
 
   onPaginaTransferencias(pagina: number) {
     this.paginaTransferencias = pagina;
-    this.store.dispatch(TransferenciasActions.carregarSolicitacoesSuperAdmin({ page: pagina, page_size: this.tamanhoTransferencias }));
+    this.store.dispatch(TransferenciasActions.carregarSolicitacoesAuditoria({ page: pagina, page_size: this.tamanhoTransferencias }));
   }
 
   onTamanhoTransferencias(tamanho: number) {
     this.tamanhoTransferencias = tamanho;
     this.paginaTransferencias = 1;
-    this.store.dispatch(TransferenciasActions.carregarSolicitacoesSuperAdmin({ page: 1, page_size: tamanho }));
+    this.store.dispatch(TransferenciasActions.carregarSolicitacoesAuditoria({ page: 1, page_size: tamanho }));
   }
 
   pedirConfirmacao(tenantId: string) {
@@ -245,20 +241,10 @@ export class AdminComponent implements OnInit {
     return { dias: Math.round((validade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) };
   }
 
-  onAprovarTransferencia(solicitacaoId: string) {
-    this.store.dispatch(TransferenciasActions.aprovarSolicitacao({ solicitacao_id: solicitacaoId }));
-  }
-
-  onAbrirRejeicao(solicitacaoId: string) {
-    this.solicitacaoARejeitar = solicitacaoId;
-    this.observacoesRejeicao = '';
-  }
-
-  onConfirmarRejeicao(solicitacaoId: string) {
-    if (!this.observacoesRejeicao.trim()) return;
-    this.store.dispatch(TransferenciasActions.rejeitarSolicitacao({ solicitacao_id: solicitacaoId, observacoes: this.observacoesRejeicao }));
-    this.solicitacaoARejeitar = null;
-  }
+  // Aprovar/Rejeitar deixou de existir aqui: a decisão é direta entre
+  // as duas instituições (Gestor/Secretaria da escola de DESTINO — ver
+  // features/transferencias), não do Super Admin. Esta lista
+  // (carregarSolicitacoesAuditoria) é só consulta/auditoria cross-tenant.
 
   // --- Gestão de Acessos por escola (cross-tenant) ---
 

@@ -27,7 +27,7 @@ class Matricula(Base):
     turma_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("turma.id", ondelete="CASCADE"), nullable=False)
 
     ano_letivo: Mapped[int] = mapped_column(Integer, nullable=False)
-    status_matricula: Mapped[str] = mapped_column(String(20), nullable=False, default="ATIVO") # ATIVO, TRANSFERIDO, TRANCADO, EVADIDO, CICLO_CONCLUIDO
+    status_matricula: Mapped[str] = mapped_column(String(20), nullable=False, default="ATIVO") # ATIVO, TRANSFERIDO, TRANCADO, EVADIDO, CICLO_CONCLUIDO, EM_TRANSFERENCIA
     # Motivo da transição de estado mais recente — sobretudo relevante
     # em CICLO_CONCLUIDO (TRANSFERENCIA_EXTERNA, CONCLUSAO_ESCOLARIDADE,
     # OUTRO — ver MOTIVOS_FIM_CICLO_VALIDOS), mas guarda o motivo de
