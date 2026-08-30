@@ -54,12 +54,21 @@ async def criar_solicitacao(db: AsyncSession, tenant_id, utilizador: dict, dados
     if not aluno:
         raise HTTPException(status_code=404, detail="Aluno não encontrado na sua instituição.")
 
+    # A matrícula mais recente do aluno, seja qual for o estado — depois
+    # verifica-se se esse estado é um dos dois que legitimam um pedido
+    # (ver docstring de models_transferencias.py): ATIVO (transferência
+    # a quente) ou CICLO_CONCLUIDO (Reingresso cross-escola, o aluno já
+    # tinha saído desta escola e só agora aparece a continuar noutra).
     matricula = (await db.execute(
-        select(Matricula).where(Matricula.aluno_id == aluno.id, Matricula.tenant_id == tenant_id, Matricula.status_matricula == "ATIVO")
+        select(Matricula).where(Matricula.aluno_id == aluno.id, Matricula.tenant_id == tenant_id)
         .order_by(Matricula.ano_letivo.desc())
     )).scalars().first()
-    if not matricula:
-        raise HTTPException(status_code=400, detail="O aluno não tem uma matrícula ativa para transferir.")
+    if not matricula or matricula.status_matricula not in ("ATIVO", "CICLO_CONCLUIDO"):
+        raise HTTPException(
+            status_code=400,
+            detail="Só é possível pedir transferência/reingresso para um aluno com matrícula ativa, "
+                   "ou com Fim de Ciclo (Reingresso cross-escola) — este aluno não está em nenhum dos dois casos."
+        )
 
     ja_pendente = (await db.execute(
         select(SolicitacaoTransferencia).where(SolicitacaoTransferencia.aluno_id == aluno.id, SolicitacaoTransferencia.status == "PENDENTE")
@@ -171,8 +180,17 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID) -> dict:
     if not aluno:
         raise HTTPException(status_code=404, detail="Aluno de origem não encontrado.")
     matricula = (await db.execute(select(Matricula).where(Matricula.id == solicitacao.matricula_id))).scalars().first()
-    if not matricula or matricula.status_matricula != "ATIVO":
-        raise HTTPException(status_code=400, detail="A matrícula de origem já não está ativa — peça um novo pedido.")
+    if not matricula or matricula.status_matricula not in ("ATIVO", "CICLO_CONCLUIDO"):
+        raise HTTPException(
+            status_code=400,
+            detail="A matrícula de origem já não está num estado válido para aprovar este pedido — peça um novo pedido."
+        )
+    # Só uma transferência "a quente" (matrícula ainda ATIVO) fecha a
+    # matrícula de origem como TRANSFERIDO. Reingresso cross-escola
+    # (origem já CICLO_CONCLUIDO — ver docstring de
+    # models_transferencias.py) não mexe nela: o Fim de Ciclo já
+    # aconteceu e continua a ser verdade, só o aluno reapareceu depois.
+    origem_era_ciclo_concluido = matricula.status_matricula == "CICLO_CONCLUIDO"
 
     vinculos = (await db.execute(
         select(AlunoResponsavel, ResponsavelFinanceiroLegal)
@@ -215,7 +233,8 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID) -> dict:
             responsavel_financeiro=vinculo.responsavel_financeiro,
         ))
 
-    matricula.status_matricula = "TRANSFERIDO"
+    if not origem_era_ciclo_concluido:
+        matricula.status_matricula = "TRANSFERIDO"
     solicitacao.status = "CONCLUIDA"
     solicitacao.aluno_novo_id = novo_aluno.id
     solicitacao.data_decisao = datetime.now(timezone.utc)
@@ -242,11 +261,21 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID) -> dict:
         )
     )).scalars().all()
     if gestores_destino:
+        if origem_era_ciclo_concluido:
+            titulo_destino = "Aluno reingressou — falta matricular"
+            mensagem_destino = (
+                f"{aluno.nome_completo} reingressou nesta escola (já tinha concluído o ciclo na instituição de "
+                f"origem). Os dados e responsáveis já foram criados — falta atribuir turma e concluir a matrícula."
+            )
+        else:
+            titulo_destino = "Aluno transferido — falta matricular"
+            mensagem_destino = (
+                f"{aluno.nome_completo} foi transferido para esta escola. Os dados e responsáveis já foram "
+                f"criados — falta atribuir turma e concluir a matrícula."
+            )
         await crud_notificacoes.criar_notificacoes_em_lote(
             db, solicitacao.tenant_destino_id, list(gestores_destino), tipo="SOLICITACAO_TRANSFERENCIA",
-            titulo="Aluno transferido — falta matricular",
-            mensagem=f"{aluno.nome_completo} foi transferido para esta escola. Os dados e responsáveis já foram criados — falta atribuir turma e concluir a matrícula.",
-            link="/alunos"
+            titulo=titulo_destino, mensagem=mensagem_destino, link="/alunos"
         )
 
     return _serializar(solicitacao, aluno_nome=aluno.nome_completo)

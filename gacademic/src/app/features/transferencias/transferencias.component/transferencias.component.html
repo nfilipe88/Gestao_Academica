@@ -3,7 +3,10 @@
   <div class="flex items-center justify-between flex-wrap gap-2">
     <div>
       <h2 class="text-2xl font-bold text-slate-800">Transferência de Alunos</h2>
-      <p class="text-slate-500 text-sm">Peça a transferência de um aluno para outra instituição desta plataforma (identificada pelo NIF). Sujeito a aprovação do Super Admin.</p>
+      <p class="text-slate-500 text-sm">
+        Peça a transferência de um aluno para outra instituição desta plataforma (identificada pelo NIF), ou o
+        reingresso de um aluno com Fim de Ciclo nesta escola que agora quer continuar noutra. Sujeito a aprovação do Super Admin.
+      </p>
     </div>
     <button type="button" (click)="mostrarFormulario = !mostrarFormulario"
       class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
@@ -27,6 +30,7 @@
             <option value="">Selecione...</option>
             @for (a of (alunos$ | async); track a.id) { <option [value]="a.id">{{ a.nome_completo }}</option> }
           </select>
+          <p class="text-xs text-slate-400 mt-1">Serve tanto para um aluno ainda matriculado como para um com Fim de Ciclo nesta escola (reingresso cross-escola).</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-600 mb-1">NIF da instituição de destino</label>
@@ -79,6 +83,7 @@
         <tr>
           <th class="px-4 py-3">Aluno</th>
           <th class="px-4 py-3">Instituição de destino</th>
+          <th class="px-4 py-3">Motivo</th>
           <th class="px-4 py-3">Estado</th>
           <th class="px-4 py-3">Observações</th>
           <th class="px-4 py-3">Pedido em</th>
@@ -89,6 +94,7 @@
           <tr>
             <td class="px-4 py-3 font-medium text-slate-800">{{ s.aluno_nome }}</td>
             <td class="px-4 py-3">{{ s.nome_instituicao_destino }} <span class="text-slate-400 text-xs">({{ s.nif_destino }})</span></td>
+            <td class="px-4 py-3 text-slate-600 max-w-xs">{{ s.motivo || '—' }}</td>
             <td class="px-4 py-3">
               <span class="px-2 py-0.5 rounded-full text-xs font-medium"
                 [class.bg-amber-100]="s.status === 'PENDENTE'" [class.text-amber-700]="s.status === 'PENDENTE'"
@@ -101,7 +107,7 @@
             <td class="px-4 py-3 text-slate-500">{{ s.data_solicitacao | date:'dd/MM/yyyy' }}</td>
           </tr>
         } @empty {
-          <tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Sem pedidos de transferência.</td></tr>
+          <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">Sem pedidos de transferência.</td></tr>
         }
       </tbody>
     </table>
