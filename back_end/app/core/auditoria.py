@@ -18,7 +18,7 @@ ator de um pedido nunca escapa para outro em concorrência.
 """
 import contextvars
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from sqlalchemy import event, inspect
@@ -51,7 +51,14 @@ _COLUNAS_SENSIVEIS = {"palavra_passe_hash", "senha_hash", "hash_senha", "token",
 
 
 def _serializar(valor):
-    if isinstance(valor, (datetime, date)):
+    # datetime/date primeiro: datetime também é date, e time tem de vir
+    # à parte (não deriva de nenhum dos outros dois) — sem isto, colunas
+    # Time (HorarioAula.hora_inicio/fim, AvaliacaoAgendada.hora_*,
+    # períodos do dia em Configurações) rebentavam o INSERT no
+    # audit_log com "Object of type time is not JSON serializable",
+    # já dentro do commit — via before_flush, sem hipótese de o crud
+    # tratar isto por fora.
+    if isinstance(valor, (datetime, date, time)):
         return valor.isoformat()
     if isinstance(valor, Decimal):
         return float(valor)
