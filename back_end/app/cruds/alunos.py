@@ -470,3 +470,63 @@ async def gerar_cartao_acesso(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) 
     return documentos_pdf.gerar_pdf_cartao_acesso(
         escola, dados, corpo_html_personalizado=template.corpo_html if template else None
     )
+
+
+async def gerar_cartoes_acesso_turma(db: AsyncSession, tenant_id, turma_id: uuid.UUID) -> bytes:
+    """PDF com um cartão de acesso por página, um por cada aluno com
+    matrícula ATIVO nesta turma — o caso de uso real da Secretaria em
+    Angola (imprimir os cartões de uma turma inteira de uma vez, ao
+    início do ano letivo) em vez de aluno a aluno pelo ecrã de Alunos.
+    Mesmo layout nativo/personalizado de gerar_cartao_acesso, só que
+    tenant/template/logótipo são resolvidos UMA vez para a turma
+    inteira (não por aluno) — só o que muda por aluno (nome, matrícula,
+    foto) é repetido."""
+    turma = (await db.execute(select(Turma).where(Turma.id == turma_id, Turma.tenant_id == tenant_id))).scalars().first()
+    if not turma:
+        raise HTTPException(status_code=404, detail="Turma não encontrada na sua instituição.")
+
+    linhas = (await db.execute(
+        select(Aluno, Matricula.ano_letivo)
+        .join(Matricula, Matricula.aluno_id == Aluno.id)
+        .where(Matricula.tenant_id == tenant_id, Matricula.turma_id == turma_id, Matricula.status_matricula == "ATIVO")
+        .order_by(Aluno.nome_completo)
+    )).all()
+    if not linhas:
+        raise HTTPException(status_code=400, detail="Esta turma não tem nenhum aluno com matrícula ativa.")
+
+    aluno_ids = [aluno.id for aluno, _ in linhas]
+    fotos_ativas = {
+        f.aluno_id: f for f in (await db.execute(
+            select(FotoPerfilAluno).where(
+                FotoPerfilAluno.tenant_id == tenant_id, FotoPerfilAluno.aluno_id.in_(aluno_ids), FotoPerfilAluno.ativa.is_(True)
+            )
+        )).scalars().all()
+    }
+
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+    template = (await db.execute(
+        select(TemplateDocumentoPersonalizado).where(
+            TemplateDocumentoPersonalizado.tenant_id == tenant_id,
+            TemplateDocumentoPersonalizado.tipo_documento == "CARTAO_ACESSO",
+            TemplateDocumentoPersonalizado.ativo == True,  # noqa: E712
+        )
+    )).scalars().first()
+    escola = {
+        "nome": tenant.nome_fantasia if tenant else "",
+        "logo_data_uri": await storage.obter_logo_data_uri(tenant) if tenant else None,
+    }
+
+    lista_dados = []
+    for aluno, ano_letivo in linhas:
+        foto = fotos_ativas.get(aluno.id)
+        lista_dados.append({
+            "aluno_nome": aluno.nome_completo,
+            "matricula_interna": aluno.matricula_interna,
+            "turma_nome": turma.nome_codigo,
+            "ano_letivo": ano_letivo,
+            "foto_data_uri": await storage.obter_data_uri(foto.chave_storage) if foto else None,
+        })
+
+    return documentos_pdf.gerar_pdf_cartoes_acesso_lote(
+        escola, lista_dados, corpo_html_personalizado=template.corpo_html if template else None
+    )

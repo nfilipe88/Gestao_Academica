@@ -238,3 +238,18 @@ async def obter_cartao_acesso(
         content=pdf_bytes, media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="cartao-acesso-{aluno_id}.pdf"'}
     )
+
+@router.get("/turmas/{turma_id}/cartoes-acesso.pdf")
+async def obter_cartoes_acesso_da_turma(
+    turma_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Um cartão de acesso por página, um por cada aluno com matrícula
+    ativa nesta turma — para a Secretaria imprimir de uma vez os
+    cartões de uma turma inteira, em vez de aluno a aluno."""
+    pdf_bytes = await crud_alunos.gerar_cartoes_acesso_turma(db, utilizador["tenant_id"], turma_id)
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="cartoes-acesso-{turma_id}.pdf"'}
+    )

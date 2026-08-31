@@ -355,9 +355,7 @@ _CARTAO_ACESSO_CORPO_NATIVO = Template("""
 """)
 
 
-def gerar_pdf_cartao_acesso(
-    escola: dict, dados: dict, corpo_html_personalizado: str | None = None, exigir_personalizado: bool = False
-) -> bytes:
+def _corpo_cartao_acesso(escola: dict, dados: dict, corpo_html_personalizado: str | None, exigir_personalizado: bool) -> str:
     """dados: {"aluno_nome", "matricula_interna", "turma_nome" (opcional),
     "ano_letivo" (opcional), "foto_data_uri" (opcional — sem foto ativa,
     mostra um espaço reservado em vez de bloquear a emissão)}.
@@ -366,7 +364,9 @@ def gerar_pdf_cartao_acesso(
     gerar_pdf_documento acima — False (emissão real) nunca deixa um
     template de tenant partido bloquear o cartão, cai em silêncio para
     o layout nativo; True (guardar/pré-visualizar, ver cruds/documentos.py)
-    propaga o erro para o Gestor poder corrigir."""
+    propaga o erro para o Gestor poder corrigir. Extraído da função de
+    UM cartão para ser reaproveitado também no lote (vários cartões,
+    um por página, no mesmo PDF — ver gerar_pdf_cartoes_acesso_lote)."""
     contexto = {
         "escola_nome": escola.get("nome") or "",
         "escola_logo_data_uri": escola.get("logo_data_uri"),
@@ -378,24 +378,61 @@ def gerar_pdf_cartao_acesso(
         "data_emissao": date.today().strftime("%d/%m/%Y"),
     }
 
-    corpo_html = None
     if corpo_html_personalizado:
         try:
-            corpo_html = renderizar_corpo_personalizado(corpo_html_personalizado, contexto)
+            return renderizar_corpo_personalizado(corpo_html_personalizado, contexto)
         except Exception:
             if exigir_personalizado:
                 raise
             logger.exception("Falha ao renderizar o cartão de acesso personalizado — a usar o layout nativo como reserva.")
-            corpo_html = None
 
-    if corpo_html is None:
-        corpo_html = _CARTAO_ACESSO_CORPO_NATIVO.render(**contexto)
+    return _CARTAO_ACESSO_CORPO_NATIVO.render(**contexto)
 
+
+def gerar_pdf_cartao_acesso(
+    escola: dict, dados: dict, corpo_html_personalizado: str | None = None, exigir_personalizado: bool = False
+) -> bytes:
+    corpo_html = _corpo_cartao_acesso(escola, dados, corpo_html_personalizado, exigir_personalizado)
     html_final = _CARTAO_ENVELOPE_FIXO.render(corpo_html=corpo_html)
     buffer = io.BytesIO()
     resultado = pisa.CreatePDF(io.StringIO(html_final), dest=buffer)
     if resultado.err:
         raise RuntimeError("Falha ao gerar o PDF do cartão de acesso.")
+    return buffer.getvalue()
+
+
+def gerar_pdf_cartoes_acesso_lote(escola: dict, lista_dados: list[dict], corpo_html_personalizado: str | None = None) -> bytes:
+    """Vários cartões, um por página, no MESMO PDF — para a Secretaria
+    imprimir de uma vez os cartões de uma turma inteira (o caso de uso
+    real: início do ano letivo), em vez de aluno a aluno pelo ecrã de
+    Alunos. Cada cartão reaproveita exatamente o mesmo bloco HTML já
+    validado no cartão individual (_corpo_cartao_acesso), só separado
+    por um <div style="page-break-before:always"> — testado a repetir
+    esse bloco isolado várias vezes: como cada um já é, sozinho, a
+    unidade "segura" descoberta ao corrigir o cartão individual (ver
+    comentário em _CARTAO_ACESSO_CORPO_NATIVO), repeti-lo não introduz
+    nenhuma armadilha nova, ao contrário de tentar pôr vários cartões
+    lado a lado numa grelha na mesma página (não tentado, arriscado à
+    luz dessas mesmas armadilhas).
+
+    exigir_personalizado é sempre False aqui: mesmo que o template da
+    escola esteja provisoriamente partido, o lote nunca deve falhar a
+    meio — cada cartão cai para o nativo silenciosamente, como na
+    emissão individual."""
+    if not lista_dados:
+        raise ValueError("Lista de cartões vazia.")
+
+    partes = []
+    for i, dados in enumerate(lista_dados):
+        if i > 0:
+            partes.append('<div style="page-break-before: always;"></div>')
+        partes.append(_corpo_cartao_acesso(escola, dados, corpo_html_personalizado, exigir_personalizado=False))
+
+    html_final = _CARTAO_ENVELOPE_FIXO.render(corpo_html="".join(partes))
+    buffer = io.BytesIO()
+    resultado = pisa.CreatePDF(io.StringIO(html_final), dest=buffer)
+    if resultado.err:
+        raise RuntimeError("Falha ao gerar o PDF dos cartões de acesso em lote.")
     return buffer.getvalue()
 
 

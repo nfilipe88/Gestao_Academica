@@ -15,6 +15,7 @@ import {
 } from '../../../../store/matriculas/matriculas.models';
 import { selectMatriculasError, selectMatriculasPorTurma } from '../../../../store/matriculas/matriculas.selector';
 import { selectIsGestorOuSecretaria } from '../../../../store/auth/auth.selectors';
+import { abrirOuTransferirBlob } from '../../../../core/utils/abrir-em-nova-aba';
 
 @Component({
   selector: 'app-turmas.component',
@@ -174,6 +175,27 @@ export class TurmasComponent implements OnInit {
       vagas_maximas: 30
     });
     this.mostrarFormulario = false;
+  }
+
+  // Cartões de acesso em lote (um por página, um por aluno com
+  // matrícula ativa) — para a Secretaria imprimir de uma vez os
+  // cartões de uma turma inteira, sem entrar aluno a aluno pelo ecrã
+  // de Alunos (ver onVerCartaoAcesso em alunos.component.ts).
+  turmaAImprimirCartoesId = signal<string | null>(null);
+
+  onImprimirCartoesTurma(turmaId: string) {
+    const aba = window.open('', '_blank');
+    this.turmaAImprimirCartoesId.set(turmaId);
+    this.http.get(`/api/v1/turmas/${turmaId}/cartoes-acesso.pdf`, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        this.turmaAImprimirCartoesId.set(null);
+        abrirOuTransferirBlob(aba, blob, `cartoes-acesso-${turmaId}.pdf`);
+      },
+      error: () => {
+        this.turmaAImprimirCartoesId.set(null);
+        if (aba) aba.close();
+      }
+    });
   }
 
   alternarExpandida(turmaId: string) {
