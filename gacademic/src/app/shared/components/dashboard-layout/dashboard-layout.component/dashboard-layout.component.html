@@ -182,6 +182,17 @@
           </svg>
           @if (!sidebarColapsada) { <span>Indicadores</span> }
         </a>
+
+        <!-- Estatísticas: dashboard + relatório filtrável por datas,
+             exportável em .xlsx/.xls — mesmo RBAC de Indicadores. -->
+        <a routerLink="/estatisticas" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Estatísticas">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l4-6 4 3 5-8" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Estatísticas</span> }
+        </a>
       }
 
       <a routerLink="/cursos" routerLinkActive="bg-slate-800 text-blue-400"

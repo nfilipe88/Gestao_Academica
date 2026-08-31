@@ -11,3 +11,4 @@ export const selectFaturas = createSelector(selectFinanceiroState, (state) => st
 export const selectUltimaCobranca = createSelector(selectFinanceiroState, (state) => state.ultimaCobranca);
 export const selectFinanceiroMensagem = createSelector(selectFinanceiroState, (state) => state.mensagem);
 export const selectFinanceiroError = createSelector(selectFinanceiroState, (state) => state.erro);
+export const selectDespesas = createSelector(selectFinanceiroState, (state) => state.despesas);

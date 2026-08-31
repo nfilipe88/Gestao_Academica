@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, text
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -169,4 +169,37 @@ class TransacaoGateway(Base):
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
     data_atualizacao: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP")
+    )
+
+
+class Despesa(Base):
+    """Uma saída financeira da escola (salários, renda, material,
+    manutenção, serviços…), lançada manualmente pela Secretaria/Gestor.
+
+    Contrapartida das Entradas (Fatura_Mensalidade paga) para as
+    Estatísticas financeiras (ver app/cruds/estatisticas.py) — sem
+    isto, "maiores saídas"/"meses com mais despesas" não tinham
+    nenhum dado real na plataforma. Deliberadamente simples (sem
+    workflow de aprovação, sem anexos, sem recorrência automática):
+    um registo manual do que já foi pago, não um sistema de gestão de
+    despesas completo.
+    """
+    __tablename__ = "despesa"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    categoria: Mapped[str] = mapped_column(String(30), nullable=False)  # SALARIOS, RENDA, MATERIAL, MANUTENCAO, SERVICOS, OUTRO
+    descricao: Mapped[str] = mapped_column(Text, nullable=False)
+    valor: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    data_despesa: Mapped[date] = mapped_column(Date, nullable=False)
+    forma_pagamento: Mapped[str | None] = mapped_column(String(30), nullable=True)  # mesmo conjunto de FaturaMensalidade.forma_pagamento
+
+    criado_por_usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    __table_args__ = (
+        # Consulta mais pesada desta tabela: relatório de Estatísticas
+        # filtrado por intervalo de datas, por escola.
+        Index("ix_despesa_tenant_data", "tenant_id", "data_despesa"),
     )

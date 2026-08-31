@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { CobrancaGerada, ContratoFinanceiro, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
+import { CobrancaGerada, ContratoFinanceiro, Despesa, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
 
 export const carregarMatriculasDoAluno = createAction(
   '[Financeiro] Carregar Matriculas Do Aluno',
@@ -91,3 +91,19 @@ export const financeiroOperacaoFalhou = createAction(
   '[Financeiro API] Operação Falhou',
   props<{ erro: string }>()
 );
+
+// --- Despesas (saídas financeiras — ver Estatísticas) ---
+export const criarDespesa = createAction(
+  '[Financeiro] Criar Despesa',
+  props<{ categoria: string, descricao: string, valor: number, data_despesa: string, forma_pagamento?: string }>()
+);
+export const criarDespesaSucesso = createAction('[Financeiro] Criar Despesa Sucesso', props<{ despesa: Despesa }>());
+
+export const carregarDespesas = createAction(
+  '[Financeiro] Carregar Despesas',
+  props<{ data_inicio?: string, data_fim?: string, categoria?: string }>()
+);
+export const carregarDespesasSucesso = createAction('[Financeiro] Carregar Despesas Sucesso', props<{ despesas: Despesa[] }>());
+
+export const removerDespesa = createAction('[Financeiro] Remover Despesa', props<{ despesa_id: string }>());
+export const removerDespesaSucesso = createAction('[Financeiro] Remover Despesa Sucesso', props<{ despesa_id: string }>());

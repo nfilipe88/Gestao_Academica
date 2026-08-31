@@ -1,5 +1,6 @@
-"""Schemas Pydantic do Financeiro (Contrato, Fatura, Gateway PayPal)."""
-from pydantic import BaseModel
+"""Schemas Pydantic do Financeiro (Contrato, Fatura, Gateway PayPal, Despesas)."""
+from pydantic import BaseModel, model_validator
+from datetime import date
 from decimal import Decimal
 import uuid
 
@@ -29,3 +30,24 @@ class GerarCobrancaRequest(BaseModel):
 
 class CapturarPagamentoRequest(BaseModel):
     order_id: str
+
+
+CATEGORIAS_DESPESA_VALIDAS = {"SALARIOS", "RENDA", "MATERIAL", "MANUTENCAO", "SERVICOS", "OUTRO"}
+
+
+class DespesaCreate(BaseModel):
+    categoria: str
+    descricao: str
+    valor: Decimal
+    data_despesa: date
+    forma_pagamento: str | None = None
+
+    @model_validator(mode="after")
+    def _validar(self):
+        if self.categoria not in CATEGORIAS_DESPESA_VALIDAS:
+            raise ValueError(f"categoria inválida. Use uma de: {', '.join(sorted(CATEGORIAS_DESPESA_VALIDAS))}.")
+        if not self.descricao.strip():
+            raise ValueError("descricao é obrigatória.")
+        if self.valor <= 0:
+            raise ValueError("valor tem de ser maior que zero.")
+        return self

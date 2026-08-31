@@ -1,0 +1,404 @@
+<div class="space-y-6">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Estatísticas</h2>
+    <p class="text-slate-500 text-sm">Dashboard com o estado corrente da escola e relatório filtrável por período, exportável em Excel.</p>
+  </div>
+
+  @if (erro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (despesasErro$ | async; as erro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+  }
+  @if (despesasMensagem$ | async; as mensagem) {
+    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+  }
+
+  <!-- ========================================== -->
+  <!-- DASHBOARD — estado corrente, sem filtro de datas -->
+  <!-- ========================================== -->
+  @if (dashboard$ | async; as dash) {
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Alunos matriculados</p>
+        <p class="text-3xl font-bold text-slate-800 mt-1">{{ dash.total_alunos_matriculados }}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Contratos ativos</p>
+        <p class="text-3xl font-bold text-slate-800 mt-1">{{ dash.resumo_financeiro.contratos_ativos }}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Faturas atrasadas</p>
+        <p class="text-3xl font-bold mt-1" [class.text-rose-600]="dash.resumo_financeiro.faturas_atrasadas > 0" [class.text-slate-800]="dash.resumo_financeiro.faturas_atrasadas === 0">
+          {{ dash.resumo_financeiro.faturas_atrasadas }}
+        </p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Valor total em atraso</p>
+        <p class="text-3xl font-bold mt-1" [class.text-rose-600]="dash.resumo_financeiro.valor_total_atraso > 0" [class.text-slate-800]="dash.resumo_financeiro.valor_total_atraso === 0">
+          {{ dash.resumo_financeiro.valor_total_atraso | currency:((moeda$ | async) ?? undefined) }}
+        </p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Alunos matriculados por faixa etária</h3>
+        <div class="space-y-3">
+          @for (faixa of dash.faixas_etarias; track faixa.faixa) {
+            <div>
+              <div class="flex items-center justify-between text-sm mb-1">
+                <span class="text-slate-700 font-medium">{{ faixa.faixa }} anos</span>
+                <span class="text-slate-500">{{ faixa.total }}</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2">
+                <div class="bg-blue-500 h-2 rounded-full"
+                  [style.width.%]="dash.total_alunos_matriculados ? (faixa.total / dash.total_alunos_matriculados * 100) : 0"></div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Cursos mais concorridos</h3>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-sm">
+              <th class="py-2 pr-3 font-medium">Curso</th>
+              <th class="py-2 pr-3 font-medium text-right">Matriculados</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (curso of dash.cursos_mais_concorridos; track curso.curso_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-700">{{ curso.nome_curso }}</td>
+                <td class="py-2 pr-3 text-right font-semibold text-slate-800">{{ curso.total_matriculados }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="2" class="py-4 text-center text-slate-500">Nenhum curso com matrículas ativas.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Disciplinas com maior aproveitamento</h3>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-sm">
+              <th class="py-2 pr-3 font-medium">Disciplina</th>
+              <th class="py-2 pr-3 font-medium text-right">Média</th>
+              <th class="py-2 pr-3 font-medium text-right">Notas</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (d of dash.disciplinas_maior_aproveitamento; track d.disciplina_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-700">{{ d.nome_disciplina }}</td>
+                <td class="py-2 pr-3 text-right font-semibold text-slate-800">{{ d.media }}</td>
+                <td class="py-2 pr-3 text-right text-slate-500">{{ d.total_notas }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-4 text-center text-slate-500">Ainda não há notas lançadas.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Turmas com melhores notas</h3>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-sm">
+              <th class="py-2 pr-3 font-medium">Turma</th>
+              <th class="py-2 pr-3 font-medium text-right">Média</th>
+              <th class="py-2 pr-3 font-medium text-right">Alunos</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of dash.turmas_melhores_notas; track t.turma_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-700">{{ t.nome_turma }}</td>
+                <td class="py-2 pr-3 text-right font-semibold text-slate-800">{{ t.media }}</td>
+                <td class="py-2 pr-3 text-right text-slate-500">{{ t.total_alunos_avaliados }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-4 text-center text-slate-500">Ainda não há notas lançadas.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6 md:col-span-2">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Alunos com melhores notas</h3>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-sm">
+              <th class="py-2 pr-3 font-medium">Aluno</th>
+              <th class="py-2 pr-3 font-medium text-right">Média</th>
+              <th class="py-2 pr-3 font-medium text-right">Notas</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of dash.alunos_melhores_notas; track a.aluno_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-700">{{ a.nome_aluno }}</td>
+                <td class="py-2 pr-3 text-right font-semibold text-slate-800">{{ a.media }}</td>
+                <td class="py-2 pr-3 text-right text-slate-500">{{ a.total_notas }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-4 text-center text-slate-500">Ainda não há notas lançadas.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  }
+
+  <!-- ========================================== -->
+  <!-- RELATÓRIO POR PERÍODO — filtrável e exportável -->
+  <!-- ========================================== -->
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+    <h3 class="text-lg font-semibold text-slate-800 mb-1">Relatório por período</h3>
+    <p class="text-sm text-slate-500 mb-4">Escolha um intervalo de datas para ver e exportar as estatísticas financeiras e académicas desse período.</p>
+    <div class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">De</label>
+        <input type="date" [(ngModel)]="dataInicio"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Até</label>
+        <input type="date" [(ngModel)]="dataFim"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+      </div>
+      <button type="button" (click)="onGerarRelatorio()"
+        class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer">
+        Gerar Relatório
+      </button>
+      <div class="flex-1"></div>
+      <button type="button" (click)="onExportarXlsx()"
+        class="text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer">
+        ⬇️ Exportar .xlsx
+      </button>
+      <button type="button" (click)="onExportarXls()"
+        class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer">
+        ⬇️ Exportar .xls (antigo)
+      </button>
+    </div>
+  </div>
+
+  @if (relatorio$ | async; as rel) {
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Matrículas no período</p>
+        <p class="text-3xl font-bold text-slate-800 mt-1">{{ rel.matriculas_no_periodo }}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Total de entradas</p>
+        <p class="text-3xl font-bold text-emerald-600 mt-1">{{ rel.total_entradas_periodo | currency:((moeda$ | async) ?? undefined) }}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Total de saídas</p>
+        <p class="text-3xl font-bold text-rose-600 mt-1">{{ rel.total_saidas_periodo | currency:((moeda$ | async) ?? undefined) }}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        <p class="text-sm text-slate-500">Saldo do período</p>
+        <p class="text-3xl font-bold mt-1" [class.text-emerald-600]="rel.saldo_periodo >= 0" [class.text-rose-600]="rel.saldo_periodo < 0">
+          {{ rel.saldo_periodo | currency:((moeda$ | async) ?? undefined) }}
+        </p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Pagamentos por mês</h3>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-sm">
+              <th class="py-2 pr-3 font-medium">Mês</th>
+              <th class="py-2 pr-3 font-medium text-right">Nº</th>
+              <th class="py-2 pr-3 font-medium text-right">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of rel.pagamentos_por_mes; track p.mes) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-700">{{ p.mes }}</td>
+                <td class="py-2 pr-3 text-right text-slate-500">{{ p.total_pagamentos }}</td>
+                <td class="py-2 pr-3 text-right font-semibold text-emerald-600">{{ p.valor_total | currency:((moeda$ | async) ?? undefined) }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-4 text-center text-slate-500">Sem pagamentos neste período.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Despesas por mês</h3>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-sm">
+              <th class="py-2 pr-3 font-medium">Mês</th>
+              <th class="py-2 pr-3 font-medium text-right">Nº</th>
+              <th class="py-2 pr-3 font-medium text-right">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (d of rel.despesas_por_mes; track d.mes) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-700">{{ d.mes }}</td>
+                <td class="py-2 pr-3 text-right text-slate-500">{{ d.total_despesas }}</td>
+                <td class="py-2 pr-3 text-right font-semibold text-rose-600">{{ d.valor_total | currency:((moeda$ | async) ?? undefined) }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-4 text-center text-slate-500">Sem despesas neste período.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Maiores entradas</h3>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-sm">
+              <th class="py-2 pr-3 font-medium">Aluno</th>
+              <th class="py-2 pr-3 font-medium text-right">Valor</th>
+              <th class="py-2 pr-3 font-medium">Data</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of rel.maiores_entradas; track e.fatura_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-700">{{ e.nome_aluno }}</td>
+                <td class="py-2 pr-3 text-right font-semibold text-emerald-600">{{ e.valor | currency:((moeda$ | async) ?? undefined) }}</td>
+                <td class="py-2 pr-3 text-slate-500">{{ e.data_pagamento | date:'dd/MM/yyyy' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-4 text-center text-slate-500">Sem entradas neste período.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Maiores saídas</h3>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-500 text-sm">
+              <th class="py-2 pr-3 font-medium">Categoria</th>
+              <th class="py-2 pr-3 font-medium text-right">Valor</th>
+              <th class="py-2 pr-3 font-medium">Data</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of rel.maiores_saidas; track s.despesa_id) {
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-3 text-slate-700">{{ s.categoria }} <span class="text-slate-400">— {{ s.descricao }}</span></td>
+                <td class="py-2 pr-3 text-right font-semibold text-rose-600">{{ s.valor | currency:((moeda$ | async) ?? undefined) }}</td>
+                <td class="py-2 pr-3 text-slate-500">{{ s.data_despesa | date:'dd/MM/yyyy' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="py-4 text-center text-slate-500">Sem saídas neste período.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    @if (rel.atrasos_periodo.total_faturas_atrasadas > 0) {
+      <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        {{ rel.atrasos_periodo.total_faturas_atrasadas }} fatura(s) com vencimento neste período estão atrasadas —
+        {{ rel.atrasos_periodo.valor_total_atraso | currency:((moeda$ | async) ?? undefined) }} em atraso.
+      </div>
+    }
+  }
+
+  <!-- ========================================== -->
+  <!-- DESPESAS — registo manual das saídas financeiras -->
+  <!-- ========================================== -->
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <div>
+        <h3 class="text-lg font-semibold text-slate-800">Despesas</h3>
+        <p class="text-sm text-slate-500">Registo manual das saídas financeiras da escola (salários, renda, material…).</p>
+      </div>
+      <button type="button" (click)="onAlternarFormularioDespesa()"
+        class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+        {{ mostrarFormularioDespesa ? 'Cancelar' : '+ Nova Despesa' }}
+      </button>
+    </div>
+
+    @if (mostrarFormularioDespesa) {
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 pb-4 border-b border-slate-100">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Categoria</label>
+          <select [(ngModel)]="novaDespesa.categoria" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800">
+            @for (cat of categoriasDespesa; track cat) {
+              <option [value]="cat">{{ cat }}</option>
+            }
+          </select>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Descrição</label>
+          <input type="text" [(ngModel)]="novaDespesa.descricao" placeholder="Ex: Renda de agosto"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Valor</label>
+          <input type="number" min="0" step="0.01" [(ngModel)]="novaDespesa.valor"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Data</label>
+          <input type="date" [(ngModel)]="novaDespesa.data_despesa"
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+        </div>
+        <div class="md:col-span-5">
+          <button type="button" (click)="onRegistarDespesa()"
+            class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
+            Registar Despesa
+          </button>
+        </div>
+      </div>
+    }
+
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="border-b border-slate-200 text-slate-500 text-sm">
+          <th class="py-2 pr-3 font-medium">Categoria</th>
+          <th class="py-2 pr-3 font-medium">Descrição</th>
+          <th class="py-2 pr-3 font-medium text-right">Valor</th>
+          <th class="py-2 pr-3 font-medium">Data</th>
+          <th class="py-2 pr-3 font-medium text-right">Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (d of (despesas$ | async); track d.id) {
+          <tr class="border-b border-slate-100">
+            <td class="py-2 pr-3 text-slate-700">{{ d.categoria }}</td>
+            <td class="py-2 pr-3 text-slate-600">{{ d.descricao }}</td>
+            <td class="py-2 pr-3 text-right font-semibold text-rose-600">{{ d.valor | currency:((moeda$ | async) ?? undefined) }}</td>
+            <td class="py-2 pr-3 text-slate-500">{{ d.data_despesa | date:'dd/MM/yyyy' }}</td>
+            <td class="py-2 pr-3 text-right">
+              <button type="button" (click)="onRemoverDespesa(d.id)"
+                class="text-xs text-rose-600 hover:text-rose-700 font-medium cursor-pointer">Remover</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="5" class="py-4 text-center text-slate-500">Nenhuma despesa registada.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+</div>

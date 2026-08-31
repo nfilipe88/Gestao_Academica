@@ -23,10 +23,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import Tenant
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.database.models_matricula import Matricula
-from app.database.models_financeiro import ContadorRecibo, ContratoFinanceiro, FaturaMensalidade, Recibo, TransacaoGateway
+from app.database.models_financeiro import ContadorRecibo, ContratoFinanceiro, Despesa, FaturaMensalidade, Recibo, TransacaoGateway
 from app.core.email import enviar_email, template_base
 from app.core import documentos_pdf, paypal, storage
-from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, FaturaMarcarPago, GerarCobrancaRequest
+from app.core.paginacao import paginar
+from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, DespesaCreate, FaturaMarcarPago, GerarCobrancaRequest
 from app.schemas.configuracoes import MOEDAS_PAYPAL_SUPORTADAS
 from app.cruds.admin import esta_bloqueado_parcialmente
 from app.cruds import notificacoes as crud_notificacoes
@@ -1019,3 +1020,63 @@ async def processar_webhook_paypal(db: AsyncSession, headers: dict, corpo_bruto:
         "purchase_units": [{"payments": {"captures": [{"amount": recurso.get("amount", {})}]}}]
     }
     await _efetivar_pagamento_gateway(db, transacao, captura_simulada, agendar_email)
+
+
+# ==========================================
+# DESPESAS — saídas financeiras (contrapartida das Entradas para as
+# Estatísticas, ver app/cruds/estatisticas.py)
+# ==========================================
+def _serializar_despesa(despesa: Despesa) -> dict:
+    return {
+        "id": despesa.id,
+        "categoria": despesa.categoria,
+        "descricao": despesa.descricao,
+        "valor": despesa.valor,
+        "data_despesa": despesa.data_despesa,
+        "forma_pagamento": despesa.forma_pagamento,
+        "data_criacao": despesa.data_criacao,
+    }
+
+
+async def criar_despesa(db: AsyncSession, tenant_id, usuario_id, dados: DespesaCreate) -> dict:
+    nova = Despesa(
+        tenant_id=tenant_id,
+        categoria=dados.categoria,
+        descricao=dados.descricao.strip(),
+        valor=dados.valor,
+        data_despesa=dados.data_despesa,
+        forma_pagamento=dados.forma_pagamento,
+        criado_por_usuario_id=usuario_id,
+    )
+    db.add(nova)
+    await db.commit()
+    await db.refresh(nova)
+    return _serializar_despesa(nova)
+
+
+async def listar_despesas(
+    db: AsyncSession, tenant_id, page: int, page_size: int,
+    data_inicio: date | None = None, data_fim: date | None = None, categoria: str | None = None
+) -> dict:
+    query = select(Despesa).where(Despesa.tenant_id == tenant_id)
+    if data_inicio:
+        query = query.where(Despesa.data_despesa >= data_inicio)
+    if data_fim:
+        query = query.where(Despesa.data_despesa <= data_fim)
+    if categoria:
+        query = query.where(Despesa.categoria == categoria)
+    query = query.order_by(Despesa.data_despesa.desc())
+
+    resultado = await paginar(db, query, page, page_size)
+    resultado["items"] = [_serializar_despesa(d) for d in resultado["items"]]
+    return resultado
+
+
+async def remover_despesa(db: AsyncSession, tenant_id, despesa_id: uuid.UUID) -> None:
+    despesa = (await db.execute(
+        select(Despesa).where(Despesa.id == despesa_id, Despesa.tenant_id == tenant_id)
+    )).scalars().first()
+    if not despesa:
+        raise HTTPException(status_code=404, detail="Despesa não encontrada na sua instituição.")
+    await db.delete(despesa)
+    await db.commit()

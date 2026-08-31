@@ -1,6 +1,6 @@
 import { createReducer, on } from '@ngrx/store';
 import * as FinanceiroActions from './financeiro.actions';
-import { CobrancaGerada, ContratoFinanceiro, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
+import { CobrancaGerada, ContratoFinanceiro, Despesa, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
 
 export interface FinanceiroState {
   matriculas: MatriculaResumo[];
@@ -9,6 +9,7 @@ export interface FinanceiroState {
   contratoCarregado: boolean; // distingue "ainda não pedi" de "pedi e não existe"
   faturas: FaturaMensalidade[];
   ultimaCobranca: CobrancaGerada | null; // consumida pelo componente para navegar o separador do PayPal já aberto
+  despesas: Despesa[];
   mensagem: string | null;
   erro: string | null;
 }
@@ -20,6 +21,7 @@ export const initialState: FinanceiroState = {
   contratoCarregado: false,
   faturas: [],
   ultimaCobranca: null,
+  despesas: [],
   mensagem: null,
   erro: null
 };
@@ -47,5 +49,13 @@ export const financeiroReducer = createReducer(
   on(FinanceiroActions.processarReguaCobrancaSucesso, FinanceiroActions.financeiroOperacaoSucesso,
     (state, { mensagem }) => ({ ...state, mensagem })
   ),
-  on(FinanceiroActions.financeiroOperacaoFalhou, (state, { erro }) => ({ ...state, erro }))
+  on(FinanceiroActions.financeiroOperacaoFalhou, (state, { erro }) => ({ ...state, erro })),
+
+  on(FinanceiroActions.carregarDespesasSucesso, (state, { despesas }) => ({ ...state, despesas })),
+  on(FinanceiroActions.criarDespesaSucesso, (state, { despesa }) => ({
+    ...state, despesas: [despesa, ...state.despesas]
+  })),
+  on(FinanceiroActions.removerDespesaSucesso, (state, { despesa_id }) => ({
+    ...state, despesas: state.despesas.filter(d => d.id !== despesa_id)
+  })),
 );

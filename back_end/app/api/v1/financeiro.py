@@ -1,12 +1,13 @@
 import uuid
+from datetime import date
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db, obter_sessao_db_publica
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core import fila_notificacoes
-from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, FaturaMarcarPago, GerarCobrancaRequest
+from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, DespesaCreate, FaturaMarcarPago, GerarCobrancaRequest
 from app.cruds import financeiro as crud_financeiro
 
 router = APIRouter(prefix="/api/v1/financeiro", tags=["Financeiro"])
@@ -182,3 +183,35 @@ async def webhook_paypal_pagamentos(
     corpo_json = await request.json()
     await crud_financeiro.processar_webhook_paypal(db, dict(request.headers), corpo_bruto, corpo_json, fila_notificacoes.agendar_email)
     return {"recebido": True}
+
+# ==========================================
+# DESPESAS — saídas financeiras (Gestor/Secretaria)
+# ==========================================
+@router.post("/despesas", status_code=status.HTTP_201_CREATED)
+async def criar_despesa(
+    dados: DespesaCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Lança manualmente uma saída financeira (salários, renda, material…) — ver Estatísticas para o resumo."""
+    return await crud_financeiro.criar_despesa(db, utilizador["tenant_id"], utilizador["usuario_id"], dados)
+
+@router.get("/despesas")
+async def listar_despesas(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    data_inicio: date | None = Query(None),
+    data_fim: date | None = Query(None),
+    categoria: str | None = Query(None),
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    return await crud_financeiro.listar_despesas(db, utilizador["tenant_id"], page, page_size, data_inicio, data_fim, categoria)
+
+@router.delete("/despesas/{despesa_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remover_despesa(
+    despesa_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    await crud_financeiro.remover_despesa(db, utilizador["tenant_id"], despesa_id)

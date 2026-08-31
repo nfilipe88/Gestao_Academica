@@ -71,3 +71,20 @@ export interface CobrancaGerada {
   dados_pagamento: { approve_url: string | null };
   status: string;
 }
+
+// Saídas financeiras — contrapartida das entradas (Fatura_Mensalidade
+// paga) para as Estatísticas (ver store/estatisticas). O ecrã de
+// registo vive na página de Estatísticas, mas a rota é /financeiro
+// no back-end (é dados financeiros, tal como Contrato/Fatura).
+export const CATEGORIAS_DESPESA = ['SALARIOS', 'RENDA', 'MATERIAL', 'MANUTENCAO', 'SERVICOS', 'OUTRO'] as const;
+export type CategoriaDespesa = typeof CATEGORIAS_DESPESA[number];
+
+export interface Despesa {
+  id: string;
+  categoria: CategoriaDespesa;
+  descricao: string;
+  valor: number;
+  data_despesa: string;
+  forma_pagamento: string | null;
+  data_criacao: string;
+}

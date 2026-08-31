@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, comunicacoes, configuracoes, crm, diario, documentos, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
+from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
 from fastapi import Depends
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
@@ -86,6 +86,10 @@ app.include_router(portal.router)
 app.include_router(admin.router)
 app.include_router(tarefas.router, dependencies=[Depends(exigir_modulo("Trabalhos / Tarefas"))])
 app.include_router(indicadores.router, dependencies=[Depends(exigir_modulo("Indicadores"))])
+# Sem gating de plano por agora (ao contrário de Indicadores) — decisão
+# de se isto passa a add-on premium fica para o Gestor do produto; ver
+# app/core/modulos.py::MODULOS_GATEAVEIS se/quando isso for decidido.
+app.include_router(estatisticas.router)
 app.include_router(notificacoes.router)
 app.include_router(documentos.router)
 app.include_router(transferencias.router, dependencies=[Depends(exigir_modulo("Transferências de Alunos"))])

@@ -1,8 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import * as FinanceiroActions from './financeiro.actions';
-import { CobrancaGerada, ContratoFinanceiro, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
+import { CobrancaGerada, ContratoFinanceiro, Despesa, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -172,6 +172,53 @@ export class FinanceiroEffects {
         }),
         catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível processar a régua de cobrança.'
+        })))
+      ))
+    )
+  );
+
+  criarDespesa$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(FinanceiroActions.criarDespesa),
+      switchMap(({ categoria, descricao, valor, data_despesa, forma_pagamento }) =>
+        this.http.post<Despesa>('/api/v1/financeiro/despesas', { categoria, descricao, valor, data_despesa, forma_pagamento }).pipe(
+          switchMap(despesa => [
+            FinanceiroActions.criarDespesaSucesso({ despesa }),
+            FinanceiroActions.financeiroOperacaoSucesso({ mensagem: 'Despesa registada com sucesso.' })
+          ]),
+          catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
+            erro: err.error?.detail || 'Não foi possível registar a despesa.'
+          })))
+        )
+      )
+    )
+  );
+
+  carregarDespesas$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(FinanceiroActions.carregarDespesas),
+      switchMap(({ data_inicio, data_fim, categoria }) => {
+        let params = new HttpParams().set('page_size', 100);
+        if (data_inicio) params = params.set('data_inicio', data_inicio);
+        if (data_fim) params = params.set('data_fim', data_fim);
+        if (categoria) params = params.set('categoria', categoria);
+        return this.http.get<{ items: Despesa[] }>('/api/v1/financeiro/despesas', { params }).pipe(
+          map(resp => FinanceiroActions.carregarDespesasSucesso({ despesas: resp.items })),
+          catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
+            erro: err.error?.detail || 'Não foi possível carregar as despesas.'
+          })))
+        );
+      })
+    )
+  );
+
+  removerDespesa$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(FinanceiroActions.removerDespesa),
+      switchMap(({ despesa_id }) => this.http.delete(`/api/v1/financeiro/despesas/${despesa_id}`).pipe(
+        map(() => FinanceiroActions.removerDespesaSucesso({ despesa_id })),
+        catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível remover a despesa.'
         })))
       ))
     )
