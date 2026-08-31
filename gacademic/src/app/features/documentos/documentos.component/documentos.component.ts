@@ -202,9 +202,43 @@ export class DocumentosComponent implements OnInit {
   readonly exemploSintaxeVariavel = '{{ nome_da_variavel }}';
   readonly exemploPlaceholderTemplate = '<p>Certifico que {{ aluno_nome }} estuda na turma {{ turma_nome }} no ano {{ ano_letivo }}.</p>';
 
+  // Cartão de Acesso não tem um envelope A4 fixo à volta (ver nota na
+  // página) — ao personalizar pela primeira vez, o Gestor fica com um
+  // textarea vazio e nada para começar a partir daí, ao contrário dos
+  // outros tipos (onde só o "corpo" no meio de uma carta é editável, e
+  // um parágrafo simples já chega). Pré-preencher com o layout nativo
+  // dá um ponto de partida que já se sabe funcionar — inclui o
+  // <table>/<br> em vez de vários <p>, que é o que evita o cartão sair
+  // partido a meio no xhtml2pdf (ver documentos_pdf.py).
+  readonly exemploCartaoAcesso = [
+    '<style>',
+    '  .cartao { width: 85.6mm; padding: 3mm; box-sizing: border-box; border: 0.4mm solid #2563eb; }',
+    '  table.layout { width: 100%; border-collapse: collapse; }',
+    '  table.layout td { border: none; padding: 0; vertical-align: top; }',
+    '  td.foto-col { width: 21mm; }',
+    '  td.dados-col { padding-left: 3mm; font-size: 7pt; line-height: 1.35; color: #475569; }',
+    '  .foto { width: 19mm; height: 23mm; }',
+    '  .escola-nome { font-size: 8pt; font-weight: bold; color: #2563eb; }',
+    '  .aluno-nome { font-size: 9pt; font-weight: bold; color: #1e293b; }',
+    '  .rotulo-dado { color: #94a3b8; }',
+    '</style>',
+    '<div class="cartao">',
+    '  <table class="layout"><tr>',
+    '    <td class="foto-col">{% if foto_data_uri %}<img class="foto" src="{{ foto_data_uri }}">{% endif %}</td>',
+    '    <td class="dados-col">',
+    '      <span class="escola-nome">{{ escola_nome }}</span><br>',
+    '      Cartão de Acesso<br><br>',
+    '      <span class="aluno-nome">{{ aluno_nome }}</span><br>',
+    '      <span class="rotulo-dado">Matrícula:</span> {{ matricula_interna }}<br>',
+    '      <span class="rotulo-dado">Turma:</span> {{ turma_nome or \'—\' }}',
+    '    </td>',
+    '  </tr></table>',
+    '</div>',
+  ].join('\n');
+
   onIniciarEdicaoTemplate(template: TemplateDocumento) {
     this.templateEmEdicaoTipo.set(template.tipo_documento);
-    this.corpoEmEdicao = template.corpo_html ?? '';
+    this.corpoEmEdicao = template.corpo_html ?? (template.tipo_documento === 'CARTAO_ACESSO' ? this.exemploCartaoAcesso : '');
     this.erroPreVisualizacao.set(null);
   }
 

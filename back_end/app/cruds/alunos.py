@@ -13,6 +13,7 @@ from datetime import date
 
 from app.database.models import Tenant, Usuario
 from app.database.models_academico import Turma
+from app.database.models_documentos import TemplateDocumentoPersonalizado
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoDocumento, AlunoResponsavel, FotoPerfilAluno, ResponsavelFinanceiroLegal
 from app.core import documentos_pdf, storage
@@ -422,7 +423,14 @@ async def gerar_cartao_acesso(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) 
     família (ver Solicitações de Documentos), é emitido diretamente
     pela escola sob pedido. Não bloqueia se faltar foto ou matrícula
     (mostra espaço reservado/"—") — a Secretaria pode querer emitir o
-    cartão antes de qualquer um dos dois estar pronto."""
+    cartão antes de qualquer um dos dois estar pronto.
+
+    Personalizável por escola (ver cruds/documentos.py::
+    TIPOS_DOCUMENTO_PERSONALIZAVEL) — se o tenant tiver um layout
+    próprio ativo para "CARTAO_ACESSO", é ele que desenha o cartão, não
+    o nativo. A consulta ao template é feita aqui diretamente (não via
+    cruds/documentos.py::obter_template_personalizado_ativo) para não
+    criar um import circular — documentos.py já importa este módulo."""
     aluno = await _obter_aluno(db, tenant_id, aluno_id)
     tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
 
@@ -440,6 +448,14 @@ async def gerar_cartao_acesso(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) 
     )).scalars().first()
     foto_data_uri = await storage.obter_data_uri(foto_ativa.chave_storage) if foto_ativa else None
 
+    template = (await db.execute(
+        select(TemplateDocumentoPersonalizado).where(
+            TemplateDocumentoPersonalizado.tenant_id == tenant_id,
+            TemplateDocumentoPersonalizado.tipo_documento == "CARTAO_ACESSO",
+            TemplateDocumentoPersonalizado.ativo == True,  # noqa: E712
+        )
+    )).scalars().first()
+
     escola = {
         "nome": tenant.nome_fantasia if tenant else "",
         "logo_data_uri": await storage.obter_logo_data_uri(tenant) if tenant else None,
@@ -451,4 +467,6 @@ async def gerar_cartao_acesso(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) 
         "ano_letivo": matricula_turma.ano_letivo if matricula_turma else None,
         "foto_data_uri": foto_data_uri,
     }
-    return documentos_pdf.gerar_pdf_cartao_acesso(escola, dados)
+    return documentos_pdf.gerar_pdf_cartao_acesso(
+        escola, dados, corpo_html_personalizado=template.corpo_html if template else None
+    )

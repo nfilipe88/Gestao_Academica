@@ -271,75 +271,129 @@ def gerar_pdf_documento(
 # propósito: não é um "documento" que a família pede/paga (ver
 # Solicitações de Documentos), é um crachá operacional que a escola
 # emite diretamente (ver cruds/alunos.py::gerar_cartao_acesso). Por
-# isso não usa o _ENVELOPE (folha A4, assinatura, tom de carta formal)
-# nem passa por TIPOS_DOCUMENTO/TemplateDocumentoPersonalizado — layout
-# fixo, tamanho de cartão (formato CR80, o mesmo de um cartão bancário).
+# isso não usa o _ENVELOPE (folha A4, assinatura, tom de carta formal).
+#
+# Ainda assim é PERSONALIZÁVEL por escola, tal como os documentos
+# formais (ver TemplateDocumentoPersonalizado/TIPOS_DOCUMENTO_PERSONALIZAVEL
+# em cruds/documentos.py) — cada escola desenha o seu próprio cartão.
+# Só o tamanho físico da página (_CARTAO_ENVELOPE_FIXO, formato CR80 —
+# o mesmo de um cartão bancário) fica fora do alcance do template do
+# tenant, para nunca sair um PDF que não caiba numa impressora/
+# plastificadora de cartões; todo o resto (cores, disposição, se
+# mostra ou não a foto) é livre.
 # ==========================================
-_CARTAO_ACESSO = Template("""
+_CARTAO_ENVELOPE_FIXO = Template("""
 <html>
 <head>
 <style>
   @page { size: 85.6mm 54mm; margin: 0; }
   body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; }
-  .cartao { width: 85.6mm; height: 54mm; padding: 3mm; box-sizing: border-box; border: 0.4mm solid #2563eb; }
-  table.layout { width: 100%; border-collapse: collapse; }
-  td.foto-col { width: 21mm; vertical-align: top; }
-  td.dados-col { vertical-align: top; padding-left: 3mm; }
-  .foto { width: 19mm; height: 23mm; }
-  .foto-vazia { width: 18.4mm; height: 22.4mm; border: 0.3mm dashed #cbd5e1; text-align: center; font-size: 6pt; color: #94a3b8; padding-top: 8mm; }
-  .escola-nome { font-size: 8pt; font-weight: bold; color: #2563eb; margin: 0 0 1mm 0; }
-  .rotulo-cartao { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin: 0 0 2.5mm 0; }
-  .aluno-nome { font-size: 9pt; font-weight: bold; color: #1e293b; margin: 0 0 2mm 0; }
-  .linha-dado { font-size: 7pt; color: #475569; margin: 0 0 1mm 0; }
-  .rotulo-dado { color: #94a3b8; }
-  .rodape { font-size: 5.5pt; color: #94a3b8; margin-top: 2mm; }
 </style>
 </head>
-<body>
-  <div class="cartao">
-    <table class="layout">
-      <tr>
-        <td class="foto-col">
-          {% if foto_data_uri %}
-            <img class="foto" src="{{ foto_data_uri }}">
-          {% else %}
-            <div class="foto-vazia">Sem<br>fotografia</div>
-          {% endif %}
-        </td>
-        <td class="dados-col">
-          {% if escola_logo_data_uri %}<img src="{{ escola_logo_data_uri }}" style="max-height:6mm;max-width:30mm;margin-bottom:1mm;">{% endif %}
-          <p class="escola-nome">{{ escola_nome }}</p>
-          <p class="rotulo-cartao">Cartão de Acesso</p>
-          <p class="aluno-nome">{{ aluno_nome }}</p>
-          <p class="linha-dado"><span class="rotulo-dado">Matrícula:</span> {{ matricula_interna }}</p>
-          <p class="linha-dado"><span class="rotulo-dado">Turma:</span> {{ turma_nome or '—' }}</p>
-          <p class="linha-dado"><span class="rotulo-dado">Ano letivo:</span> {{ ano_letivo or '—' }}</p>
-        </td>
-      </tr>
-    </table>
-    <p class="rodape">Emitido em {{ data_emissao }}</p>
-  </div>
-</body>
+<body>{{ corpo_html | safe }}</body>
 </html>
 """)
 
+# Layout nativo (o que sai se a escola nunca personalizar). Três
+# armadilhas do xhtml2pdf foram encontradas e contornadas ao imprimir
+# um cartão real para conferir o resultado — deixadas documentadas
+# aqui porque não são óbvias e voltam a morder se alguém "arrumar" este
+# HTML sem saber porque está assim:
+#   1) `.cartao` NUNCA pode ter `height` explícito — combinado com uma
+#      <table> lá dentro, o conteúdo a mais transborda para uma SEGUNDA
+#      página (o cartão sai partido em duas folhas) em vez de cortar.
+#      A altura de 54mm já vem do @page; a div não precisa de a repetir.
+#   2) A <table> tem de ter exatamente UMA linha (<tr>). Uma segunda
+#      linha (e até um <p> como IRMÃO da table, fora dela) faz o
+#      xhtml2pdf tratar o conteúdo como blocos separados, cada um a
+#      reaplicar sozinho o border/padding do "envelope" — o cartão sai
+#      com a moldura azul cortada a meio, como duas caixas empilhadas.
+#   3) Dentro da célula de texto, várias tags <p> (uma por linha) sofrem
+#      de um espaçamento vertical enorme que as margens/line-height por
+#      CSS não conseguem anular. A correção é escrever tudo como UM só
+#      bloco de texto com <br> a separar as linhas (em vez de <p> por
+#      linha) — problema desaparece por completo.
+# Testado com e sem foto, com e sem logótipo — ver histórico desta
+# sessão para as capturas de ecrã que motivaram cada uma destas regras.
+_CARTAO_ACESSO_CORPO_NATIVO = Template("""
+<style>
+  .cartao { width: 85.6mm; padding: 3mm; box-sizing: border-box; border: 0.4mm solid #2563eb; }
+  table.layout { width: 100%; border-collapse: collapse; }
+  table.layout td { border: none; padding: 0; vertical-align: top; }
+  td.foto-col { width: 21mm; }
+  td.dados-col { padding-left: 3mm; font-size: 7pt; line-height: 1.35; color: #475569; }
+  .foto { width: 19mm; height: 23mm; }
+  .foto-vazia {
+    display: block; width: 18.4mm; height: 22.4mm; border: 0.3mm dashed #cbd5e1; text-align: center;
+    font-size: 6pt; color: #94a3b8; padding-top: 8mm;
+  }
+  .escola-nome { font-size: 8pt; font-weight: bold; color: #2563eb; }
+  .rotulo-cartao { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; }
+  .aluno-nome { font-size: 9pt; font-weight: bold; color: #1e293b; }
+  .rotulo-dado { color: #94a3b8; }
+  .rodape { font-size: 5.5pt; color: #94a3b8; }
+</style>
+<div class="cartao">
+  <table class="layout">
+    <tr>
+      <td class="foto-col">
+        {% if foto_data_uri %}<img class="foto" src="{{ foto_data_uri }}">{% else %}<span class="foto-vazia">Sem<br>fotografia</span>{% endif %}
+      </td>
+      <td class="dados-col">
+        {% if escola_logo_data_uri %}<img src="{{ escola_logo_data_uri }}" style="max-height:6mm;max-width:30mm;"><br>{% endif %}
+        <span class="escola-nome">{{ escola_nome }}</span><br>
+        <span class="rotulo-cartao">Cartão de Acesso</span><br><br>
+        <span class="aluno-nome">{{ aluno_nome }}</span><br>
+        <span class="rotulo-dado">Matrícula:</span> {{ matricula_interna }}<br>
+        <span class="rotulo-dado">Turma:</span> {{ turma_nome or '—' }}<br>
+        <span class="rotulo-dado">Ano letivo:</span> {{ ano_letivo or '—' }}<br>
+        <span class="rodape">Emitido em {{ data_emissao }}</span>
+      </td>
+    </tr>
+  </table>
+</div>
+""")
 
-def gerar_pdf_cartao_acesso(escola: dict, dados: dict) -> bytes:
+
+def gerar_pdf_cartao_acesso(
+    escola: dict, dados: dict, corpo_html_personalizado: str | None = None, exigir_personalizado: bool = False
+) -> bytes:
     """dados: {"aluno_nome", "matricula_interna", "turma_nome" (opcional),
     "ano_letivo" (opcional), "foto_data_uri" (opcional — sem foto ativa,
-    mostra um espaço reservado em vez de bloquear a emissão)}."""
-    html = _CARTAO_ACESSO.render(
-        escola_nome=escola.get("nome") or "",
-        escola_logo_data_uri=escola.get("logo_data_uri"),
-        aluno_nome=dados.get("aluno_nome") or "",
-        matricula_interna=dados.get("matricula_interna") or "",
-        turma_nome=dados.get("turma_nome"),
-        ano_letivo=dados.get("ano_letivo"),
-        foto_data_uri=dados.get("foto_data_uri"),
-        data_emissao=date.today().strftime("%d/%m/%Y"),
-    )
+    mostra um espaço reservado em vez de bloquear a emissão)}.
+
+    corpo_html_personalizado/exigir_personalizado: mesmo contrato de
+    gerar_pdf_documento acima — False (emissão real) nunca deixa um
+    template de tenant partido bloquear o cartão, cai em silêncio para
+    o layout nativo; True (guardar/pré-visualizar, ver cruds/documentos.py)
+    propaga o erro para o Gestor poder corrigir."""
+    contexto = {
+        "escola_nome": escola.get("nome") or "",
+        "escola_logo_data_uri": escola.get("logo_data_uri"),
+        "aluno_nome": dados.get("aluno_nome") or "",
+        "matricula_interna": dados.get("matricula_interna") or "",
+        "turma_nome": dados.get("turma_nome"),
+        "ano_letivo": dados.get("ano_letivo"),
+        "foto_data_uri": dados.get("foto_data_uri"),
+        "data_emissao": date.today().strftime("%d/%m/%Y"),
+    }
+
+    corpo_html = None
+    if corpo_html_personalizado:
+        try:
+            corpo_html = renderizar_corpo_personalizado(corpo_html_personalizado, contexto)
+        except Exception:
+            if exigir_personalizado:
+                raise
+            logger.exception("Falha ao renderizar o cartão de acesso personalizado — a usar o layout nativo como reserva.")
+            corpo_html = None
+
+    if corpo_html is None:
+        corpo_html = _CARTAO_ACESSO_CORPO_NATIVO.render(**contexto)
+
+    html_final = _CARTAO_ENVELOPE_FIXO.render(corpo_html=corpo_html)
     buffer = io.BytesIO()
-    resultado = pisa.CreatePDF(io.StringIO(html), dest=buffer)
+    resultado = pisa.CreatePDF(io.StringIO(html_final), dest=buffer)
     if resultado.err:
         raise RuntimeError("Falha ao gerar o PDF do cartão de acesso.")
     return buffer.getvalue()

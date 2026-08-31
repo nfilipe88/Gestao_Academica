@@ -1,6 +1,12 @@
 // Alinhado com app/api/v1/documentos.py.
 
-export type TipoDocumento = 'CERTIFICADO' | 'DECLARACAO' | 'HISTORICO_ESCOLAR' | 'BOLETIM' | 'OUTRO';
+// CARTAO_ACESSO só existe do lado dos Layouts (TemplateDocumento) — o
+// cartão de acesso não é um documento pedido/pago pela família (não
+// aparece em PrecoDocumento nem em SolicitacaoDocumentoEmissao, ver
+// TIPOS_DOCUMENTO_PERSONALIZAVEL em app/cruds/documentos.py), mas
+// partilha o mesmo tipo aqui por simplicidade — o back-end nunca o
+// devolve nesses dois contextos.
+export type TipoDocumento = 'CERTIFICADO' | 'DECLARACAO' | 'HISTORICO_ESCOLAR' | 'BOLETIM' | 'OUTRO' | 'CARTAO_ACESSO';
 export type FormatoEntrega = 'DIGITAL' | 'FISICA';
 export type StatusSolicitacaoEmissao = 'PENDENTE_PAGAMENTO' | 'PAGO' | 'ENTREGUE' | 'CANCELADO';
 export type StatusSolicitacaoEscola = 'PENDENTE' | 'RESPONDIDO' | 'CONCLUIDO';
@@ -70,4 +76,5 @@ export const VARIAVEIS_TEMPLATE: Record<TipoDocumento, string[]> = {
   BOLETIM: ['aluno_nome', 'turma_nome', 'ano_letivo', 'notas (lista: disciplina, periodo, tipo, valor)'],
   HISTORICO_ESCOLAR: ['aluno_nome', 'numero_documento', 'data_nascimento', 'anos (lista: ano_letivo, turma_nome, status_matricula, notas)'],
   OUTRO: ['aluno_nome', 'descricao'],
+  CARTAO_ACESSO: ['aluno_nome', 'matricula_interna', 'turma_nome', 'ano_letivo', 'foto_data_uri', 'escola_nome', 'escola_logo_data_uri', 'data_emissao'],
 };

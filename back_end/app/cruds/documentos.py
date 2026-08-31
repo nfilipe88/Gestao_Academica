@@ -38,6 +38,15 @@ logger = logging.getLogger("documentos")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:4200")
 
 TIPOS_DOCUMENTO = {"CERTIFICADO", "DECLARACAO", "HISTORICO_ESCOLAR", "BOLETIM", "OUTRO"}
+# CARTAO_ACESSO é personalizável (cada escola desenha o seu próprio
+# cartão — ver cruds/alunos.py::gerar_cartao_acesso) mas DELIBERADAMENTE
+# não entra em TIPOS_DOCUMENTO: não é um documento que a família
+# pede/paga (não aparece na Tabela de Preços nem no formulário de
+# pedido de emissão do Portal, que continuam a usar só TIPOS_DOCUMENTO),
+# é um crachá que a escola emite diretamente. TIPOS_DOCUMENTO_PERSONALIZAVEL
+# existe só para a secção de Layouts (guardar/repor/pré-visualizar)
+# também o incluir.
+TIPOS_DOCUMENTO_PERSONALIZAVEL = TIPOS_DOCUMENTO | {"CARTAO_ACESSO"}
 FORMATOS_ENTREGA = {"DIGITAL", "FISICA"}
 NOMES_TIPO_DOCUMENTO = {
     "CERTIFICADO": "Certificado de Frequência",
@@ -45,6 +54,7 @@ NOMES_TIPO_DOCUMENTO = {
     "HISTORICO_ESCOLAR": "Histórico Escolar",
     "BOLETIM": "Boletim de Notas",
     "OUTRO": "Outro documento",
+    "CARTAO_ACESSO": "Cartão de Acesso",
 }
 DESTINATARIOS_ESCOLA_VALIDOS = {"ALUNO", "RESPONSAVEL", "PROFESSOR"}
 
@@ -120,6 +130,14 @@ _CONTEXTOS_AMOSTRA = {
         ],
     },
     "OUTRO": {"aluno_nome": "Maria Exemplo da Silva", "descricao": "Descrição de exemplo do documento pedido."},
+    # Forma completa do contexto que gerar_pdf_cartao_acesso monta
+    # internamente (escola_* + data_emissao incluídos) — ver
+    # app/core/documentos_pdf.py::gerar_pdf_cartao_acesso.
+    "CARTAO_ACESSO": {
+        "escola_nome": "Nome da Escola (pré-visualização)", "escola_logo_data_uri": None,
+        "aluno_nome": "Maria Exemplo da Silva", "matricula_interna": "AL2026-0342",
+        "turma_nome": "10ª A", "ano_letivo": 2026, "foto_data_uri": None, "data_emissao": "01/01/2026",
+    },
 }
 _ESCOLA_AMOSTRA = {"nome": "Nome da Escola (pré-visualização)", "razao_social": "", "nif": ""}
 
@@ -135,7 +153,8 @@ def _serializar_template(tipo: str, personalizado: TemplateDocumentoPersonalizad
 
 
 async def listar_templates(db: AsyncSession, tenant_id) -> list[dict]:
-    """Devolve os 5 tipos sempre, indicando se cada um tem (ou não) um layout próprio ativo."""
+    """Devolve os tipos personalizáveis sempre (os 5 documentos formais +
+    o Cartão de Acesso), indicando se cada um tem (ou não) um layout próprio ativo."""
     existentes = {
         t.tipo_documento: t
         for t in (await db.execute(
@@ -144,12 +163,12 @@ async def listar_templates(db: AsyncSession, tenant_id) -> list[dict]:
             )
         )).scalars().all()
     }
-    return [_serializar_template(tipo, existentes.get(tipo)) for tipo in sorted(TIPOS_DOCUMENTO)]
+    return [_serializar_template(tipo, existentes.get(tipo)) for tipo in sorted(TIPOS_DOCUMENTO_PERSONALIZAVEL)]
 
 
 async def guardar_template(db: AsyncSession, tenant_id, usuario_id, tipo_documento: str, dados: TemplateDocumentoUpdate) -> dict:
-    if tipo_documento not in TIPOS_DOCUMENTO:
-        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO))}.")
+    if tipo_documento not in TIPOS_DOCUMENTO_PERSONALIZAVEL:
+        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO_PERSONALIZAVEL))}.")
     if not dados.corpo_html or not dados.corpo_html.strip():
         raise HTTPException(status_code=400, detail="O layout não pode estar vazio.")
 
@@ -184,8 +203,8 @@ async def guardar_template(db: AsyncSession, tenant_id, usuario_id, tipo_documen
 
 
 async def repor_template_padrao(db: AsyncSession, tenant_id, tipo_documento: str) -> dict:
-    if tipo_documento not in TIPOS_DOCUMENTO:
-        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO))}.")
+    if tipo_documento not in TIPOS_DOCUMENTO_PERSONALIZAVEL:
+        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO_PERSONALIZAVEL))}.")
 
     existente = (await db.execute(
         select(TemplateDocumentoPersonalizado).where(
@@ -199,9 +218,17 @@ async def repor_template_padrao(db: AsyncSession, tenant_id, tipo_documento: str
 
 
 async def pre_visualizar_template(db: AsyncSession, tenant_id, tipo_documento: str, dados: TemplateDocumentoPreview) -> bytes:
-    if tipo_documento not in TIPOS_DOCUMENTO:
-        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO))}.")
+    if tipo_documento not in TIPOS_DOCUMENTO_PERSONALIZAVEL:
+        raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO_PERSONALIZAVEL))}.")
     try:
+        # Cartão de Acesso tem o seu próprio gerador (formato cartão
+        # CR80, não a folha A4 formal — ver app/core/documentos_pdf.py),
+        # com uma assinatura diferente de gerar_pdf_documento.
+        if tipo_documento == "CARTAO_ACESSO":
+            amostra = _CONTEXTOS_AMOSTRA["CARTAO_ACESSO"]
+            return documentos_pdf.gerar_pdf_cartao_acesso(
+                _ESCOLA_AMOSTRA, amostra, corpo_html_personalizado=dados.corpo_html, exigir_personalizado=True
+            )
         return documentos_pdf.gerar_pdf_documento(
             tipo_documento, _ESCOLA_AMOSTRA, _CONTEXTOS_AMOSTRA[tipo_documento],
             corpo_html_personalizado=dados.corpo_html, exigir_personalizado=True
