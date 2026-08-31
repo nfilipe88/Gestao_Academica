@@ -1,8 +1,14 @@
 <div class="space-y-6">
 
-  <div>
-    <h2 class="text-2xl font-bold text-slate-800">Indicadores</h2>
-    <p class="text-slate-500 text-sm">Visão executiva da instituição — ocupação, desempenho, financeiro e CRM.</p>
+  <div class="flex items-start justify-between flex-wrap gap-2">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-800">Indicadores</h2>
+      <p class="text-slate-500 text-sm">Visão executiva da instituição — ocupação, desempenho, financeiro e CRM.</p>
+    </div>
+    <button type="button" (click)="onExportarRelatorioPdf()"
+      class="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
+      📄 Relatório (PDF)
+    </button>
   </div>
 
   @if (erro$ | async; as erro) {
@@ -172,7 +178,13 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
-      <h3 class="text-lg font-semibold text-slate-800">Risco de Evasão</h3>
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <h3 class="text-lg font-semibold text-slate-800">Risco de Evasão</h3>
+        <button type="button" (click)="onExportarRiscoEvasaoCsv()"
+          class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer shrink-0">
+          ⬇️ Exportar CSV
+        </button>
+      </div>
       <p class="text-sm text-slate-500 mb-4">Pontuação por regras a partir de três sinais já registados na plataforma — faltas, queda no rendimento e mensalidades em atraso. Não é um modelo de IA: cada fator listado explica exatamente de onde veio a pontuação.</p>
       <table class="w-full text-left border-collapse">
         <thead>

@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
@@ -20,6 +20,33 @@ async def obter_indicadores(
 ):
     """Painel de indicadores (BI): ocupação de vagas, desempenho por turma, inadimplência/receita, funil do CRM e resumo de risco de evasão."""
     return await crud_indicadores.obter_indicadores(db, utilizador["tenant_id"])
+
+
+@router.get("/relatorio.pdf")
+async def obter_relatorio_pdf(
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Fotografia completa do painel em PDF, pronta a imprimir/arquivar."""
+    pdf_bytes = await crud_indicadores.gerar_pdf_relatorio(db, utilizador["tenant_id"])
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="relatorio-indicadores.pdf"'}
+    )
+
+
+@router.get("/risco-evasao/exportar.csv")
+async def exportar_risco_evasao_csv(
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """CSV da lista de Risco de Evasão, uma linha por aluno — para levar
+    para Excel/Google Sheets."""
+    csv_texto = await crud_indicadores.gerar_csv_risco_evasao(db, utilizador["tenant_id"])
+    return Response(
+        content=csv_texto.encode("utf-8"), media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="risco-evasao.csv"'}
+    )
 
 
 @router.get("/risco-evasao")

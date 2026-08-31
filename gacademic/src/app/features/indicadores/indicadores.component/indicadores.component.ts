@@ -1,11 +1,13 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Store } from '@ngrx/store';
 import { carregarIndicadores, carregarRiscoEvasao, gerarTrilhaRecuperacao } from '../../../store/indicadores/indicadores.actions';
 import {
   selectAGerarTrilhaPorMatricula, selectAlunosEmRisco, selectIndicadores, selectIndicadoresError, selectTrilhasPorMatricula
 } from '../../../store/indicadores/indicadores.selector';
 import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
+import { abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
 
 @Component({
   selector: 'app-indicadores.component',
@@ -15,6 +17,7 @@ import { selectMoeda } from '../../../store/configuracoes/configuracoes.selector
 })
 export class IndicadoresComponent implements OnInit {
   private store = inject(Store);
+  private http = inject(HttpClient);
 
   indicadores$ = this.store.select(selectIndicadores);
   alunosEmRisco$ = this.store.select(selectAlunosEmRisco);
@@ -26,6 +29,25 @@ export class IndicadoresComponent implements OnInit {
   ngOnInit() {
     this.store.dispatch(carregarIndicadores());
     this.store.dispatch(carregarRiscoEvasao());
+  }
+
+  // "Relatório" (PDF) — abre numa aba nova, como qualquer outro PDF da
+  // app (mesmo padrão do Cartão de Acesso/Recibo). "Exportar CSV" —
+  // não faz sentido "abrir" um CSV numa aba, por isso nunca pré-abre
+  // janela nenhuma: abrirOuTransferirBlob(null, ...) vai direto ao
+  // download forçado via <a>.
+  onExportarRelatorioPdf() {
+    const aba = window.open('', '_blank');
+    this.http.get('/api/v1/indicadores/relatorio.pdf', { responseType: 'blob' }).subscribe({
+      next: (blob) => abrirOuTransferirBlob(aba, blob, 'relatorio-indicadores.pdf'),
+      error: () => { if (aba) aba.close(); }
+    });
+  }
+
+  onExportarRiscoEvasaoCsv() {
+    this.http.get('/api/v1/indicadores/risco-evasao/exportar.csv', { responseType: 'blob' }).subscribe({
+      next: (blob) => abrirOuTransferirBlob(null, blob, 'risco-evasao.csv'),
+    });
   }
 
   onGerarTrilha(matriculaId: string) {

@@ -8,6 +8,8 @@ lógica reaproveitada de outro módulo é o cálculo de juros/multa
 (calcular_situacao_fatura, de cruds/financeiro.py), para não duplicar
 essa RN aqui — todo o resto é apenas agregação (COUNT/AVG/SUM).
 """
+import csv
+import io
 from datetime import date
 from decimal import Decimal
 
@@ -16,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import HTTPException
 
+from app.database.models import Tenant
 from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turma
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno
@@ -24,7 +27,7 @@ from app.database.models_diario import Avaliacao, NotaAvaliacao, RegistroFrequen
 from app.database.models_crm import FunilEtapa, LeadCandidato, OportunidadeCRM
 from app.database.models_bi import TrilhaRecuperacao
 from app.cruds import financeiro as crud_financeiro
-from app.core import prof_virtual
+from app.core import documentos_pdf, prof_virtual, storage
 
 
 # ==========================================
@@ -384,6 +387,59 @@ async def obter_indicadores(db: AsyncSession, tenant_id) -> dict:
             "total_baixo": sum(1 for r in risco_evasao if r["nivel_risco"] == "BAIXO"),
         },
     }
+
+
+# ==========================================
+# J. RELATÓRIO (PDF) E EXPORTAÇÃO (CSV)
+# ==========================================
+async def gerar_pdf_relatorio(db: AsyncSession, tenant_id) -> bytes:
+    """Fotografia completa do painel em PDF (A4) — reaproveita
+    obter_indicadores/obter_risco_evasao tal-e-qual, só achata os
+    dicionários aninhados (academico/financeiro/crm) num único
+    contexto, porque o template não precisa de repetir esses prefixos.
+    Não é personalizável por escola (ver documentos_pdf.py) — é um
+    relatório de gestão interna, não um documento com a identidade da
+    escola que a família vê."""
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+    dados = await obter_indicadores(db, tenant_id)
+    risco_evasao = await obter_risco_evasao(db, tenant_id)
+
+    contexto = {
+        **dados["academico"],
+        **dados["financeiro"],
+        **dados["crm"],
+        "funil_crm": dados["crm"]["funil"],
+        "desempenho_por_turma": dados["desempenho_por_turma"],
+        "eficiencia_por_objetivo": dados["eficiencia_por_objetivo"],
+        "risco_total_alto": dados["risco_evasao_resumo"]["total_alto"],
+        "risco_evasao": risco_evasao,
+        "moeda": tenant.moeda if tenant else "",
+    }
+    escola = {
+        "nome": tenant.nome_fantasia if tenant else "",
+        "logo_data_uri": await storage.obter_logo_data_uri(tenant) if tenant else None,
+    }
+    return documentos_pdf.gerar_pdf_relatorio_indicadores(escola, contexto)
+
+
+async def gerar_csv_risco_evasao(db: AsyncSession, tenant_id) -> str:
+    """CSV da lista de Risco de Evasão — a secção mais "tabular" do
+    painel (uma linha por aluno), a que mais vale a pena levar para
+    Excel/Google Sheets para filtrar/partilhar com a equipa pedagógica.
+    utf-8-sig (BOM) para o Excel abrir acentos corretamente sem o
+    utilizador ter de escolher a codificação manualmente."""
+    linhas = await obter_risco_evasao(db, tenant_id)
+    buffer = io.StringIO()
+    escritor = csv.writer(buffer)
+    escritor.writerow(["Aluno", "Turma", "Nível de risco", "Pontuação", "Fatores", "Taxa de faltas (%)", "Média de notas", "Mensalidades em atraso"])
+    for linha in linhas:
+        escritor.writerow([
+            linha["nome_aluno"], linha["nome_turma"], linha["nivel_risco"], linha["pontuacao_risco"],
+            "; ".join(linha["fatores"]), linha["taxa_falta"],
+            linha["media_notas"] if linha["media_notas"] is not None else "",
+            linha["mensalidades_em_atraso"],
+        ])
+    return "﻿" + buffer.getvalue()
 
 
 # ==========================================

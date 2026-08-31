@@ -397,3 +397,153 @@ def gerar_pdf_cartao_acesso(
     if resultado.err:
         raise RuntimeError("Falha ao gerar o PDF do cartão de acesso.")
     return buffer.getvalue()
+
+
+# ==========================================
+# RELATÓRIO DE INDICADORES (BI) — folha A4 normal, sem restrição de
+# tamanho como o cartão (nem os problemas de renderização que isso
+# trazia, ver acima): é o mesmo tipo de tabela HTML simples já provado
+# a funcionar bem no Histórico Escolar em app/cruds/documentos.py, só
+# que aqui várias secções em vez de uma. Não personalizável por escola
+# de propósito — é um relatório de gestão interna, não um documento com
+# a identidade da escola que a família vê (ver cruds/indicadores.py::
+# gerar_pdf_relatorio); não passa por TIPOS_DOCUMENTO/
+# TemplateDocumentoPersonalizado.
+# ==========================================
+_RELATORIO_INDICADORES = Template("""
+<html>
+<head>
+<style>
+  @page { size: A4; margin: 2cm; }
+  body { font-family: Helvetica, Arial, sans-serif; color: #1e293b; font-size: 10pt; line-height: 1.5; }
+  .cabecalho { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px; margin-bottom: 20px; }
+  .cabecalho img.logotipo { max-height: 50px; max-width: 180px; margin-bottom: 6px; }
+  .cabecalho h1 { color: #2563eb; font-size: 15pt; margin: 0 0 3px 0; }
+  .cabecalho p { color: #64748b; font-size: 8pt; margin: 0; }
+  h2.secao { font-size: 11pt; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin: 18px 0 8px 0; }
+  table.dados { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  table.dados th, table.dados td { border: 1px solid #cbd5e1; padding: 5px 7px; font-size: 8.5pt; text-align: left; }
+  table.dados th { background: #f1f5f9; }
+  table.kpis { width: 100%; border-collapse: collapse; }
+  table.kpis td { border: none; padding: 5px 14px 5px 0; font-size: 9pt; }
+  table.kpis td.rotulo { color: #64748b; white-space: nowrap; }
+  table.kpis td.valor { font-weight: bold; font-size: 11pt; color: #1e293b; }
+  .legenda { font-size: 8pt; color: #64748b; margin: 0 0 10px 0; }
+  .rodape { position: fixed; bottom: -1.3cm; left: 0; right: 0; text-align: center; font-size: 7pt; color: #94a3b8; }
+</style>
+</head>
+<body>
+  <div class="cabecalho">
+    {% if escola_logo_data_uri %}<img class="logotipo" src="{{ escola_logo_data_uri }}">{% endif %}
+    <h1>{{ escola_nome }}</h1>
+    <p>Relatório de Indicadores — gerado em {{ data_emissao }}</p>
+  </div>
+
+  <h2 class="secao">Resumo</h2>
+  <table class="kpis">
+    <tr>
+      <td class="rotulo">Alunos ativos</td><td class="valor">{{ total_alunos_ativos }}</td>
+      <td class="rotulo">Ocupação de vagas</td><td class="valor">{{ taxa_ocupacao_geral }}%</td>
+    </tr>
+    <tr>
+      <td class="rotulo">Inadimplência</td><td class="valor">{{ taxa_inadimplencia }}%</td>
+      <td class="rotulo">Receita do mês</td><td class="valor">{{ receita_recebida_mes_atual }} {{ moeda }}</td>
+    </tr>
+    <tr>
+      <td class="rotulo">Conversão CRM</td><td class="valor">{{ taxa_conversao }}%</td>
+      <td class="rotulo">Risco de evasão alto</td><td class="valor">{{ risco_total_alto }}</td>
+    </tr>
+  </table>
+
+  <h2 class="secao">Ocupação por turma</h2>
+  <table class="dados">
+    <tr><th>Turma</th><th>Matriculados</th><th>Vagas</th><th>Ocupação</th></tr>
+    {% for t in ocupacao_por_turma %}
+    <tr><td>{{ t.nome_turma }}</td><td>{{ t.matriculados }}</td><td>{{ t.vagas_maximas }}</td><td>{{ t.taxa_ocupacao }}%</td></tr>
+    {% else %}
+    <tr><td colspan="4">Nenhuma turma registada.</td></tr>
+    {% endfor %}
+  </table>
+
+  <h2 class="secao">Desempenho médio por turma</h2>
+  <table class="dados">
+    <tr><th>Turma</th><th>Média</th><th>Alunos avaliados</th></tr>
+    {% for t in desempenho_por_turma %}
+    <tr><td>{{ t.nome_turma }}</td><td>{{ t.media if t.media is not none else '—' }}</td><td>{{ t.total_alunos_avaliados }}</td></tr>
+    {% else %}
+    <tr><td colspan="3">Ainda não há notas lançadas.</td></tr>
+    {% endfor %}
+  </table>
+
+  <h2 class="secao">Financeiro</h2>
+  <table class="kpis">
+    <tr>
+      <td class="rotulo">Faturas em aberto</td><td class="valor">{{ total_faturas_em_aberto }}</td>
+      <td class="rotulo">Faturas atrasadas</td><td class="valor">{{ total_faturas_atrasadas }}</td>
+    </tr>
+    <tr>
+      <td class="rotulo">Valor total em atraso</td><td class="valor">{{ valor_total_em_atraso }} {{ moeda }}</td>
+      <td class="rotulo">Contratos ativos</td><td class="valor">{{ total_contratos_ativos }}</td>
+    </tr>
+  </table>
+
+  <h2 class="secao">Funil do CRM</h2>
+  <table class="dados">
+    <tr><th>Etapa</th><th>Total</th><th>Ganho?</th></tr>
+    {% for e in funil_crm %}
+    <tr><td>{{ e.nome_etapa }}</td><td>{{ e.total }}</td><td>{{ 'Sim' if e.eh_etapa_ganho else '—' }}</td></tr>
+    {% else %}
+    <tr><td colspan="3">Nenhuma etapa configurada.</td></tr>
+    {% endfor %}
+  </table>
+  <p class="legenda">{{ total_leads }} lead(s) no total · {{ total_convertidos }} convertido(s)</p>
+
+  <h2 class="secao">Eficiência por Objetivo de Aprendizagem</h2>
+  <table class="dados">
+    <tr><th>Disciplina</th><th>Objetivo</th><th>Média objetivo</th><th>Média disciplina</th><th>Notas</th></tr>
+    {% for o in eficiencia_por_objetivo %}
+    <tr>
+      <td>{{ o.nome_disciplina }}</td>
+      <td>{{ o.nome_objetivo }}{% if o.abaixo_da_media %} (abaixo da média){% endif %}</td>
+      <td>{{ o.media_objetivo }}</td>
+      <td>{{ o.media_disciplina if o.media_disciplina is not none else '—' }}</td>
+      <td>{{ o.total_notas }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">Ainda não há avaliações ligadas a um objetivo de aprendizagem.</td></tr>
+    {% endfor %}
+  </table>
+
+  <h2 class="secao">Risco de Evasão</h2>
+  <p class="legenda">Pontuação por regras a partir de faltas, queda no rendimento e mensalidades em atraso — não é um modelo de IA.</p>
+  <table class="dados">
+    <tr><th>Aluno</th><th>Turma</th><th>Nível</th><th>Pontuação</th><th>Fatores</th></tr>
+    {% for a in risco_evasao %}
+    <tr><td>{{ a.nome_aluno }}</td><td>{{ a.nome_turma }}</td><td>{{ a.nivel_risco }}</td><td>{{ a.pontuacao_risco }}</td><td>{{ a.fatores | join(', ') }}</td></tr>
+    {% else %}
+    <tr><td colspan="5">Nenhum aluno com sinais de risco no momento.</td></tr>
+    {% endfor %}
+  </table>
+
+  <div class="rodape">Relatório gerado eletronicamente em {{ data_emissao }} — SaaS Gestão Académica</div>
+</body>
+</html>
+""")
+
+
+def gerar_pdf_relatorio_indicadores(escola: dict, contexto: dict) -> bytes:
+    """escola: {"nome", "logo_data_uri"}. contexto: ver
+    cruds/indicadores.py::gerar_pdf_relatorio para a forma completa
+    (achatada — sem aninhamento "academico"/"financeiro"/"crm" como no
+    payload da API, para o template não precisar de repetir prefixos)."""
+    html = _RELATORIO_INDICADORES.render(
+        escola_nome=escola.get("nome") or "",
+        escola_logo_data_uri=escola.get("logo_data_uri"),
+        data_emissao=date.today().strftime("%d/%m/%Y"),
+        **contexto,
+    )
+    buffer = io.BytesIO()
+    resultado = pisa.CreatePDF(io.StringIO(html), dest=buffer)
+    if resultado.err:
+        raise RuntimeError("Falha ao gerar o PDF do relatório de indicadores.")
+    return buffer.getvalue()
