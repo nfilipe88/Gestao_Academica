@@ -90,6 +90,14 @@ export class PortalComponent implements OnInit {
   dias = DIAS_DA_SEMANA;
 
   educandoSelecionadoId: string | null = null;
+  // Os separadores deixaram de ser um tab-bar dentro da página — agora
+  // são entradas próprias no menu lateral (ver dashboard-layout.component.html),
+  // todas apontando para /portal com um query param ?tab= diferente.
+  // Continuam a partilhar a MESMA instância do componente (mesma rota,
+  // só o query param muda), por isso o educando selecionado e os dados
+  // já carregados sobrevivem a trocar de separador — só este campo
+  // precisa de acompanhar a URL, feito abaixo em ngOnInit.
+  readonly ABAS_VALIDAS = ['dashboard', 'horario', 'boletim', 'trabalhos', 'materiais', 'exames', 'financeiro', 'documentos', 'comunicados'] as const;
   aba: 'dashboard' | 'horario' | 'boletim' | 'trabalhos' | 'materiais' | 'exames' | 'financeiro' | 'documentos' | 'comunicados' = 'dashboard';
 
   // Rematrícula self-service — estado local do pedido em curso, para o
@@ -147,6 +155,20 @@ export class PortalComponent implements OnInit {
     this.store.dispatch(DocumentosActions.carregarMinhasSolicitacoesEmissao());
     this.store.dispatch(DocumentosActions.carregarMinhasSolicitacoesEscola());
 
+    // Separador ativo acompanha o query param ?tab= — agora que os
+    // separadores são entradas do menu lateral (routerLink para /portal
+    // com um ?tab= diferente cada), em vez de um tab-bar dentro da
+    // página. Subscrição (não só o snapshot inicial) porque a mesma
+    // instância do componente fica viva ao navegar entre separadores
+    // (mesma rota, só o query param muda) — isto também cobre o valor
+    // inicial, já que ActivatedRoute.queryParamMap emite logo ao
+    // subscrever.
+    this.route.queryParamMap.subscribe(qp => {
+      const tabAtual = qp.get('tab');
+      this.aba = (tabAtual && (this.ABAS_VALIDAS as readonly string[]).includes(tabAtual))
+        ? tabAtual as typeof this.aba : 'dashboard';
+    });
+
     // Depois do PayPal redirecionar de volta (return_url gerado em
     // POST /financeiro/faturas/{id}/gerar-cobranca ou em
     // POST /documentos/solicitacoes/{id}/gerar-cobranca, apontados para
@@ -161,9 +183,6 @@ export class PortalComponent implements OnInit {
 
     if (alunoId) {
       this.onSelecionarEducando(alunoId);
-    }
-    if (tab === 'documentos') {
-      this.aba = 'documentos';
     }
     if (retorno === 'sucesso' && token && tab === 'documentos') {
       this.store.dispatch(DocumentosActions.capturarPagamentoDocumento({ order_id: token }));
@@ -180,7 +199,11 @@ export class PortalComponent implements OnInit {
       });
     }
     if (retorno) {
-      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+      // Limpa aluno_id/paypal_retorno/token da URL (já foram lidos
+      // acima), mas preserva o separador — sem isto, a navegação para
+      // "limpar" a URL fazia a subscrição do tab acima recuar para
+      // "dashboard" logo a seguir a mostrar corretamente "documentos".
+      this.router.navigate([], { relativeTo: this.route, queryParams: tab === 'documentos' ? { tab: 'documentos' } : {}, replaceUrl: true });
     }
   }
 

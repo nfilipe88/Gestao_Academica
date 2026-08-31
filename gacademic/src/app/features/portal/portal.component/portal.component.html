@@ -105,63 +105,6 @@
       </div>
     }
 
-    <div class="flex gap-1 border-b border-slate-200 overflow-x-auto">
-      <button type="button" (click)="aba = 'dashboard'"
-        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer whitespace-nowrap"
-        [class.border-blue-600]="aba === 'dashboard'" [class.text-blue-600]="aba === 'dashboard'"
-        [class.border-transparent]="aba !== 'dashboard'" [class.text-slate-500]="aba !== 'dashboard'">
-        Dashboard
-      </button>
-      <button type="button" (click)="aba = 'horario'"
-        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
-        [class.border-blue-600]="aba === 'horario'" [class.text-blue-600]="aba === 'horario'"
-        [class.border-transparent]="aba !== 'horario'" [class.text-slate-500]="aba !== 'horario'">
-        Horário
-      </button>
-      <button type="button" (click)="aba = 'boletim'"
-        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
-        [class.border-blue-600]="aba === 'boletim'" [class.text-blue-600]="aba === 'boletim'"
-        [class.border-transparent]="aba !== 'boletim'" [class.text-slate-500]="aba !== 'boletim'">
-        Boletim
-      </button>
-      <button type="button" (click)="aba = 'trabalhos'"
-        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
-        [class.border-blue-600]="aba === 'trabalhos'" [class.text-blue-600]="aba === 'trabalhos'"
-        [class.border-transparent]="aba !== 'trabalhos'" [class.text-slate-500]="aba !== 'trabalhos'">
-        Trabalhos
-      </button>
-      <button type="button" (click)="aba = 'materiais'"
-        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
-        [class.border-blue-600]="aba === 'materiais'" [class.text-blue-600]="aba === 'materiais'"
-        [class.border-transparent]="aba !== 'materiais'" [class.text-slate-500]="aba !== 'materiais'">
-        Materiais
-      </button>
-      <button type="button" (click)="aba = 'exames'"
-        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
-        [class.border-blue-600]="aba === 'exames'" [class.text-blue-600]="aba === 'exames'"
-        [class.border-transparent]="aba !== 'exames'" [class.text-slate-500]="aba !== 'exames'">
-        Exames
-      </button>
-      <button type="button" (click)="aba = 'financeiro'"
-        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
-        [class.border-blue-600]="aba === 'financeiro'" [class.text-blue-600]="aba === 'financeiro'"
-        [class.border-transparent]="aba !== 'financeiro'" [class.text-slate-500]="aba !== 'financeiro'">
-        Financeiro
-      </button>
-      <button type="button" (click)="aba = 'documentos'"
-        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer"
-        [class.border-blue-600]="aba === 'documentos'" [class.text-blue-600]="aba === 'documentos'"
-        [class.border-transparent]="aba !== 'documentos'" [class.text-slate-500]="aba !== 'documentos'">
-        Documentos
-      </button>
-      <button type="button" (click)="aba = 'comunicados'"
-        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer whitespace-nowrap"
-        [class.border-blue-600]="aba === 'comunicados'" [class.text-blue-600]="aba === 'comunicados'"
-        [class.border-transparent]="aba !== 'comunicados'" [class.text-slate-500]="aba !== 'comunicados'">
-        Comunicados
-      </button>
-    </div>
-
     @if (aba === 'dashboard') {
       <div class="space-y-4">
 

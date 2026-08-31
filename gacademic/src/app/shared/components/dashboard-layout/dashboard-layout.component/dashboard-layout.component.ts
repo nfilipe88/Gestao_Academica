@@ -1,6 +1,6 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { IsActiveMatchOptions, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { logout } from '../../../../store/auth/auth.actions';
 import { selectIsAlunoOuResponsavel, selectIsGestor, selectIsGestorOuSecretaria, selectIsSuperAdmin } from '../../../../store/auth/auth.selectors';
 import { carregarConfiguracao } from '../../../../store/configuracoes/configuracoes.actions';
@@ -21,6 +21,13 @@ export class DashboardLayoutComponent implements OnInit {
   isSuperAdmin$ = this.store.select(selectIsSuperAdmin);
 
   sidebarColapsada = false;
+
+  // Separadores do Portal (Dashboard/Horário/Boletim/...) viraram
+  // entradas próprias do menu, todas apontando à mesma rota /portal
+  // com um ?tab= diferente — precisa de comparar também os query
+  // params (não só o caminho) para destacar a entrada certa, ao
+  // contrário do resto do menu que só usa {exact:true}.
+  readonly opcoesAtivasPortal: IsActiveMatchOptions = { paths: 'exact', queryParams: 'exact', fragment: 'ignored', matrixParams: 'ignored' };
 
   // Menu em telemóvel: gaveta escondida por omissão (< md), sem
   // relação com sidebarColapsada (que só faz sentido em ecrã largo —
