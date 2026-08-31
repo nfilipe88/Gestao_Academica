@@ -30,7 +30,11 @@ export class ContactoComponent {
     this.erro.set(null);
     this.http.post('/api/v1/public/tickets', this.contactoForm.getRawValue()).subscribe({
       next: () => { this.aEnviar.set(false); this.enviado.set(true); },
-      error: (err) => { this.aEnviar.set(false); this.erro.set(err.error?.detail || 'Não foi possível enviar a sua mensagem. Tente novamente.'); }
+      error: (err) => {
+        this.aEnviar.set(false);
+        const detail = err.error?.detail;
+        this.erro.set(typeof detail === 'string' ? detail : 'Não foi possível enviar a sua mensagem. Tente novamente.');
+      }
     });
   }
 }

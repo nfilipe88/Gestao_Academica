@@ -60,7 +60,8 @@ export class SuporteVirtualWidgetComponent {
         this.aProcessar.set(false);
       },
       error: (err) => {
-        this.erro.set(err.error?.detail || 'Não foi possível responder agora. Tente novamente ou use a página de Contacto.');
+        const detail = err.error?.detail;
+        this.erro.set(typeof detail === 'string' ? detail : 'Não foi possível responder agora. Tente novamente ou use a página de Contacto.');
         this.aProcessar.set(false);
       }
     });

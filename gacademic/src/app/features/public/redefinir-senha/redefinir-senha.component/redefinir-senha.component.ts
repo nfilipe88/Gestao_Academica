@@ -57,7 +57,8 @@ export class RedefinirSenhaComponent {
       },
       error: (err) => {
         this.aEnviar.set(false);
-        this.erro.set(err.error?.detail || 'Não foi possível redefinir a palavra-passe. Tente novamente.');
+        const detail = err.error?.detail;
+        this.erro.set(typeof detail === 'string' ? detail : 'Não foi possível redefinir a palavra-passe. Tente novamente.');
       }
     });
   }

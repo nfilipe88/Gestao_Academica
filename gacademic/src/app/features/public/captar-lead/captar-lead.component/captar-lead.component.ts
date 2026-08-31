@@ -44,7 +44,10 @@ export class CaptarLeadComponent {
     this.erro.set(null);
     this.http.post(`/api/v1/public/${this.tenantId}/leads`, this.leadForm.value).subscribe({
       next: () => { this.enviado.set(true); },
-      error: (err) => { this.erro.set(err.error?.detail || 'Não foi possível enviar o seu pedido. Tente novamente.'); }
+      error: (err) => {
+        const detail = err.error?.detail;
+        this.erro.set(typeof detail === 'string' ? detail : 'Não foi possível enviar o seu pedido. Tente novamente.');
+      }
     });
   }
 }

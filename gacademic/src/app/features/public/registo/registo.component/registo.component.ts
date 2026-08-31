@@ -31,7 +31,10 @@ export class RegistoComponent {
             alert('Instituição criada com sucesso! Redirecionando para o login.');
             this.router.navigate(['/login']);
           },
-          error: (err) => alert(err.error?.detail || 'Erro ao efetuar registo.')
+          error: (err) => {
+            const detail = err.error?.detail;
+            alert(typeof detail === 'string' ? detail : 'Erro ao efetuar registo.');
+          }
         });
     }
   }
