@@ -3,6 +3,7 @@ import re
 
 from main import app
 from tests.conftest import auth_headers, criar_escola_e_gestor
+from tests.test_comportamento import _criar_professor_com_token
 
 
 async def test_login_com_credenciais_corretas_devolve_token(client):
@@ -54,19 +55,30 @@ def _rotas_admin() -> list[tuple[str, str]]:
     return rotas
 
 
-async def test_rbac_bloqueia_gestor_de_todas_as_rotas_admin(client):
-    """Nenhuma rota de /admin pode ser acedida por um Gestor — cobre TODAS
-    as rotas registadas (descobertas via introspeção da app, não uma
-    lista escrita à mão), incluindo as de Estatísticas/Despesas
-    cross-tenant acrescentadas para o Super Admin. Confirmado à parte
-    que o RBAC (Depends(exigir_perfil(...))) é resolvido antes da
-    validação do corpo/query — um corpo vazio ou UUID inventado no path
+async def _criar_secretaria_com_token(client, headers_gestor: dict, nif: str) -> str:
+    """Mesmo caminho de test_permissoes.py::test_secretaria_nao_acede_ao_mapa_de_permissoes
+    — cria a conta via o Gestor (único caminho real, não há auto-registo
+    de Secretaria) e devolve já o token de login dela."""
+    email = f"sec.{nif}@teste.pt"
+    resp = await client.post("/api/v1/usuarios/secretaria", headers=headers_gestor, json={
+        "nome_completo": "Secretaria RBAC", "email": email, "palavra_passe": "SenhaTeste123!"
+    })
+    assert resp.status_code == 201, resp.text
+    resp_login = await client.post("/api/v1/auth/login", data={"username": email, "password": "SenhaTeste123!"})
+    assert resp_login.status_code == 200, resp_login.text
+    return resp_login.json()["access_token"]
+
+
+async def _verificar_nenhuma_rota_admin_acessivel(client, headers: dict) -> None:
+    """Chama TODAS as rotas de /admin (descobertas via introspeção da
+    app, não uma lista escrita à mão — continua a cobrir qualquer rota
+    nova sem precisar de manutenção) e falha se alguma não devolver
+    403. Confirmado à parte, com um teste-sonda descartável, que o RBAC
+    (Depends(exigir_perfil(...))) é resolvido antes da validação do
+    corpo/query nesta app — um corpo vazio ou UUID inventado no path
     nunca mascara o 403 com um 422, por isso um único pedido por rota
     (sem montar dados válidos para cada schema) já prova o bloqueio."""
-    escola = await criar_escola_e_gestor(client, "rbac-todas-admin")
-    headers = auth_headers(escola["token"])
     fake_id = "00000000-0000-0000-0000-000000000000"
-
     rotas = _rotas_admin()
     assert len(rotas) >= 25, "menos rotas de /admin do que o esperado — a introspeção pode estar a falhar"
 
@@ -77,7 +89,37 @@ async def test_rbac_bloqueia_gestor_de_todas_as_rotas_admin(client):
         if resp.status_code != 403:
             falhas.append((metodo, caminho_resolvido, resp.status_code))
 
-    assert not falhas, f"rotas de /admin acessíveis a um Gestor (esperado 403 em todas): {falhas}"
+    assert not falhas, f"rotas de /admin acessíveis (esperado 403 em todas): {falhas}"
+
+
+async def test_rbac_bloqueia_gestor_de_todas_as_rotas_admin(client):
+    """Nenhuma rota de /admin pode ser acedida por um Gestor — inclui as
+    de Estatísticas/Despesas cross-tenant acrescentadas para o Super
+    Admin."""
+    escola = await criar_escola_e_gestor(client, "rbac-todas-admin")
+    await _verificar_nenhuma_rota_admin_acessivel(client, auth_headers(escola["token"]))
+
+
+async def test_rbac_bloqueia_secretaria_de_todas_as_rotas_admin(client):
+    """Mesma verificação, mas para a Secretaria — que tem o mesmo alcance
+    do Gestor em quase todos os módulos internos da escola (ver
+    test_suporte.py), mas continua tão de fora de /admin quanto ele: o
+    Painel Super Admin é o único perfil que existe fora do contexto de
+    uma escola cliente."""
+    escola = await criar_escola_e_gestor(client, "rbac-todas-admin-sec")
+    token_secretaria = await _criar_secretaria_com_token(client, auth_headers(escola["token"]), escola["nif"])
+    await _verificar_nenhuma_rota_admin_acessivel(client, auth_headers(token_secretaria))
+
+
+async def test_rbac_bloqueia_professor_de_todas_as_rotas_admin(client):
+    """Mesma verificação, para o Professor — perfil com o alcance mais
+    restrito dentro da própria escola (ver test_estatisticas.py::
+    test_estatisticas_professor_bloqueado), mas o motivo de ficar fora
+    de /admin é o mesmo dos outros dois: nenhum perfil "de escola"
+    alcança o Painel Super Admin, seja qual for o seu alcance interno."""
+    escola = await criar_escola_e_gestor(client, "rbac-todas-admin-prof")
+    _, token_professor = await _criar_professor_com_token(client, auth_headers(escola["token"]), "Professor RBAC")
+    await _verificar_nenhuma_rota_admin_acessivel(client, auth_headers(token_professor))
 
 
 async def test_limite_de_tentativas_login_bloqueia_forca_bruta(client):
