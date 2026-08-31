@@ -150,6 +150,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/tickets.component/tickets.component').then((m) => m.TicketsComponent)
       },
       {
+        // Estatísticas de qualquer escola, à escolha — envelope fino à
+        // volta do EstatisticasComponent normal (ver
+        // features/admin/estatisticas.component). Mesmo padrão de guard
+        // (nenhum próprio) de 'admin'/'admin/tickets' acima.
+        path: 'admin/estatisticas',
+        loadComponent: () => import('./features/admin/estatisticas.component/estatisticas.component').then((m) => m.EstatisticasAdminComponent)
+      },
+      {
         path: 'tarefas',
         loadComponent: () => import('./features/tarefas/tarefas.component/tarefas.component').then((m) => m.TarefasComponent)
       },

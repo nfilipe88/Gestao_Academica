@@ -5,6 +5,15 @@ import * as FinanceiroActions from './financeiro.actions';
 import { CobrancaGerada, ContratoFinanceiro, Despesa, FaturaMensalidade, MatriculaResumo, ResponsavelElegivel } from './financeiro.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
+// Sem tenant_id -> escola de quem está autenticado (token); com
+// tenant_id -> qualquer escola, só o Super Admin tem acesso a essa
+// rota no back-end (ver app/api/v1/admin.py). Só as Despesas usam isto
+// — o resto do módulo Financeiro continua exclusivo do Gestor/Secretaria
+// da própria escola.
+function baseUrlDespesas(tenant_id?: string): string {
+  return tenant_id ? `/api/v1/admin/tenants/${tenant_id}/despesas` : '/api/v1/financeiro/despesas';
+}
+
 @Injectable()
 export class FinanceiroEffects {
   private actions$ = inject(Actions);
@@ -180,8 +189,8 @@ export class FinanceiroEffects {
   criarDespesa$ = createEffect(() =>
     this.actions$.pipe(
       ofType(FinanceiroActions.criarDespesa),
-      switchMap(({ categoria, descricao, valor, data_despesa, forma_pagamento }) =>
-        this.http.post<Despesa>('/api/v1/financeiro/despesas', { categoria, descricao, valor, data_despesa, forma_pagamento }).pipe(
+      switchMap(({ categoria, descricao, valor, data_despesa, forma_pagamento, tenant_id }) =>
+        this.http.post<Despesa>(baseUrlDespesas(tenant_id), { categoria, descricao, valor, data_despesa, forma_pagamento }).pipe(
           switchMap(despesa => [
             FinanceiroActions.criarDespesaSucesso({ despesa }),
             FinanceiroActions.financeiroOperacaoSucesso({ mensagem: 'Despesa registada com sucesso.' })
@@ -197,12 +206,12 @@ export class FinanceiroEffects {
   carregarDespesas$ = createEffect(() =>
     this.actions$.pipe(
       ofType(FinanceiroActions.carregarDespesas),
-      switchMap(({ data_inicio, data_fim, categoria }) => {
+      switchMap(({ data_inicio, data_fim, categoria, tenant_id }) => {
         let params = new HttpParams().set('page_size', 100);
         if (data_inicio) params = params.set('data_inicio', data_inicio);
         if (data_fim) params = params.set('data_fim', data_fim);
         if (categoria) params = params.set('categoria', categoria);
-        return this.http.get<{ items: Despesa[] }>('/api/v1/financeiro/despesas', { params }).pipe(
+        return this.http.get<{ items: Despesa[] }>(baseUrlDespesas(tenant_id), { params }).pipe(
           map(resp => FinanceiroActions.carregarDespesasSucesso({ despesas: resp.items })),
           catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
             erro: err.error?.detail || 'Não foi possível carregar as despesas.'
@@ -215,7 +224,7 @@ export class FinanceiroEffects {
   removerDespesa$ = createEffect(() =>
     this.actions$.pipe(
       ofType(FinanceiroActions.removerDespesa),
-      switchMap(({ despesa_id }) => this.http.delete(`/api/v1/financeiro/despesas/${despesa_id}`).pipe(
+      switchMap(({ despesa_id, tenant_id }) => this.http.delete(`${baseUrlDespesas(tenant_id)}/${despesa_id}`).pipe(
         map(() => FinanceiroActions.removerDespesaSucesso({ despesa_id })),
         catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível remover a despesa.'

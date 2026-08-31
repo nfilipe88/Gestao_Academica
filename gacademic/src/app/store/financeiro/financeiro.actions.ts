@@ -93,17 +93,20 @@ export const financeiroOperacaoFalhou = createAction(
 );
 
 // --- Despesas (saídas financeiras — ver Estatísticas) ---
+// tenant_id opcional, mesmo padrão de store/usuarios e
+// store/estatisticas: omitido = a própria escola (token); presente =
+// escolhida pelo Super Admin (/api/v1/admin/tenants/{tenant_id}/despesas).
 export const criarDespesa = createAction(
   '[Financeiro] Criar Despesa',
-  props<{ categoria: string, descricao: string, valor: number, data_despesa: string, forma_pagamento?: string }>()
+  props<{ categoria: string, descricao: string, valor: number, data_despesa: string, forma_pagamento?: string, tenant_id?: string }>()
 );
 export const criarDespesaSucesso = createAction('[Financeiro] Criar Despesa Sucesso', props<{ despesa: Despesa }>());
 
 export const carregarDespesas = createAction(
   '[Financeiro] Carregar Despesas',
-  props<{ data_inicio?: string, data_fim?: string, categoria?: string }>()
+  props<{ data_inicio?: string, data_fim?: string, categoria?: string, tenant_id?: string }>()
 );
 export const carregarDespesasSucesso = createAction('[Financeiro] Carregar Despesas Sucesso', props<{ despesas: Despesa[] }>());
 
-export const removerDespesa = createAction('[Financeiro] Remover Despesa', props<{ despesa_id: string }>());
+export const removerDespesa = createAction('[Financeiro] Remover Despesa', props<{ despesa_id: string, tenant_id?: string }>());
 export const removerDespesaSucesso = createAction('[Financeiro] Remover Despesa Sucesso', props<{ despesa_id: string }>());

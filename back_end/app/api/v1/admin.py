@@ -1,22 +1,26 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db_admin
 from app.core.security import exigir_perfil
+from app.core import estatisticas_excel
 from app.schemas.admin import (
     AssinaturaTenantInput, PlanoSaaSCreate, PlanoSaaSUpdate,
     TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
 )
 from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
+from app.schemas.financeiro import DespesaCreate
 from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes
 from app.cruds import admin as crud_admin
 from app.cruds import usuarios as crud_usuarios
 from app.cruds import auditoria as crud_auditoria
 from app.cruds import suporte as crud_suporte
+from app.cruds import estatisticas as crud_estatisticas
+from app.cruds import financeiro as crud_financeiro
 from app.schemas.suporte import MensagemTicketCreate, TicketAdminComMensagens, TicketEstadoUpdate
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Painel Super Admin"])
@@ -308,3 +312,94 @@ async def alterar_estado_ticket(
 ):
     ticket = await crud_suporte.atualizar_estado_admin(db, ticket_id, dados.estado)
     return {"mensagem": f"Ticket marcado como {ticket.estado}.", "estado": ticket.estado}
+
+
+# ==========================================
+# ESTATÍSTICAS — cross-tenant (qualquer escola)
+# ==========================================
+# Mesmos cruds de app/api/v1/estatisticas.py (Gestor/Secretaria, só a
+# própria escola) — aqui o tenant_id vem do path da URL em vez do
+# token, é a única diferença: obter_dashboard/obter_relatorio já
+# filtram tudo explicitamente por tenant_id, nunca dependeram do RLS
+# (que aqui está desligado de propósito, como em todo este ficheiro).
+# O Super Admin escolhe a escola primeiro (GET /tenants acima) e só
+# depois pede as estatísticas dela — ver features/admin/estatisticas.component.
+
+@router.get("/tenants/{tenant_id}/estatisticas/dashboard")
+async def obter_dashboard_do_tenant(
+    tenant_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    return await crud_estatisticas.obter_dashboard(db, tenant_id)
+
+
+@router.get("/tenants/{tenant_id}/estatisticas/relatorio")
+async def obter_relatorio_do_tenant(
+    tenant_id: uuid.UUID,
+    data_inicio: date = Query(...), data_fim: date = Query(...),
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    return await crud_estatisticas.obter_relatorio(db, tenant_id, data_inicio, data_fim)
+
+
+@router.get("/tenants/{tenant_id}/estatisticas/relatorio.xlsx")
+async def exportar_relatorio_xlsx_do_tenant(
+    tenant_id: uuid.UUID,
+    data_inicio: date = Query(...), data_fim: date = Query(...),
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    relatorio = await crud_estatisticas.obter_relatorio(db, tenant_id, data_inicio, data_fim)
+    conteudo = estatisticas_excel.gerar_xlsx(relatorio)
+    return Response(
+        content=conteudo, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="estatisticas-{data_inicio}-a-{data_fim}.xlsx"'}
+    )
+
+
+@router.get("/tenants/{tenant_id}/estatisticas/relatorio.xls")
+async def exportar_relatorio_xls_do_tenant(
+    tenant_id: uuid.UUID,
+    data_inicio: date = Query(...), data_fim: date = Query(...),
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Formato binário pré-2007 — mantido só para quem precise mesmo dele; .xlsx acima é o formato recomendado."""
+    relatorio = await crud_estatisticas.obter_relatorio(db, tenant_id, data_inicio, data_fim)
+    conteudo = estatisticas_excel.gerar_xls(relatorio)
+    return Response(
+        content=conteudo, media_type="application/vnd.ms-excel",
+        headers={"Content-Disposition": f'attachment; filename="estatisticas-{data_inicio}-a-{data_fim}.xls"'}
+    )
+
+
+# ==========================================
+# DESPESAS — cross-tenant (qualquer escola)
+# ==========================================
+# Pré-requisito de Estatísticas ("maiores saídas") — mesmo crud de
+# app/api/v1/financeiro.py, tenant_id do path em vez do token.
+
+@router.get("/tenants/{tenant_id}/despesas")
+async def listar_despesas_do_tenant(
+    tenant_id: uuid.UUID,
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+    data_inicio: date | None = Query(None), data_fim: date | None = Query(None),
+    categoria: str | None = Query(None),
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    return await crud_financeiro.listar_despesas(db, tenant_id, page, page_size, data_inicio, data_fim, categoria)
+
+
+@router.post("/tenants/{tenant_id}/despesas", status_code=201)
+async def criar_despesa_no_tenant(
+    tenant_id: uuid.UUID, dados: DespesaCreate,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Lançada em nome do próprio Super Admin (utilizador["usuario_id"]) — não pertence à escola, mas o FK de criado_por é global."""
+    return await crud_financeiro.criar_despesa(db, tenant_id, utilizador["usuario_id"], dados)
+
+
+@router.delete("/tenants/{tenant_id}/despesas/{despesa_id}", status_code=204)
+async def remover_despesa_do_tenant(
+    tenant_id: uuid.UUID, despesa_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    await crud_financeiro.remover_despesa(db, tenant_id, despesa_id)

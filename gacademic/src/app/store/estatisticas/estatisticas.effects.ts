@@ -5,6 +5,13 @@ import * as EstatisticasActions from './estatisticas.actions';
 import { DashboardEstatisticas, RelatorioEstatisticas } from './estatisticas.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
+// Sem tenant_id -> escola de quem está autenticado (token); com
+// tenant_id -> qualquer escola, só o Super Admin tem acesso a essa
+// rota no back-end (ver app/api/v1/admin.py).
+function baseUrl(tenant_id?: string): string {
+  return tenant_id ? `/api/v1/admin/tenants/${tenant_id}/estatisticas` : '/api/v1/estatisticas';
+}
+
 @Injectable()
 export class EstatisticasEffects {
   private actions$ = inject(Actions);
@@ -13,7 +20,7 @@ export class EstatisticasEffects {
   carregarDashboard$ = createEffect(() =>
     this.actions$.pipe(
       ofType(EstatisticasActions.carregarDashboardEstatisticas),
-      switchMap(() => this.http.get<DashboardEstatisticas>('/api/v1/estatisticas/dashboard').pipe(
+      switchMap(action => this.http.get<DashboardEstatisticas>(`${baseUrl(action.tenant_id)}/dashboard`).pipe(
         map(dashboard => EstatisticasActions.carregarDashboardEstatisticasSucesso({ dashboard })),
         catchError(err => of(EstatisticasActions.estatisticasOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar o dashboard de estatísticas.'
@@ -25,9 +32,9 @@ export class EstatisticasEffects {
   carregarRelatorio$ = createEffect(() =>
     this.actions$.pipe(
       ofType(EstatisticasActions.carregarRelatorioEstatisticas),
-      switchMap(({ data_inicio, data_fim }) => {
+      switchMap(({ data_inicio, data_fim, tenant_id }) => {
         const params = new HttpParams({ fromObject: { data_inicio, data_fim } });
-        return this.http.get<RelatorioEstatisticas>('/api/v1/estatisticas/relatorio', { params }).pipe(
+        return this.http.get<RelatorioEstatisticas>(`${baseUrl(tenant_id)}/relatorio`, { params }).pipe(
           map(relatorio => EstatisticasActions.carregarRelatorioEstatisticasSucesso({ relatorio })),
           catchError(err => of(EstatisticasActions.estatisticasOperacaoFalhou({
             erro: err.error?.detail || 'Não foi possível carregar o relatório do período.'

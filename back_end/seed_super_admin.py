@@ -1,6 +1,6 @@
 import asyncio
 from sqlalchemy import select
-from app.database.session import AsyncSessionLocal
+from app.database.session import AsyncSessionLocalSistema
 from app.database.models import Tenant, Usuario
 from app.core.security import gerar_hash_senha
 
@@ -14,7 +14,14 @@ ADMIN_PASS = "!1qaz2wsX"  # Senha para testarmos — trocar em produção
 
 
 async def carregar_super_admin():
-    async with AsyncSessionLocal() as db:
+    # AsyncSessionLocalSistema (role app_sistema, bypassrls) — não
+    # AsyncSessionLocal (role app_tenant, RLS ativo): este seed corre
+    # fora de qualquer pedido HTTP, sem app.current_tenant_id definido
+    # na sessão Postgres, por isso o RLS bloquearia tanto o SELECT
+    # (devolve sempre "não encontrado", mesmo quando a linha existe)
+    # como o INSERT ("new row violates row-level security policy") —
+    # ver database/session.py.
+    async with AsyncSessionLocalSistema() as db:
         print("A iniciar seed do Super Admin...")
 
         # Idempotente: se já correu antes, não tenta duplicar.

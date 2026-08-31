@@ -66,6 +66,15 @@
           </svg>
           @if (!sidebarColapsada) { <span>Tickets de Suporte</span> }
         </a>
+        <a routerLink="/admin/estatisticas" routerLinkActive="bg-slate-800 text-blue-400"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Estatísticas por Escola">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l4-6 4 3 5-8" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Estatísticas</span> }
+        </a>
       } @else if (isAlunoOuResponsavel$ | async) {
         <!-- ALUNO/RESPONSAVEL só têm o Portal — os módulos internos
              abaixo (Cursos, Turmas, Alunos, ...) devolvem 403 para
