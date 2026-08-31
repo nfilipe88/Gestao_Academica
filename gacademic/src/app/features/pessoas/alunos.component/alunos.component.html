@@ -148,7 +148,7 @@
           <td class="py-3 px-6 text-right">
             <button type="button" (click)="alternarExpandido(aluno.id)"
               class="text-blue-500 hover:text-blue-700 text-sm font-medium cursor-pointer">
-              {{ alunoExpandidoId === aluno.id ? 'Fechar' : 'Ver (' + aluno.vinculos.length + ')' }}
+              {{ alunoExpandidoId === aluno.id ? 'Fechar' : 'Ver (' + (aluno.vinculos.length > 0 ? aluno.vinculos.length : aluno.num_responsaveis) + ')' }}
             </button>
           </td>
         </tr>

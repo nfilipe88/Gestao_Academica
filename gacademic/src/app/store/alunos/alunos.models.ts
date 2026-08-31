@@ -10,6 +10,7 @@ export interface Aluno {
   data_nascimento: string; // ISO (YYYY-MM-DD)
   numero_documento: string | null;
   data_criacao: string;
+  num_responsaveis: number; // calculado no back-end — não confundir com vinculos.length (só carregado depois de expandir "Ver")
 }
 
 // Ver app/database/models_pessoas.py::AlunoDocumento — sobretudo o

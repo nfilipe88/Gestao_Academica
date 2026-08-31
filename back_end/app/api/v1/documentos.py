@@ -28,6 +28,14 @@ async def listar_precos(db: AsyncSession = Depends(obter_sessao_db), utilizador:
     return await crud_documentos.listar_precos(db, utilizador["tenant_id"])
 
 
+@router.get("/precos/disponiveis")
+async def listar_precos_disponiveis(db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_PEDIR)):
+    """Só os tipos ativos (disponíveis para pedido), para o Portal
+    preencher o <select> de "Pedir novo documento" — /precos exige
+    GESTOR e nunca devia ser chamada por ALUNO/RESPONSAVEL."""
+    return await crud_documentos.listar_precos_disponiveis(db, utilizador["tenant_id"])
+
+
 @router.put("/precos/{tipo_documento}")
 async def atualizar_preco(
     tipo_documento: str, dados: PrecoDocumentoUpdate,

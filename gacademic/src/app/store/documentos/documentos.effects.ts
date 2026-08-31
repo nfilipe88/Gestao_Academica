@@ -25,6 +25,18 @@ export class DocumentosEffects {
     )
   );
 
+  carregarPrecosDisponiveis$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DocumentosActions.carregarPrecosDisponiveis),
+      switchMap(() => this.http.get<PrecoDocumento[]>('/api/v1/documentos/precos/disponiveis').pipe(
+        map(precos => DocumentosActions.carregarPrecosDisponiveisSucesso({ precos })),
+        catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar os documentos disponíveis para pedido.'
+        })))
+      ))
+    )
+  );
+
   atualizarPreco$ = createEffect(() =>
     this.actions$.pipe(
       ofType(DocumentosActions.atualizarPreco),

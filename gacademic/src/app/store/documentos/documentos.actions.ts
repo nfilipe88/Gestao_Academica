@@ -8,6 +8,15 @@ import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 export const carregarPrecos = createAction('[Documentos] Carregar Precos');
 export const carregarPrecosSucesso = createAction('[Documentos] Carregar Precos Sucesso', props<{ precos: PrecoDocumento[] }>());
 
+// --- Preços disponíveis para pedido (Aluno/Responsável, Portal) ---
+// Rota diferente de carregarPrecos: essa exige GESTOR e devolve os 5
+// tipos sempre (mesmo inativos, para o Gestor poder ativá-los); esta
+// só os já ativos, a que a família pode aceder.
+export const carregarPrecosDisponiveis = createAction('[Documentos] Carregar Precos Disponiveis');
+export const carregarPrecosDisponiveisSucesso = createAction(
+  '[Documentos] Carregar Precos Disponiveis Sucesso', props<{ precos: PrecoDocumento[] }>()
+);
+
 export const atualizarPreco = createAction(
   '[Documentos] Atualizar Preco',
   props<{ tipo_documento: string, preco: number, ativo: boolean }>()

@@ -6,7 +6,7 @@ preocupação de transporte, não de acesso a dados.
 """
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 import uuid
 
 from datetime import date
@@ -116,7 +116,39 @@ async def listar_alunos(
     if data_nascimento_fim:
         query = query.where(Aluno.data_nascimento <= data_nascimento_fim)
     query = query.order_by(Aluno.nome_completo)
-    return await paginar(db, query, page, page_size)
+    resultado = await paginar(db, query, page, page_size)
+
+    # Nº de responsáveis vinculados por aluno — sem isto, a listagem
+    # devolvia o Aluno "nu" e o frontend só sabia a contagem real de
+    # um aluno depois de o expandir (Ver X) uma vez nesta sessão,
+    # mostrando "(0)" para todos os outros mesmo já tendo responsável
+    # vinculado. Uma única query agregada, mesmo padrão de "pendentes"
+    # em cruds/tarefas.py, em vez de N+1.
+    aluno_ids = [a.id for a in resultado["items"]]
+    contagem_por_aluno: dict[uuid.UUID, int] = {}
+    if aluno_ids:
+        contagem = await db.execute(
+            select(AlunoResponsavel.aluno_id, func.count())
+            .where(AlunoResponsavel.aluno_id.in_(aluno_ids))
+            .group_by(AlunoResponsavel.aluno_id)
+        )
+        contagem_por_aluno = dict(contagem.all())
+
+    resultado["items"] = [
+        {
+            "id": a.id,
+            "tenant_id": a.tenant_id,
+            "usuario_id": a.usuario_id,
+            "matricula_interna": a.matricula_interna,
+            "nome_completo": a.nome_completo,
+            "data_nascimento": a.data_nascimento,
+            "numero_documento": a.numero_documento,
+            "data_criacao": a.data_criacao,
+            "num_responsaveis": contagem_por_aluno.get(a.id, 0),
+        }
+        for a in resultado["items"]
+    ]
+    return resultado
 
 
 async def criar_responsavel(db: AsyncSession, tenant_id, dados: ResponsavelCreate) -> ResponsavelFinanceiroLegal:

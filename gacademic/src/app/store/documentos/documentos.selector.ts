@@ -4,6 +4,7 @@ import { DocumentosState } from './documentos.reducer';
 export const selectDocumentosState = createFeatureSelector<DocumentosState>('documentos');
 
 export const selectPrecosDocumento = createSelector(selectDocumentosState, (state) => state.precos);
+export const selectPrecosDocumentoDisponiveis = createSelector(selectDocumentosState, (state) => state.precosDisponiveis);
 export const selectTemplatesDocumento = createSelector(selectDocumentosState, (state) => state.templates);
 export const selectSolicitacoesEmissao = createSelector(selectDocumentosState, (state) => state.solicitacoesEmissao);
 export const selectPaginacaoSolicitacoesEmissao = createSelector(selectDocumentosState, (state) => state.paginacaoSolicitacoesEmissao);

@@ -75,3 +75,33 @@ async def test_documento_aluno_isolado_por_tenant(client):
         files={"ficheiro": ("x.png", io.BytesIO(_PNG_1X1), "image/png")}
     )
     assert resp.status_code == 404
+
+
+async def test_listagem_de_alunos_inclui_num_responsaveis(client):
+    """Regressão: GET /alunos devolvia o Aluno "nu" (sem nenhuma
+    contagem de responsáveis), e o ecrã de Alunos usava só o cache
+    client-side de vínculos já carregados (vazio até se expandir "Ver"
+    uma vez) para o número no botão — mostrando "(0)" para todo e
+    qualquer aluno na primeira vista, mesmo já tendo responsável
+    vinculado. num_responsaveis calculado no back-end corrige isto."""
+    escola = await criar_escola_e_gestor(client, "aluno-num-responsaveis")
+    headers = auth_headers(escola["token"])
+    aluno_id = await _criar_aluno(client, headers)
+
+    resp = await client.get("/api/v1/alunos?page=1&page_size=25", headers=headers)
+    assert resp.status_code == 200, resp.text
+    item = next(a for a in resp.json()["items"] if a["id"] == aluno_id)
+    assert item["num_responsaveis"] == 0
+
+    resp = await client.post("/api/v1/responsaveis", headers=headers, json={
+        "nome_completo": "Responsável Teste", "telefone_contato": "+244900000000"
+    })
+    responsavel_id = resp.json()["id"]
+    resp = await client.post(f"/api/v1/alunos/{aluno_id}/responsaveis", headers=headers, json={
+        "responsavel_id": responsavel_id, "tipo_parentesco": "Mãe", "responsavel_financeiro": True
+    })
+    assert resp.status_code == 201, resp.text
+
+    resp = await client.get("/api/v1/alunos?page=1&page_size=25", headers=headers)
+    item = next(a for a in resp.json()["items"] if a["id"] == aluno_id)
+    assert item["num_responsaveis"] == 1

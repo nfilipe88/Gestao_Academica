@@ -28,7 +28,7 @@ import { EducandoResumo, HorarioAulaPortal } from '../../../store/portal/portal.
 import { FotoPerfilAluno } from '../../../store/alunos/alunos.models';
 import * as DocumentosActions from '../../../store/documentos/documentos.actions';
 import {
-  selectDocumentosError, selectMinhasSolicitacoesEscola, selectPrecosDocumento,
+  selectDocumentosError, selectMinhasSolicitacoesEscola, selectPrecosDocumentoDisponiveis,
   selectSolicitacoesEmissao, selectUltimaCobrancaDocumento
 } from '../../../store/documentos/documentos.selector';
 import { SolicitacaoDocumentoEmissao } from '../../../store/documentos/documentos.models';
@@ -80,7 +80,7 @@ export class PortalComponent implements OnInit {
   estatisticas$ = this.store.select(selectEstatisticasDoEducando);
   comunicados$ = this.store.select(selectComunicadosDoEducando);
 
-  precosDocumento$ = this.store.select(selectPrecosDocumento);
+  precosDocumento$ = this.store.select(selectPrecosDocumentoDisponiveis);
   solicitacoesDocumento$ = this.store.select(selectSolicitacoesEmissao);
   minhasSolicitacoesEscola$ = this.store.select(selectMinhasSolicitacoesEscola);
   erroDocumentos$ = this.store.select(selectDocumentosError);
@@ -140,8 +140,13 @@ export class PortalComponent implements OnInit {
   respostasTentativa: Record<string, string> = {};
   exameResultadoAbertoId: string | null = null;
 
-  // Formulário "Novo pedido de documento"
-  novoDocumentoTipo = 'CERTIFICADO';
+  // Formulário "Novo pedido de documento" — o valor de novoDocumentoTipo
+  // é reposto (ver ngOnInit) assim que precosDocumento$ chega, para
+  // nunca ficar preso num tipo que esta escola não ativou (o <select>
+  // só lista os tipos ativos; um valor por omissão fixo aqui podia não
+  // corresponder a nenhuma <option> real e o pedido falhava com "não
+  // está disponível", mesmo o utilizador nunca tendo tocado no campo).
+  novoDocumentoTipo = '';
   novoDocumentoFormato: 'DIGITAL' | 'FISICA' = 'DIGITAL';
   novoDocumentoDescricaoOutro = '';
 
@@ -151,9 +156,18 @@ export class PortalComponent implements OnInit {
 
   ngOnInit() {
     this.store.dispatch(carregarMeusEducandos());
-    this.store.dispatch(DocumentosActions.carregarPrecos());
+    this.store.dispatch(DocumentosActions.carregarPrecosDisponiveis());
     this.store.dispatch(DocumentosActions.carregarMinhasSolicitacoesEmissao());
     this.store.dispatch(DocumentosActions.carregarMinhasSolicitacoesEscola());
+
+    // Assim que a lista real chega, garante que novoDocumentoTipo
+    // aponta para um tipo que esta escola realmente ativou — nunca
+    // fica preso vazio nem num tipo inexistente na lista.
+    this.precosDocumento$.subscribe(precos => {
+      if (precos.length && !precos.some(p => p.tipo_documento === this.novoDocumentoTipo)) {
+        this.novoDocumentoTipo = precos[0].tipo_documento;
+      }
+    });
 
     // Separador ativo acompanha o query param ?tab= — agora que os
     // separadores são entradas do menu lateral (routerLink para /portal
@@ -254,7 +268,13 @@ export class PortalComponent implements OnInit {
 
   onSelecionarEducando(alunoId: string) {
     this.educandoSelecionadoId = alunoId;
-    this.aba = 'dashboard';
+    // NÃO mexer em this.aba aqui — é derivado do query param ?tab= (ver
+    // a subscrição a queryParamMap no ngOnInit) e um separador é uma
+    // entrada do menu lateral, não um estado por-educando. Escrever
+    // aqui diretamente ficava fora de sincronia com o URL e com o
+    // separador realçado no menu: trocar de educando a meio do
+    // Boletim/Documentos/etc. saltava silenciosamente para o
+    // Dashboard, sem o URL nem o menu lateral acompanharem.
     this.erroRematricula = null;
     this.erroTransferencia.set(null);
     this.mostrarFormularioTransferencia.set(false);

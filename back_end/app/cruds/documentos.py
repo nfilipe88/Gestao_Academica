@@ -79,6 +79,15 @@ async def listar_precos(db: AsyncSession, tenant_id) -> list[dict]:
     ]
 
 
+async def listar_precos_disponiveis(db: AsyncSession, tenant_id) -> list[dict]:
+    """Igual a listar_precos, mas só os tipos que o Gestor marcou como
+    disponíveis para pedido — para a família escolher no Portal. Não
+    reaproveita a rota /precos porque essa exige GESTOR (_PODE_GERIR_PRECOS);
+    aqui o consumidor é ALUNO/RESPONSAVEL, que nunca deviam ver os tipos
+    ainda inativos nem editar preço nenhum."""
+    return [p for p in await listar_precos(db, tenant_id) if p["ativo"]]
+
+
 async def atualizar_preco(db: AsyncSession, tenant_id, tipo_documento: str, dados: PrecoDocumentoUpdate) -> dict:
     if tipo_documento not in TIPOS_DOCUMENTO:
         raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO))}.")

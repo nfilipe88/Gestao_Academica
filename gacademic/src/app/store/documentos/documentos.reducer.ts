@@ -7,6 +7,7 @@ import { EstadoPaginacao, PAGINACAO_INICIAL } from '../../shared/models/paginaca
 
 export interface DocumentosState {
   precos: PrecoDocumento[];
+  precosDisponiveis: PrecoDocumento[];
   templates: TemplateDocumento[];
   solicitacoesEmissao: SolicitacaoDocumentoEmissao[];
   paginacaoSolicitacoesEmissao: EstadoPaginacao;
@@ -20,6 +21,7 @@ export interface DocumentosState {
 
 export const initialState: DocumentosState = {
   precos: [],
+  precosDisponiveis: [],
   templates: [],
   solicitacoesEmissao: [],
   paginacaoSolicitacoesEmissao: PAGINACAO_INICIAL,
@@ -35,6 +37,7 @@ export const documentosReducer = createReducer(
   initialState,
 
   on(DocumentosActions.carregarPrecosSucesso, (state, { precos }) => ({ ...state, precos, erro: null })),
+  on(DocumentosActions.carregarPrecosDisponiveisSucesso, (state, { precos }) => ({ ...state, precosDisponiveis: precos, erro: null })),
 
   on(DocumentosActions.carregarTemplatesSucesso, (state, { templates }) => ({ ...state, templates, erro: null })),
   on(DocumentosActions.templateAtualizado, (state, { template }) => ({
