@@ -3,7 +3,14 @@
   <div>
     <h2 class="text-2xl font-bold text-slate-800">Portal</h2>
     <p class="text-slate-500 text-sm">
-      @if (usuario$ | async; as usuario) { Olá, {{ usuario.nome_completo }}. } Consulte o horário, as notas e as faturas dos seus educandos.
+      @if (usuario$ | async; as usuario) {
+        Olá, {{ usuario.nome_completo }}.
+        @if (usuario.perfil_acesso === 'ALUNO') {
+          Consulte o seu horário, notas e faturas.
+        } @else {
+          Consulte o horário, as notas e as faturas dos seus educandos.
+        }
+      }
     </p>
   </div>
 
