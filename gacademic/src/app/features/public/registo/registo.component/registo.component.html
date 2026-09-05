@@ -6,6 +6,12 @@
       <p class="text-slate-400 text-sm mt-1">Crie o ambiente digital e a conta de administrador local</p>
     </div>
 
+    @if (erro) {
+      <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
+        {{ erro }}
+      </div>
+    }
+
     <form [formGroup]="registoForm" (ngSubmit)="onRegister()" class="space-y-4">
 
       <div class="border-b border-slate-800 pb-4 mb-4">
@@ -50,7 +56,7 @@
 
       <button type="submit" [disabled]="registoForm.invalid"
         class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-md py-2.5 mt-2 transition-colors cursor-pointer">
-        Concluir Registo e Criar Tenant
+        Concluir Registo
       </button>
     </form>
 

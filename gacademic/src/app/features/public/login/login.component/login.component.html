@@ -6,6 +6,12 @@
           <p class="text-slate-400 mt-2 text-sm">Inicie sessão para aceder à gestão escolar</p>
         </div>
 
+        @if (mostrarMensagemRegisto) {
+          <div class="mb-5 rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
+            Instituição criada com sucesso! Inicie sessão para começar.
+          </div>
+        }
+
         @if (erro$ | async; as erro) {
           <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
             {{ erro }}

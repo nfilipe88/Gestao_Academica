@@ -15,6 +15,14 @@ export class RegistoComponent {
   private http = inject(HttpClient);
   private router = inject(Router);
 
+  // Nenhum diálogo nativo (alert/confirm) — não é intercetável em
+  // automação/testes e destoa do resto da UI, que nunca usa diálogos
+  // nativos (mesmo padrão já seguido no resto da app, ex.:
+  // features/admin/admin.component). Erro mostrado inline, sucesso
+  // passado para o Login via queryParams (só o e-mail — nunca a
+  // palavra-passe, que não deve viajar num URL).
+  erro: string | null = null;
+
   registoForm = this.fb.group({
     nome_fantasia: ['', Validators.required],
     nif: ['', Validators.required],
@@ -25,13 +33,15 @@ export class RegistoComponent {
 
   onRegister() {
     if (this.registoForm.valid) {
+      this.erro = null;
       this.http.post('/api/v1/auth/registo', this.registoForm.value)
         .subscribe({
           next: () => {
-            alert('Instituição criada com sucesso! Redirecionando para o login.');
-            this.router.navigate(['/login']);
+            this.router.navigate(['/login'], {
+              queryParams: { registado: '1', email: this.registoForm.value.email_gestor }
+            });
           },
-          error: (err) => alert(err.error?.detail || 'Erro ao efetuar registo.')
+          error: (err) => { this.erro = err.error?.detail || 'Não foi possível concluir o registo.'; }
         });
     }
   }

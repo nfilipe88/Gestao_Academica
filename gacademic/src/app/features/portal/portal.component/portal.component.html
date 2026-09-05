@@ -47,6 +47,11 @@
 
   @if (educandoSelecionadoId) {
     @if (educandoAtual(educandos$ | async); as edu) {
+      <!-- Rematrícula/Transferência só no separador Dashboard — antes
+           apareciam em TODOS os separadores (Boletim, Financeiro,
+           Trabalhos…), empurrando o conteúdo próprio de cada um para
+           baixo sem necessidade. -->
+      @if (aba === 'dashboard') {
       @if (edu.elegivel_rematricula) {
         <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
           <h3 class="text-sm font-semibold text-slate-800 mb-1">Rematrícula {{ edu.ano_letivo_destino_rematricula }}</h3>
@@ -110,6 +115,7 @@
           </div>
         }
       </div>
+      }
     }
 
     @if (aba === 'dashboard') {
@@ -344,7 +350,7 @@
                 <span class="text-xs text-blue-600 font-medium">Abrir →</span>
               </button>
             } @empty {
-              <p class="text-sm text-slate-500 text-center py-6">Ainda não há materiais de aula publicados para a tua turma.</p>
+              <p class="text-sm text-slate-500 text-center py-6">Ainda não há materiais de aula publicados para a sua turma.</p>
             }
           </div>
         } @else if (materialAberto$ | async; as material) {
@@ -393,7 +399,7 @@
               }
 
               <form (ngSubmit)="onEnviarPergunta()" class="flex gap-2">
-                <input type="text" [(ngModel)]="perguntaAtual" name="perguntaAtual" placeholder="Escreve a tua dúvida…"
+                <input type="text" [(ngModel)]="perguntaAtual" name="perguntaAtual" placeholder="Escreva a sua dúvida…"
                   [disabled]="(aProcessarPerguntaProfVirtual$ | async) ?? false"
                   class="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-50" />
                 <button type="submit" [disabled]="!perguntaAtual.trim() || ((aProcessarPerguntaProfVirtual$ | async) ?? false)"
@@ -513,7 +519,7 @@
                 }
               </div>
             } @empty {
-              <p class="text-sm text-slate-500 text-center py-6">Ainda não há exames disponíveis para a tua turma.</p>
+              <p class="text-sm text-slate-500 text-center py-6">Ainda não há exames disponíveis para a sua turma.</p>
             }
           </div>
         }

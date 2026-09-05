@@ -4,7 +4,7 @@
     <h2 class="text-2xl font-bold text-slate-800">
       Olá{{ (usuario$ | async)?.nome_completo ? ', ' + (usuario$ | async)?.nome_completo : '' }}
     </h2>
-    <p class="text-slate-500 text-sm">Aqui está o resumo da tua instituição.</p>
+    <p class="text-slate-500 text-sm">Aqui está o resumo da sua instituição.</p>
   </div>
 
   @if (resumo$ | async; as resumo) {
@@ -36,7 +36,7 @@
           <a routerLink="/cursos" class="text-sm text-blue-500 hover:text-blue-700 font-medium">Ver todos</a>
         </div>
         @if (resumo.cursosRecentes.length === 0) {
-          <p class="text-sm text-slate-500">Ainda não tens cursos registados.</p>
+          <p class="text-sm text-slate-500">Ainda não tem cursos registados.</p>
         } @else {
           <ul class="divide-y divide-slate-100">
             @for (curso of resumo.cursosRecentes; track curso.id) {

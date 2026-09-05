@@ -96,10 +96,10 @@ export class TurmasComponent implements OnInit {
   ]).pipe(
     map(([cursos, series]) => {
       if (cursos.length === 0) {
-        return 'Ainda não tens nenhum curso registado.';
+        return 'Ainda não tem nenhum curso registado.';
       }
       if (series.length === 0) {
-        return 'Ainda não tens nenhuma Série/Ano registada. Abre um curso e adiciona uma.';
+        return 'Ainda não tem nenhuma Série/Ano registada. Abra um curso e adicione uma.';
       }
       return null;
     })
