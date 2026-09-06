@@ -121,6 +121,28 @@
     @if (aba === 'dashboard') {
       <div class="space-y-4">
 
+        @if (!dicasFechadas()) {
+          <div class="relative bg-blue-50 border border-blue-200 rounded-xl p-5 pr-10">
+            <button type="button" (click)="fecharDicas()" aria-label="Fechar dicas"
+              class="absolute top-3 right-3 text-blue-400 hover:text-blue-700 cursor-pointer text-lg leading-none">×</button>
+            <h3 class="text-sm font-semibold text-blue-800 mb-3">Sugestões para explorar</h3>
+            <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <li class="text-sm text-blue-900">
+                Consulte as notas mais recentes no Boletim.
+                <a routerLink="/portal" [queryParams]="{ tab: 'boletim' }" class="ml-1 font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap">Boletim →</a>
+              </li>
+              <li class="text-sm text-blue-900">
+                Acompanhe mensalidades e pagamentos no Financeiro.
+                <a routerLink="/portal" [queryParams]="{ tab: 'financeiro' }" class="ml-1 font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap">Financeiro →</a>
+              </li>
+              <li class="text-sm text-blue-900">
+                Tire dúvidas com o Prof. Virtual em Materiais.
+                <a routerLink="/portal" [queryParams]="{ tab: 'materiais' }" class="ml-1 font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap">Materiais →</a>
+              </li>
+            </ul>
+          </div>
+        }
+
         <!-- Foto de perfil — a que vale para o cartão de acesso. Deve
              ser renovada todos os anos; a antiga fica arquivada, não é
              apagada, para acompanhar a evolução do educando. -->

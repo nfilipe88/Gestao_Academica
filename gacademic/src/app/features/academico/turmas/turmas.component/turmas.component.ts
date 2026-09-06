@@ -15,6 +15,7 @@ import {
 } from '../../../../store/matriculas/matriculas.models';
 import { selectMatriculasError, selectMatriculasPorTurma } from '../../../../store/matriculas/matriculas.selector';
 import { selectIsGestorOuSecretaria } from '../../../../store/auth/auth.selectors';
+import { selectConfiguracao } from '../../../../store/configuracoes/configuracoes.selector';
 import { abrirOuTransferirBlob } from '../../../../core/utils/abrir-em-nova-aba';
 
 @Component({
@@ -126,6 +127,15 @@ export class TurmasComponent implements OnInit {
     })
   );
 
+  // Ano de arranque para os formulários de Nova Turma/Matricular — usa
+  // o Ano Letivo definido em Configurações (ver ano_letivo_atual em
+  // Tenant) quando já existir, senão cai no ano corrente (mesmo
+  // comportamento de antes desta escola configurar o Ano Letivo).
+  private anoLetivoConfigurado: number | null = null;
+  private _anoLetivoPadrao(): number {
+    return this.anoLetivoConfigurado ?? new Date().getFullYear();
+  }
+
   turmaForm = this.fb.group({
     serie_ano_id: ['', Validators.required],
     nome_codigo: ['', Validators.required],
@@ -145,6 +155,10 @@ export class TurmasComponent implements OnInit {
     this.store.dispatch(carregarSeries());
     this.store.dispatch(carregarTurmas());
     this.store.dispatch(carregarAlunos({ page_size: 100 })); // povoa um <select>, ver nota em transferencias.component.ts
+
+    this.store.select(selectConfiguracao).subscribe(config => {
+      this.anoLetivoConfigurado = config.ano_letivo_atual;
+    });
   }
 
   alternarFormulario() {
@@ -152,7 +166,7 @@ export class TurmasComponent implements OnInit {
     this.turmaForm.reset({
       serie_ano_id: '',
       nome_codigo: '',
-      ano_letivo: new Date().getFullYear(),
+      ano_letivo: this._anoLetivoPadrao(),
       vagas_maximas: 30
     });
   }
@@ -171,7 +185,7 @@ export class TurmasComponent implements OnInit {
     this.turmaForm.reset({
       serie_ano_id: '',
       nome_codigo: '',
-      ano_letivo: new Date().getFullYear(),
+      ano_letivo: this._anoLetivoPadrao(),
       vagas_maximas: 30
     });
     this.mostrarFormulario = false;
@@ -200,7 +214,7 @@ export class TurmasComponent implements OnInit {
 
   alternarExpandida(turmaId: string) {
     this.turmaExpandidaId = this.turmaExpandidaId === turmaId ? null : turmaId;
-    this.matricularForm.reset({ aluno_id: '', ano_letivo: new Date().getFullYear() });
+    this.matricularForm.reset({ aluno_id: '', ano_letivo: this._anoLetivoPadrao() });
     if (this.turmaExpandidaId) {
       this.store.dispatch(carregarMatriculasDaTurma({ turma_id: this.turmaExpandidaId }));
     }
@@ -214,7 +228,7 @@ export class TurmasComponent implements OnInit {
       turma_id: turmaId,
       ano_letivo: ano_letivo!
     }));
-    this.matricularForm.reset({ aluno_id: '', ano_letivo: new Date().getFullYear() });
+    this.matricularForm.reset({ aluno_id: '', ano_letivo: this._anoLetivoPadrao() });
   }
 
   onAlterarStatus(turmaId: string, matriculaId: string, novoStatus: string) {

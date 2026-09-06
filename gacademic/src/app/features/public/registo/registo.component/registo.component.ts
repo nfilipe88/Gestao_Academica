@@ -1,8 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-registo.component',
@@ -13,15 +12,21 @@ import { Router } from '@angular/router';
 export class RegistoComponent {
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
-  private router = inject(Router);
 
   // Nenhum diálogo nativo (alert/confirm) — não é intercetável em
   // automação/testes e destoa do resto da UI, que nunca usa diálogos
   // nativos (mesmo padrão já seguido no resto da app, ex.:
-  // features/admin/admin.component). Erro mostrado inline, sucesso
-  // passado para o Login via queryParams (só o e-mail — nunca a
-  // palavra-passe, que não deve viajar num URL).
+  // features/admin/admin.component). Erro mostrado inline.
+  //
+  // Sucesso já NÃO redireciona para /login: o registo deixou de criar
+  // uma conta pronta a usar — passa a exigir clicar num link de
+  // ativação enviado por e-mail primeiro (ver
+  // back_end/app/cruds/auth.py::registar_escola/ativar_conta), por
+  // isso mostra-se aqui mesmo um estado "verifique o seu e-mail",
+  // mesmo padrão de signal de redefinir-senha.component.
   erro: string | null = null;
+  concluido = signal(false);
+  emailRegistado = '';
 
   registoForm = this.fb.group({
     nome_fantasia: ['', Validators.required],
@@ -37,9 +42,8 @@ export class RegistoComponent {
       this.http.post('/api/v1/auth/registo', this.registoForm.value)
         .subscribe({
           next: () => {
-            this.router.navigate(['/login'], {
-              queryParams: { registado: '1', email: this.registoForm.value.email_gestor }
-            });
+            this.emailRegistado = this.registoForm.value.email_gestor ?? '';
+            this.concluido.set(true);
           },
           error: (err) => { this.erro = err.error?.detail || 'Não foi possível concluir o registo.'; }
         });

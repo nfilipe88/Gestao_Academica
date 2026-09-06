@@ -6,6 +6,16 @@
       <p class="text-slate-400 text-sm mt-1">Crie o ambiente digital e a conta de administrador local</p>
     </div>
 
+    @if (concluido()) {
+      <div class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
+        Escola e conta de Gestor criadas com sucesso! Verifique o e-mail <strong>{{ emailRegistado }}</strong>
+        e clique no link de ativação antes de iniciar sessão.
+      </div>
+      <div class="mt-6 text-center text-sm">
+        <a href="/login" class="text-blue-400 hover:underline">Ir para o início de sessão</a>
+      </div>
+    } @else {
+
     @if (erro) {
       <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
         {{ erro }}
@@ -59,6 +69,8 @@
         Concluir Registo
       </button>
     </form>
+
+    }
 
   </div>
 </div>

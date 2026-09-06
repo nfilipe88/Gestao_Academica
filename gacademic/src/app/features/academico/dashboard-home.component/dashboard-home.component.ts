@@ -1,5 +1,5 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { combineLatest, map } from 'rxjs';
@@ -8,6 +8,38 @@ import { selectCursos, selectTurmas } from '../../../store/academico/academic.se
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
 import { selectPaginacaoAlunos } from '../../../store/alunos/alunos.selector';
 import { selectUsuario } from '../../../store/auth/auth.selectors';
+import { CHAVE_LOCAL_DICAS_DASHBOARD_FECHADAS, guardarLocal, lerLocal } from '../../../core/utils/armazenamento-local';
+
+interface Dica {
+  texto: string;
+  link: string;
+  rotulo: string;
+}
+
+// Sugestões do que explorar, por perfil — pedido direto do utilizador
+// ("Quando fazer login na plataforma pode dar algumas dicas e
+// sugestões do que o usuario pode fazer ou explorar"). Painel
+// dispensável (fecha com "×", preferência guardada em localStorage —
+// ver core/utils/armazenamento-local.ts — para não voltar a aparecer
+// nesse browser).
+const DICAS_POR_PERFIL: Record<string, Dica[]> = {
+  GESTOR: [
+    { texto: 'Configure o Ano Letivo da escola, se ainda não o fez.', link: '/configuracoes', rotulo: 'Configurações' },
+    { texto: 'Explore os indicadores da sua escola em Estatísticas.', link: '/estatisticas', rotulo: 'Estatísticas' },
+    { texto: 'Convide a sua equipa em Gestão de Acessos.', link: '/acessos', rotulo: 'Acessos' },
+    { texto: 'Configure a Tabela de Propinas da escola.', link: '/propinas', rotulo: 'Propinas' },
+  ],
+  SECRETARIA: [
+    { texto: 'Matricule o primeiro aluno da escola.', link: '/alunos', rotulo: 'Alunos' },
+    { texto: 'Acompanhe cobranças e pagamentos em Financeiro.', link: '/financeiro', rotulo: 'Financeiro' },
+    { texto: 'Veja as candidaturas recebidas no CRM.', link: '/crm', rotulo: 'CRM' },
+  ],
+  PROFESSOR: [
+    { texto: 'Lance notas e faltas no Diário de Classe.', link: '/diario', rotulo: 'Diário' },
+    { texto: 'Publique trabalhos e materiais para as suas turmas.', link: '/comunicacoes', rotulo: 'Comunicações' },
+    { texto: 'Consulte o seu Horário de aulas.', link: '/horarios', rotulo: 'Horários' },
+  ],
+};
 
 @Component({
   selector: 'app-dashboard-home.component',
@@ -17,8 +49,20 @@ import { selectUsuario } from '../../../store/auth/auth.selectors';
 })
 export class DashboardHomeComponent implements OnInit {
   private store = inject(Store);
+  private platformId = inject(PLATFORM_ID);
 
   usuario$ = this.store.select(selectUsuario);
+
+  dicas$ = this.usuario$.pipe(
+    map(usuario => (usuario?.perfil_acesso && DICAS_POR_PERFIL[usuario.perfil_acesso]) || [])
+  );
+
+  dicasFechadas = signal(lerLocal(this.platformId, CHAVE_LOCAL_DICAS_DASHBOARD_FECHADAS) === '1');
+
+  fecharDicas() {
+    this.dicasFechadas.set(true);
+    guardarLocal(this.platformId, CHAVE_LOCAL_DICAS_DASHBOARD_FECHADAS, '1');
+  }
 
   resumo$ = combineLatest([
     this.store.select(selectCursos),

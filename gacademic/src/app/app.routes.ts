@@ -5,6 +5,7 @@ import { guestGuard } from './core/guards/guest.guard';
 import { superAdminGuard } from './core/guards/super-admin.guard';
 import { permissoesGuard } from './core/guards/permissoes.guard';
 import { publicoMatchGuard } from './core/guards/publico.guard';
+import { configuracaoInicialGuard } from './core/guards/configuracao-inicial.guard';
 
 export const routes: Routes = [
   // ==========================================
@@ -71,13 +72,24 @@ export const routes: Routes = [
     path: 'redefinir-senha',
     loadComponent: () => import('./features/public/redefinir-senha/redefinir-senha.component/redefinir-senha.component').then((m) => m.RedefinirSenhaComponent)
   },
+  {
+    // Acedida a partir do link de e-mail de ativação de conta — mesmo
+    // motivo de 'redefinir-senha' acima, sem guestGuard.
+    path: 'ativar-conta',
+    loadComponent: () => import('./features/public/ativar-conta/ativar-conta.component/ativar-conta.component').then((m) => m.AtivarContaComponent)
+  },
 
   // ==========================================
   // ROTAS PROTEGIDAS (Exigem Autenticação)
   // ==========================================
   {
     path: '',
-    canActivate: [authGuard], // Bloqueia tudo o que está dentro destes filhos
+    // authGuard bloqueia sem sessão; configuracaoInicialGuard, com
+    // sessão válida, força o Gestor por Configurações antes de mais
+    // nada enquanto o Ano Letivo não estiver definido (ver docstring
+    // do guard) — ambos avaliados por ordem, o segundo só decide
+    // quando o primeiro já deixou passar.
+    canActivate: [authGuard, configuracaoInicialGuard],
     loadComponent: () => import('./shared/components/dashboard-layout/dashboard-layout.component/dashboard-layout.component').then((m) => m.DashboardLayoutComponent),
     children: [
       {

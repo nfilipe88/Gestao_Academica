@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import List
-from sqlalchemy import Boolean, Date, Numeric, String, ForeignKey, DateTime, Text, Time, text
+from sqlalchemy import Boolean, Date, Integer, Numeric, String, ForeignKey, DateTime, Text, Time, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -57,6 +57,22 @@ class Tenant(Base):
     # ex.: 0-20 ou 0-10) — usada no Boletim/Indicadores para marcar
     # Aprovado/Reprovado. Sem valor definido, essa marcação não aparece.
     nota_minima_aprovacao: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
+
+    # Ano Letivo corrente da escola — regra geral, começa num ano e
+    # termina no seguinte (ex.: início em setembro de 2026, fim em
+    # junho de 2027). `ano_letivo_atual` é só o ano de início como
+    # inteiro solto (ex.: 2026) — o mesmo formato já usado em toda a
+    # app por Turma.ano_letivo/Matricula.ano_letivo (nunca "2026/2027"
+    # como string); o frontend preenche-o automaticamente a partir de
+    # `data_inicio_ano_letivo` mas continua editável (ver
+    # app/schemas/configuracoes.py para a validação de que o fim é
+    # posterior ao início). Nullable como todo o resto de Configurações
+    # — a exceção é que o frontend força o Gestor a preencher isto antes
+    # de mais nada (ver core/guards/configuracao-inicial.guard.ts do
+    # lado do frontend); a BD em si continua flexível.
+    data_inicio_ano_letivo: Mapped[date | None] = mapped_column(Date, nullable=True)
+    data_fim_ano_letivo: Mapped[date | None] = mapped_column(Date, nullable=True)
+    ano_letivo_atual: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Períodos letivos (Manhã/Tarde/Pós-Laboral) — hora de início e de
     # encerramento de cada um. Só guarda a informação nesta primeira
@@ -131,6 +147,15 @@ class Usuario(Base):
     # já aceite para Tenant.status: uma sessão já iniciada só perde o
     # acesso quando o token expirar (até 24h), não instantaneamente.
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
+    # Distinto de `ativo` acima (suspensão administrativa) — este marca
+    # se a conta já passou pelo link de ativação enviado por e-mail
+    # (ver cruds/auth.py::registar_escola/ativar_conta e
+    # models_usuarios.py::ContaAtivacaoToken). Default True de propósito:
+    # só o registo self-service de uma escola nova (POST /auth/registo)
+    # exige ativação — contas criadas por um Gestor já autenticado
+    # (Secretaria, Professor, acessos de Aluno/Responsável) continuam a
+    # poder entrar de imediato, como sempre puderam.
+    email_verificado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     # Relacionamento

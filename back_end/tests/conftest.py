@@ -39,8 +39,11 @@ if "_test" not in os.environ["DATABASE_URL"] and "test" not in os.environ["DATAB
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import update
 
 from main import app
+from app.database.models import Usuario
+from app.database.session import AsyncSessionLocalSistema
 
 
 @pytest.fixture
@@ -65,6 +68,16 @@ async def criar_escola_e_gestor(client: AsyncClient, prefixo: str = "teste") -> 
     o mesmo caminho que uma escola real usaria), depois faz login (o
     registo em si não devolve token nem ids — só confirmação) e devolve
     os dados úteis para os testes: token, ids, credenciais.
+
+    O registo real deixa a conta por ativar até se clicar no link de
+    e-mail (ver cruds/auth.py::registar_escola/ativar_conta) — os
+    testes não têm SMTP nem uma caixa de correio para ler, por isso
+    ativa-se aqui diretamente na BD (AsyncSessionLocalSistema, mesmo
+    atalho já usado por _criar_super_admin em
+    test_planos_por_aluno_modulo.py), sem passar pelo token/e-mail em
+    si. O comportamento do fluxo de ativação em si (bloquear o login
+    até lá, aceitar/recusar o token) é testado à parte em
+    test_ativacao_conta.py.
     """
     suf = sufixo_unico()
     nif = f"{suf}"
@@ -83,6 +96,10 @@ async def criar_escola_e_gestor(client: AsyncClient, prefixo: str = "teste") -> 
         "palavra_passe": senha,
     })
     assert resp.status_code == 201, resp.text
+
+    async with AsyncSessionLocalSistema() as db:
+        await db.execute(update(Usuario).where(Usuario.email == email).values(email_verificado=True))
+        await db.commit()
 
     resp = await client.post("/api/v1/auth/login", data={"username": email, "password": senha})
     assert resp.status_code == 200, resp.text

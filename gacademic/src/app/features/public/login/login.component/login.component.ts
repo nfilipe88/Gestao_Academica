@@ -19,11 +19,13 @@ private fb = inject(FormBuilder);
 
   erro$ = this.store.select(selectAuthError);
 
-  // Vindo do registo (?registado=1&email=...) — confirma que a escola
-  // foi criada com sucesso e poupa reescrever o e-mail. Nunca a
-  // palavra-passe aqui: não deve viajar num URL (histórico do browser,
-  // logs do servidor, cabeçalho Referer).
-  mostrarMensagemRegisto = this.route.snapshot.queryParamMap.get('registado') === '1';
+  // Vindo da ativação de conta por e-mail (?ativado=1, ver
+  // ativar-conta.component) — confirma que o link de ativação foi
+  // validado com sucesso e o login já está disponível. O registo em si
+  // já não redireciona para aqui (deixou de haver login imediato após
+  // registar — ver registo.component), por isso não existe mensagem
+  // equivalente para "?registado=1".
+  mostrarMensagemAtivado = this.route.snapshot.queryParamMap.get('ativado') === '1';
 
   loginForm = this.fb.group({
     email: ['', [Validators.required, Validators.email]],

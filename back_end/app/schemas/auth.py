@@ -48,3 +48,7 @@ class RedefinirSenhaIn(BaseModel):
     nova_senha: str = Field(..., min_length=8, example="SenhaNovaSegura123!")
 
     _validar_nova_senha = field_validator("nova_senha")(validar_forca_senha)
+
+
+class AtivarContaIn(BaseModel):
+    token: str

@@ -47,6 +47,9 @@ async def atualizar_configuracao(db: AsyncSession, tenant_id, dados: Configuraca
     tenant.pais = dados.pais
     tenant.nota_minima_aprovacao = dados.nota_minima_aprovacao
     tenant.valor_taxa_matricula = dados.valor_taxa_matricula
+    tenant.data_inicio_ano_letivo = dados.data_inicio_ano_letivo
+    tenant.data_fim_ano_letivo = dados.data_fim_ano_letivo
+    tenant.ano_letivo_atual = dados.ano_letivo_atual
     tenant.periodo_manha_inicio = dados.periodo_manha_inicio
     tenant.periodo_manha_fim = dados.periodo_manha_fim
     tenant.periodo_tarde_inicio = dados.periodo_tarde_inicio

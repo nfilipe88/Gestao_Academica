@@ -2,7 +2,7 @@ import { AsyncPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import * as ConfiguracoesActions from '../../../store/configuracoes/configuracoes.actions';
 import {
@@ -48,8 +48,13 @@ export const TEMPLATES_SITE_PUBLICO = [
 export class ConfiguracoesComponent implements OnInit {
   private fb = inject(FormBuilder);
   private store = inject(Store);
+  private route = inject(ActivatedRoute);
   protected readonly templatesSitePublico = TEMPLATES_SITE_PUBLICO;
   private http = inject(HttpClient);
+
+  // Vindo do redirecionamento forçado do Gestor sem Ano Letivo definido
+  // (?setup=1, ver core/guards/configuracao-inicial.guard.ts).
+  mostrarBannerSetup = this.route.snapshot.queryParamMap.get('setup') === '1';
 
   readonly moedasSuportadas = MOEDAS_SUPORTADAS;
 
@@ -76,6 +81,9 @@ export class ConfiguracoesComponent implements OnInit {
     pais: [''],
     nota_minima_aprovacao: [''],
     valor_taxa_matricula: ['', Validators.min(0)],
+    data_inicio_ano_letivo: [''],
+    data_fim_ano_letivo: [''],
+    ano_letivo_atual: [''],
     periodo_manha_inicio: [''],
     periodo_manha_fim: [''],
     periodo_tarde_inicio: [''],
@@ -138,6 +146,26 @@ export class ConfiguracoesComponent implements OnInit {
     this.store.dispatch(ConfiguracoesActions.carregarConfiguracao());
     this.store.dispatch(ConfiguracoesActions.carregarTiposAvaliacao());
     this._carregarSitePublico();
+
+    // Regra geral do Ano Letivo: início num ano, fim no seguinte (ex.:
+    // set/2026 a jun/2027) — o campo "Ano Letivo" é só o ano de início
+    // como inteiro, por isso preenche-se sozinho a partir da data de
+    // início, mas continua editável a seguir (não voltamos a sobrescrever
+    // se o próprio utilizador já o tiver alterado à mão nesta sessão).
+    // Preenchemos o campo sempre com { emitEvent: false } (ver abaixo),
+    // por isso qualquer valueChanges que chegue aqui só pode vir de o
+    // próprio utilizador o ter editado à mão.
+    let anoLetivoTocadoManualmente = false;
+    this.form.get('ano_letivo_atual')?.valueChanges.subscribe(() => {
+      anoLetivoTocadoManualmente = true;
+    });
+    this.form.get('data_inicio_ano_letivo')?.valueChanges.subscribe(valor => {
+      if (!valor || anoLetivoTocadoManualmente) return;
+      const ano = new Date(valor).getFullYear();
+      if (!Number.isNaN(ano)) {
+        this.form.get('ano_letivo_atual')?.setValue(String(ano), { emitEvent: false });
+      }
+    });
     // Subscrição contínua (não take(1)): também reage ao próprio
     // carregarConfiguracaoSucesso disparado depois de "Guardar", para o
     // formulário refletir exatamente o que ficou persistido (ex.: a
@@ -156,6 +184,9 @@ export class ConfiguracoesComponent implements OnInit {
         pais: config.pais ?? '',
         nota_minima_aprovacao: config.nota_minima_aprovacao != null ? String(config.nota_minima_aprovacao) : '',
         valor_taxa_matricula: config.valor_taxa_matricula != null ? String(config.valor_taxa_matricula) : '',
+        data_inicio_ano_letivo: config.data_inicio_ano_letivo ?? '',
+        data_fim_ano_letivo: config.data_fim_ano_letivo ?? '',
+        ano_letivo_atual: config.ano_letivo_atual != null ? String(config.ano_letivo_atual) : '',
         periodo_manha_inicio: config.periodo_manha_inicio ?? '',
         periodo_manha_fim: config.periodo_manha_fim ?? '',
         periodo_tarde_inicio: config.periodo_tarde_inicio ?? '',
@@ -304,6 +335,9 @@ export class ConfiguracoesComponent implements OnInit {
         pais: v.pais || null,
         nota_minima_aprovacao: v.nota_minima_aprovacao ? Number(v.nota_minima_aprovacao) : null,
         valor_taxa_matricula: v.valor_taxa_matricula ? Number(v.valor_taxa_matricula) : null,
+        data_inicio_ano_letivo: v.data_inicio_ano_letivo || null,
+        data_fim_ano_letivo: v.data_fim_ano_letivo || null,
+        ano_letivo_atual: v.ano_letivo_atual ? Number(v.ano_letivo_atual) : null,
         periodo_manha_inicio: v.periodo_manha_inicio || null,
         periodo_manha_fim: v.periodo_manha_fim || null,
         periodo_tarde_inicio: v.periodo_tarde_inicio || null,

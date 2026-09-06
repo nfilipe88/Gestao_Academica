@@ -29,7 +29,7 @@ from sqlalchemy import select
 from app.database.session import AsyncSessionLocalSistema
 from app.database.models import Usuario, Tenant
 from app.database.models_diario import TipoAvaliacaoConfig
-from app.database.models_usuarios import LoginHistorico, PasswordResetToken, RefreshToken
+from app.database.models_usuarios import ContaAtivacaoToken, LoginHistorico, PasswordResetToken, RefreshToken
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso, REFRESH_TOKEN_EXPIRE_DIAS
 from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes, revogacao
@@ -40,6 +40,12 @@ from app.schemas.auth import RegistoInicial
 # mais tempo do que uma sessão normal).
 RESET_TOKEN_EXPIRE_MINUTES = 30
 
+# Janela do link de ativação de conta — bem mais generosa que a de
+# reset de senha acima: não é security-sensitive da mesma forma (não dá
+# acesso a nada por si só, só confirma um e-mail), e uma pessoa pode
+# genuinamente demorar dias a reparar no e-mail de boas-vindas.
+ATIVACAO_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 dias
+
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:4200").rstrip("/")
 
 
@@ -48,10 +54,17 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-async def registar_escola(dados: RegistoInicial) -> tuple[Tenant, Usuario]:
+async def registar_escola(dados: RegistoInicial) -> tuple[Tenant, Usuario, str]:
     """
     Cria a Instituição (Tenant) e o seu primeiro Gestor. A operação é
     transacional: ou cria tudo, ou reverte tudo.
+
+    O Gestor fica criado com email_verificado=False e já com o token de
+    ativação gerado na mesma transação (devolvido em texto limpo, só
+    aqui — o e-mail em si é montado e enviado por quem chama, ver
+    api/v1/auth.py::registo_inicial_escola) — só depois de clicar no
+    link de ativação é que o login passa a ser possível (ver
+    autenticar() abaixo).
     """
     async with AsyncSessionLocalSistema() as db:
         nif_existente = await db.execute(select(Tenant).where(Tenant.nif == dados.nif))
@@ -77,9 +90,19 @@ async def registar_escola(dados: RegistoInicial) -> tuple[Tenant, Usuario]:
                 nome_completo=dados.nome_gestor,
                 email=dados.email_gestor,
                 senha_hash=hash_senha,
-                perfil_acesso="GESTOR"
+                perfil_acesso="GESTOR",
+                email_verificado=False,
             )
             db.add(novo_gestor)
+            await db.flush()  # obter novo_gestor.id para o token abaixo
+
+            token_ativacao = secrets.token_urlsafe(32)
+            db.add(ContaAtivacaoToken(
+                tenant_id=novo_tenant.id,
+                usuario_id=novo_gestor.id,
+                token_hash=_hash_token(token_ativacao),
+                expira_em=datetime.now(timezone.utc) + timedelta(minutes=ATIVACAO_TOKEN_EXPIRE_MINUTES),
+            ))
 
             # Seed dos tipos de avaliação por omissão (CONTINUA/PROVA) —
             # sem isto, uma escola registada pelo fluxo normal fica sem
@@ -97,12 +120,36 @@ async def registar_escola(dados: RegistoInicial) -> tuple[Tenant, Usuario]:
             ))
 
             await db.commit()
-            return novo_tenant, novo_gestor
+            return novo_tenant, novo_gestor, token_ativacao
         except HTTPException:
             raise
         except Exception as e:
             await db.rollback()  # Se algo falhar, cancela a criação do Tenant e do Utilizador
             raise HTTPException(status_code=500, detail=f"Erro ao processar registo: {str(e)}")
+
+
+async def ativar_conta(token: str) -> None:
+    """Valida o token de ativação (hash + expiração + não usado) e marca
+    a conta como email_verificado=True — a partir daqui o login passa a
+    ser possível (ver autenticar() abaixo)."""
+    async with AsyncSessionLocalSistema() as db:
+        registo = (await db.execute(
+            select(ContaAtivacaoToken).where(ContaAtivacaoToken.token_hash == _hash_token(token))
+        )).scalars().first()
+
+        token_invalido = HTTPException(status_code=400, detail="Este link de ativação é inválido ou já expirou.")
+        if not registo or registo.usado:
+            raise token_invalido
+        if registo.expira_em.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            raise token_invalido
+
+        usuario = (await db.execute(select(Usuario).where(Usuario.id == registo.usuario_id))).scalars().first()
+        if not usuario:
+            raise token_invalido
+
+        usuario.email_verificado = True
+        registo.usado = True
+        await db.commit()
 
 
 async def _criar_refresh_token(db, tenant_id, usuario_id) -> str:
@@ -170,6 +217,17 @@ async def autenticar(email: str, palavra_passe: str, ip: str | None = None, user
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Email ou palavra-passe incorretos",
                 headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Conta por ativar (link de e-mail enviado no registo — ver
+        # registar_escola/ativar_conta acima): distinto de `ativo`
+        # abaixo, que é uma suspensão administrativa. Só o registo
+        # self-service de uma escola nova exige isto — contas criadas
+        # por um Gestor já autenticado nascem com email_verificado=True.
+        if not usuario.email_verificado:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="A sua conta ainda não foi ativada — verifique o seu e-mail para o link de ativação."
             )
 
         # Suspensão individual (RBAC — Núcleo Multi-Tenant): distinta da

@@ -4,6 +4,10 @@ import { ConfiguracoesState } from './configuracoes.reducer';
 export const selectConfiguracoesState = createFeatureSelector<ConfiguracoesState>('configuracoes');
 
 export const selectConfiguracao = createSelector(selectConfiguracoesState, (state) => state.configuracao);
+// Distingue "GET ainda em curso" de "GET já respondeu, os valores são
+// mesmo null" — usado por configuracao-inicial.guard.ts para esperar
+// pelo carregamento antes de decidir se redireciona.
+export const selectConfiguracoesCarregada = createSelector(selectConfiguracoesState, (state) => state.carregada);
 // Moeda pronta a usar em `| currency:(moeda$ | async)` — nunca undefined,
 // mesmo antes da configuração carregar (evita o pipe currency partir a
 // app inteira num primeiro render antes do carregarConfiguracao() responder).

@@ -2,8 +2,9 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, HostListener, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CHAVE_SESSAO_PORTAL_EDUCANDO, guardarSessao, lerSessao } from '../../../core/utils/armazenamento-sessao';
+import { CHAVE_LOCAL_DICAS_PORTAL_FECHADAS, guardarLocal, lerLocal } from '../../../core/utils/armazenamento-local';
 import { Actions, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { filter, map, take } from 'rxjs';
@@ -47,7 +48,7 @@ const DIAS_DA_SEMANA = [
 
 @Component({
   selector: 'app-portal.component',
-  imports: [CommonModule, AsyncPipe, FormsModule],
+  imports: [CommonModule, AsyncPipe, FormsModule, RouterLink],
   templateUrl: './portal.component.html',
   styleUrl: './portal.component.css',
 })
@@ -88,6 +89,18 @@ export class PortalComponent implements OnInit {
   erroDocumentos$ = this.store.select(selectDocumentosError);
   moeda$ = this.store.select(selectMoeda);
   iban$ = this.store.select(selectConfiguracao).pipe(map(c => c.iban));
+
+  // Sugestões do que explorar no separador Dashboard — pedido direto do
+  // utilizador (ver mesma docstring em dashboard-home.component.ts).
+  // Um único conjunto de dicas serve Aluno e Responsável (mesmas
+  // ações fazem sentido para ambos); painel dispensável, preferência
+  // guardada em localStorage (ver core/utils/armazenamento-local.ts).
+  dicasFechadas = signal(lerLocal(this.platformId, CHAVE_LOCAL_DICAS_PORTAL_FECHADAS) === '1');
+
+  fecharDicas() {
+    this.dicasFechadas.set(true);
+    guardarLocal(this.platformId, CHAVE_LOCAL_DICAS_PORTAL_FECHADAS, '1');
+  }
 
   dias = DIAS_DA_SEMANA;
 

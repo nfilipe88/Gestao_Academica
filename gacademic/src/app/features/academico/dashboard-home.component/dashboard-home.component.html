@@ -7,6 +7,24 @@
     <p class="text-slate-500 text-sm">Aqui está o resumo da sua instituição.</p>
   </div>
 
+  @if (!dicasFechadas() && (dicas$ | async); as dicas) {
+    @if (dicas.length > 0) {
+      <div class="relative bg-blue-50 border border-blue-200 rounded-xl p-5 pr-10">
+        <button type="button" (click)="fecharDicas()" aria-label="Fechar dicas"
+          class="absolute top-3 right-3 text-blue-400 hover:text-blue-700 cursor-pointer text-lg leading-none">×</button>
+        <h3 class="text-sm font-semibold text-blue-800 mb-3">Sugestões para explorar</h3>
+        <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          @for (dica of dicas; track dica.link) {
+            <li class="text-sm text-blue-900">
+              {{ dica.texto }}
+              <a [routerLink]="dica.link" class="ml-1 font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap">{{ dica.rotulo }} →</a>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+  }
+
   @if (resumo$ | async; as resumo) {
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">

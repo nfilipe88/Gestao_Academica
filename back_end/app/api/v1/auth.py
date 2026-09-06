@@ -2,7 +2,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.schemas.auth import (
-    EsqueciSenhaIn, LogoutIn, RedefinirSenhaIn, RefreshTokenIn, RefreshTokenOut, RegistoInicial, TokenResponse
+    AtivarContaIn, EsqueciSenhaIn, LogoutIn, RedefinirSenhaIn, RefreshTokenIn, RefreshTokenOut, RegistoInicial,
+    TokenResponse
 )
 from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes
@@ -31,29 +32,44 @@ async def _verificar_limite_login(chave: str) -> None:
 
 @router.post("/registo", status_code=status.HTTP_201_CREATED)
 async def registo_inicial_escola(dados: RegistoInicial):
-    """Regista uma nova escola (Tenant) e o seu primeiro Gestor."""
-    novo_tenant, novo_gestor = await crud_auth.registar_escola(dados)
+    """
+    Regista uma nova escola (Tenant) e o seu primeiro Gestor — a conta
+    fica por ativar (email_verificado=False) até se clicar no link
+    enviado por e-mail; o login (POST /login) recusa-se até lá, ver
+    cruds/auth.py::autenticar.
+    """
+    novo_tenant, novo_gestor, token_ativacao = await crud_auth.registar_escola(dados)
 
-    # E-mail de boas-vindas (best-effort — não atrasa a resposta nem
-    # falha o registo se o SMTP falhar; retries automáticos via fila, ver
+    # E-mail de ativação (best-effort — não atrasa a resposta nem falha
+    # o registo se o SMTP falhar; retries automáticos via fila, ver
     # app/core/fila_notificacoes.py)
+    link_ativacao = f"{crud_auth.FRONTEND_URL}/ativar-conta?token={token_ativacao}"
     await fila_notificacoes.agendar_email(
         enviar_email,
         destinatario=dados.email_gestor,
-        assunto=f"Bem-vindo(a), {dados.nome_fantasia} já está na plataforma!",
+        assunto=f"Confirme a sua conta — {dados.nome_fantasia} já está na plataforma!",
         corpo_html=template_base(
-            "Escola registada com sucesso!",
+            "Confirme a sua conta para começar",
             f"""
             <p>Olá {dados.nome_gestor},</p>
             <p>A instituição <strong>{dados.nome_fantasia}</strong> foi criada com sucesso
             na plataforma de Gestão Académica.</p>
-            <p>Já pode iniciar sessão com o e-mail <strong>{dados.email_gestor}</strong>
-            para começar a configurar cursos, turmas e alunos.</p>
+            <p>Falta só um passo: confirme o seu e-mail para poder iniciar sessão —
+            clique no link abaixo:</p>
+            <p><a href="{link_ativacao}" style="color:#2563eb;">Ativar a minha conta</a></p>
+            <p>Este link expira em 7 dias.</p>
             """
         )
     )
 
-    return {"mensagem": "Escola e conta de Gestor criadas com sucesso!"}
+    return {"mensagem": "Escola e conta de Gestor criadas com sucesso! Verifique o seu e-mail para ativar a conta."}
+
+
+@router.post("/ativar-conta")
+async def ativar_conta(dados: AtivarContaIn):
+    """Valida o token recebido por e-mail e ativa a conta — a partir daqui o login passa a ser possível."""
+    await crud_auth.ativar_conta(dados.token)
+    return {"mensagem": "Conta ativada com sucesso. Já pode iniciar sessão."}
 
 
 @router.post("/login", response_model=TokenResponse)

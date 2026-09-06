@@ -1,8 +1,8 @@
 import uuid
-from datetime import time
+from datetime import date, time
 from decimal import Decimal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 # Moedas efetivamente aceites pela PayPal Orders API (lista oficial,
 # ISO 4217) — usada só para validar quando se está mesmo a gerar uma
@@ -42,6 +42,14 @@ class ConfiguracaoTenantOut(BaseModel):
     # Valor padrão da taxa de matrícula (encargo único, distinto das
     # mensalidades) — None = escola não cobra. Ver Tenant.valor_taxa_matricula.
     valor_taxa_matricula: Decimal | None = None
+    # Ano Letivo corrente — início/fim são as datas reais (regra geral,
+    # início num ano e fim no seguinte); ano_letivo_atual é só o ano de
+    # início como inteiro solto (ex.: 2026), o mesmo formato já usado
+    # por Turma.ano_letivo/Matricula.ano_letivo em toda a app. Ver
+    # Tenant.data_inicio_ano_letivo/data_fim_ano_letivo/ano_letivo_atual.
+    data_inicio_ano_letivo: date | None = None
+    data_fim_ano_letivo: date | None = None
+    ano_letivo_atual: int | None = None
     periodo_manha_inicio: time | None = None
     periodo_manha_fim: time | None = None
     periodo_tarde_inicio: time | None = None
@@ -63,6 +71,9 @@ class ConfiguracaoTenantUpdate(BaseModel):
     pais: str | None = None
     nota_minima_aprovacao: float | None = None
     valor_taxa_matricula: Decimal | None = None
+    data_inicio_ano_letivo: date | None = None
+    data_fim_ano_letivo: date | None = None
+    ano_letivo_atual: int | None = None
     periodo_manha_inicio: time | None = None
     periodo_manha_fim: time | None = None
     periodo_tarde_inicio: time | None = None
@@ -88,13 +99,25 @@ class ConfiguracaoTenantUpdate(BaseModel):
     @field_validator(
         "periodo_manha_inicio", "periodo_manha_fim", "periodo_tarde_inicio",
         "periodo_tarde_fim", "periodo_pos_laboral_inicio", "periodo_pos_laboral_fim",
+        "data_inicio_ano_letivo", "data_fim_ano_letivo", "ano_letivo_atual",
         mode="before"
     )
     @classmethod
     def _vazio_para_none(cls, valor):
-        # O <input type="time"> do frontend envia "" quando fica vazio —
-        # Pydantic não aceita "" como time, tem de virar None explicitamente.
+        # O <input type="time"/"date"/"number"> do frontend envia "" quando
+        # fica vazio — Pydantic não aceita "" nesses tipos, tem de virar
+        # None explicitamente.
         return None if valor == "" else valor
+
+    @model_validator(mode="after")
+    def _validar_intervalo_ano_letivo(self) -> "ConfiguracaoTenantUpdate":
+        # Mesmo padrão de validação de intervalo já usado em
+        # cruds/estatisticas.py::obter_relatorio — só faz sentido
+        # comparar quando as duas datas vêm preenchidas; uma escola a
+        # meio de preencher (só uma das duas) não é bloqueada aqui.
+        if self.data_inicio_ano_letivo and self.data_fim_ano_letivo and self.data_fim_ano_letivo <= self.data_inicio_ano_letivo:
+            raise ValueError("A data de fim do ano letivo tem de ser posterior à data de início.")
+        return self
 
 
 # ==========================================

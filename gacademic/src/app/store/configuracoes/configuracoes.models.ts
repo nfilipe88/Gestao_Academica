@@ -19,6 +19,18 @@ export interface ConfiguracaoTenant {
   // contrato em Financeiro e pela conversão automática RN01 a partir da
   // candidatura self-service (ver features/public/matricula).
   valor_taxa_matricula: number | null;
+  // Ano Letivo corrente — regra geral, início num ano e fim no seguinte
+  // (ex.: setembro de 2026 a junho de 2027). data_*_ano_letivo são
+  // datas "YYYY-MM-DD" (formato devolvido pelo back-end);
+  // ano_letivo_atual é só o ano de início como inteiro solto (ex.:
+  // 2026), o mesmo formato já usado por Turma.ano_letivo/Matricula.ano_letivo
+  // em toda a app — preenchido automaticamente a partir da data de
+  // início mas continua editável (ver configuracoes.component.ts).
+  // Ainda nulo = a escola não completou a configuração inicial (ver
+  // core/guards/configuracao-inicial.guard.ts).
+  data_inicio_ano_letivo: string | null;
+  data_fim_ano_letivo: string | null;
+  ano_letivo_atual: number | null;
   // Períodos letivos — hora "HH:MM:SS" (formato devolvido pelo back-end)
   // ou null se ainda não definida. Só guarda a informação por agora;
   // não valida conflitos em Horários.
@@ -73,6 +85,9 @@ export const CONFIGURACAO_INICIAL: ConfiguracaoTenant = {
   pais: null,
   nota_minima_aprovacao: null,
   valor_taxa_matricula: null,
+  data_inicio_ano_letivo: null,
+  data_fim_ano_letivo: null,
+  ano_letivo_atual: null,
   periodo_manha_inicio: null,
   periodo_manha_fim: null,
   periodo_tarde_inicio: null,

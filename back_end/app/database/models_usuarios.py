@@ -62,6 +62,28 @@ class PasswordResetToken(Base):
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
 
+class ContaAtivacaoToken(Base):
+    """
+    Token de ativação de conta (fluxo "confirme o seu e-mail", sempre
+    pré-autenticado — ver cruds/auth.py::registar_escola/ativar_conta),
+    mesma estrutura e mesmo princípio de PasswordResetToken acima (só o
+    HASH sha256 fica gravado, o token em texto limpo só existe no
+    e-mail enviado). Hoje só é emitido pelo registo self-service de uma
+    escola nova (POST /auth/registo) — ver Usuario.email_verificado.
+    """
+    __tablename__ = "conta_ativacao_token"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), nullable=False)
+
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    usado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
 class RefreshToken(Base):
     """
     Refresh token (Fase 5 — segurança de sessão): o access token (JWT,
