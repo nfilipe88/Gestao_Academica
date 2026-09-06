@@ -12,7 +12,7 @@ import {
   selectAlunos, selectAlunosError, selectAlunosMensagem, selectPaginacaoAlunos,
   selectResponsaveis, selectVinculos
 } from '../../../store/alunos/alunos.selector';
-import { AlunoDocumento, FotoPerfilAluno } from '../../../store/alunos/alunos.models';
+import { AlunoDocumento, FotoPerfilAluno, TIPOS_PARENTESCO } from '../../../store/alunos/alunos.models';
 import { abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
@@ -102,6 +102,19 @@ export class AlunosComponent implements OnInit, OnDestroy {
     tipo_parentesco: ['', Validators.required],
     responsavel_financeiro: [false]
   });
+
+  // Lista fechada (Pai/Mãe/Avô/...) + "Outro" com texto livre — ver
+  // TIPOS_PARENTESCO em alunos.models.ts para o porquê de não ser uma
+  // validação rígida no back-end.
+  readonly tiposParentesco = TIPOS_PARENTESCO;
+  tipoParentescoSelecionado = '';
+
+  onSelecionarTipoParentesco(valor: string) {
+    this.tipoParentescoSelecionado = valor;
+    // Só grava logo no formulário quando é uma opção fixa — "Outro"
+    // deixa o campo em branco para o texto livre (abaixo) preencher.
+    this.vincularForm.patchValue({ tipo_parentesco: valor === 'OUTRO' ? '' : valor });
+  }
 
   matricularAlunoForm = this.fb.group({
     turma_id: ['', Validators.required],
@@ -225,6 +238,7 @@ export class AlunosComponent implements OnInit, OnDestroy {
   alternarExpandido(alunoId: string) {
     this.alunoExpandidoId = this.alunoExpandidoId === alunoId ? null : alunoId;
     this.vincularForm.reset({ responsavel_financeiro: false });
+    this.tipoParentescoSelecionado = '';
     if (this.alunoExpandidoId) {
       this.store.dispatch(carregarResponsaveisDoAluno({ aluno_id: this.alunoExpandidoId }));
     }
@@ -240,6 +254,7 @@ export class AlunosComponent implements OnInit, OnDestroy {
       responsavel_financeiro: !!responsavel_financeiro
     }));
     this.vincularForm.reset({ responsavel_financeiro: false });
+    this.tipoParentescoSelecionado = '';
   }
 
   alternarFormularioAcesso(chave: string) {

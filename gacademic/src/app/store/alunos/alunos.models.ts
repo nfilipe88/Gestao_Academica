@@ -53,3 +53,14 @@ export interface AlunoResponsavelVinculo {
   tipo_parentesco: string;
   responsavel_financeiro: boolean;
 }
+
+// Lista fechada para o <select> de "Vincular responsável" — antes era
+// texto livre (input com placeholder "Ex: Mãe"), o que arriscava dados
+// inconsistentes ("Pai"/"pai"/"Papá") a aparecerem tal e qual em
+// relatórios/Estatísticas (achado real de uma auditoria de UX desta
+// sessão). O back-end continua a aceitar qualquer string (coluna
+// tipo_parentesco em models_pessoas.py é texto livre, sem enum — usada
+// também por cruds/crm.py com o valor "Responsável" e copiada tal e
+// qual em Transferências entre escolas), por isso "Outro" continua
+// disponível para não perder nenhum caso real.
+export const TIPOS_PARENTESCO = ['Pai', 'Mãe', 'Avô', 'Avó', 'Tio', 'Tia', 'Tutor Legal'] as const;

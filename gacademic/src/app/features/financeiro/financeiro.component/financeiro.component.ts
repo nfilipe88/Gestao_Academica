@@ -1,8 +1,11 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import {
+  CHAVE_SESSAO_FINANCEIRO_ALUNO, CHAVE_SESSAO_FINANCEIRO_MATRICULA, guardarSessao, lerSessao
+} from '../../../core/utils/armazenamento-sessao';
 import { Store } from '@ngrx/store';
 import { combineLatest, filter, map, startWith, take } from 'rxjs';
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
@@ -40,6 +43,7 @@ export class FinanceiroComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private http = inject(HttpClient);
+  private platformId = inject(PLATFORM_ID);
 
   alunos$ = this.store.select(selectAlunos);
   matriculas$ = this.store.select(selectMatriculasDoAluno);
@@ -110,15 +114,22 @@ export class FinanceiroComponent implements OnInit {
   ngOnInit() {
     this.store.dispatch(carregarAlunos({ page_size: 100 })); // povoa um <select>, ver nota em transferencias.component.ts
 
-    // Depois do PayPal redirecionar de volta (ver return_url/cancel_url
-    // gerados em POST /financeiro/faturas/{id}/gerar-cobranca), a página
-    // recarrega do zero — a matrícula selecionada vem na própria URL
-    // para conseguirmos repor o extrato sem o utilizador escolher tudo outra vez.
+    // aluno_id/matricula_id: primeiro a URL (link direto, ou o PayPal a
+    // devolver com a sua própria — ver return_url/cancel_url gerados em
+    // POST /financeiro/faturas/{id}/gerar-cobranca), senão o que ficou
+    // guardado nesta aba (sessionStorage) da última vez — sem isto,
+    // sair desta página (ex.: clicar noutro item do menu) e voltar
+    // esquecia sempre a escolha, obrigando a repetir aluno + matrícula
+    // todas as vezes (achado real de uma auditoria de UX desta sessão).
     const params = this.route.snapshot.queryParamMap;
-    const matriculaId = params.get('matricula_id');
+    const alunoId = params.get('aluno_id') || lerSessao(this.platformId, CHAVE_SESSAO_FINANCEIRO_ALUNO);
+    const matriculaId = params.get('matricula_id') || lerSessao(this.platformId, CHAVE_SESSAO_FINANCEIRO_MATRICULA);
     const retorno = params.get('paypal_retorno');
     const token = params.get('token'); // PayPal chama o order_id de "token" no redirecionamento
 
+    if (alunoId) {
+      this.onSelecionarAluno(alunoId);
+    }
     if (matriculaId) {
       this.onSelecionarMatricula(matriculaId);
     }
@@ -131,10 +142,14 @@ export class FinanceiroComponent implements OnInit {
       this.pagamentoCanceladoLocalmente = true;
     }
 
-    // Limpa os parâmetros do PayPal da URL para um refresh da página não
-    // tentar capturar/reprocessar a mesma Order outra vez.
+    // Limpa só os parâmetros do PayPal da URL (para um refresh da página
+    // não tentar capturar/reprocessar a mesma Order outra vez) — nunca
+    // aluno_id/matricula_id inteiros, que é o que mantém a seleção ao
+    // voltar a esta página mais tarde.
     if (retorno) {
-      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+      this.router.navigate([], {
+        relativeTo: this.route, queryParams: { paypal_retorno: null, token: null }, queryParamsHandling: 'merge', replaceUrl: true
+      });
     }
   }
 
@@ -145,6 +160,16 @@ export class FinanceiroComponent implements OnInit {
     if (alunoId) {
       this.store.dispatch(carregarMatriculasDoAluno({ aluno_id: alunoId }));
     }
+    // Espelha a escolha no URL (link partilhável, sobrevive a F5) e no
+    // sessionStorage (sobrevive a sair desta página e voltar, mesmo
+    // sem os parâmetros no URL — ver ngOnInit). Mudar de aluno invalida
+    // a matrícula anterior nos dois sítios.
+    this.router.navigate([], {
+      relativeTo: this.route, queryParams: { aluno_id: alunoId || null, matricula_id: null },
+      queryParamsHandling: 'merge', replaceUrl: true
+    });
+    guardarSessao(this.platformId, CHAVE_SESSAO_FINANCEIRO_ALUNO, alunoId || null);
+    guardarSessao(this.platformId, CHAVE_SESSAO_FINANCEIRO_MATRICULA, null);
   }
 
   onSelecionarMatricula(matriculaId: string) {
@@ -154,6 +179,10 @@ export class FinanceiroComponent implements OnInit {
       this.store.dispatch(carregarContratoDaMatricula({ matricula_id: this.matriculaSelecionadaId }));
       this.store.dispatch(carregarResponsaveisDaMatricula({ matricula_id: this.matriculaSelecionadaId }));
     }
+    this.router.navigate([], {
+      relativeTo: this.route, queryParams: { matricula_id: this.matriculaSelecionadaId }, queryParamsHandling: 'merge', replaceUrl: true
+    });
+    guardarSessao(this.platformId, CHAVE_SESSAO_FINANCEIRO_MATRICULA, this.matriculaSelecionadaId);
   }
 
   alternarFormularioContrato() {

@@ -283,8 +283,22 @@
                     <option [value]="responsavel.id">{{ responsavel.nome_completo }}</option>
                   }
                 </select>
-                <input type="text" formControlName="tipo_parentesco" placeholder="Ex: Mãe"
-                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 w-28 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                <!-- Lista fechada + "Outro" — antes era texto livre,
+                     arriscando dados inconsistentes ("Pai"/"pai"/"Papá")
+                     a aparecerem tal e qual em relatórios/Estatísticas. -->
+                <select [ngModel]="tipoParentescoSelecionado" (ngModelChange)="onSelecionarTipoParentesco($event)"
+                  [ngModelOptions]="{ standalone: true }"
+                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                  <option value="" disabled>Parentesco</option>
+                  @for (opcao of tiposParentesco; track opcao) {
+                    <option [value]="opcao">{{ opcao }}</option>
+                  }
+                  <option value="OUTRO">Outro…</option>
+                </select>
+                @if (tipoParentescoSelecionado === 'OUTRO') {
+                  <input type="text" formControlName="tipo_parentesco" placeholder="Especifique"
+                    class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 w-28 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                }
                 <label class="flex items-center gap-1.5 text-sm text-slate-600">
                   <input type="checkbox" formControlName="responsavel_financeiro" />
                   Responsável financeiro

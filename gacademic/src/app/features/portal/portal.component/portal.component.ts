@@ -1,8 +1,9 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, HostListener, inject, OnInit, signal } from '@angular/core';
+import { Component, HostListener, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
+import { CHAVE_SESSAO_PORTAL_EDUCANDO, guardarSessao, lerSessao } from '../../../core/utils/armazenamento-sessao';
 import { Actions, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { filter, map, take } from 'rxjs';
@@ -56,6 +57,7 @@ export class PortalComponent implements OnInit {
   private router = inject(Router);
   private actions$ = inject(Actions);
   private http = inject(HttpClient);
+  private platformId = inject(PLATFORM_ID);
 
   usuario$ = this.store.select(selectUsuario);
   educandos$ = this.store.select(selectMeusEducandos);
@@ -183,14 +185,17 @@ export class PortalComponent implements OnInit {
         ? tabAtual as typeof this.aba : 'dashboard';
     });
 
-    // Depois do PayPal redirecionar de volta (return_url gerado em
-    // POST /financeiro/faturas/{id}/gerar-cobranca ou em
-    // POST /documentos/solicitacoes/{id}/gerar-cobranca, apontados para
-    // cá quando quem paga é RESPONSAVEL/ALUNO), a página recarrega do
-    // zero — o aluno_id (e, para documentos, tab=documentos) vêm na
-    // própria URL para repormos a seleção.
+    // aluno_id: primeiro a URL (depois do PayPal redirecionar de volta —
+    // return_url gerado em POST /financeiro/faturas/{id}/gerar-cobranca
+    // ou em POST /documentos/solicitacoes/{id}/gerar-cobranca, apontados
+    // para cá quando quem paga é RESPONSAVEL/ALUNO — ou de um link
+    // direto), senão o que ficou guardado nesta aba (sessionStorage) da
+    // última vez — sem isto, trocar de separador do menu (nova
+    // navegação para /portal, só o ?tab= muda) ou voltar mais tarde
+    // esquecia sempre qual educando estava selecionado (achado real de
+    // uma auditoria de UX desta sessão).
     const params = this.route.snapshot.queryParamMap;
-    const alunoId = params.get('aluno_id');
+    const alunoId = params.get('aluno_id') || lerSessao(this.platformId, CHAVE_SESSAO_PORTAL_EDUCANDO);
     const retorno = params.get('paypal_retorno');
     const token = params.get('token'); // PayPal chama o order_id de "token" no redirecionamento
     const tab = params.get('tab');
@@ -291,6 +296,16 @@ export class PortalComponent implements OnInit {
     this.exameResultadoAbertoId = null;
     this.store.dispatch(limparTentativaExame());
     this.carregarFotosPerfil(alunoId);
+
+    // Espelha a escolha no URL (?aluno_id=..., sobrevive a F5/link
+    // direto — merge preserva o resto da query string, ex.:
+    // tab=financeiro) e no sessionStorage (sobrevive também a trocar
+    // de separador do menu lateral e voltar, mesmo sem o aluno_id no
+    // URL nesse momento — ver ngOnInit).
+    this.router.navigate([], {
+      relativeTo: this.route, queryParams: { aluno_id: alunoId }, queryParamsHandling: 'merge', replaceUrl: true
+    });
+    guardarSessao(this.platformId, CHAVE_SESSAO_PORTAL_EDUCANDO, alunoId);
   }
 
   // --- Foto de perfil (self-service) ---

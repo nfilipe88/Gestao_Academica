@@ -6,6 +6,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import * as AuthActions from './auth.actions';
 import { UsuarioLogado } from './auth.actions';
 import { catchError, map, switchMap, tap, of } from 'rxjs';
+import {
+  CHAVE_SESSAO_FINANCEIRO_ALUNO, CHAVE_SESSAO_FINANCEIRO_MATRICULA, CHAVE_SESSAO_PORTAL_EDUCANDO, guardarSessao
+} from '../../core/utils/armazenamento-sessao';
 
 @Injectable()
 export class AuthEffects {
@@ -137,6 +140,14 @@ export class AuthEffects {
           localStorage.removeItem('saas_access_token');
           localStorage.removeItem('saas_refresh_token');
           localStorage.removeItem('saas_user');
+          // Seleções lembradas entre navegações em Financeiro/Portal
+          // (ver core/utils/armazenamento-sessao.ts) — sem isto, um
+          // segundo utilizador a iniciar sessão no mesmo separador do
+          // browser via logo um aluno/matrícula/educando da conta
+          // anterior, que não são seus.
+          guardarSessao(this.platformId, CHAVE_SESSAO_FINANCEIRO_ALUNO, null);
+          guardarSessao(this.platformId, CHAVE_SESSAO_FINANCEIRO_MATRICULA, null);
+          guardarSessao(this.platformId, CHAVE_SESSAO_PORTAL_EDUCANDO, null);
         }
       })
     ),
