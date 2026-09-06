@@ -16,6 +16,9 @@ import { AlunoDocumento, FotoPerfilAluno } from '../../../store/alunos/alunos.mo
 import { abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
 import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
+import { carregarTurmas } from '../../../store/academico/academic.actions';
+import { selectTurmas } from '../../../store/academico/academic.selector';
+import { MatriculaResumo } from '../../../store/financeiro/financeiro.models';
 
 @Component({
   selector: 'app-alunos.component',
@@ -33,6 +36,11 @@ export class AlunosComponent implements OnInit, OnDestroy {
   mensagem$ = this.store.select(selectAlunosMensagem);
   responsaveis$ = this.store.select(selectResponsaveis);
   paginacaoAlunos$ = this.store.select(selectPaginacaoAlunos);
+
+  // Turmas para o <select> de "Matricular" (secção Matrícula, dentro
+  // do painel expandido de cada aluno) — mesma store já usada por
+  // features/academico/turmas.component.ts.
+  turmas$ = this.store.select(selectTurmas);
 
   // Criar/editar alunos, responsáveis, vínculos e acessos ao Portal =
   // GESTOR ou SECRETARIA (ver _PODE_GERIR em alunos.py).
@@ -95,6 +103,11 @@ export class AlunosComponent implements OnInit, OnDestroy {
     responsavel_financeiro: [false]
   });
 
+  matricularAlunoForm = this.fb.group({
+    turma_id: ['', Validators.required],
+    ano_letivo: [new Date().getFullYear(), [Validators.required, Validators.min(2000)]]
+  });
+
   // Página/tamanho atuais da tabela de Alunos, guardados aqui para os
   // reenviarmos ao criar um novo registo (o effect volta sempre à
   // página 1, mas se o utilizador tinha escolhido "50 por página" isso
@@ -120,6 +133,9 @@ export class AlunosComponent implements OnInit, OnDestroy {
     // escolas com mais de 100 responsáveis, ver nota em
     // transferencias.component.ts).
     this.store.dispatch(carregarResponsaveis({ page_size: 100 }));
+    // Povoa o <select> de "Matricular" na secção Matrícula de cada
+    // aluno — mesmo dispatch já feito por turmas.component.ts.
+    this.store.dispatch(carregarTurmas());
 
     this.subscricoes.add(
       this.filtroForm.controls.busca.valueChanges.pipe(
@@ -243,6 +259,54 @@ export class AlunosComponent implements OnInit, OnDestroy {
     const { email, palavra_passe } = this.acessoForm.value;
     this.store.dispatch(criarAcessoResponsavel({ responsavel_id: responsavelId, email: email!, palavra_passe: palavra_passe! }));
     this.acessoFormAbertoPara = null;
+  }
+
+  // ==========================================
+  // MATRÍCULA (descoberta a partir do próprio Aluno) — antes disto, a
+  // única forma de matricular um aluno era ir a Turmas → "Ver alunos"
+  // → escolhê-lo num <select>, sem nenhuma pista aqui em Alunos a
+  // apontar para lá (achado real de uma auditoria de UX desta sessão).
+  // Mesmo endpoint (POST /api/v1/matriculas) e mesmo padrão de "pequeno
+  // de mais para um slice próprio" de Documentos/Foto de Perfil abaixo
+  // — só o GET de leitura (/alunos/{id}/matriculas) já existia,
+  // reaproveitado de store/financeiro (usado lá para o <select> de
+  // "Matrícula/Ano letivo" da página Financeiro).
+  // ==========================================
+  alunoMatriculasAbertoId = signal<string | null>(null);
+  matriculasPorAluno = signal<Record<string, MatriculaResumo[]>>({});
+  aMatricularAlunoId = signal<string | null>(null);
+  erroMatricularAluno = signal<string | null>(null);
+
+  private recarregarMatriculasDoAluno(alunoId: string) {
+    this.http.get<MatriculaResumo[]>(`/api/v1/alunos/${alunoId}/matriculas`).subscribe({
+      next: (matriculas) => this.matriculasPorAluno.update(atual => ({ ...atual, [alunoId]: matriculas })),
+    });
+  }
+
+  onAlternarMatriculas(alunoId: string) {
+    const abrir = this.alunoMatriculasAbertoId() !== alunoId;
+    this.alunoMatriculasAbertoId.set(abrir ? alunoId : null);
+    this.matricularAlunoForm.reset({ turma_id: '', ano_letivo: new Date().getFullYear() });
+    this.erroMatricularAluno.set(null);
+    if (abrir) this.recarregarMatriculasDoAluno(alunoId);
+  }
+
+  onMatricularAluno(alunoId: string) {
+    if (this.matricularAlunoForm.invalid) return;
+    const { turma_id, ano_letivo } = this.matricularAlunoForm.value;
+    this.aMatricularAlunoId.set(alunoId);
+    this.erroMatricularAluno.set(null);
+    this.http.post(`/api/v1/matriculas`, { aluno_id: alunoId, turma_id, ano_letivo }).subscribe({
+      next: () => {
+        this.aMatricularAlunoId.set(null);
+        this.matricularAlunoForm.reset({ turma_id: '', ano_letivo: new Date().getFullYear() });
+        this.recarregarMatriculasDoAluno(alunoId);
+      },
+      error: (err) => {
+        this.aMatricularAlunoId.set(null);
+        this.erroMatricularAluno.set(err.error?.detail || 'Não foi possível matricular o aluno.');
+      },
+    });
   }
 
   // ==========================================

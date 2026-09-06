@@ -6,8 +6,14 @@
       <p class="text-slate-500 text-sm">Contratos financeiros, mensalidades e cobrança dos alunos.</p>
     </div>
     @if (podeGerir$ | async) {
+      <!-- Manutenção em lote (dispara e-mails a faturas perto do
+           vencimento/em atraso), não a tarefa principal desta página —
+           antes era o botão mais destacado (bg-slate-800, canto
+           superior direito), competindo visualmente com o próprio
+           fluxo de aluno→matrícula→contrato abaixo. Discreto de
+           propósito: continua no mesmo sítio, só deixa de dominar. -->
       <button type="button" (click)="onProcessarRegua()"
-        class="text-sm bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer"
+        class="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-300 font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
         title="Envia lembretes/avisos por e-mail às faturas que estejam a 3 dias do vencimento, no dia do vencimento, ou 5 dias em atraso.">
         Processar Régua de Cobrança
       </button>
@@ -22,7 +28,7 @@
   }
   @if (pagamentoCanceladoLocalmente) {
     <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-      O pagamento no PayPal foi cancelado — a fatura continua pendente, podes tentar novamente.
+      O pagamento no PayPal foi cancelado — a fatura continua pendente, pode tentar novamente.
     </div>
   }
 
@@ -277,7 +283,7 @@
     }
 
   } @else {
-    <p class="text-sm text-slate-500">Seleciona um aluno e uma matrícula para ver o histórico financeiro.</p>
+    <p class="text-sm text-slate-500">Selecione um aluno e uma matrícula para ver o histórico financeiro.</p>
   }
 
 </div>

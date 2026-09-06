@@ -182,6 +182,59 @@
                 </form>
               }
 
+              <!-- Matrícula — descoberta a partir do próprio Aluno (a
+                   ação real de matricular continua em Turmas → "Ver
+                   alunos", que é onde a vaga/turma é escolhida; aqui
+                   fica visível a situação atual e um atalho direto,
+                   sem ter de já saber que a matrícula "vive" noutra
+                   página). -->
+              <div class="pt-2 border-t border-slate-200">
+                <button type="button" (click)="onAlternarMatriculas(aluno.id)"
+                  class="text-xs text-blue-500 hover:text-blue-700 font-medium cursor-pointer">
+                  {{ alunoMatriculasAbertoId() === aluno.id ? 'Fechar matrícula' : '🎓 Matrícula' }}
+                </button>
+                @if (alunoMatriculasAbertoId() === aluno.id) {
+                  <div class="space-y-2 mt-2">
+                    @if (matriculasPorAluno()[aluno.id]?.length) {
+                      <ul class="space-y-1.5">
+                        @for (m of matriculasPorAluno()[aluno.id]; track m.matricula_id) {
+                          <li class="text-xs text-slate-700 flex items-center gap-2 flex-wrap">
+                            <span>{{ m.nome_turma }} — {{ m.ano_letivo }}</span>
+                            <span class="text-[10px] font-semibold rounded-full px-2 py-0.5"
+                              [class.bg-emerald-100]="m.status_matricula === 'ATIVO'" [class.text-emerald-700]="m.status_matricula === 'ATIVO'"
+                              [class.bg-slate-100]="m.status_matricula !== 'ATIVO'" [class.text-slate-500]="m.status_matricula !== 'ATIVO'">
+                              {{ m.status_matricula }}
+                            </span>
+                          </li>
+                        }
+                      </ul>
+                    } @else {
+                      <p class="text-xs text-slate-400">Ainda não está matriculado nesta escola.</p>
+                    }
+                    @if (podeGerir$ | async) {
+                      @if (erroMatricularAluno()) {
+                        <p class="text-xs text-rose-600">{{ erroMatricularAluno() }}</p>
+                      }
+                      <form [formGroup]="matricularAlunoForm" (ngSubmit)="onMatricularAluno(aluno.id)" class="flex flex-wrap gap-2 items-center pt-1">
+                        <select formControlName="turma_id"
+                          class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                          <option value="" disabled>Selecione uma turma</option>
+                          @for (turma of turmas$ | async; track turma.id) {
+                            <option [value]="turma.id">{{ turma.nome_codigo }} ({{ turma.ano_letivo }})</option>
+                          }
+                        </select>
+                        <input type="number" formControlName="ano_letivo" title="Ano letivo"
+                          class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 w-20 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                        <button type="submit" [disabled]="matricularAlunoForm.invalid || aMatricularAlunoId() === aluno.id"
+                          class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors">
+                          {{ aMatricularAlunoId() === aluno.id ? 'A matricular…' : '+ Matricular' }}
+                        </button>
+                      </form>
+                    }
+                  </div>
+                }
+              </div>
+
               @if (aluno.vinculos.length > 0) {
                 <ul class="space-y-1.5">
                   @for (vinculo of aluno.vinculos; track vinculo.id) {
