@@ -200,7 +200,7 @@
                     {{ fatura.numero_parcela }}/{{ contrato.quantidade_parcelas }}
                   }
                 </td>
-                <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento }}</td>
+                <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento | date:'dd/MM/yyyy' }}</td>
                 <td class="py-3 px-4 text-slate-600 text-right">{{ fatura.valor_original | currency:((moeda$ | async) ?? undefined) }}</td>
                 <td class="py-3 px-4 text-right" [class.text-rose-600]="fatura.status_efetivo === 'ATRASADO'" [class.font-semibold]="fatura.status_efetivo === 'ATRASADO'">
                   {{ fatura.valor_atualizado | currency:((moeda$ | async) ?? undefined) }}

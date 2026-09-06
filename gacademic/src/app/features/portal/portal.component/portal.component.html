@@ -281,7 +281,7 @@
                       <tr class="border-t border-slate-100">
                         <td class="py-1 pr-3 text-slate-700">{{ nota.periodo_avaliacao }}</td>
                         <td class="py-1 pr-3 text-slate-500">{{ nota.tipo_avaliacao || '—' }}</td>
-                        <td class="py-1 pr-3 text-slate-500">{{ nota.data_avaliacao || '—' }}</td>
+                        <td class="py-1 pr-3 text-slate-500">{{ nota.data_avaliacao ? (nota.data_avaliacao | date:'dd/MM/yyyy') : '—' }}</td>
                         <td class="py-1 pr-3 text-right font-semibold text-slate-800">{{ nota.valor_nota }}</td>
                       </tr>
                     } @empty {
@@ -306,7 +306,7 @@
               <div class="flex items-start justify-between flex-wrap gap-2">
                 <div>
                   <h4 class="text-sm font-semibold text-slate-800">{{ tarefa.titulo }}</h4>
-                  <p class="text-xs text-slate-500">{{ tarefa.nome_disciplina }} — {{ tarefa.nome_turma }} · Prazo: {{ tarefa.data_entrega }}</p>
+                  <p class="text-xs text-slate-500">{{ tarefa.nome_disciplina }} — {{ tarefa.nome_turma }} · Prazo: {{ tarefa.data_entrega | date:'dd/MM/yyyy' }}</p>
                   @if (tarefa.descricao) {
                     <p class="text-xs text-slate-500 mt-1">{{ tarefa.descricao }}</p>
                   }
@@ -556,7 +556,7 @@
                           {{ fatura.numero_parcela }}/{{ financeiro.contrato.quantidade_parcelas }}
                         }
                       </td>
-                      <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento }}</td>
+                      <td class="py-3 px-4 text-slate-600">{{ fatura.data_vencimento | date:'dd/MM/yyyy' }}</td>
                       <td class="py-3 px-4 text-right" [class.text-rose-600]="fatura.status_efetivo === 'ATRASADO'" [class.font-semibold]="fatura.status_efetivo === 'ATRASADO'">
                         {{ fatura.valor_atualizado | currency:((moeda$ | async) ?? undefined) }}
                         @if (fatura.status_efetivo === 'ATRASADO') {

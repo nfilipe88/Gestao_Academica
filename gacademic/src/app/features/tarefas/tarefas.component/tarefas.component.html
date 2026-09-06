@@ -125,7 +125,7 @@
           @for (tarefa of tarefasFiltradas$ | async; track tarefa.id) {
             <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="py-3 px-6 text-slate-800 font-medium">{{ tarefa.titulo }}</td>
-              <td class="py-3 px-6 text-slate-600">{{ tarefa.data_entrega }}</td>
+              <td class="py-3 px-6 text-slate-600">{{ tarefa.data_entrega | date:'dd/MM/yyyy' }}</td>
               <td class="py-3 px-6 text-slate-600 text-right">{{ tarefa.valor_maximo }}</td>
               <td class="py-3 px-6 text-slate-500 text-sm">{{ tarefa.periodo_avaliacao || '—' }}</td>
               <td class="py-3 px-6 text-right">
@@ -154,7 +154,7 @@
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h4 class="text-sm font-semibold text-slate-800">{{ tarefa.titulo }}</h4>
-            <p class="text-xs text-slate-500">Prazo: {{ tarefa.data_entrega }} · Valor máximo: {{ tarefa.valor_maximo }}</p>
+            <p class="text-xs text-slate-500">Prazo: {{ tarefa.data_entrega | date:'dd/MM/yyyy' }} · Valor máximo: {{ tarefa.valor_maximo }}</p>
           </div>
           <button type="button" (click)="onFecharTarefa()" class="text-sm text-slate-500 hover:text-slate-700 cursor-pointer">Fechar</button>
         </div>

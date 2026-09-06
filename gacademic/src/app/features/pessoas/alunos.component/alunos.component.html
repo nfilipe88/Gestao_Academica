@@ -144,7 +144,7 @@
         <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
           <td class="py-3 px-6 text-slate-800 font-medium">{{ aluno.nome_completo }}</td>
           <td class="py-3 px-6 text-slate-600">{{ aluno.matricula_interna }}</td>
-          <td class="py-3 px-6 text-slate-600">{{ aluno.data_nascimento }}</td>
+          <td class="py-3 px-6 text-slate-600">{{ aluno.data_nascimento | date:'dd/MM/yyyy' }}</td>
           <td class="py-3 px-6 text-right">
             <button type="button" (click)="alternarExpandido(aluno.id)"
               class="text-blue-500 hover:text-blue-700 text-sm font-medium cursor-pointer">

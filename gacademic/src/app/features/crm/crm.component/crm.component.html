@@ -154,7 +154,7 @@
                   </button>
                 </div>
                 @if (cartao.lead.data_nascimento_candidato) {
-                  <p class="text-[10px] text-slate-400">Nascimento: {{ cartao.lead.data_nascimento_candidato }}</p>
+                  <p class="text-[10px] text-slate-400">Nascimento: {{ cartao.lead.data_nascimento_candidato | date:'dd/MM/yyyy' }}</p>
                 }
               }
 

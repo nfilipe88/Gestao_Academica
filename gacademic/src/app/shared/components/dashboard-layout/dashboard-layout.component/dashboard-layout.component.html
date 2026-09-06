@@ -169,6 +169,17 @@
         </a>
       } @else {
 
+      <!-- Sidebar agrupada por secções (Painéis / Académico / Matrículas
+           e Captação / Financeiro / Comunicação / Administração) — antes
+           era uma lista plana de ~20 itens sem hierarquia nenhuma entre
+           o que é do dia-a-dia e o que é raro/administrativo. Cada
+           cabeçalho de secção só aparece se pelo menos um item lá
+           dentro for visível a este perfil (mesma condição do primeiro
+           item do grupo), para nunca ficar um cabeçalho "vazio". Com o
+           menu encolhido (sidebarColapsada), o texto do cabeçalho dá
+           lugar a um simples traço separador — mantém a pista visual
+           dos grupos mesmo só com ícones. -->
+
       <a routerLink="/dashboard" routerLinkActive="bg-slate-800 text-blue-400"
         [routerLinkActiveOptions]="{ exact: true }"
         class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
@@ -180,6 +191,12 @@
       </a>
 
       @if (isGestorOuSecretaria$ | async) {
+        @if (!sidebarColapsada) {
+          <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Painéis</p>
+        } @else {
+          <hr class="border-slate-800 mt-3 mb-1 mx-2" />
+        }
+
         <!-- Indicadores: visão executiva agregada de outros módulos —
              GESTOR/SECRETARIA no back-end (exigir_perfil em
              indicadores.py), mesmo padrão de CRM/Financeiro. -->
@@ -202,6 +219,12 @@
           </svg>
           @if (!sidebarColapsada) { <span>Estatísticas</span> }
         </a>
+      }
+
+      @if (!sidebarColapsada) {
+        <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Académico</p>
+      } @else {
+        <hr class="border-slate-800 mt-3 mb-1 mx-2" />
       }
 
       <a routerLink="/cursos" routerLinkActive="bg-slate-800 text-blue-400"
@@ -258,6 +281,89 @@
         @if (!sidebarColapsada) { <span>Horários</span> }
       </a>
 
+      @if (isGestorOuSecretaria$ | async) {
+        @if (!sidebarColapsada) {
+          <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Matrículas e Captação</p>
+        } @else {
+          <hr class="border-slate-800 mt-3 mb-1 mx-2" />
+        }
+
+        <!-- CRM: dados de contacto de famílias ainda não matriculadas —
+             GESTOR/SECRETARIA no back-end (exigir_perfil em crm.py). -->
+        <a routerLink="/crm" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="CRM">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5v2.4a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v3.129a.75.75 0 01-1.043.69l-2.25-.964a.75.75 0 01-.457-.69v-2.165a2.25 2.25 0 00-.659-1.591L3.66 9.24a2.25 2.25 0 01-.659-1.591V5.25z" />
+          </svg>
+          @if (!sidebarColapsada) { <span>CRM</span> }
+        </a>
+
+        <!-- Rematrícula: renovar em lote é GESTOR/SECRETARIA no back-end
+             (exigir_perfil em matriculas.py, mesmo alcance de "Matricular
+             aluno" em Turmas) — esconder aqui evita um ecrã que só
+             mostraria a lista bloqueada a 403. -->
+        <a routerLink="/rematricula" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Rematrícula">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Rematrícula</span> }
+        </a>
+
+        <!-- Transferência de alunos: pedir é GESTOR/SECRETARIA no
+             back-end (exigir_perfil em transferencias.py) — a aprovação
+             fica só no Painel Super Admin. -->
+        <a routerLink="/transferencias" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Transferência de Alunos">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-9L21 3m0 0l-4.5 4.5M21 3v13.5" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Transf. de Alunos</span> }
+        </a>
+      }
+
+      @if (isGestorOuSecretaria$ | async) {
+        @if (!sidebarColapsada) {
+          <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Financeiro</p>
+        } @else {
+          <hr class="border-slate-800 mt-3 mb-1 mx-2" />
+        }
+
+        <!-- Financeiro: criar contratos, marcar pagamentos e processar a
+             régua de cobrança são GESTOR/SECRETARIA no back-end
+             (exigir_perfil em financeiro.py); esconder aqui evita um
+             ecrã que só mostraria formulários bloqueados a 403. -->
+        <a routerLink="/financeiro" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Financeiro">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Financeiro</span> }
+        </a>
+
+        <!-- Tabela de Propinas: definir o valor da mensalidade/matrícula
+             por curso ou classe — GESTOR/SECRETARIA no back-end
+             (exigir_perfil em propinas.py), mesmo alcance do Financeiro. -->
+        <a routerLink="/propinas" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Tabela de Propinas">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Tabela de Propinas</span> }
+        </a>
+      }
+
+      @if (!sidebarColapsada) {
+        <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Comunicação</p>
+      } @else {
+        <hr class="border-slate-800 mt-3 mb-1 mx-2" />
+      }
+
       <a routerLink="/comunicacoes" routerLinkActive="bg-slate-800 text-blue-400"
         class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
         [class.justify-center]="sidebarColapsada" title="Comunicações">
@@ -277,74 +383,11 @@
       </a>
 
       @if (isGestorOuSecretaria$ | async) {
-        <!-- CRM: dados de contacto de famílias ainda não matriculadas —
-             GESTOR/SECRETARIA no back-end (exigir_perfil em crm.py). -->
-        <a routerLink="/crm" routerLinkActive="bg-slate-800 text-blue-400"
-          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
-          [class.justify-center]="sidebarColapsada" title="CRM">
-          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5v2.4a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v3.129a.75.75 0 01-1.043.69l-2.25-.964a.75.75 0 01-.457-.69v-2.165a2.25 2.25 0 00-.659-1.591L3.66 9.24a2.25 2.25 0 01-.659-1.591V5.25z" />
-          </svg>
-          @if (!sidebarColapsada) { <span>CRM</span> }
-        </a>
-      }
-
-      @if (isGestorOuSecretaria$ | async) {
-        <!-- Financeiro: criar contratos, marcar pagamentos e processar a
-             régua de cobrança são GESTOR/SECRETARIA no back-end
-             (exigir_perfil em financeiro.py); esconder aqui evita um
-             ecrã que só mostraria formulários bloqueados a 403. -->
-        <a routerLink="/financeiro" routerLinkActive="bg-slate-800 text-blue-400"
-          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
-          [class.justify-center]="sidebarColapsada" title="Financeiro">
-          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          @if (!sidebarColapsada) { <span>Financeiro</span> }
-        </a>
-      }
-
-      @if (isGestorOuSecretaria$ | async) {
-        <!-- Tabela de Propinas: definir o valor da mensalidade/matrícula
-             por curso ou classe — GESTOR/SECRETARIA no back-end
-             (exigir_perfil em propinas.py), mesmo alcance do Financeiro. -->
-        <a routerLink="/propinas" routerLinkActive="bg-slate-800 text-blue-400"
-          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
-          [class.justify-center]="sidebarColapsada" title="Tabela de Propinas">
-          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-          </svg>
-          @if (!sidebarColapsada) { <span>Tabela de Propinas</span> }
-        </a>
-      }
-
-      @if (isGestorOuSecretaria$ | async) {
-        <!-- Rematrícula: renovar em lote é GESTOR/SECRETARIA no back-end
-             (exigir_perfil em matriculas.py, mesmo alcance de "Matricular
-             aluno" em Turmas) — esconder aqui evita um ecrã que só
-             mostraria a lista bloqueada a 403. -->
-        <a routerLink="/rematricula" routerLinkActive="bg-slate-800 text-blue-400"
-          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
-          [class.justify-center]="sidebarColapsada" title="Rematrícula">
-          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-          </svg>
-          @if (!sidebarColapsada) { <span>Rematrícula</span> }
-        </a>
-      }
-
-      @if (isGestorOuSecretaria$ | async) {
-        <!-- Transferência de alunos: pedir é GESTOR/SECRETARIA no
-             back-end (exigir_perfil em transferencias.py) — a aprovação
-             fica só no Painel Super Admin. -->
-        <a routerLink="/transferencias" routerLinkActive="bg-slate-800 text-blue-400"
-          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
-          [class.justify-center]="sidebarColapsada" title="Transferência de Alunos">
-          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-9L21 3m0 0l-4.5 4.5M21 3v13.5" />
-          </svg>
-          @if (!sidebarColapsada) { <span>Transf. de Alunos</span> }
-        </a>
+        @if (!sidebarColapsada) {
+          <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Administração</p>
+        } @else {
+          <hr class="border-slate-800 mt-3 mb-1 mx-2" />
+        }
       }
 
       @if (isGestor$ | async) {
