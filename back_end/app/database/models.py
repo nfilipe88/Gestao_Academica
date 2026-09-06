@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import List
-from sqlalchemy import Boolean, Date, Integer, Numeric, String, ForeignKey, DateTime, Text, Time, text
+from sqlalchemy import Boolean, Date, Numeric, String, ForeignKey, DateTime, Text, Time, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -60,19 +60,23 @@ class Tenant(Base):
 
     # Ano Letivo corrente da escola — regra geral, começa num ano e
     # termina no seguinte (ex.: início em setembro de 2026, fim em
-    # junho de 2027). `ano_letivo_atual` é só o ano de início como
-    # inteiro solto (ex.: 2026) — o mesmo formato já usado em toda a
-    # app por Turma.ano_letivo/Matricula.ano_letivo (nunca "2026/2027"
-    # como string); o frontend preenche-o automaticamente a partir de
-    # `data_inicio_ano_letivo` mas continua editável (ver
-    # app/schemas/configuracoes.py para a validação de que o fim é
-    # posterior ao início). Nullable como todo o resto de Configurações
-    # — a exceção é que o frontend força o Gestor a preencher isto antes
-    # de mais nada (ver core/guards/configuracao-inicial.guard.ts do
-    # lado do frontend); a BD em si continua flexível.
+    # junho de 2027). `ano_letivo_atual` é a junção "YYYY/YYYY" dos dois
+    # anos (ex.: "2026/2027") — pedido explícito do utilizador, POR
+    # ISSO É STRING, ao contrário de Turma.ano_letivo/Matricula.ano_letivo,
+    # que continuam um inteiro solto com só o ano de início (convenção
+    # diferente, de propósito: aquelas são o ano letivo de uma
+    # turma/matrícula em concreto, não o rótulo do ano letivo corrente
+    # da escola). O frontend preenche-o automaticamente a partir de
+    # `data_inicio_ano_letivo`/`data_fim_ano_letivo` mas continua
+    # editável (ver app/schemas/configuracoes.py para a validação de
+    # que o fim é posterior ao início). Nullable como todo o resto de
+    # Configurações — a exceção é que o frontend força o Gestor a
+    # preencher isto antes de mais nada (ver
+    # core/guards/configuracao-inicial.guard.ts do lado do frontend); a
+    # BD em si continua flexível.
     data_inicio_ano_letivo: Mapped[date | None] = mapped_column(Date, nullable=True)
     data_fim_ano_letivo: Mapped[date | None] = mapped_column(Date, nullable=True)
-    ano_letivo_atual: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ano_letivo_atual: Mapped[str | None] = mapped_column(String(9), nullable=True)
 
     # Períodos letivos (Manhã/Tarde/Pós-Laboral) — hora de início e de
     # encerramento de cada um. Só guarda a informação nesta primeira

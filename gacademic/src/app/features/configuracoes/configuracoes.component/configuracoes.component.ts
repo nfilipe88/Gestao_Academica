@@ -148,24 +148,36 @@ export class ConfiguracoesComponent implements OnInit {
     this._carregarSitePublico();
 
     // Regra geral do Ano Letivo: início num ano, fim no seguinte (ex.:
-    // set/2026 a jun/2027) — o campo "Ano Letivo" é só o ano de início
-    // como inteiro, por isso preenche-se sozinho a partir da data de
-    // início, mas continua editável a seguir (não voltamos a sobrescrever
-    // se o próprio utilizador já o tiver alterado à mão nesta sessão).
-    // Preenchemos o campo sempre com { emitEvent: false } (ver abaixo),
-    // por isso qualquer valueChanges que chegue aqui só pode vir de o
-    // próprio utilizador o ter editado à mão.
+    // set/2026 a jun/2027) — o campo "Ano Letivo" é a junção "YYYY/YYYY"
+    // dos dois anos (ex.: "2026/2027"), por isso preenche-se sozinho a
+    // partir de QUALQUER uma das duas datas, mas continua editável a
+    // seguir (não voltamos a sobrescrever se o próprio utilizador já o
+    // tiver alterado à mão nesta sessão). Preenchemos o campo sempre
+    // com { emitEvent: false } (ver abaixo), por isso qualquer
+    // valueChanges que chegue aqui só pode vir de o próprio utilizador
+    // o ter editado à mão.
     let anoLetivoTocadoManualmente = false;
     this.form.get('ano_letivo_atual')?.valueChanges.subscribe(() => {
       anoLetivoTocadoManualmente = true;
     });
-    this.form.get('data_inicio_ano_letivo')?.valueChanges.subscribe(valor => {
-      if (!valor || anoLetivoTocadoManualmente) return;
-      const ano = new Date(valor).getFullYear();
-      if (!Number.isNaN(ano)) {
-        this.form.get('ano_letivo_atual')?.setValue(String(ano), { emitEvent: false });
+    const recalcularAnoLetivo = () => {
+      if (anoLetivoTocadoManualmente) return;
+      const inicio = this.form.get('data_inicio_ano_letivo')?.value;
+      const fim = this.form.get('data_fim_ano_letivo')?.value;
+      // Só preenche quando as DUAS datas já estão presentes — o
+      // back-end exige sempre o formato completo "YYYY/YYYY" quando o
+      // campo vem preenchido (ver validar_ano_letivo_atual em
+      // app/schemas/configuracoes.py), por isso um valor a meio (só o
+      // ano de início) seria rejeitado ao guardar.
+      if (!inicio || !fim) return;
+      const anoInicio = new Date(inicio).getFullYear();
+      const anoFim = new Date(fim).getFullYear();
+      if (!Number.isNaN(anoInicio) && !Number.isNaN(anoFim)) {
+        this.form.get('ano_letivo_atual')?.setValue(`${anoInicio}/${anoFim}`, { emitEvent: false });
       }
-    });
+    };
+    this.form.get('data_inicio_ano_letivo')?.valueChanges.subscribe(recalcularAnoLetivo);
+    this.form.get('data_fim_ano_letivo')?.valueChanges.subscribe(recalcularAnoLetivo);
     // Subscrição contínua (não take(1)): também reage ao próprio
     // carregarConfiguracaoSucesso disparado depois de "Guardar", para o
     // formulário refletir exatamente o que ficou persistido (ex.: a
@@ -186,7 +198,7 @@ export class ConfiguracoesComponent implements OnInit {
         valor_taxa_matricula: config.valor_taxa_matricula != null ? String(config.valor_taxa_matricula) : '',
         data_inicio_ano_letivo: config.data_inicio_ano_letivo ?? '',
         data_fim_ano_letivo: config.data_fim_ano_letivo ?? '',
-        ano_letivo_atual: config.ano_letivo_atual != null ? String(config.ano_letivo_atual) : '',
+        ano_letivo_atual: config.ano_letivo_atual ?? '',
         periodo_manha_inicio: config.periodo_manha_inicio ?? '',
         periodo_manha_fim: config.periodo_manha_fim ?? '',
         periodo_tarde_inicio: config.periodo_tarde_inicio ?? '',
@@ -337,7 +349,7 @@ export class ConfiguracoesComponent implements OnInit {
         valor_taxa_matricula: v.valor_taxa_matricula ? Number(v.valor_taxa_matricula) : null,
         data_inicio_ano_letivo: v.data_inicio_ano_letivo || null,
         data_fim_ano_letivo: v.data_fim_ano_letivo || null,
-        ano_letivo_atual: v.ano_letivo_atual ? Number(v.ano_letivo_atual) : null,
+        ano_letivo_atual: v.ano_letivo_atual || null,
         periodo_manha_inicio: v.periodo_manha_inicio || null,
         periodo_manha_fim: v.periodo_manha_fim || null,
         periodo_tarde_inicio: v.periodo_tarde_inicio || null,

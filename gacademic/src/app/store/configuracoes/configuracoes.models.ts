@@ -22,15 +22,16 @@ export interface ConfiguracaoTenant {
   // Ano Letivo corrente — regra geral, início num ano e fim no seguinte
   // (ex.: setembro de 2026 a junho de 2027). data_*_ano_letivo são
   // datas "YYYY-MM-DD" (formato devolvido pelo back-end);
-  // ano_letivo_atual é só o ano de início como inteiro solto (ex.:
-  // 2026), o mesmo formato já usado por Turma.ano_letivo/Matricula.ano_letivo
-  // em toda a app — preenchido automaticamente a partir da data de
-  // início mas continua editável (ver configuracoes.component.ts).
-  // Ainda nulo = a escola não completou a configuração inicial (ver
+  // ano_letivo_atual é a junção "YYYY/YYYY" dos dois anos (ex.:
+  // "2026/2027") — pedido explícito do utilizador, distinto de
+  // propósito do inteiro solto usado por Turma.ano_letivo/Matricula.ano_letivo
+  // — preenchido automaticamente a partir das duas datas mas continua
+  // editável (ver configuracoes.component.ts). Ainda nulo = a escola
+  // não completou a configuração inicial (ver
   // core/guards/configuracao-inicial.guard.ts).
   data_inicio_ano_letivo: string | null;
   data_fim_ano_letivo: string | null;
-  ano_letivo_atual: number | null;
+  ano_letivo_atual: string | null;
   // Períodos letivos — hora "HH:MM:SS" (formato devolvido pelo back-end)
   // ou null se ainda não definida. Só guarda a informação por agora;
   // não valida conflitos em Horários.

@@ -131,6 +131,11 @@ export class TurmasComponent implements OnInit {
   // o Ano Letivo definido em Configurações (ver ano_letivo_atual em
   // Tenant) quando já existir, senão cai no ano corrente (mesmo
   // comportamento de antes desta escola configurar o Ano Letivo).
+  // Tenant.ano_letivo_atual é a junção "YYYY/YYYY" (ex.: "2026/2027"),
+  // mas Turma.ano_letivo continua um inteiro solto com só o ano de
+  // início (convenção diferente, de propósito — ver comentário em
+  // app/database/models.py::Tenant.ano_letivo_atual) — por isso só se
+  // aproveita o primeiro ano da junção.
   private anoLetivoConfigurado: number | null = null;
   private _anoLetivoPadrao(): number {
     return this.anoLetivoConfigurado ?? new Date().getFullYear();
@@ -157,7 +162,8 @@ export class TurmasComponent implements OnInit {
     this.store.dispatch(carregarAlunos({ page_size: 100 })); // povoa um <select>, ver nota em transferencias.component.ts
 
     this.store.select(selectConfiguracao).subscribe(config => {
-      this.anoLetivoConfigurado = config.ano_letivo_atual;
+      const anoInicio = config.ano_letivo_atual ? parseInt(config.ano_letivo_atual.split('/')[0], 10) : NaN;
+      this.anoLetivoConfigurado = Number.isNaN(anoInicio) ? null : anoInicio;
     });
   }
 

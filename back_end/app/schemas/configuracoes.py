@@ -1,8 +1,15 @@
+import re
 import uuid
 from datetime import date, time
 from decimal import Decimal
 
 from pydantic import BaseModel, field_validator, model_validator
+
+# "2026/2027" — ano de início e ano de fim, cada um com 4 dígitos. Ver
+# Tenant.ano_letivo_atual: pedido explícito do utilizador para o campo
+# Ano Letivo ser sempre esta junção, nunca só o ano de início solto
+# (que é a convenção usada, à parte, em Turma.ano_letivo/Matricula.ano_letivo).
+_ANO_LETIVO_ATUAL_REGEX = re.compile(r"^\d{4}/\d{4}$")
 
 # Moedas efetivamente aceites pela PayPal Orders API (lista oficial,
 # ISO 4217) — usada só para validar quando se está mesmo a gerar uma
@@ -43,13 +50,14 @@ class ConfiguracaoTenantOut(BaseModel):
     # mensalidades) — None = escola não cobra. Ver Tenant.valor_taxa_matricula.
     valor_taxa_matricula: Decimal | None = None
     # Ano Letivo corrente — início/fim são as datas reais (regra geral,
-    # início num ano e fim no seguinte); ano_letivo_atual é só o ano de
-    # início como inteiro solto (ex.: 2026), o mesmo formato já usado
-    # por Turma.ano_letivo/Matricula.ano_letivo em toda a app. Ver
+    # início num ano e fim no seguinte); ano_letivo_atual é a junção
+    # "YYYY/YYYY" dos dois anos (ex.: "2026/2027") — pedido explícito do
+    # utilizador, distinto de propósito do inteiro solto usado em
+    # Turma.ano_letivo/Matricula.ano_letivo. Ver
     # Tenant.data_inicio_ano_letivo/data_fim_ano_letivo/ano_letivo_atual.
     data_inicio_ano_letivo: date | None = None
     data_fim_ano_letivo: date | None = None
-    ano_letivo_atual: int | None = None
+    ano_letivo_atual: str | None = None
     periodo_manha_inicio: time | None = None
     periodo_manha_fim: time | None = None
     periodo_tarde_inicio: time | None = None
@@ -73,13 +81,20 @@ class ConfiguracaoTenantUpdate(BaseModel):
     valor_taxa_matricula: Decimal | None = None
     data_inicio_ano_letivo: date | None = None
     data_fim_ano_letivo: date | None = None
-    ano_letivo_atual: int | None = None
+    ano_letivo_atual: str | None = None
     periodo_manha_inicio: time | None = None
     periodo_manha_fim: time | None = None
     periodo_tarde_inicio: time | None = None
     periodo_tarde_fim: time | None = None
     periodo_pos_laboral_inicio: time | None = None
     periodo_pos_laboral_fim: time | None = None
+
+    @field_validator("ano_letivo_atual")
+    @classmethod
+    def validar_ano_letivo_atual(cls, valor: str | None) -> str | None:
+        if valor is not None and not _ANO_LETIVO_ATUAL_REGEX.match(valor):
+            raise ValueError('O Ano Letivo tem de estar no formato "YYYY/YYYY" (ex.: 2026/2027).')
+        return valor
 
     @field_validator("moeda")
     @classmethod
