@@ -18,3 +18,13 @@ export interface Comunicado {
 
 export const TIPOS_COMUNICADO = ['COMUNICADO', 'CONVOCATORIA'] as const;
 export const DESTINATARIOS_COMUNICADO = ['TURMA', 'ALUNO', 'ESCOLA'] as const;
+
+// Resposta de um encarregado/aluno a um Comunicado, escrita no Portal —
+// ver GET /comunicados/{id}/respostas.
+export interface RespostaComunicado {
+  id: string;
+  aluno_id: string;
+  autor_nome: string;
+  corpo: string;
+  criado_em: string;
+}

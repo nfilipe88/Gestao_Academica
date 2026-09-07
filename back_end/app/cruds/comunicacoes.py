@@ -15,9 +15,9 @@ from app.database.models import Usuario
 from app.database.models_academico import Turma
 from app.database.models_pessoas import Aluno, AlunoResponsavel, Professor, ResponsavelFinanceiroLegal
 from app.database.models_matricula import Matricula
-from app.database.models_comunicacoes import AnexoComunicacao, Comunicado
+from app.database.models_comunicacoes import AnexoComunicacao, Comunicado, RespostaComunicado
 from app.database.models_diario import ProfessorTurmaDisciplina
-from app.schemas.comunicacoes import ComunicadoCreate
+from app.schemas.comunicacoes import ComunicadoCreate, RespostaComunicadoCreate
 from app.cruds import notificacoes as crud_notificacoes
 from app.core import storage
 from app.core.paginacao import paginar_linhas
@@ -372,6 +372,62 @@ async def listar_comunicados_do_educando(db: AsyncSession, tenant_id, aluno_id, 
         }
         for comunicado, autor_nome in linhas
     ]
+
+
+# ==========================================
+# RESPOSTAS (encarregado/aluno responde a um Comunicado, no Portal)
+# ==========================================
+async def responder_comunicado(
+    db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID,
+    comunicado_id: uuid.UUID, dados: RespostaComunicadoCreate
+) -> RespostaComunicado:
+    """A validação de que aluno_id pertence a quem está autenticado
+    (garantir_aluno_permitido) é feita pelo chamador, em
+    cruds/portal.py::responder_comunicado_do_educando — aqui só se
+    confirma que o Comunicado existe neste tenant."""
+    comunicado = await _obter_comunicado(db, tenant_id, comunicado_id)
+
+    autor_nome = (await db.execute(
+        select(Usuario.nome_completo).where(Usuario.id == utilizador["usuario_id"])
+    )).scalars().first() or "—"
+
+    resposta = RespostaComunicado(
+        tenant_id=tenant_id, comunicado_id=comunicado_id, aluno_id=aluno_id,
+        autor_usuario_id=utilizador["usuario_id"], autor_nome=autor_nome, corpo=dados.corpo,
+    )
+    db.add(resposta)
+    await db.commit()
+    await db.refresh(resposta)
+
+    # Notificação só dentro da app — a escola já tem sessão autenticada
+    # com o sino de Notificações, não há justificação para mais um
+    # e-mail (ao contrário do lead sem conta na plataforma, ver
+    # cruds/crm.py::responder_lead). Mesmo padrão de
+    # cruds/portal.py::pedir_rematricula.
+    destinatarios = set((await db.execute(
+        select(Usuario.id).where(Usuario.tenant_id == tenant_id, Usuario.perfil_acesso.in_(["GESTOR", "SECRETARIA"]))
+    )).scalars().all())
+    if comunicado.autor_id:
+        destinatarios.add(comunicado.autor_id)
+    if destinatarios:
+        await crud_notificacoes.criar_notificacoes_em_lote(
+            db, tenant_id, list(destinatarios),
+            tipo="COMUNICADO_RESPOSTA",
+            titulo=f"Nova resposta a \"{comunicado.titulo}\"",
+            mensagem=f"{autor_nome} respondeu.",
+            link="/comunicacoes",
+        )
+
+    return resposta
+
+
+async def listar_respostas_comunicado(db: AsyncSession, tenant_id, comunicado_id: uuid.UUID) -> list[RespostaComunicado]:
+    await _obter_comunicado(db, tenant_id, comunicado_id)
+    return list((await db.execute(
+        select(RespostaComunicado)
+        .where(RespostaComunicado.tenant_id == tenant_id, RespostaComunicado.comunicado_id == comunicado_id)
+        .order_by(RespostaComunicado.criado_em)
+    )).scalars().all())
 
 
 # ==========================================

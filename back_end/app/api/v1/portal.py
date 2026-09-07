@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil
 from app.cruds import portal as crud_portal
+from app.schemas.comunicacoes import RespostaComunicadoCreate, RespostaComunicadoOut
 from app.schemas.lms import LMSSubmeterTentativa, ProfVirtualPerguntaCreate
 from app.schemas.portal import PedirTransferenciaRequest
 
@@ -174,6 +175,18 @@ async def obter_anexo_comunicado_do_educando(
         content=conteudo, media_type=content_type,
         headers={"Content-Disposition": f'inline; filename="{nome_original}"'}
     )
+
+
+@router.post("/educandos/{aluno_id}/comunicados/{comunicado_id}/respostas", response_model=RespostaComunicadoOut, status_code=status.HTTP_201_CREATED)
+async def responder_comunicado_do_educando(
+    aluno_id: uuid.UUID,
+    comunicado_id: uuid.UUID,
+    dados: RespostaComunicadoCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """O encarregado/aluno responde a um comunicado dirigido ao educando."""
+    return await crud_portal.responder_comunicado_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, comunicado_id, dados)
 
 
 @router.get("/educandos/{aluno_id}/tarefas")

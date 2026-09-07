@@ -33,6 +33,7 @@ from app.cruds import tarefas as crud_tarefas
 from app.cruds import transferencias as crud_transferencias
 from app.cruds import lms as crud_lms
 from app.core.prof_virtual import perguntar_prof_virtual
+from app.schemas.comunicacoes import RespostaComunicadoCreate
 from app.schemas.lms import LMSSubmeterTentativa, ProfVirtualPerguntaCreate
 from app.schemas.transferencias import SolicitacaoTransferenciaCreate
 
@@ -358,6 +359,14 @@ async def listar_comunicados_do_educando(db: AsyncSession, tenant_id, utilizador
 async def obter_anexo_comunicado_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, comunicado_id: uuid.UUID) -> tuple[bytes, str, str]:
     await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
     return await crud_comunicacoes.obter_anexo_conteudo(db, tenant_id, comunicado_id)
+
+
+async def responder_comunicado_do_educando(
+    db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID,
+    comunicado_id: uuid.UUID, dados: RespostaComunicadoCreate
+):
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    return await crud_comunicacoes.responder_comunicado(db, tenant_id, utilizador, aluno_id, comunicado_id, dados)
 
 
 # ==========================================

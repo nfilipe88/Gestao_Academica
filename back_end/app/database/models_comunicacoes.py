@@ -29,6 +29,33 @@ class Comunicado(Base):
     data_envio: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
 
+class RespostaComunicado(Base):
+    """Resposta de um encarregado/aluno a um Comunicado, escrita no Portal
+    (ver app/cruds/portal.py::responder_comunicado_do_educando e
+    app/api/v1/portal.py) — uma única thread por Comunicado, partilhada por
+    todos os que respondem (um Comunicado para TURMA/ESCOLA pode ter várias
+    respostas de encarregados diferentes), por isso cada linha regista
+    aluno_id + autor_nome para a escola distinguir quem disse o quê.
+
+    tenant_id desnormalizado (repetido do Comunicado pai) — mesmo padrão de
+    TicketMensagem (models_suporte.py): a policy de RLS filtra esta tabela
+    diretamente, sem depender de um JOIN ao Comunicado. Aqui é sempre
+    NOT NULL (ao contrário de TicketMensagem.tenant_id) porque uma resposta
+    só existe vinda de um login autenticado já ligado a um tenant — não há
+    caso anónimo, ao contrário dos tickets de suporte."""
+    __tablename__ = "resposta_comunicado"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    comunicado_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("comunicado.id", ondelete="CASCADE"), nullable=False, index=True)
+    aluno_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aluno.id", ondelete="CASCADE"), nullable=False)
+    autor_usuario_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
+
+    autor_nome: Mapped[str] = mapped_column(String(255), nullable=False)  # snapshot — mesmo motivo de TicketMensagem.autor_nome
+    corpo: Mapped[str] = mapped_column(Text, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
 class AnexoComunicacao(Base):
     """Ficheiro anexado a um Comunicado/Convocatória (ex.: circular em
     PDF, imagem) — o conteúdo em si vive no storage (app/core/storage.py,

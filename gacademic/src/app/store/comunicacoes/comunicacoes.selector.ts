@@ -17,3 +17,8 @@ export const selectComunicacoesError = createSelector(
   selectComunicacoesState,
   (state) => state.erro
 );
+
+export const selectRespostasComunicado = createSelector(
+  selectComunicacoesState,
+  (state) => state.respostas
+);

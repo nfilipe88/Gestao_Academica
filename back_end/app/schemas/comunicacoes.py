@@ -21,3 +21,17 @@ class AnexoComunicacaoOut(BaseModel):
     criado_em: datetime
 
     model_config = {"from_attributes": True}
+
+
+class RespostaComunicadoCreate(BaseModel):
+    corpo: str
+
+
+class RespostaComunicadoOut(BaseModel):
+    id: uuid.UUID
+    aluno_id: uuid.UUID
+    autor_nome: str
+    corpo: str
+    criado_em: datetime
+
+    model_config = {"from_attributes": True}

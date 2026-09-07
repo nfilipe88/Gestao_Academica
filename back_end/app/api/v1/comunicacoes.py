@@ -7,7 +7,7 @@ from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes
-from app.schemas.comunicacoes import AnexoComunicacaoOut, ComunicadoCreate
+from app.schemas.comunicacoes import AnexoComunicacaoOut, ComunicadoCreate, RespostaComunicadoOut
 from app.cruds import comunicacoes as crud_comunicacoes
 
 router = APIRouter(prefix="/api/v1/comunicados", tags=["Comunicações"])
@@ -51,6 +51,16 @@ async def listar_comunicados(
 ):
     """Lista o histórico de comunicados/convocatórias enviados pela escola, paginado."""
     return await crud_comunicacoes.listar_comunicados(db, utilizador["tenant_id"], page, page_size)
+
+
+@router.get("/{comunicado_id}/respostas", response_model=list[RespostaComunicadoOut])
+async def listar_respostas_comunicado(
+    comunicado_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Respostas de encarregados/alunos a este comunicado (ver Portal)."""
+    return await crud_comunicacoes.listar_respostas_comunicado(db, utilizador["tenant_id"], comunicado_id)
 
 
 # ==========================================

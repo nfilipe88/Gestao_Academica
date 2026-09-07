@@ -17,7 +17,8 @@ import {
   carregarBoletimDoEducando, carregarComunicadosDoEducando, carregarEstatisticasDoEducando, carregarExamesDoEducando,
   carregarFinanceiroDoEducando, carregarHorarioDoEducando, carregarMaterialDoEducando, carregarMateriaisDoEducando,
   carregarMeusEducandos, carregarResultadoExame, carregarTarefasDoEducando, iniciarTentativaExame,
-  limparMaterialAberto, limparTentativaExame, perguntarProfVirtual, registarEventoSuspeito, submeterTentativaExame
+  limparMaterialAberto, limparTentativaExame, perguntarProfVirtual, registarEventoSuspeito, responderComunicado,
+  responderComunicadoSucesso, submeterTentativaExame
 } from '../../../store/portal/portal.actions';
 import {
   selectAProcessarPerguntaProfVirtual, selectASubmeterTentativa, selectBoletimDoEducando,
@@ -168,6 +169,15 @@ export class PortalComponent implements OnInit {
   // Resposta a pedido da escola
   respostaEscolaAberta: string | null = null;
   textoRespostaEscola = '';
+
+  // Resposta a um Comunicado — fecha logo ao submeter (otimista); o
+  // conjunto de "já respondidos" é um signal porque só muda dentro do
+  // callback assíncrono de responderComunicadoSucesso (ver
+  // onEnviarRespostaComunicado), fora do que o CD zoneless já rastreia
+  // sozinho num campo simples.
+  respostaComunicadoAberta: string | null = null;
+  textoRespostaComunicado = '';
+  comunicadosRespondidos = signal<Set<string>>(new Set());
 
   ngOnInit() {
     this.store.dispatch(carregarMeusEducandos());
@@ -561,6 +571,24 @@ export class PortalComponent implements OnInit {
       next: (blob) => abrirOuTransferirBlob(aba, blob, 'anexo'),
       error: () => { if (aba) aba.close(); }
     });
+  }
+
+  onAbrirRespostaComunicado(comunicadoId: string) {
+    this.respostaComunicadoAberta = comunicadoId;
+    this.textoRespostaComunicado = '';
+  }
+
+  onEnviarRespostaComunicado(comunicadoId: string) {
+    if (!this.textoRespostaComunicado.trim() || !this.educandoSelecionadoId) return;
+    // Só interessa a PRÓXIMA resposta enviada (take(1)) — mesmo idioma
+    // já usado em comunicacoes.component.ts para o fluxo de anexo.
+    this.actions$.pipe(ofType(responderComunicadoSucesso), take(1)).subscribe(() => {
+      this.comunicadosRespondidos.update(atuais => new Set(atuais).add(comunicadoId));
+    });
+    this.store.dispatch(responderComunicado({
+      aluno_id: this.educandoSelecionadoId, comunicado_id: comunicadoId, corpo: this.textoRespostaComunicado
+    }));
+    this.respostaComunicadoAberta = null; // fecha já — confirmação otimista
   }
 
   // --- Pedidos da escola (respondo eu, ALUNO/RESPONSAVEL) ---

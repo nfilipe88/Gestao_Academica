@@ -1,7 +1,7 @@
 import { createAction, props } from '@ngrx/store';
 import {
   Boletim, ComunicadoEducando, EducandoResumo, EstatisticasEducando, ExameEducando, FinanceiroEducando,
-  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, ResultadoExame,
+  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, RespostaComunicado, ResultadoExame,
   TarefaEducando, TentativaIniciada
 } from './portal.models';
 
@@ -159,6 +159,15 @@ export const carregarComunicadosDoEducando = createAction(
 export const carregarComunicadosDoEducandoSucesso = createAction(
   '[Portal] Carregar Comunicados Do Educando Sucesso',
   props<{ comunicados: ComunicadoEducando[] }>()
+);
+
+export const responderComunicado = createAction(
+  '[Portal] Responder Comunicado',
+  props<{ aluno_id: string; comunicado_id: string; corpo: string }>()
+);
+export const responderComunicadoSucesso = createAction(
+  '[Portal] Responder Comunicado Sucesso',
+  props<{ resposta: RespostaComunicado }>()
 );
 
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,

@@ -10,9 +10,9 @@ import { selectTurmas } from '../../../store/academico/academic.selector';
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
 import { selectAlunos } from '../../../store/alunos/alunos.selector';
 import { selectPerfilAcesso } from '../../../store/auth/auth.selectors';
-import { carregarComunicados, criarComunicado, criarComunicadoSucesso } from '../../../store/comunicacoes/comunicacoes.actions';
+import { carregarComunicados, carregarRespostasComunicado, criarComunicado, criarComunicadoSucesso } from '../../../store/comunicacoes/comunicacoes.actions';
 import { DESTINATARIOS_COMUNICADO, TIPOS_COMUNICADO } from '../../../store/comunicacoes/comunicacoes.models';
-import { selectComunicacoesError, selectComunicados, selectPaginacaoComunicados } from '../../../store/comunicacoes/comunicacoes.selector';
+import { selectComunicacoesError, selectComunicados, selectPaginacaoComunicados, selectRespostasComunicado } from '../../../store/comunicacoes/comunicacoes.selector';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 import { abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
 
@@ -36,6 +36,11 @@ export class ComunicacoesComponent implements OnInit {
   turmas$ = this.store.select(selectTurmas);
   alunos$ = this.store.select(selectAlunos);
   paginacaoComunicados$ = this.store.select(selectPaginacaoComunicados);
+  respostas$ = this.store.select(selectRespostasComunicado);
+
+  // Qual comunicado está com o painel de respostas aberto — mesmo
+  // padrão de ticketAbertoId em suporte.component.ts.
+  comunicadoAbertoId: string | null = null;
 
   // Junta cada comunicado com o nome legível do destinatário (a API só
   // devolve o id da turma/aluno, não o nome).
@@ -132,5 +137,14 @@ export class ComunicacoesComponent implements OnInit {
       next: (blob) => abrirOuTransferirBlob(aba, blob, `anexo-${comunicadoId}`),
       error: () => { if (aba) aba.close(); }
     });
+  }
+
+  onAbrirComunicado(id: string) {
+    this.comunicadoAbertoId = id;
+    this.store.dispatch(carregarRespostasComunicado({ comunicado_id: id }));
+  }
+
+  onFecharComunicado() {
+    this.comunicadoAbertoId = null;
   }
 }

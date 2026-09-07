@@ -206,3 +206,14 @@ export interface ComunicadoEducando {
   data_envio: string;
   tem_anexo: boolean;
 }
+
+// Resposta do encarregado/aluno a um Comunicado (ver
+// cruds/comunicacoes.py::responder_comunicado) — o Portal só precisa de
+// confirmar o envio, não de mostrar a conversa toda de volta.
+export interface RespostaComunicado {
+  id: string;
+  aluno_id: string;
+  autor_nome: string;
+  corpo: string;
+  criado_em: string;
+}

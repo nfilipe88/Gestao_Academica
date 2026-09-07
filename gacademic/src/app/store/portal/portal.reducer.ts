@@ -55,6 +55,7 @@ export const portalReducer = createReducer(
      PortalActions.carregarTarefasDoEducando, PortalActions.carregarMateriaisDoEducando,
      PortalActions.carregarMaterialDoEducando, PortalActions.carregarExamesDoEducando,
      PortalActions.carregarEstatisticasDoEducando, PortalActions.carregarComunicadosDoEducando,
+     PortalActions.responderComunicado,
     (state) => ({ ...state, erro: null })
   ),
   on(PortalActions.carregarMeusEducandosSucesso, (state, { educandos }) => ({ ...state, educandos })),

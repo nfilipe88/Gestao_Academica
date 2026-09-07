@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as ComunicacoesActions from './comunicacoes.actions';
-import { Comunicado } from './comunicacoes.models';
+import { Comunicado, RespostaComunicado } from './comunicacoes.models';
 import { PaginaResultado } from '../../shared/models/paginacao.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
@@ -56,6 +56,18 @@ export class ComunicacoesEffects {
     this.actions$.pipe(
       ofType(ComunicacoesActions.criarComunicadoSucesso),
       map(() => ComunicacoesActions.carregarComunicados({}))
+    )
+  );
+
+  carregarRespostasComunicado$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ComunicacoesActions.carregarRespostasComunicado),
+      switchMap(action => this.http.get<RespostaComunicado[]>(`/api/v1/comunicados/${action.comunicado_id}/respostas`).pipe(
+        map(respostas => ComunicacoesActions.carregarRespostasComunicadoSucesso({ respostas })),
+        catchError(err => of(ComunicacoesActions.comunicacoesOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar as respostas.'
+        })))
+      ))
     )
   );
 }

@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { Comunicado } from './comunicacoes.models';
+import { Comunicado, RespostaComunicado } from './comunicacoes.models';
 import { EstadoPaginacao } from '../../shared/models/paginacao.models';
 
 export const carregarComunicados = createAction(
@@ -29,6 +29,15 @@ export const criarComunicado = createAction(
 export const criarComunicadoSucesso = createAction(
   '[Comunicacoes API] Criar Comunicado Sucesso',
   props<{ comunicado: Comunicado }>()
+);
+
+export const carregarRespostasComunicado = createAction(
+  '[Comunicacoes] Carregar Respostas Comunicado',
+  props<{ comunicado_id: string }>()
+);
+export const carregarRespostasComunicadoSucesso = createAction(
+  '[Comunicacoes API] Carregar Respostas Comunicado Sucesso',
+  props<{ respostas: RespostaComunicado[] }>()
 );
 
 // Ação genérica de falha (mesmo padrão dos restantes módulos): sem isto,

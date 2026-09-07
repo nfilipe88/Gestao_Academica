@@ -4,7 +4,8 @@ import { HttpClient } from '@angular/common/http';
 import * as PortalActions from './portal.actions';
 import {
   Boletim, ComunicadoEducando, EducandoResumo, EstatisticasEducando, ExameEducando, FinanceiroEducando,
-  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, ResultadoExame, TarefaEducando, TentativaIniciada
+  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, RespostaComunicado, ResultadoExame,
+  TarefaEducando, TentativaIniciada
 } from './portal.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
@@ -225,6 +226,21 @@ export class PortalEffects {
         map(comunicados => PortalActions.carregarComunicadosDoEducandoSucesso({ comunicados })),
         catchError(err => of(PortalActions.portalOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar os comunicados deste educando.'
+        })))
+      ))
+    )
+  );
+
+  responderComunicado$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.responderComunicado),
+      switchMap(action => this.http.post<RespostaComunicado>(
+        `/api/v1/portal/educandos/${action.aluno_id}/comunicados/${action.comunicado_id}/respostas`,
+        { corpo: action.corpo }
+      ).pipe(
+        map(resposta => PortalActions.responderComunicadoSucesso({ resposta })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível enviar a sua resposta.'
         })))
       ))
     )
