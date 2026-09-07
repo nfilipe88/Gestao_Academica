@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient } from '@angular/common/http';
 import * as CrmActions from './crm.actions';
-import { FunilEtapa, OportunidadeCRM } from './crm.models';
+import { FunilEtapa, MensagemLead, OportunidadeCRM } from './crm.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 @Injectable()
@@ -43,7 +43,8 @@ export class CrmEffects {
         telefone: action.telefone,
         nome_aluno_candidato: action.nome_aluno_candidato,
         data_nascimento_candidato: action.data_nascimento_candidato,
-        origem_lead: action.origem_lead
+        origem_lead: action.origem_lead,
+        mensagem: action.mensagem
       }).pipe(
         switchMap(() => [
           CrmActions.carregarOportunidades(),
@@ -104,6 +105,36 @@ export class CrmEffects {
         ]),
         catchError(err => of(CrmActions.crmOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível mover a oportunidade.'
+        })))
+      ))
+    )
+  );
+
+  carregarMensagensLead$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(CrmActions.carregarMensagensLead),
+      switchMap(action => this.http.get<MensagemLead[]>(`/api/v1/crm/leads/${action.lead_id}/mensagens`).pipe(
+        map(mensagens => CrmActions.carregarMensagensLeadSucesso({ lead_id: action.lead_id, mensagens })),
+        catchError(err => of(CrmActions.crmOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar as mensagens.'
+        })))
+      ))
+    )
+  );
+
+  // Não recarrega o quadro inteiro (ao contrário dos outros efeitos
+  // acima) — as mensagens não vêm embutidas no payload de
+  // /oportunidades, só interessa atualizar a lista deste lead.
+  responderLead$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(CrmActions.responderLead),
+      switchMap(action => this.http.post(`/api/v1/crm/leads/${action.lead_id}/mensagens`, { corpo: action.corpo }).pipe(
+        switchMap(() => [
+          CrmActions.carregarMensagensLead({ lead_id: action.lead_id }),
+          CrmActions.crmOperacaoSucesso({ mensagem: 'Resposta enviada.' })
+        ]),
+        catchError(err => of(CrmActions.crmOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível enviar a resposta.'
         })))
       ))
     )

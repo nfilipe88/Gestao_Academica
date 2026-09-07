@@ -49,5 +49,18 @@ export interface OportunidadeCRM {
     // com aceitou_regulamento a false.
     aceitou_regulamento: boolean;
     documentos: LeadDocumento[];
+    // Mensagem inicial deixada no formulário público (opcional) — ver
+    // MensagemLead abaixo para as respostas trocadas depois disto.
+    mensagem: string | null;
   };
+}
+
+// Troca de mensagens com um Lead a partir do cartão no Kanban — ver
+// GET/POST /api/v1/crm/leads/{lead_id}/mensagens.
+export interface MensagemLead {
+  id: string;
+  autor_tipo: 'LEAD' | 'ESCOLA';
+  autor_nome: string;
+  corpo: string;
+  criado_em: string;
 }

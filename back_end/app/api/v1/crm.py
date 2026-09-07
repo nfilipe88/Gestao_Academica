@@ -6,7 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import obter_sessao_db, obter_sessao_db_publica
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core.rate_limiter import excedeu_limite
-from app.schemas.crm import EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, OportunidadeCreate, OportunidadeMover, OportunidadeUpdate
+from app.schemas.crm import (
+    EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, MensagemLeadCreate, MensagemLeadOut,
+    OportunidadeCreate, OportunidadeMover, OportunidadeUpdate
+)
 from app.cruds import crm as crud_crm
 
 router = APIRouter(prefix="/api/v1/crm", tags=["CRM"])
@@ -123,6 +126,26 @@ async def atualizar_lead(
 ):
     """Completa/corrige os dados do Lead — em particular a data de nascimento, exigida antes da conversão (RN01)."""
     return await crud_crm.atualizar_lead(db, utilizador["tenant_id"], lead_id, dados)
+
+@router.get("/leads/{lead_id}/mensagens", response_model=list[MensagemLeadOut])
+async def listar_mensagens_lead(
+    lead_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Troca de mensagens com este Lead (ver responder_lead abaixo)."""
+    return await crud_crm.listar_mensagens_lead(db, utilizador["tenant_id"], lead_id)
+
+@router.post("/leads/{lead_id}/mensagens", response_model=MensagemLeadOut, status_code=status.HTTP_201_CREATED)
+async def responder_lead(
+    lead_id: uuid.UUID,
+    dados: MensagemLeadCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR)
+):
+    """A escola responde a este Lead — a resposta é sempre também
+    enviada por e-mail, já que o Lead não tem conta na plataforma."""
+    return await crud_crm.responder_lead(db, utilizador["tenant_id"], utilizador, lead_id, dados)
 
 @router.get("/leads/{lead_id}/documentos/{documento_id}")
 async def obter_documento_lead(

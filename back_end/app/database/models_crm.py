@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -28,6 +28,12 @@ class LeadCandidato(Base):
     # aqui), mas Aluno.data_nascimento é obrigatória — por isso fica opcional no
     # Lead e é exigida só no momento da conversão (RN01), não na captação.
     data_nascimento_candidato: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # Mensagem inicial deixada no formulário público (opcional) — escrita
+    # uma única vez na captação, nunca editada, por isso é uma coluna
+    # simples aqui e não uma linha em MensagemLead (essa tabela é só para
+    # as respostas da escola — ver responder_lead em cruds/crm.py).
+    mensagem: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     origem_lead: Mapped[str] = mapped_column(String(30), nullable=False, default="OUTRO")  # SITE, FACEBOOK, INDICACAO, PRESENCIAL, OUTRO
     data_entrada: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
@@ -57,6 +63,25 @@ class LeadDocumento(Base):
     nome_original: Mapped[str] = mapped_column(String(255), nullable=False)
     chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class MensagemLead(Base):
+    """Troca de mensagens entre a escola e um Lead — a partir do cartão
+    do Lead no Kanban (ver responder_lead em app/cruds/crm.py). Um Lead
+    não tem conta na plataforma, por isso uma mensagem da escola
+    (autor_tipo="ESCOLA") é sempre também enviada por e-mail (ver
+    app/core/fila_notificacoes.py); autor_tipo="LEAD" fica reservado
+    para uma futura receção real de e-mail (fora de âmbito por agora)."""
+    __tablename__ = "mensagem_lead"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    lead_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lead_candidato.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    autor_tipo: Mapped[str] = mapped_column(String(10), nullable=False)  # LEAD, ESCOLA
+    autor_nome: Mapped[str] = mapped_column(String(255), nullable=False)
+    corpo: Mapped[str] = mapped_column(Text, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
 
 class FunilEtapa(Base):

@@ -5,10 +5,13 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { Store } from '@ngrx/store';
 import { combineLatest, map, startWith } from 'rxjs';
 import {
-  atualizarLead, atualizarOportunidade, carregarFunil, carregarOportunidades, criarLead, moverOportunidade
+  atualizarLead, atualizarOportunidade, carregarFunil, carregarMensagensLead, carregarOportunidades,
+  criarLead, moverOportunidade, responderLead
 } from '../../../store/crm/crm.actions';
 import { OportunidadeCRM } from '../../../store/crm/crm.models';
-import { selectCrmError, selectCrmMensagem, selectEtapas, selectOportunidades } from '../../../store/crm/crm.selector';
+import {
+  selectCrmError, selectCrmMensagem, selectEtapas, selectMensagensPorLead, selectOportunidades
+} from '../../../store/crm/crm.selector';
 import { carregarCursos, carregarTurmas } from '../../../store/academico/academic.actions';
 import { selectCursos, selectTurmas } from '../../../store/academico/academic.selector';
 
@@ -103,8 +106,16 @@ export class CrmComponent implements OnInit {
     telefone: [''],
     nome_aluno_candidato: ['', Validators.required],
     data_nascimento_candidato: [''],
-    origem_lead: ['PRESENCIAL', Validators.required]
+    origem_lead: ['PRESENCIAL', Validators.required],
+    mensagem: ['']
   });
+
+  // Mensagens do lead (a partir do cartão) — carregadas sob pedido, tal
+  // como os documentos (ver onVerDocumento acima), para não engordar o
+  // payload de /oportunidades com todo o histórico de conversas.
+  mensagensPorLead$ = this.store.select(selectMensagensPorLead);
+  mensagensAbertasLeadId: string | null = null;
+  respostaLeadTexto: Record<string, string> = {};
 
   ngOnInit() {
     this.store.dispatch(carregarFunil());
@@ -120,14 +131,15 @@ export class CrmComponent implements OnInit {
 
   onSubmitLead() {
     if (this.leadForm.invalid) return;
-    const { nome_responsavel, email_contato, telefone, nome_aluno_candidato, data_nascimento_candidato, origem_lead } = this.leadForm.value;
+    const { nome_responsavel, email_contato, telefone, nome_aluno_candidato, data_nascimento_candidato, origem_lead, mensagem } = this.leadForm.value;
     this.store.dispatch(criarLead({
       nome_responsavel: nome_responsavel!,
       email_contato: email_contato || null,
       telefone: telefone || null,
       nome_aluno_candidato: nome_aluno_candidato!,
       data_nascimento_candidato: data_nascimento_candidato || null,
-      origem_lead: origem_lead!
+      origem_lead: origem_lead!,
+      mensagem: mensagem || null
     }));
     this.mostrarFormularioLead = false;
   }
@@ -152,5 +164,19 @@ export class CrmComponent implements OnInit {
       turma_interesse_id: turmaId || null,
       valor_estimado_anual: valor
     }));
+  }
+
+  onAbrirMensagens(leadId: string) {
+    this.mensagensAbertasLeadId = this.mensagensAbertasLeadId === leadId ? null : leadId;
+    if (this.mensagensAbertasLeadId) {
+      this.store.dispatch(carregarMensagensLead({ lead_id: leadId }));
+    }
+  }
+
+  onEnviarRespostaLead(leadId: string) {
+    const corpo = this.respostaLeadTexto[leadId];
+    if (!corpo?.trim()) return;
+    this.store.dispatch(responderLead({ lead_id: leadId, corpo }));
+    this.respostaLeadTexto[leadId] = '';
   }
 }

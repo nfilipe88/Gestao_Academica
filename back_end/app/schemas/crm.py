@@ -1,6 +1,6 @@
 """Schemas Pydantic do CRM (Lead, Funil, Oportunidade)."""
 from pydantic import BaseModel, EmailStr, field_validator
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 import uuid
 
@@ -34,6 +34,9 @@ class LeadPublicoCreate(_NormalizaEmailOpcional):
     # com documentos) — o formulário de contacto rápido não o mostra e
     # continua a enviar False, o que é correto para esse caso.
     aceitou_regulamento: bool = False
+    # Mensagem livre e opcional deixada no formulário público — ver
+    # LeadCandidato.mensagem.
+    mensagem: str | None = None
 
 
 class LeadStaffCreate(_NormalizaEmailOpcional):
@@ -45,6 +48,7 @@ class LeadStaffCreate(_NormalizaEmailOpcional):
     data_nascimento_candidato: date | None = None
     curso_interesse_id: uuid.UUID | None = None
     origem_lead: str = "PRESENCIAL"
+    mensagem: str | None = None
 
 
 class LeadUpdate(_NormalizaEmailOpcional):
@@ -80,3 +84,17 @@ class OportunidadeUpdate(BaseModel):
 
 class OportunidadeMover(BaseModel):
     nova_etapa_id: uuid.UUID
+
+
+class MensagemLeadCreate(BaseModel):
+    corpo: str
+
+
+class MensagemLeadOut(BaseModel):
+    id: uuid.UUID
+    autor_tipo: str
+    autor_nome: str
+    corpo: str
+    criado_em: datetime
+
+    model_config = {"from_attributes": True}

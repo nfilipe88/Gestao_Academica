@@ -4,15 +4,20 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
-from app.database.models import Tenant
+from app.database.models import Tenant, Usuario
 from app.database.models_academico import Curso, Turma
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
-from app.database.models_crm import FunilEtapa, LeadCandidato, LeadDocumento, OportunidadeCRM
-from app.schemas.crm import EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, OportunidadeCreate, OportunidadeUpdate
+from app.database.models_crm import FunilEtapa, LeadCandidato, LeadDocumento, MensagemLead, OportunidadeCRM
+from app.schemas.crm import (
+    EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, MensagemLeadCreate,
+    OportunidadeCreate, OportunidadeUpdate
+)
 from app.schemas.matriculas import MatriculaCreate
 from app.schemas.financeiro import ContratoCreate
 from app.core import storage
+from app.core.email import enviar_email, template_base
+from app.core import fila_notificacoes
 from app.cruds import matriculas as matriculas_crud
 from app.cruds import financeiro as financeiro_crud
 
@@ -231,6 +236,7 @@ async def criar_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, dados: Lead
         curso_interesse_id=dados.curso_interesse_id,
         origem_lead=dados.origem_lead,
         aceitou_regulamento=dados.aceitou_regulamento,
+        mensagem=dados.mensagem,
     )
     db.add(novo_lead)
     await db.flush()
@@ -386,6 +392,7 @@ async def criar_lead_manual(db: AsyncSession, tenant_id, dados: LeadStaffCreate)
         data_nascimento_candidato=dados.data_nascimento_candidato,
         curso_interesse_id=dados.curso_interesse_id,
         origem_lead=dados.origem_lead,
+        mensagem=dados.mensagem,
     )
     db.add(novo_lead)
     await db.flush()
@@ -464,6 +471,7 @@ async def listar_oportunidades(db: AsyncSession, tenant_id, etapa_id: uuid.UUID 
                 "curso_interesse_id": lead.curso_interesse_id,
                 "data_entrada": lead.data_entrada,
                 "aceitou_regulamento": lead.aceitou_regulamento,
+                "mensagem": lead.mensagem,
                 "documentos": documentos_por_lead[lead.id],
             },
         }
@@ -582,3 +590,57 @@ async def mover_oportunidade(db: AsyncSession, tenant_id, oportunidade_id: uuid.
         )
 
     return oportunidade, mensagem
+
+
+# ==========================================
+# E. MENSAGENS (a escola responde a um Lead a partir do cartão no Kanban)
+# ==========================================
+async def responder_lead(db: AsyncSession, tenant_id, utilizador: dict, lead_id: uuid.UUID, dados: MensagemLeadCreate) -> MensagemLead:
+    """Um Lead não tem conta na plataforma — o e-mail é o único canal
+    que o alcança, por isso a resposta é sempre também enviada por
+    e-mail (mesmo padrão de cruds/suporte.py::responder_ticket_admin),
+    ao contrário de cruds/comunicacoes.py::responder_comunicado (aí o
+    destinatário já está dentro da app)."""
+    lead = (await db.execute(
+        select(LeadCandidato).where(LeadCandidato.id == lead_id, LeadCandidato.tenant_id == tenant_id)
+    )).scalars().first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado na sua instituição.")
+    if not lead.email_contato:
+        raise HTTPException(status_code=400, detail="Este lead não tem e-mail registado — não é possível enviar uma resposta.")
+
+    autor_nome = (await db.execute(
+        select(Usuario.nome_completo).where(Usuario.id == utilizador["usuario_id"])
+    )).scalars().first() or "Equipa da escola"
+
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+    nome_escola = tenant.nome_fantasia if tenant else "a escola"
+
+    resposta = MensagemLead(
+        tenant_id=tenant_id, lead_id=lead_id, autor_tipo="ESCOLA", autor_nome=autor_nome, corpo=dados.corpo,
+    )
+    db.add(resposta)
+    await db.commit()
+    await db.refresh(resposta)
+
+    corpo_html = dados.corpo.replace("\n", "<br>")
+    await fila_notificacoes.agendar_email(
+        enviar_email,
+        destinatario=lead.email_contato,
+        assunto=f"Re: contacto — {nome_escola}",
+        corpo_html=template_base(f"Resposta de {nome_escola}", corpo_html),
+    )
+
+    return resposta
+
+
+async def listar_mensagens_lead(db: AsyncSession, tenant_id, lead_id: uuid.UUID) -> list[MensagemLead]:
+    lead = (await db.execute(
+        select(LeadCandidato).where(LeadCandidato.id == lead_id, LeadCandidato.tenant_id == tenant_id)
+    )).scalars().first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado na sua instituição.")
+    return list((await db.execute(
+        select(MensagemLead).where(MensagemLead.tenant_id == tenant_id, MensagemLead.lead_id == lead_id)
+        .order_by(MensagemLead.criado_em)
+    )).scalars().all())

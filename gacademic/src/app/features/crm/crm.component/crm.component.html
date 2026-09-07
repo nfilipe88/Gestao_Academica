@@ -95,6 +95,11 @@
           </select>
         </div>
         <div class="md:col-span-3">
+          <label class="block text-sm font-medium text-slate-600 mb-1">Mensagem — opcional</label>
+          <textarea formControlName="mensagem" rows="2"
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+        </div>
+        <div class="md:col-span-3">
           <button type="submit" [disabled]="leadForm.invalid"
             class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
             Registar Lead
@@ -140,6 +145,43 @@
                   }
                 </div>
               }
+
+              <div class="border-t border-slate-100 pt-2">
+                @if (cartao.lead.mensagem) {
+                  <p class="text-xs text-slate-500 italic line-clamp-2">"{{ cartao.lead.mensagem }}"</p>
+                }
+                <button type="button" (click)="onAbrirMensagens(cartao.lead.id)"
+                  class="text-[10px] font-medium text-blue-600 hover:text-blue-800 cursor-pointer mt-1">
+                  💬 Mensagens
+                </button>
+                @if (mensagensAbertasLeadId === cartao.lead.id) {
+                  <div class="mt-1.5 space-y-1.5">
+                    @for (msg of (mensagensPorLead$ | async)?.[cartao.lead.id] ?? []; track msg.id) {
+                      <div class="text-[11px] rounded-lg px-2 py-1"
+                        [class.bg-blue-50]="msg.autor_tipo === 'ESCOLA'" [class.bg-slate-100]="msg.autor_tipo === 'LEAD'">
+                        <span class="font-medium text-slate-600">{{ msg.autor_nome }}</span>
+                        <span class="text-slate-400"> · {{ msg.criado_em | date:'dd/MM HH:mm' }}</span>
+                        <p class="text-slate-700">{{ msg.corpo }}</p>
+                      </div>
+                    } @empty {
+                      <p class="text-[10px] text-slate-400">Ainda não há mensagens.</p>
+                    }
+                    @if (!cartao.lead.email_contato) {
+                      <p class="text-[10px] text-rose-500">Este lead não tem e-mail — não é possível responder.</p>
+                    } @else {
+                      <div class="flex items-center gap-1.5">
+                        <input type="text" [(ngModel)]="respostaLeadTexto[cartao.lead.id]" [ngModelOptions]="{ standalone: true }"
+                          placeholder="Escreva uma resposta..."
+                          class="text-xs border border-slate-300 rounded-lg px-2 py-1 text-slate-700 focus:outline-hidden flex-1" />
+                        <button type="button" (click)="onEnviarRespostaLead(cartao.lead.id)"
+                          class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-2 rounded-lg transition-colors cursor-pointer">
+                          Enviar
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
 
               @if (cartao.aluno_gerado_id) {
                 <p class="text-xs text-emerald-600 font-medium">✓ Convertido em aluno.</p>

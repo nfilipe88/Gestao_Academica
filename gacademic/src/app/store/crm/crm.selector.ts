@@ -7,3 +7,4 @@ export const selectEtapas = createSelector(selectCrmState, (state) => state.etap
 export const selectOportunidades = createSelector(selectCrmState, (state) => state.oportunidades);
 export const selectCrmMensagem = createSelector(selectCrmState, (state) => state.mensagem);
 export const selectCrmError = createSelector(selectCrmState, (state) => state.erro);
+export const selectMensagensPorLead = createSelector(selectCrmState, (state) => state.mensagensPorLead);

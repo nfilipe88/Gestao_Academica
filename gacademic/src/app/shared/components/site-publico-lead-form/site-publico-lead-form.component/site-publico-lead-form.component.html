@@ -21,5 +21,9 @@
       <input type="text" formControlName="telefone" />
     </div>
   </div>
+  <div class="campo">
+    <label>Mensagem — opcional</label>
+    <textarea formControlName="mensagem" rows="3"></textarea>
+  </div>
   <button type="submit" [disabled]="form.invalid">Enviar Pedido de Contacto</button>
 </form>

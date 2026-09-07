@@ -36,7 +36,8 @@ export class CaptarLeadComponent {
     email_contato: ['', Validators.email],
     telefone: [''],
     nome_aluno_candidato: ['', Validators.required],
-    origem_lead: ['SITE']
+    origem_lead: ['SITE'],
+    mensagem: ['']
   });
 
   onSubmit() {

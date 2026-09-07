@@ -78,7 +78,8 @@
   margin-bottom: 0.25rem;
 }
 
-.campo input {
+.campo input,
+.campo textarea {
   width: 100%;
   border: var(--sp-border-width) solid var(--sp-border);
   border-radius: var(--sp-radius);
@@ -86,9 +87,12 @@
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   color: #1e293b;
+  font-family: inherit;
+  resize: vertical;
 }
 
-.campo input:focus {
+.campo input:focus,
+.campo textarea:focus {
   outline: none;
   border-color: var(--sp-accent);
 }
@@ -96,14 +100,16 @@
 /* Editorial: campos "sublinhados", sem caixa — a diferença mais
    estrutural entre os 4 temas, por isso é uma sobreposição completa
    em vez de só tokens. */
-:host([data-tema="editorial"]) .campo input {
+:host([data-tema="editorial"]) .campo input,
+:host([data-tema="editorial"]) .campo textarea {
   border: none;
   border-bottom: 1px solid #d4d4d4;
   border-radius: 0;
   padding: 0.5rem 0;
   background: transparent;
 }
-:host([data-tema="editorial"]) .campo input:focus {
+:host([data-tema="editorial"]) .campo input:focus,
+:host([data-tema="editorial"]) .campo textarea:focus {
   border-bottom-color: var(--sp-accent);
 }
 :host([data-tema="editorial"]) .campo label {

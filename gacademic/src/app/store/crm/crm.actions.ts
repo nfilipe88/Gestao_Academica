@@ -1,5 +1,5 @@
 import { createAction, props } from '@ngrx/store';
-import { FunilEtapa, OportunidadeCRM } from './crm.models';
+import { FunilEtapa, MensagemLead, OportunidadeCRM } from './crm.models';
 
 export const carregarFunil = createAction('[CRM] Carregar Funil');
 export const carregarFunilSucesso = createAction(
@@ -17,7 +17,8 @@ export const criarLead = createAction(
   '[CRM] Criar Lead',
   props<{
     nome_responsavel: string, email_contato: string | null, telefone: string | null,
-    nome_aluno_candidato: string, data_nascimento_candidato: string | null, origem_lead: string
+    nome_aluno_candidato: string, data_nascimento_candidato: string | null, origem_lead: string,
+    mensagem: string | null
   }>()
 );
 
@@ -37,6 +38,20 @@ export const moverOportunidade = createAction(
 export const atualizarOportunidade = createAction(
   '[CRM] Atualizar Oportunidade',
   props<{ oportunidade_id: string, turma_interesse_id: string | null, valor_estimado_anual: number | null }>()
+);
+
+export const carregarMensagensLead = createAction(
+  '[CRM] Carregar Mensagens Lead',
+  props<{ lead_id: string }>()
+);
+export const carregarMensagensLeadSucesso = createAction(
+  '[CRM] Carregar Mensagens Lead Sucesso',
+  props<{ lead_id: string, mensagens: MensagemLead[] }>()
+);
+
+export const responderLead = createAction(
+  '[CRM] Responder Lead',
+  props<{ lead_id: string, corpo: string }>()
 );
 
 export const crmOperacaoSucesso = createAction(

@@ -52,6 +52,7 @@ export class EscolaComponent implements OnInit {
     telefone: [''],
     nome_aluno_candidato: ['', Validators.required],
     origem_lead: ['SITE'],
+    mensagem: [''],
   });
 
   ngOnInit() {
