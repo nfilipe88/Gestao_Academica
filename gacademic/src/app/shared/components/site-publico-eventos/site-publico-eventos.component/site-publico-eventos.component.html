@@ -1,0 +1,16 @@
+<div class="lista">
+  @for (evento of eventos; track evento.id) {
+    <article class="evento">
+      <div class="cabecalho">
+        <h3>{{ evento.titulo }}</h3>
+        <time>{{ evento.data | date:'dd/MM/yyyy' }}</time>
+      </div>
+      @if (evento.descricao) {
+        <p class="descricao">{{ evento.descricao }}</p>
+      }
+      @if (evento.fotos.length) {
+        <app-site-publico-gallery [fotos]="evento.fotos" [tema]="tema" />
+      }
+    </article>
+  }
+</div>

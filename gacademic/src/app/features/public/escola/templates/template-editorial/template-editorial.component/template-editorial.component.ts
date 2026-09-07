@@ -5,6 +5,7 @@ import { SitePublico } from '../../../../../../shared/models/site-publico.models
 import { SitePublicoLeadFormComponent } from '../../../../../../shared/components/site-publico-lead-form/site-publico-lead-form.component/site-publico-lead-form.component';
 import { SitePublicoSocialLinksComponent } from '../../../../../../shared/components/site-publico-social-links/site-publico-social-links.component/site-publico-social-links.component';
 import { SitePublicoGalleryComponent } from '../../../../../../shared/components/site-publico-gallery/site-publico-gallery.component/site-publico-gallery.component';
+import { SitePublicoEventosComponent } from '../../../../../../shared/components/site-publico-eventos/site-publico-eventos.component/site-publico-eventos.component';
 
 /**
  * Modelo "Editorial" — minimalista: preto e branco, muito espaço em
@@ -15,7 +16,7 @@ import { SitePublicoGalleryComponent } from '../../../../../../shared/components
  */
 @Component({
   selector: 'app-template-editorial',
-  imports: [RouterLink, SitePublicoLeadFormComponent, SitePublicoSocialLinksComponent, SitePublicoGalleryComponent],
+  imports: [RouterLink, SitePublicoLeadFormComponent, SitePublicoSocialLinksComponent, SitePublicoGalleryComponent, SitePublicoEventosComponent],
   templateUrl: './template-editorial.component.html',
   styleUrl: './template-editorial.component.css',
 })

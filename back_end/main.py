@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
+from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, eventos, financeiro, horarios, indicadores, lms, matriculas, notificacoes, perfil, permissoes, portal, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
 from fastapi import Depends
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
@@ -102,6 +102,7 @@ app.include_router(lms.router)
 app.include_router(perfil.router)
 app.include_router(permissoes.router)
 app.include_router(propinas.router)
+app.include_router(eventos.router)
 
 @app.get("/api/v1/health")
 async def health_check():

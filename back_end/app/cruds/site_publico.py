@@ -170,6 +170,11 @@ async def obter_site_publico(db: AsyncSession, identificador: str) -> SitePublic
     # forma síncrona/sequencial, sem essa armadilha.
     fotos_urls = [url for url in [await storage.obter_data_uri(f.chave_storage) for f in fotos_rows] if url]
     logotipo = await storage.obter_data_uri(tenant.logotipo_chave)
+    # Import tardio (não ao nível do módulo) só para evitar um ciclo de
+    # import entre cruds/site_publico.py e cruds/eventos.py, que por sua
+    # vez importa constantes deste ficheiro.
+    from app.cruds import eventos as crud_eventos
+    eventos = await crud_eventos.listar_eventos_publicos(db, tenant.id)
 
     return SitePublicoOut(
         tenant_id=tenant.id, nome_fantasia=tenant.nome_fantasia,
@@ -180,6 +185,6 @@ async def obter_site_publico(db: AsyncSession, identificador: str) -> SitePublic
         morada=tenant.morada, cidade=tenant.cidade,
         facebook=tenant.site_publico_facebook, instagram=tenant.site_publico_instagram,
         whatsapp=tenant.site_publico_whatsapp,
-        cursos=cursos, fotos=fotos_urls,
+        cursos=cursos, fotos=fotos_urls, eventos=eventos,
         moeda=tenant.moeda, valor_taxa_matricula=tenant.valor_taxa_matricula,
     )

@@ -13,6 +13,7 @@
         @if (escola.metodologia) { <a href="#sobre" class="hover:text-white transition-colors">Sobre</a> }
         @if (escola.cursos.length) { <a href="#cursos" class="hover:text-white transition-colors">Cursos</a> }
         @if (escola.fotos.length) { <a href="#galeria" class="hover:text-white transition-colors">Galeria</a> }
+        @if (escola.eventos.length) { <a href="#eventos" class="hover:text-white transition-colors">Eventos</a> }
         <a href="#contacto" class="hover:text-white transition-colors">Contacto</a>
         <a [routerLink]="['/escola', escola.tenant_id, 'matricula']" class="bg-amber-600 hover:bg-amber-500 text-white font-medium rounded-md px-4 py-1.5 transition-colors">Matricule-se</a>
       </div>
@@ -68,6 +69,13 @@
       <section id="galeria" class="scroll-mt-20">
         <h2 class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-4">Galeria</h2>
         <app-site-publico-gallery [fotos]="escola.fotos" tema="classico" />
+      </section>
+    }
+
+    @if (escola.eventos.length) {
+      <section id="eventos" class="scroll-mt-20">
+        <h2 class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-4">Últimos Eventos</h2>
+        <app-site-publico-eventos [eventos]="escola.eventos" tema="classico" />
       </section>
     }
 

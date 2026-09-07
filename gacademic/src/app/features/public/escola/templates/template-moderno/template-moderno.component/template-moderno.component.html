@@ -13,6 +13,7 @@
         @if (escola.metodologia) { <a href="#sobre" class="px-3 py-1.5 rounded-full text-slate-600 hover:bg-slate-100 transition-colors">Sobre</a> }
         @if (escola.cursos.length) { <a href="#cursos" class="px-3 py-1.5 rounded-full text-slate-600 hover:bg-slate-100 transition-colors">Cursos</a> }
         @if (escola.fotos.length) { <a href="#galeria" class="px-3 py-1.5 rounded-full text-slate-600 hover:bg-slate-100 transition-colors">Galeria</a> }
+        @if (escola.eventos.length) { <a href="#eventos" class="px-3 py-1.5 rounded-full text-slate-600 hover:bg-slate-100 transition-colors">Eventos</a> }
         <a href="#contacto" class="px-3 py-1.5 rounded-full text-slate-600 hover:bg-slate-100 transition-colors">Contacto</a>
         <a [routerLink]="['/escola', escola.tenant_id, 'matricula']" class="px-4 py-1.5 rounded-full bg-linear-to-r from-indigo-600 to-pink-600 text-white font-semibold hover:opacity-90 transition-opacity">Matricule-se</a>
       </div>
@@ -73,6 +74,13 @@
       <section id="galeria" class="scroll-mt-24">
         <h2 class="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-4">Galeria</h2>
         <app-site-publico-gallery [fotos]="escola.fotos" tema="moderno" />
+      </section>
+    }
+
+    @if (escola.eventos.length) {
+      <section id="eventos" class="scroll-mt-24">
+        <h2 class="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-4">Últimos Eventos</h2>
+        <app-site-publico-eventos [eventos]="escola.eventos" tema="moderno" />
       </section>
     }
 

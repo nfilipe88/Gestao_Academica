@@ -12,6 +12,8 @@ from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel
 
+from app.schemas.eventos import EventoPublicoOut
+
 
 class SitePublicoFotoOut(BaseModel):
     id: uuid.UUID
@@ -73,6 +75,7 @@ class SitePublicoOut(BaseModel):
     whatsapp: str | None
     cursos: list[CursoPublicoOut] = []
     fotos: list[str] = []  # data URIs
+    eventos: list[EventoPublicoOut] = []
     moeda: str
     # Valor da taxa de matrícula (encargo único) — None = escola não cobra.
     # Publicado de propósito (tal como os preços/cursos acima): uma

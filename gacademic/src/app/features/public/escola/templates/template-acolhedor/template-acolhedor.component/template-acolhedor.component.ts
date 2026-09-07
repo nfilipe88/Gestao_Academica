@@ -5,6 +5,7 @@ import { SitePublico } from '../../../../../../shared/models/site-publico.models
 import { SitePublicoLeadFormComponent } from '../../../../../../shared/components/site-publico-lead-form/site-publico-lead-form.component/site-publico-lead-form.component';
 import { SitePublicoSocialLinksComponent } from '../../../../../../shared/components/site-publico-social-links/site-publico-social-links.component/site-publico-social-links.component';
 import { SitePublicoGalleryComponent } from '../../../../../../shared/components/site-publico-gallery/site-publico-gallery.component/site-publico-gallery.component';
+import { SitePublicoEventosComponent } from '../../../../../../shared/components/site-publico-eventos/site-publico-eventos.component/site-publico-eventos.component';
 
 /**
  * Modelo "Acolhedor" — suave e ilustrativo: tons pastel, formas
@@ -15,7 +16,7 @@ import { SitePublicoGalleryComponent } from '../../../../../../shared/components
  */
 @Component({
   selector: 'app-template-acolhedor',
-  imports: [RouterLink, SitePublicoLeadFormComponent, SitePublicoSocialLinksComponent, SitePublicoGalleryComponent],
+  imports: [RouterLink, SitePublicoLeadFormComponent, SitePublicoSocialLinksComponent, SitePublicoGalleryComponent, SitePublicoEventosComponent],
   templateUrl: './template-acolhedor.component.html',
   styleUrl: './template-acolhedor.component.css',
 })

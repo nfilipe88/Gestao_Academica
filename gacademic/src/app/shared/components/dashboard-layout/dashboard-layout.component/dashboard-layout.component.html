@@ -419,6 +419,20 @@
       }
 
       @if (isGestor$ | async) {
+        <!-- Eventos (festas, feiras, dias abertos) — publicados na
+             página pública da escola — só o Gestor (RBAC no back-end:
+             /eventos é GESTOR only, mesmo critério do Site Público). -->
+        <a routerLink="/eventos" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Eventos">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75M3 18.75V15a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 15v3.75M3 9h18" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Eventos</span> }
+        </a>
+      }
+
+      @if (isGestor$ | async) {
         <!-- Mapa de Permissões: o Gestor também pode consultar/editar as
              células CRUD do mapa global (RBAC no back-end:
              GET/PATCH /permissoes é SUPER_ADMIN + GESTOR). -->

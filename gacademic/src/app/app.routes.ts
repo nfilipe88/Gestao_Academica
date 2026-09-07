@@ -138,6 +138,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/crm/crm.component/crm.component').then((m) => m.CrmComponent)
       },
       {
+        path: 'eventos',
+        loadComponent: () => import('./features/eventos/eventos.component/eventos.component').then((m) => m.EventosComponent)
+      },
+      {
         path: 'horarios',
         loadComponent: () => import('./features/horarios/horarios.component/horarios.component').then((m) => m.HorariosComponent)
       },

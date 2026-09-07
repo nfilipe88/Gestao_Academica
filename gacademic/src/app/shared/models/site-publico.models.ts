@@ -10,6 +10,18 @@ export interface CursoPublico {
   descricao: string | null; // conteúdo programático, texto livre
 }
 
+// Evento da escola publicado na página pública — ver
+// app/schemas/eventos.py::EventoPublicoOut. Distinto da galeria solta
+// (`fotos` abaixo): aqui cada evento tem título/data/descrição e as
+// suas próprias fotos, sem limite.
+export interface EventoPublico {
+  id: string;
+  titulo: string;
+  data: string;
+  descricao: string | null;
+  fotos: string[];
+}
+
 export interface SitePublico {
   tenant_id: string;
   nome_fantasia: string;
@@ -26,6 +38,7 @@ export interface SitePublico {
   whatsapp: string | null;
   cursos: CursoPublico[];
   fotos: string[];
+  eventos: EventoPublico[];
   moeda: string;
   // Valor da taxa de matrícula (encargo único) — null = a escola não
   // cobra. Ver Tenant.valor_taxa_matricula no back-end.
