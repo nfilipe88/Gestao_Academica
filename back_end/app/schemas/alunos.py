@@ -13,6 +13,10 @@ class AlunoCreate(BaseModel):
     numero_documento: str | None = None
 
 
+class AlunoAtivoUpdate(BaseModel):
+    ativo: bool
+
+
 class ResponsavelCreate(BaseModel):
     nome_completo: str
     telefone_contato: str

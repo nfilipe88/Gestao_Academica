@@ -9,7 +9,7 @@ from app.core.security import exigir_perfil
 from app.core import estatisticas_excel
 from app.schemas.admin import (
     AssinaturaTenantInput, PlanoSaaSCreate, PlanoSaaSUpdate,
-    TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
+    IsencaoLimiteAlunosUpdate, TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
 )
 from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
 from app.schemas.financeiro import DespesaCreate
@@ -74,9 +74,25 @@ async def atualizar_status_tenant(
     db: AsyncSession = Depends(obter_sessao_db_admin),
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
-    """Suspende ou reativa uma instituição — bloqueia/desbloqueia o login de todos os seus utilizadores."""
+    """Desativa (SUSPENSO) ou ativa (ATIVO) uma instituição — bloqueia/desbloqueia o login de todos os seus
+    utilizadores. Nunca elimina dados (retenção legal de 15 anos)."""
     tenant = await crud_admin.atualizar_status_tenant(db, tenant_id, dados)
-    return {"mensagem": f"{tenant.nome_fantasia} agora está {tenant.status}.", "status": tenant.status}
+    return {"mensagem": f"{tenant.nome_fantasia} agora está {'ativa' if tenant.status == 'ATIVO' else 'desativada'}.", "status": tenant.status}
+
+
+@router.patch("/tenants/{tenant_id}/isencao-limite-alunos")
+async def atualizar_isencao_limite_alunos(
+    tenant_id: uuid.UUID,
+    dados: IsencaoLimiteAlunosUpdate,
+    db: AsyncSession = Depends(obter_sessao_db_admin),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Concede ou retira a isenção do limite de alunos do plano a uma instituição."""
+    tenant = await crud_admin.atualizar_isencao_limite_alunos(db, tenant_id, dados)
+    return {
+        "mensagem": f"{tenant.nome_fantasia} {'está agora isenta' if tenant.isento_limite_alunos else 'deixou de estar isenta'} do limite de alunos.",
+        "isento_limite_alunos": tenant.isento_limite_alunos,
+    }
 
 
 @router.patch("/tenants/{tenant_id}/validade-licenca")

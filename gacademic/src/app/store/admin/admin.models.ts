@@ -15,6 +15,8 @@ export interface TenantResumo {
   total_professores: number;
   nome_plano: string | null;
   em_periodo_teste: boolean;
+  limite_alunos: number | null; // do plano ativo — null = sem limite (ou sem plano)
+  isento_limite_alunos: boolean; // concedido pelo Super Admin, ignora limite_alunos
 }
 
 // Filtros da listagem de Instituições — nome (ILIKE), plano_id

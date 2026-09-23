@@ -5,7 +5,7 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { Store } from '@ngrx/store';
 import { combineLatest, debounceTime, distinctUntilChanged, map, Subscription } from 'rxjs';
 import {
-  carregarAlunos, carregarResponsaveis, carregarResponsaveisDoAluno,
+  alterarEstadoAtivoAluno, carregarAlunos, carregarResponsaveis, carregarResponsaveisDoAluno,
   criarAcessoAluno, criarAcessoResponsavel, criarAluno, criarResponsavel, vincularResponsavel
 } from '../../../store/alunos/alunos.actions';
 import {
@@ -14,7 +14,7 @@ import {
 } from '../../../store/alunos/alunos.selector';
 import { AlunoDocumento, FotoPerfilAluno, TIPOS_PARENTESCO } from '../../../store/alunos/alunos.models';
 import { abrirOuTransferirBlob } from '../../../core/utils/abrir-em-nova-aba';
-import { selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
+import { selectIsGestor, selectIsGestorOuSecretaria } from '../../../store/auth/auth.selectors';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 import { carregarTurmas } from '../../../store/academico/academic.actions';
 import { selectTurmas } from '../../../store/academico/academic.selector';
@@ -45,6 +45,9 @@ export class AlunosComponent implements OnInit, OnDestroy {
   // Criar/editar alunos, responsáveis, vínculos e acessos ao Portal =
   // GESTOR ou SECRETARIA (ver _PODE_GERIR em alunos.py).
   podeGerir$ = this.store.select(selectIsGestorOuSecretaria);
+  // Desativar/ativar aluno = só o Gestor (exigir_perfil("GESTOR") em alunos.py).
+  isGestor$ = this.store.select(selectIsGestor);
+  alunoADesativarId: string | null = null;
 
   // Cada aluno já com os seus responsáveis vinculados (nome e usuario_id
   // resolvidos a partir de responsavel_id — a API só devolve o vínculo em si).
@@ -135,7 +138,8 @@ export class AlunosComponent implements OnInit, OnDestroy {
   filtroForm = this.fb.group({
     busca: [''],
     data_nascimento_inicio: [''],
-    data_nascimento_fim: ['']
+    data_nascimento_fim: [''],
+    estado: ['']  // '' = todos, 'ativo', 'inativo'
   });
 
   ngOnInit() {
@@ -162,6 +166,9 @@ export class AlunosComponent implements OnInit, OnDestroy {
     this.subscricoes.add(
       this.filtroForm.controls.data_nascimento_fim.valueChanges.subscribe(() => this.aplicarFiltros())
     );
+    this.subscricoes.add(
+      this.filtroForm.controls.estado.valueChanges.subscribe(() => this.aplicarFiltros())
+    );
   }
 
   ngOnDestroy() {
@@ -169,12 +176,13 @@ export class AlunosComponent implements OnInit, OnDestroy {
   }
 
   private dispatchAlunosComFiltros(pagina: number) {
-    const { busca, data_nascimento_inicio, data_nascimento_fim } = this.filtroForm.value;
+    const { busca, data_nascimento_inicio, data_nascimento_fim, estado } = this.filtroForm.value;
     this.store.dispatch(carregarAlunos({
       page: pagina, page_size: this.tamanhoAlunos,
       busca: busca?.trim() || undefined,
       data_nascimento_inicio: data_nascimento_inicio || undefined,
-      data_nascimento_fim: data_nascimento_fim || undefined
+      data_nascimento_fim: data_nascimento_fim || undefined,
+      ativo: estado === 'ativo' ? true : estado === 'inativo' ? false : undefined
     }));
   }
 
@@ -183,8 +191,17 @@ export class AlunosComponent implements OnInit, OnDestroy {
     this.dispatchAlunosComFiltros(1);
   }
 
+  pedirConfirmacaoDesativar(alunoId: string) {
+    this.alunoADesativarId = alunoId;
+  }
+
+  onAlterarEstadoAluno(alunoId: string, ativo: boolean) {
+    this.store.dispatch(alterarEstadoAtivoAluno({ aluno_id: alunoId, ativo }));
+    this.alunoADesativarId = null;
+  }
+
   limparFiltros() {
-    this.filtroForm.reset({ busca: '', data_nascimento_inicio: '', data_nascimento_fim: '' });
+    this.filtroForm.reset({ busca: '', data_nascimento_inicio: '', data_nascimento_fim: '', estado: '' });
     this.aplicarFiltros();
   }
 

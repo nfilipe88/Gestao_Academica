@@ -22,7 +22,7 @@ from app.database.models_diario import TipoAvaliacaoConfig
 from app.database.models_billing import AssinaturaTenant, PlanoSaaS, PlanoSaaSModulo
 from app.schemas.admin import (
     AssinaturaTenantInput, PlanoSaaSCreate, PlanoSaaSUpdate,
-    TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
+    IsencaoLimiteAlunosUpdate, TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
 )
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import paginar_linhas
@@ -119,7 +119,7 @@ async def listar_tenants(
 
     contagem_alunos = dict((await db.execute(
         select(Aluno.tenant_id, func.count(Aluno.id))
-        .where(Aluno.tenant_id.in_(tenant_ids)).group_by(Aluno.tenant_id)
+        .where(Aluno.tenant_id.in_(tenant_ids), Aluno.ativo == True).group_by(Aluno.tenant_id)  # noqa: E712
     )).all())
     contagem_professores = dict((await db.execute(
         select(Professor.tenant_id, func.count(Professor.id))
@@ -127,13 +127,13 @@ async def listar_tenants(
     )).all())
 
     linhas_plano = (await db.execute(
-        select(AssinaturaTenant.tenant_id, PlanoSaaS.nome, PlanoSaaS.dias_periodo_teste, AssinaturaTenant.data_inicio)
+        select(AssinaturaTenant.tenant_id, PlanoSaaS.nome, PlanoSaaS.dias_periodo_teste, AssinaturaTenant.data_inicio, PlanoSaaS.limite_alunos)
         .join(PlanoSaaS, PlanoSaaS.id == AssinaturaTenant.plano_id)
         .where(AssinaturaTenant.tenant_id.in_(tenant_ids), AssinaturaTenant.status == "ATIVA")
     )).all()
     planos_por_tenant = {
-        tid: {"nome_plano": nome_plano, "em_periodo_teste": _em_periodo_teste(data_inicio, dias_teste)}
-        for tid, nome_plano, dias_teste, data_inicio in linhas_plano
+        tid: {"nome_plano": nome_plano, "em_periodo_teste": _em_periodo_teste(data_inicio, dias_teste), "limite_alunos": limite}
+        for tid, nome_plano, dias_teste, data_inicio, limite in linhas_plano
     }
 
     pagina["items"] = [
@@ -150,6 +150,8 @@ async def listar_tenants(
             "total_professores": contagem_professores.get(t.id, 0),
             "nome_plano": planos_por_tenant.get(t.id, {}).get("nome_plano"),
             "em_periodo_teste": planos_por_tenant.get(t.id, {}).get("em_periodo_teste", False),
+            "limite_alunos": planos_por_tenant.get(t.id, {}).get("limite_alunos"),
+            "isento_limite_alunos": t.isento_limite_alunos,
         }
         for t in tenants
     ]
@@ -228,6 +230,20 @@ async def atualizar_status_tenant(db: AsyncSession, tenant_id: uuid.UUID, dados:
     return tenant
 
 
+async def atualizar_isencao_limite_alunos(db: AsyncSession, tenant_id: uuid.UUID, dados: IsencaoLimiteAlunosUpdate) -> Tenant:
+    """Concede/retira a isenção do limite de alunos do plano (ver
+    app/core/limites_plano.py) — não altera o plano nem a licença."""
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Instituição não encontrada.")
+    if tenant.nif == NIF_PLATAFORMA:
+        raise HTTPException(status_code=400, detail="Não é possível alterar o tenant interno da plataforma.")
+    tenant.isento_limite_alunos = dados.isento
+    await db.commit()
+    await db.refresh(tenant)
+    return tenant
+
+
 async def atualizar_validade_licenca(db: AsyncSession, tenant_id: uuid.UUID, dados: ValidadeLicencaUpdate) -> Tenant:
     """Define (ou remove, se None) a data de validade da licença — ver job_validade_licenca_diaria no scheduler."""
     tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
@@ -245,8 +261,10 @@ async def atualizar_validade_licenca(db: AsyncSession, tenant_id: uuid.UUID, dad
 # ==========================================
 # JOB DIÁRIO (chamado por app/core/scheduler.py)
 # ==========================================
-async def _destinatarios_alerta_licenca(db: AsyncSession, tenant_id) -> list[uuid.UUID]:
-    """GESTOR(es) da escola + todos os logins SUPER_ADMIN."""
+async def _destinatarios_alerta_licenca(db: AsyncSession, tenant_id) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
+    """GESTOR(es) da escola + todos os logins SUPER_ADMIN — devolvidos à
+    parte (não numa lista só) porque só o SUPER_ADMIN tem acesso a /admin;
+    o GESTOR não tem hoje nenhuma página própria de estado de licença."""
     gestores = (await db.execute(
         select(Usuario.id).where(Usuario.tenant_id == tenant_id, Usuario.perfil_acesso == "GESTOR")
     )).scalars().all()
@@ -258,7 +276,7 @@ async def _destinatarios_alerta_licenca(db: AsyncSession, tenant_id) -> list[uui
             select(Usuario.id).where(Usuario.tenant_id == tenant_plataforma, Usuario.perfil_acesso == "SUPER_ADMIN")
         )).scalars().all()
 
-    return list(gestores) + list(super_admins)
+    return list(gestores), list(super_admins)
 
 
 async def processar_validade_licencas(db: AsyncSession, agendar_email) -> dict:
@@ -286,7 +304,8 @@ async def processar_validade_licencas(db: AsyncSession, agendar_email) -> dict:
     resumo = {"suspensos": 0, "bloqueados_parcial": 0, "alertados": 0}
 
     for tenant in tenants:
-        destinatarios = await _destinatarios_alerta_licenca(db, tenant.id)
+        gestores, super_admins = await _destinatarios_alerta_licenca(db, tenant.id)
+        destinatarios = gestores + super_admins
         emails = (await db.execute(
             select(Usuario.email).where(Usuario.id.in_(destinatarios))
         )).scalars().all() if destinatarios else []
@@ -319,9 +338,17 @@ async def processar_validade_licencas(db: AsyncSession, agendar_email) -> dict:
             continue
 
         try:
-            await crud_notificacoes.criar_notificacoes_em_lote(
-                db, tenant.id, destinatarios, tipo="LICENCA", titulo=titulo, mensagem=mensagem, link="/admin"
-            )
+            # /admin só é acessível a SUPER_ADMIN — o GESTOR não tem hoje
+            # nenhuma página própria de estado de licença, por isso fica
+            # sem link (a notificação continua a aparecer no sino).
+            if gestores:
+                await crud_notificacoes.criar_notificacoes_em_lote(
+                    db, tenant.id, gestores, tipo="LICENCA", titulo=titulo, mensagem=mensagem, link=None
+                )
+            if super_admins:
+                await crud_notificacoes.criar_notificacoes_em_lote(
+                    db, tenant.id, super_admins, tipo="LICENCA", titulo=titulo, mensagem=mensagem, link="/admin"
+                )
             await db.commit()
             if dias_atraso >= DIAS_SUSPENSAO_LICENCA:
                 # Mesma razão da suspensão manual (ver atualizar_status_tenant)

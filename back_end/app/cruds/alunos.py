@@ -17,6 +17,7 @@ from app.database.models_documentos import TemplateDocumentoPersonalizado
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoDocumento, AlunoResponsavel, FotoPerfilAluno, ResponsavelFinanceiroLegal
 from app.core import documentos_pdf, storage
+from app.core.limites_plano import garantir_vaga_para_alunos
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import paginar
 from app.schemas.alunos import AlunoCreate, CriarAcessoRequest, ResponsavelCreate, VincularResponsavel
@@ -86,6 +87,7 @@ async def criar_aluno(db: AsyncSession, tenant_id, dados: AlunoCreate) -> Aluno:
     if ja_existe.scalars().first():
         raise HTTPException(status_code=400, detail="Já existe um aluno com esta matrícula interna.")
 
+    await garantir_vaga_para_alunos(db, tenant_id)
     novo_aluno = Aluno(
         tenant_id=tenant_id,
         matricula_interna=dados.matricula_interna,
@@ -101,9 +103,12 @@ async def criar_aluno(db: AsyncSession, tenant_id, dados: AlunoCreate) -> Aluno:
 
 async def listar_alunos(
     db: AsyncSession, tenant_id, page: int, page_size: int,
-    busca: str | None = None, data_nascimento_inicio=None, data_nascimento_fim=None
+    busca: str | None = None, data_nascimento_inicio=None, data_nascimento_fim=None,
+    ativo: bool | None = None
 ) -> dict:
     query = select(Aluno).where(Aluno.tenant_id == tenant_id)
+    if ativo is not None:
+        query = query.where(Aluno.ativo == ativo)
     if busca:
         termo = f"%{busca.strip()}%"
         query = query.where(or_(
@@ -144,11 +149,34 @@ async def listar_alunos(
             "data_nascimento": a.data_nascimento,
             "numero_documento": a.numero_documento,
             "data_criacao": a.data_criacao,
+            "ativo": a.ativo,
             "num_responsaveis": contagem_por_aluno.get(a.id, 0),
         }
         for a in resultado["items"]
     ]
     return resultado
+
+
+async def alterar_estado_ativo_aluno(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, ativo: bool, autor_id) -> Aluno:
+    """Desativa/reativa um aluno — nunca o elimina (a lei angolana exige
+    reter os dados 15 anos). Desativar suspende o login do próprio aluno
+    (se tiver conta) e liberta a vaga no plano; matrículas, notas e
+    faturas ficam intactas. Reativar volta a validar o limite do plano."""
+    from app.cruds import usuarios as crud_usuarios  # import local: evita ciclo entre módulos de cruds
+
+    aluno = await _obter_aluno(db, tenant_id, aluno_id)
+    if aluno.ativo == ativo:
+        return aluno  # idempotente
+
+    if ativo:
+        await garantir_vaga_para_alunos(db, tenant_id)
+    aluno.ativo = ativo
+    await db.commit()
+    await db.refresh(aluno)
+
+    if aluno.usuario_id:
+        await crud_usuarios.alterar_estado_ativo(db, tenant_id, aluno.usuario_id, ativo, autor_id)
+    return aluno
 
 
 async def criar_responsavel(db: AsyncSession, tenant_id, dados: ResponsavelCreate) -> ResponsavelFinanceiroLegal:

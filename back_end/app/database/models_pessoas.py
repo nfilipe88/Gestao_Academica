@@ -25,6 +25,11 @@ class Aluno(Base):
     data_nascimento: Mapped[date] = mapped_column(Date, nullable=False)
     numero_documento: Mapped[str] = mapped_column(String(50), nullable=True) # NIF/Cartão de Cidadão
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+    # Alunos nunca são eliminados (a lei angolana exige reter os dados 15
+    # anos antes de qualquer arquivo) — só desativados pelo Gestor: perde
+    # o acesso à plataforma e deixa de contar para o limite de alunos do
+    # plano, mas notas, matrículas e faturas ficam intactas.
+    ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
 
     responsaveis: Mapped[list["AlunoResponsavel"]] = relationship(back_populates="aluno", cascade="all, delete-orphan")
 

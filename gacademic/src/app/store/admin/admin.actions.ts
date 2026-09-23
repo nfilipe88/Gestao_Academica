@@ -26,6 +26,11 @@ export const atualizarStatusTenant = createAction(
   props<{ tenant_id: string, status: StatusTenant }>()
 );
 
+export const atualizarIsencaoLimiteAlunos = createAction(
+  '[Admin] Atualizar Isencao Limite Alunos',
+  props<{ tenant_id: string, isento: boolean }>()
+);
+
 export const atualizarValidadeLicenca = createAction(
   '[Admin] Atualizar Validade Licenca',
   props<{ tenant_id: string, data_validade_licenca: string | null }>()

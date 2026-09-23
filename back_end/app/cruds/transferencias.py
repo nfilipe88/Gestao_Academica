@@ -21,6 +21,7 @@ from app.database.models import Tenant, Usuario
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.core import documentos_pdf, storage
+from app.core.limites_plano import garantir_vaga_para_alunos
 from app.core.paginacao import paginar_linhas
 from app.cruds import alunos as crud_alunos
 from app.cruds import documentos as crud_documentos
@@ -254,6 +255,7 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID, tenant_d
         .where(AlunoResponsavel.aluno_id == aluno.id)
     )).all()
 
+    await garantir_vaga_para_alunos(db, solicitacao.tenant_destino_id)
     novo_aluno = Aluno(
         tenant_id=solicitacao.tenant_destino_id,
         matricula_interna=aluno.matricula_interna,
@@ -337,11 +339,19 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID, tenant_d
         logger.exception("Falha a gerar/anexar o Histórico Escolar automático na migração %s", solicitacao.id)
 
     if solicitacao.solicitado_por_usuario_id:
+        # solicitado_por_usuario_id tanto pode ser staff (pedido normal,
+        # via /transferencias) como o próprio encarregado/aluno (pedido
+        # self-service, ver cruds/portal.py::pedir_transferencia) — /alunos
+        # é staff-only, por isso o link tem de seguir o perfil de quem pediu.
+        perfil_solicitante = (await db.execute(
+            select(Usuario.perfil_acesso).where(Usuario.id == solicitacao.solicitado_por_usuario_id)
+        )).scalar_one_or_none()
+        link = "/portal" if perfil_solicitante in ("ALUNO", "RESPONSAVEL") else "/alunos"
         await crud_notificacoes.criar_notificacao(
             db, solicitacao.tenant_id, solicitacao.solicitado_por_usuario_id, tipo="SOLICITACAO_TRANSFERENCIA",
             titulo="Transferência concluída",
             mensagem=f"A transferência de {aluno.nome_completo} para {tenant_destino.nome_fantasia if tenant_destino else 'a instituição de destino'} foi aprovada e concluída.",
-            link="/alunos"
+            link=link
         )
 
     # A escola de destino ganhou um aluno (já com identidade e
@@ -398,11 +408,16 @@ async def rejeitar(db: AsyncSession, solicitacao_id: uuid.UUID, tenant_destino_u
 
     if solicitacao.solicitado_por_usuario_id:
         aluno = (await db.execute(select(Aluno).where(Aluno.id == solicitacao.aluno_id))).scalars().first()
+        # Mesmo caso de solicitado_por_usuario_id misto — ver "Transferência concluída" acima.
+        perfil_solicitante = (await db.execute(
+            select(Usuario.perfil_acesso).where(Usuario.id == solicitacao.solicitado_por_usuario_id)
+        )).scalar_one_or_none()
+        link = "/portal" if perfil_solicitante in ("ALUNO", "RESPONSAVEL") else "/alunos"
         await crud_notificacoes.criar_notificacao(
             db, solicitacao.tenant_id, solicitacao.solicitado_por_usuario_id, tipo="SOLICITACAO_TRANSFERENCIA",
             titulo="Pedido de transferência rejeitado",
             mensagem=f"O pedido de transferência de {aluno.nome_completo if aluno else 'aluno'} foi rejeitado: {dados.observacoes}",
-            link="/alunos"
+            link=link
         )
 
     return _serializar(solicitacao)

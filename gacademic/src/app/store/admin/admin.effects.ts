@@ -69,6 +69,23 @@ export class AdminEffects {
     )
   );
 
+  atualizarIsencaoLimiteAlunos$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AdminActions.atualizarIsencaoLimiteAlunos),
+      switchMap(action => this.http.patch<{ mensagem: string }>(
+        `/api/v1/admin/tenants/${action.tenant_id}/isencao-limite-alunos`, { isento: action.isento }
+      ).pipe(
+        switchMap(resp => [
+          AdminActions.carregarTenants({}),
+          AdminActions.adminOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(AdminActions.adminOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível alterar a isenção desta instituição.'
+        })))
+      ))
+    )
+  );
+
   atualizarValidadeLicenca$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AdminActions.atualizarValidadeLicenca),

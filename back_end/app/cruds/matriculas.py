@@ -106,6 +106,8 @@ async def criar_matricula(db: AsyncSession, tenant_id, dados: MatriculaCreate) -
     )).scalars().first()
     if not aluno:
         raise HTTPException(status_code=404, detail="Aluno não encontrado na sua instituição.")
+    if not aluno.ativo:
+        raise HTTPException(status_code=400, detail="Este aluno está desativado — reative-o antes de o matricular.")
 
     turma = (await db.execute(
         select(Turma).where(Turma.id == dados.turma_id, Turma.tenant_id == tenant_id)

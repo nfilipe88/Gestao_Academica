@@ -123,7 +123,21 @@
               <td class="py-3 px-6 text-slate-600">{{ tenant.nif }}</td>
               <td class="py-3 px-6 text-slate-600">{{ tenant.data_criacao | date: 'dd/MM/yyyy' }}</td>
               <td class="py-3 px-6 text-slate-600 text-right">{{ tenant.total_usuarios }}</td>
-              <td class="py-3 px-6 text-slate-600 text-right">{{ tenant.total_alunos }}</td>
+              <td class="py-3 px-6 text-slate-600 text-right">
+                <span [class.text-rose-600]="tenant.limite_alunos && !tenant.isento_limite_alunos && tenant.total_alunos >= tenant.limite_alunos"
+                  [title]="'Alunos ativos' + (tenant.limite_alunos ? ' / limite do plano' : '')">
+                  {{ tenant.total_alunos }}@if (tenant.limite_alunos) { / {{ tenant.limite_alunos }} }
+                </span>
+                @if (tenant.limite_alunos || tenant.isento_limite_alunos) {
+                  <button type="button" (click)="onAlternarIsencaoLimite(tenant.id, tenant.isento_limite_alunos)"
+                    class="block ml-auto mt-1 text-[10px] font-semibold py-0.5 px-2 rounded-full cursor-pointer transition-colors"
+                    [class.bg-amber-100]="tenant.isento_limite_alunos" [class.text-amber-700]="tenant.isento_limite_alunos"
+                    [class.bg-slate-100]="!tenant.isento_limite_alunos" [class.text-slate-500]="!tenant.isento_limite_alunos"
+                    [title]="tenant.isento_limite_alunos ? 'Retirar a isenção do limite de alunos' : 'Isentar esta escola do limite de alunos do plano'">
+                    {{ tenant.isento_limite_alunos ? 'Isenta do limite' : 'Isentar' }}
+                  </button>
+                }
+              </td>
               <td class="py-3 px-6 text-slate-600 text-right">{{ tenant.total_professores }}</td>
               <td class="py-3 px-6">
                 @if (tenant.nome_plano) {
@@ -139,7 +153,7 @@
                 <span class="text-xs font-medium py-1 px-3 rounded-full"
                   [class.bg-emerald-100]="tenant.status === 'ATIVO'" [class.text-emerald-700]="tenant.status === 'ATIVO'"
                   [class.bg-rose-100]="tenant.status === 'SUSPENSO'" [class.text-rose-700]="tenant.status === 'SUSPENSO'">
-                  {{ tenant.status }}
+                  {{ tenant.status === 'ATIVO' ? 'Ativa' : 'Desativada' }}
                 </span>
               </td>
               <td class="py-3 px-6">
@@ -195,7 +209,7 @@
                     class="text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
                     [class.bg-rose-100]="tenant.status === 'ATIVO'" [class.text-rose-700]="tenant.status === 'ATIVO'" [class.hover:bg-rose-200]="tenant.status === 'ATIVO'"
                     [class.bg-emerald-100]="tenant.status === 'SUSPENSO'" [class.text-emerald-700]="tenant.status === 'SUSPENSO'" [class.hover:bg-emerald-200]="tenant.status === 'SUSPENSO'">
-                    {{ tenant.status === 'ATIVO' ? 'Suspender' : 'Reativar' }}
+                    {{ tenant.status === 'ATIVO' ? 'Desativar' : 'Ativar' }}
                   </button>
                 }
               </td>

@@ -16,6 +16,7 @@ from app.schemas.crm import (
 from app.schemas.matriculas import MatriculaCreate
 from app.schemas.financeiro import ContratoCreate
 from app.core import storage
+from app.core.limites_plano import garantir_vaga_para_alunos
 from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes
 from app.cruds import matriculas as matriculas_crud
@@ -102,6 +103,7 @@ async def _converter_lead_em_aluno(db: AsyncSession, tenant_id, oportunidade: Op
     db.add(novo_responsavel)
     await db.flush()
 
+    await garantir_vaga_para_alunos(db, tenant_id)
     novo_aluno = Aluno(
         tenant_id=tenant_id,
         matricula_interna=_gerar_matricula_interna(lead.id),

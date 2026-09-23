@@ -4,7 +4,7 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { Store } from '@ngrx/store';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import {
-  atualizarStatusTenant, atualizarValidadeLicenca, carregarTenants, criarTenant, processarValidadeLicencas,
+  atualizarStatusTenant, atualizarIsencaoLimiteAlunos, atualizarValidadeLicenca, carregarTenants, criarTenant, processarValidadeLicencas,
   carregarPlanos, criarPlano, atualizarPlano, apagarPlano, carregarMrr,
   carregarAssinaturaTenant, definirAssinaturaTenant, cancelarAssinaturaTenant
 } from '../../../store/admin/admin.actions';
@@ -203,6 +203,10 @@ export class AdminComponent implements OnInit {
     const novoStatus: StatusTenant = statusAtual === 'ATIVO' ? 'SUSPENSO' : 'ATIVO';
     this.store.dispatch(atualizarStatusTenant({ tenant_id: tenantId, status: novoStatus }));
     this.tenantAConfirmarId = null;
+  }
+
+  onAlternarIsencaoLimite(tenantId: string, isentoAtual: boolean) {
+    this.store.dispatch(atualizarIsencaoLimiteAlunos({ tenant_id: tenantId, isento: !isentoAtual }));
   }
 
   onGuardarValidadeLicenca(tenantId: string, dataValidade: string) {

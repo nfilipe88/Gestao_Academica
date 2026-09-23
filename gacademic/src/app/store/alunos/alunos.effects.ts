@@ -20,6 +20,7 @@ export class AlunosEffects {
         if (action.busca) params['busca'] = action.busca;
         if (action.data_nascimento_inicio) params['data_nascimento_inicio'] = action.data_nascimento_inicio;
         if (action.data_nascimento_fim) params['data_nascimento_fim'] = action.data_nascimento_fim;
+        if (action.ativo !== undefined) params['ativo'] = String(action.ativo);
         return this.http.get<PaginaResultado<Aluno>>('/api/v1/alunos', { params }).pipe(
           map(resp => AlunosActions.carregarAlunosSucesso({
             alunos: resp.items,
@@ -30,6 +31,21 @@ export class AlunosEffects {
           })))
         );
       })
+    )
+  );
+
+  alterarEstadoAtivoAluno$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AlunosActions.alterarEstadoAtivoAluno),
+      switchMap(action => this.http.patch<{ mensagem: string }>(`/api/v1/alunos/${action.aluno_id}/ativo`, { ativo: action.ativo }).pipe(
+        switchMap(resp => [
+          AlunosActions.carregarAlunos({}),
+          AlunosActions.alunosOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(AlunosActions.alunosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível alterar o estado deste aluno.'
+        })))
+      ))
     )
   );
 

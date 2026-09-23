@@ -122,6 +122,15 @@
         <input type="date" formControlName="data_nascimento_fim"
           class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
       </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+        <select formControlName="estado"
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          <option value="">Todos</option>
+          <option value="ativo">Ativos</option>
+          <option value="inativo">Desativados</option>
+        </select>
+      </div>
       <button type="button" (click)="limparFiltros()"
         class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
         Limpar
@@ -137,12 +146,18 @@
           <th class="py-3 px-6 font-medium">Matrícula</th>
           <th class="py-3 px-6 font-medium">Nascimento</th>
           <th class="py-3 px-6 font-medium text-right">Responsáveis</th>
+          @if (isGestor$ | async) { <th class="py-3 px-6 font-medium text-right">Estado</th> }
         </tr>
       </thead>
       <tbody>
         @for (aluno of alunos$ | async; track aluno.id) {
         <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-          <td class="py-3 px-6 text-slate-800 font-medium">{{ aluno.nome_completo }}</td>
+          <td class="py-3 px-6 text-slate-800 font-medium" [class.text-slate-400]="!aluno.ativo">
+            {{ aluno.nome_completo }}
+            @if (!aluno.ativo) {
+              <span class="ml-2 text-[10px] font-semibold py-0.5 px-2 rounded-full bg-slate-200 text-slate-600">Desativado</span>
+            }
+          </td>
           <td class="py-3 px-6 text-slate-600">{{ aluno.matricula_interna }}</td>
           <td class="py-3 px-6 text-slate-600">{{ aluno.data_nascimento | date:'dd/MM/yyyy' }}</td>
           <td class="py-3 px-6 text-right">
@@ -151,10 +166,28 @@
               {{ alunoExpandidoId === aluno.id ? 'Fechar' : 'Ver (' + (aluno.vinculos.length > 0 ? aluno.vinculos.length : aluno.num_responsaveis) + ')' }}
             </button>
           </td>
+          @if (isGestor$ | async) {
+          <td class="py-3 px-6 text-right whitespace-nowrap">
+            @if (alunoADesativarId === aluno.id) {
+              <span class="text-xs text-slate-500 mr-2">Confirmar?</span>
+              <button type="button" (click)="onAlterarEstadoAluno(aluno.id, false)"
+                class="text-xs font-medium py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white cursor-pointer">Sim</button>
+              <button type="button" (click)="alunoADesativarId = null"
+                class="text-xs font-medium py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer ml-1">Cancelar</button>
+            } @else if (aluno.ativo) {
+              <button type="button" (click)="pedirConfirmacaoDesativar(aluno.id)"
+                title="Desativar: perde o acesso e liberta a vaga no plano. Notas, matrículas e faturas ficam guardadas."
+                class="text-xs font-medium py-1.5 px-3 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-200 cursor-pointer">Desativar</button>
+            } @else {
+              <button type="button" (click)="onAlterarEstadoAluno(aluno.id, true)"
+                class="text-xs font-medium py-1.5 px-3 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer">Ativar</button>
+            }
+          </td>
+          }
         </tr>
         @if (alunoExpandidoId === aluno.id) {
         <tr class="bg-slate-50/60 border-b border-slate-100">
-          <td colspan="4" class="px-6 pb-4 pt-1">
+          <td colspan="5" class="px-6 pb-4 pt-1">
             <div class="pl-3 border-l-2 border-blue-200 space-y-3">
 
               <!-- Acesso ao Portal do próprio aluno -->

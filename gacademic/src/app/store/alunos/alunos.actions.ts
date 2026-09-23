@@ -11,13 +11,18 @@ export const carregarAlunos = createAction(
   '[Alunos] Carregar Alunos',
   props<{
     page?: number, page_size?: number, busca?: string,
-    data_nascimento_inicio?: string, data_nascimento_fim?: string
+    data_nascimento_inicio?: string, data_nascimento_fim?: string, ativo?: boolean
   }>()
 );
 export const carregarAlunosSucesso = createAction(
   '[Alunos] Carregar Alunos Sucesso',
   props<{ alunos: Aluno[], paginacao: EstadoPaginacao }>()
 );
+export const alterarEstadoAtivoAluno = createAction(
+  '[Alunos] Alterar Estado Ativo Aluno',
+  props<{ aluno_id: string, ativo: boolean }>()
+);
+
 export const criarAluno = createAction(
   '[Alunos] Criar Aluno',
   props<{ matricula_interna: string, nome_completo: string, data_nascimento: string, numero_documento: string | null }>()

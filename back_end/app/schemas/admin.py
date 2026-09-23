@@ -12,6 +12,10 @@ class TenantStatusUpdate(BaseModel):
     status: str  # ATIVO, SUSPENSO
 
 
+class IsencaoLimiteAlunosUpdate(BaseModel):
+    isento: bool
+
+
 class ValidadeLicencaUpdate(BaseModel):
     data_validade_licenca: date | None = None
 

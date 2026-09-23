@@ -10,6 +10,7 @@ export interface Aluno {
   data_nascimento: string; // ISO (YYYY-MM-DD)
   numero_documento: string | null;
   data_criacao: string;
+  ativo: boolean; // desativado (nunca eliminado — retenção legal de 15 anos): sem acesso, não conta para o limite do plano
   num_responsaveis: number; // calculado no back-end — não confundir com vinculos.length (só carregado depois de expandir "Ver")
 }
 
