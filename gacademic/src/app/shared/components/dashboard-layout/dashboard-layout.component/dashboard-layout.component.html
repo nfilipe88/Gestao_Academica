@@ -113,6 +113,15 @@
           </svg>
           @if (!sidebarColapsada) { <span>Boletim</span> }
         </a>
+        <a [routerLink]="['/portal']" [queryParams]="{ tab: 'pauta' }" routerLinkActive="bg-slate-800 text-blue-400"
+          [routerLinkActiveOptions]="opcoesAtivasPortal"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Pauta">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Pauta</span> }
+        </a>
         <a [routerLink]="['/portal']" [queryParams]="{ tab: 'trabalhos' }" routerLinkActive="bg-slate-800 text-blue-400"
           [routerLinkActiveOptions]="opcoesAtivasPortal"
           class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
@@ -429,6 +438,21 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75M3 18.75V15a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 15v3.75M3 9h18" />
           </svg>
           @if (!sidebarColapsada) { <span>Eventos</span> }
+        </a>
+      }
+
+      @if (isGestor$ | async) {
+        <!-- Carregar mini-pautas (Excel) de uma escola já a funcionar em
+             papel — regista o plantel, matrícula e notas do trimestre em
+             curso (RBAC no back-end: /importacao é GESTOR only, mesma
+             classe de impacto de Configurações/Gestão de Acessos). -->
+        <a routerLink="/importacao" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Importação de Dados Legados">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2.25 2.25 0 01-2.25-2.25V5.25A2.25 2.25 0 017 3h5.379a1.5 1.5 0 011.06.44l4.122 4.12a1.5 1.5 0 01.44 1.061V19.5A2.25 2.25 0 0116.5 21z" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Importação de Dados</span> }
         </a>
       }
 

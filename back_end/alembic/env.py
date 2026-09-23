@@ -30,6 +30,7 @@ import app.database.models_auditoria
 import app.database.models_suporte
 import app.database.models_site_publico
 import app.database.models_eventos
+import app.database.models_importacao
 
 from alembic import context
 

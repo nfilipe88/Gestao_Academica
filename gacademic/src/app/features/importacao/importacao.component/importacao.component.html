@@ -1,0 +1,331 @@
+<div class="space-y-6 max-w-4xl">
+
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Importação de Dados Legados</h2>
+    <p class="text-slate-500 text-sm">Carregue uma mini-pauta (Excel, modelo MININED) e registe o plantel, a matrícula e as notas do trimestre em curso.</p>
+  </div>
+
+  @if (erro(); as mensagemErro) {
+    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ mensagemErro }}</div>
+  }
+
+  <!-- Indicador de passo -->
+  <div class="flex items-center gap-2 text-xs font-medium text-slate-500">
+    <span [class.text-blue-600]="passoAtual() === 1">1. Ficheiro</span>
+    <span>→</span>
+    <span [class.text-blue-600]="passoAtual() === 2">2. Confirmar dados</span>
+    <span>→</span>
+    <span [class.text-blue-600]="passoAtual() === 3">3. Plantel</span>
+    <span>→</span>
+    <span [class.text-blue-600]="passoAtual() === 4">4. Concluído</span>
+  </div>
+
+  <!-- PASSO 1 — upload -->
+  @if (passoAtual() === 1) {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+      <label class="block text-sm font-medium text-slate-600 mb-1">Ficheiro da mini-pauta (.xlsx)</label>
+      <input type="file" accept=".xlsx" (change)="onSelecionarFicheiro($event)"
+        class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+      <p class="text-xs text-slate-400">Nada é gravado ainda — o próximo passo só mostra o que foi encontrado no ficheiro, para rever antes de confirmar.</p>
+      <button type="button" (click)="enviarParaPreview()" [disabled]="!ficheiroSelecionado() || aProcessar()"
+        class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+        {{ aProcessar() ? 'A processar…' : 'Pré-visualizar' }}
+      </button>
+    </div>
+  }
+
+  <!-- PASSO 2 — metadados/entidades/pesos -->
+  @if (passoAtual() === 2 && preview(); as p) {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-5">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div><span class="text-slate-400 text-xs block">Disciplina detetada</span>{{ p.metadados.disciplina_nome || '—' }}</div>
+        <div><span class="text-slate-400 text-xs block">Turma detetada</span>{{ p.metadados.turma_nome_codigo || '—' }}</div>
+        <div><span class="text-slate-400 text-xs block">Turno</span>{{ p.metadados.turno || '—' }}</div>
+        <div><span class="text-slate-400 text-xs block">Ano lectivo (ficheiro)</span>{{ p.metadados.ano_letivo_raw || '—' }}</div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Ano letivo (início) *</label>
+        <input type="number" [ngModel]="anoLetivoEditado()" (ngModelChange)="anoLetivoEditado.set($event)"
+          class="w-full max-w-32 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+
+      <!-- Curso -->
+      <div class="border-t border-slate-100 pt-4">
+        <p class="text-sm font-semibold text-slate-800 mb-2">Curso</p>
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+            <input type="radio" name="curso-modo" [checked]="cursoEdicao().modo === 'novo'"
+              (change)="cursoEdicao.set({ modo: 'novo', id: '', nomeNovo: cursoEdicao().nomeNovo })" /> Criar novo
+          </label>
+          <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+            <input type="radio" name="curso-modo" [checked]="cursoEdicao().modo === 'existente'"
+              (change)="cursoEdicao.set({ modo: 'existente', id: cursoEdicao().id, nomeNovo: '' })" /> Usar existente
+          </label>
+        </div>
+        @if (cursoEdicao().modo === 'novo') {
+          <input type="text" placeholder="Nome do novo curso" [ngModel]="cursoEdicao().nomeNovo"
+            (ngModelChange)="cursoEdicao.set({ modo: 'novo', id: '', nomeNovo: $event })"
+            class="mt-2 w-full max-w-sm border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        } @else {
+          <select [ngModel]="cursoEdicao().id" (ngModelChange)="cursoEdicao.set({ modo: 'existente', id: $event, nomeNovo: '' })"
+            class="mt-2 w-full max-w-sm border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="">Selecione…</option>
+            @for (c of cursos(); track c.id) { <option [value]="c.id">{{ c.nome }}</option> }
+          </select>
+        }
+      </div>
+
+      <!-- Série/Ano -->
+      <div>
+        <p class="text-sm font-semibold text-slate-800 mb-2">Série/Ano</p>
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+            <input type="radio" name="serie-modo" [checked]="serieEdicao().modo === 'novo'"
+              (change)="serieEdicao.set({ modo: 'novo', id: '', nomeNovo: serieEdicao().nomeNovo })" /> Criar nova
+          </label>
+          <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+            <input type="radio" name="serie-modo" [checked]="serieEdicao().modo === 'existente'"
+              (change)="serieEdicao.set({ modo: 'existente', id: serieEdicao().id, nomeNovo: '' })" /> Usar existente
+          </label>
+        </div>
+        @if (serieEdicao().modo === 'novo') {
+          <input type="text" placeholder="Ex: 7ª Classe" [ngModel]="serieEdicao().nomeNovo"
+            (ngModelChange)="serieEdicao.set({ modo: 'novo', id: '', nomeNovo: $event })"
+            class="mt-2 w-full max-w-sm border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        } @else {
+          <select [ngModel]="serieEdicao().id" (ngModelChange)="serieEdicao.set({ modo: 'existente', id: $event, nomeNovo: '' })"
+            class="mt-2 w-full max-w-sm border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="">Selecione…</option>
+            @for (s of seriesDoCurso(cursoEdicao().id); track s.id) { <option [value]="s.id">{{ s.nome }}</option> }
+          </select>
+        }
+      </div>
+
+      <!-- Turma -->
+      <div>
+        <p class="text-sm font-semibold text-slate-800 mb-2">Turma</p>
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+            <input type="radio" name="turma-modo" [checked]="turmaEdicao().modo === 'novo'"
+              (change)="turmaEdicao.set({ modo: 'novo', id: '', nomeNovo: turmaEdicao().nomeNovo })" /> Criar nova
+          </label>
+          <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+            <input type="radio" name="turma-modo" [checked]="turmaEdicao().modo === 'existente'"
+              (change)="turmaEdicao.set({ modo: 'existente', id: turmaEdicao().id, nomeNovo: '' })" /> Usar existente
+          </label>
+        </div>
+        @if (turmaEdicao().modo === 'novo') {
+          <input type="text" placeholder="Ex: AD7T/4" [ngModel]="turmaEdicao().nomeNovo"
+            (ngModelChange)="turmaEdicao.set({ modo: 'novo', id: '', nomeNovo: $event })"
+            class="mt-2 w-full max-w-sm border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        } @else {
+          <select [ngModel]="turmaEdicao().id" (ngModelChange)="turmaEdicao.set({ modo: 'existente', id: $event, nomeNovo: '' })"
+            class="mt-2 w-full max-w-sm border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="">Selecione…</option>
+            @for (t of turmasDaSerie(serieEdicao().id); track t.id) { <option [value]="t.id">{{ t.nome_codigo }} ({{ t.ano_letivo }})</option> }
+          </select>
+        }
+      </div>
+
+      <!-- Disciplina -->
+      <div>
+        <p class="text-sm font-semibold text-slate-800 mb-2">Disciplina</p>
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+            <input type="radio" name="disciplina-modo" [checked]="disciplinaEdicao().modo === 'novo'"
+              (change)="disciplinaEdicao.set({ modo: 'novo', id: '', nomeNovo: disciplinaEdicao().nomeNovo })" /> Criar nova
+          </label>
+          <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+            <input type="radio" name="disciplina-modo" [checked]="disciplinaEdicao().modo === 'existente'"
+              (change)="disciplinaEdicao.set({ modo: 'existente', id: disciplinaEdicao().id, nomeNovo: '' })" /> Usar existente
+          </label>
+        </div>
+        @if (disciplinaEdicao().modo === 'novo') {
+          <input type="text" placeholder="Ex: Educação Laboral" [ngModel]="disciplinaEdicao().nomeNovo"
+            (ngModelChange)="disciplinaEdicao.set({ modo: 'novo', id: '', nomeNovo: $event })"
+            class="mt-2 w-full max-w-sm border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        } @else {
+          <select [ngModel]="disciplinaEdicao().id" (ngModelChange)="disciplinaEdicao.set({ modo: 'existente', id: $event, nomeNovo: '' })"
+            class="mt-2 w-full max-w-sm border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <option value="">Selecione…</option>
+            @for (d of disciplinas(); track d.id) { <option [value]="d.id">{{ d.nome }}</option> }
+          </select>
+        }
+      </div>
+
+      <!-- Trimestres / pesos -->
+      <div class="border-t border-slate-100 pt-4">
+        <p class="text-sm font-semibold text-slate-800 mb-2">Trimestres e pesos de MACT/PT na nota final (MT)</p>
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="text-slate-500 text-xs">
+              <th class="py-1.5 pr-3 font-medium">Trimestre</th>
+              <th class="py-1.5 pr-3 font-medium">Tem dados?</th>
+              <th class="py-1.5 pr-3 font-medium">Peso MACT</th>
+              <th class="py-1.5 pr-3 font-medium">Peso PT</th>
+              <th class="py-1.5 pr-3 font-medium">Peso detetado automaticamente?</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of trimestresEditados(); track t.nome; let i = $index) {
+              <tr class="border-t border-slate-100">
+                <td class="py-1.5 pr-3">{{ t.nome }}</td>
+                <td class="py-1.5 pr-3">{{ t.tem_dados ? 'Sim' : 'Não' }}</td>
+                <td class="py-1.5 pr-3">
+                  <input type="number" [ngModel]="t.peso_mact" (ngModelChange)="atualizarPeso(i, 'peso_mact', $event)"
+                    class="w-20 border border-slate-300 rounded-lg px-2 py-1 text-slate-800" />
+                </td>
+                <td class="py-1.5 pr-3">
+                  <input type="number" [ngModel]="t.peso_pt" (ngModelChange)="atualizarPeso(i, 'peso_pt', $event)"
+                    class="w-20 border border-slate-300 rounded-lg px-2 py-1 text-slate-800" />
+                </td>
+                <td class="py-1.5 pr-3">
+                  @if (t.peso_detectado_automaticamente) {
+                    <span class="text-emerald-600">Sim</span>
+                  } @else {
+                    <span class="text-amber-600">Não — confirme o peso acima</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="button" (click)="passoAtual.set(1)"
+          class="text-sm text-slate-600 hover:text-slate-800 font-medium cursor-pointer">Voltar</button>
+        <button type="button" (click)="avancarParaAlunos()" [disabled]="!podeAvancarParaAlunos()"
+          class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+          Continuar para o plantel
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- PASSO 3 — plantel -->
+  @if (passoAtual() === 3 && preview(); as p) {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+      <p class="text-sm text-slate-600">
+        {{ p.resumo.total_linhas }} aluno(s) encontrados —
+        {{ p.resumo.total_correspondencias_nome_existente }} com nome igual a um aluno já existente,
+        {{ p.resumo.total_com_anomalias }} com algum aviso a rever.
+      </p>
+
+      <table class="w-full text-left border-collapse text-sm">
+        <thead>
+          <tr class="text-slate-500 text-xs border-b border-slate-200">
+            <th class="py-1.5 pr-3 font-medium">Nº</th>
+            <th class="py-1.5 pr-3 font-medium">Nome</th>
+            <th class="py-1.5 pr-3 font-medium">Ação</th>
+            <th class="py-1.5 pr-3 font-medium">Avisos</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (aluno of alunosEditados(); track aluno.nome_completo; let i = $index) {
+            <tr class="border-t border-slate-100 align-top">
+              <td class="py-1.5 pr-3 text-slate-500">{{ p.alunos[i].numero_pauta }}</td>
+              <td class="py-1.5 pr-3 text-slate-800">{{ aluno.nome_completo }}</td>
+              <td class="py-1.5 pr-3">
+                @if (aluno.aluno_existente_id) {
+                  <button type="button" (click)="alternarAcaoAluno(i)"
+                    class="text-xs font-medium px-2 py-1 rounded-full cursor-pointer"
+                    [class.bg-emerald-100]="aluno.acao === 'REUTILIZAR_ALUNO_EXISTENTE'"
+                    [class.text-emerald-700]="aluno.acao === 'REUTILIZAR_ALUNO_EXISTENTE'"
+                    [class.bg-slate-100]="aluno.acao === 'CRIAR_NOVO_ALUNO'"
+                    [class.text-slate-600]="aluno.acao === 'CRIAR_NOVO_ALUNO'">
+                    {{ aluno.acao === 'REUTILIZAR_ALUNO_EXISTENTE' ? 'Reutilizar aluno existente' : 'Criar novo aluno' }}
+                  </button>
+                } @else {
+                  <span class="text-xs text-slate-500">Criar novo aluno</span>
+                }
+              </td>
+              <td class="py-1.5 pr-3">
+                @for (anomalia of p.alunos[i].anomalias; track anomalia) {
+                  <p class="text-xs text-amber-600">{{ anomalia }}</p>
+                } @empty {
+                  <span class="text-xs text-slate-300">—</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="button" (click)="passoAtual.set(2)"
+          class="text-sm text-slate-600 hover:text-slate-800 font-medium cursor-pointer">Voltar</button>
+        <button type="button" (click)="confirmarImportacao()" [disabled]="aProcessar()"
+          class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+          {{ aProcessar() ? 'A importar…' : 'Confirmar importação' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- PASSO 4 — resultado -->
+  @if (passoAtual() === 4 && resultado(); as r) {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+      <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        Importação concluída — {{ r.resumo.total_alunos_criados }} aluno(s) novo(s),
+        {{ r.resumo.total_alunos_reaproveitados }} reaproveitado(s), {{ r.resumo.total_notas_lancadas }} nota(s) lançada(s).
+      </div>
+      @if (r.alunos_com_data_nascimento_pendente.length > 0) {
+        <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <p class="font-medium mb-1">Data de nascimento por preencher (a mini-pauta não a tinha) — complete em Alunos:</p>
+          <p>{{ r.alunos_com_data_nascimento_pendente.join(', ') }}</p>
+        </div>
+      }
+      <button type="button" (click)="novaImportacao()"
+        class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-6 rounded-lg transition-colors cursor-pointer">
+        Nova importação
+      </button>
+    </div>
+  }
+
+  <!-- Histórico -->
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+    <h3 class="text-sm font-semibold text-slate-800 mb-3">Importações anteriores</h3>
+    <table class="w-full text-left border-collapse text-sm">
+      <thead>
+        <tr class="text-slate-500 text-xs border-b border-slate-200">
+          <th class="py-1.5 pr-3 font-medium">Ficheiro</th>
+          <th class="py-1.5 pr-3 font-medium">Ano letivo</th>
+          <th class="py-1.5 pr-3 font-medium">Alunos</th>
+          <th class="py-1.5 pr-3 font-medium">Notas</th>
+          <th class="py-1.5 pr-3 font-medium">Estado</th>
+          <th class="py-1.5 pr-3 font-medium"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (lote of historico(); track lote.id) {
+          <tr class="border-t border-slate-100">
+            <td class="py-1.5 pr-3 text-slate-800">{{ lote.nome_ficheiro_original }}</td>
+            <td class="py-1.5 pr-3">{{ lote.ano_letivo }}</td>
+            <td class="py-1.5 pr-3">{{ lote.total_alunos_criados }} novo(s) + {{ lote.total_alunos_reaproveitados }} reaproveitado(s)</td>
+            <td class="py-1.5 pr-3">{{ lote.total_notas_lancadas }}</td>
+            <td class="py-1.5 pr-3">
+              <span class="text-xs font-medium px-2 py-0.5 rounded-full"
+                [class.bg-emerald-100]="lote.estado === 'CONCLUIDO'" [class.text-emerald-700]="lote.estado === 'CONCLUIDO'"
+                [class.bg-slate-100]="lote.estado !== 'CONCLUIDO'" [class.text-slate-500]="lote.estado !== 'CONCLUIDO'">
+                {{ lote.estado }}
+              </span>
+            </td>
+            <td class="py-1.5 pr-3">
+              @if (lote.estado === 'CONCLUIDO') {
+                <button type="button" (click)="desfazer(lote.id)" [disabled]="aDesfazerId() === lote.id"
+                  class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer disabled:opacity-50">
+                  {{ aDesfazerId() === lote.id ? 'A desfazer…' : 'Desfazer' }}
+                </button>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="py-6 text-center text-slate-500">Ainda não fez nenhuma importação.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+</div>
