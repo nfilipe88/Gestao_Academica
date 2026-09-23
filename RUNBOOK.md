@@ -85,7 +85,7 @@ Avisar as escolas afetadas.
 
 ## 6. Variáveis de ambiente que importam em produção
 
-Ver `back_end/.env.example` (comentado). **SMTP é obrigatório**: sem ele, o e-mail de ativação de conta nunca chega e nenhuma escola nova consegue entrar (o token só existe no e-mail). Mínimo para o piloto: `SMTP_*`, `DATABASE_URL*`, `JWT_SECRET_KEY`
+Checklist completo em `CHECKLIST_ENV_PRODUCAO.md` (com verificador: `python scripts/verificar_env_producao.py`). Ver também `back_end/.env.example` (comentado). **SMTP é obrigatório**: sem ele, o e-mail de ativação de conta nunca chega e nenhuma escola nova consegue entrar (o token só existe no e-mail). Mínimo para o piloto: `SMTP_*`, `DATABASE_URL*`, `JWT_SECRET_KEY`
 (**trocar o valor de desenvolvimento**), `S3_*` (backups e ficheiros fora do servidor),
 `RECAPTCHA_*`, SMTP para e-mails de ativação/lembretes, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`.
 `REDIS_URL` é opcional com uma só instância. Os segredos do `.env` de desenvolvimento **não** são

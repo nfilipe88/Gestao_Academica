@@ -203,6 +203,7 @@ calendário:
 - Suite completa do backend (333), `ng test`, `ng build`, ensaio geral 27/27, teste de fumo com ~2340 alunos (tudo < 300 ms exceto o PDF de Indicadores, 1,25 s).
 
 **Pré-requisitos ANTES da primeira escola real (bloqueadores):**
+(Checklist detalhado e verificador automático: `CHECKLIST_ENV_PRODUCAO.md` + `back_end/scripts/verificar_env_producao.py`.)
 1. **SMTP configurado.** Sem ele o e-mail de ativação nunca chega e nenhuma escola consegue entrar; hoje o ambiente de desenvolvimento não tem SMTP.
 2. **`JWT_SECRET_KEY` de produção** (o valor de desenvolvimento é um placeholder) e restantes segredos novos, fora do git.
 3. **`S3_BUCKET` real** (o MinIO local não sobrevive à máquina de desenvolvimento) — sem isto o backup fica no mesmo disco.
