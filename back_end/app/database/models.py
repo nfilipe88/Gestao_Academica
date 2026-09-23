@@ -25,6 +25,11 @@ class Tenant(Base):
     # Isenção do limite de alunos do plano ativo (PlanoSaaS.limite_alunos),
     # concedida pelo Super Admin — ver app/core/limites_plano.py.
     isento_limite_alunos: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    # Aceitação da Política de Privacidade/Termos no auto-registo — ver
+    # app/core/privacidade.py::VERSAO_TERMOS. NULL = escola criada antes
+    # deste registo existir, ou pelo Super Admin.
+    termos_aceites_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    termos_versao: Mapped[str | None] = mapped_column(String(50), nullable=True)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     # Configurações da escola (editável pelo próprio GESTOR, ao contrário

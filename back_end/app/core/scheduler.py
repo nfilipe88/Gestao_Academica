@@ -26,7 +26,7 @@ from app.database.session import AsyncSessionLocal, AsyncSessionLocalSistema
 from app.database.models import Tenant
 from app.cruds.financeiro import processar_regua_cobranca_do_tenant
 from app.cruds.admin import processar_validade_licencas
-from app.core import backup, fila_notificacoes
+from app.core import backup, fila_notificacoes, privacidade
 from app.core.lock_distribuido import tentar_obter_lock
 
 logger = logging.getLogger("scheduler")
@@ -134,6 +134,21 @@ async def job_backup_diario() -> dict:
         return {}
 
 
+async def job_limpeza_operacional_diaria() -> dict:
+    """Apaga dados operacionais sem valor escolar (tokens inúteis, histórico de
+    IP antigo, notificações lidas antigas) — ver app/core/privacidade.py. Nunca
+    toca em registos escolares/financeiros. Sessão de sistema: é cross-escola."""
+    if not await tentar_obter_lock("limpeza_operacional_diaria", ttl_segundos=3600):
+        logger.info("Limpeza operacional diária: outra instância já está a tratar disto agora — a saltar.")
+        return {}
+    async with AsyncSessionLocalSistema() as db:
+        try:
+            return await privacidade.limpar_dados_operacionais(db)
+        except Exception:
+            logger.exception("Falha na limpeza diária de dados operacionais.")
+            return {}
+
+
 def iniciar_scheduler() -> AsyncIOScheduler:
     """Chamado uma vez, no arranque da aplicação (ver main.py)."""
     global _scheduler
@@ -167,9 +182,17 @@ def iniciar_scheduler() -> AsyncIOScheduler:
         id="backup_diario",
         replace_existing=True,
     )
+    # 04:00 — depois do backup das 03:00 (a limpeza nunca pode apagar algo
+    # que ainda não foi copiado), e antes das 07:00/08:00.
+    _scheduler.add_job(
+        job_limpeza_operacional_diaria,
+        trigger=CronTrigger(hour=4, minute=0),
+        id="limpeza_operacional_diaria",
+        replace_existing=True,
+    )
     _scheduler.start()
     logger.info(
-        "Scheduler iniciado — backup às 03:00, validade de licenças às 07:00 e "
+        "Scheduler iniciado — backup às 03:00, limpeza operacional às 04:00, validade de licenças às 07:00 e "
         "régua de cobrança às 08:00, todos os dias."
     )
     return _scheduler

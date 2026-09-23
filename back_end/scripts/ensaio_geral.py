@@ -75,7 +75,7 @@ async def correr(base_url: str) -> None:
         # 1. Registo + ativação + login
         r = await c.post("/api/v1/auth/registo", json={
             "nome_fantasia": f"Escola Ensaio {suf}", "nif": suf, "nome_gestor": "Gestor do Ensaio",
-            "email_gestor": email_gestor, "palavra_passe": senha})
+            "aceitou_termos": True, "email_gestor": email_gestor, "palavra_passe": senha})
         _passo("Registo da escola (auto-serviço)", r.status_code == 201, r.text)
         r = await c.post("/api/v1/auth/login", data={"username": email_gestor, "password": senha})
         _passo("Login recusado até ativar o e-mail", r.status_code in (401, 403), f"veio {r.status_code}")

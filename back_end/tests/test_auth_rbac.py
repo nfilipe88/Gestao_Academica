@@ -153,7 +153,7 @@ async def test_limite_de_registos_bloqueia_criacao_em_massa(client):
             "nome_fantasia": f"Escola Spam {suf}",
             "nif": suf,
             "nome_gestor": "Spammer",
-            "email_gestor": f"spam.{suf}@teste.pt",
+            "aceitou_termos": True, "email_gestor": f"spam.{suf}@teste.pt",
             "palavra_passe": "SenhaTeste123!",
         })
         if ultima_resposta.status_code == 429:

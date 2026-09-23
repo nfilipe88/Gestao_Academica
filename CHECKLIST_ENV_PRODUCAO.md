@@ -42,6 +42,7 @@ python scripts/verificar_env_producao.py
 | [ ] | `BACKUP_RETENCAO_DIAS` | 14 por omissão; ajustar conforme o espaço do bucket. | Backup diário às 03:00; verificar o primeiro na manhã seguinte (ver checklist 4). |
 | [ ] | `PG_DUMP_PATH`, `PG_RESTORE_PATH` | Só se `pg_dump`/`pg_restore` não estiverem no `PATH` do servidor. **Versão do cliente ≥ versão do servidor Postgres.** | `pg_dump --version` no servidor. |
 | [ ] | `DB_POOL_SIZE` + `DB_POOL_MAX_OVERFLOW` | 20 + 20 por omissão = 40 ligações. Têm de caber no `max_connections` do Postgres (menos as ligações de migração/backup/administração). | Só relevante se o Postgres for pequeno. |
+| [ ] | `LOGIN_HISTORICO_RETENCAO_DIAS`, `NOTIFICACOES_LIDAS_RETENCAO_DIAS`, `TOKENS_RETENCAO_DIAS` | 365 / 180 / 30 por omissão — limpeza diária às 04:00. **Valores técnicos: confirmar com o jurista** e alinhar com a política publicada. | |
 | [ ] | `ACCESS_TOKEN_EXPIRE_MINUTES` / `REFRESH_TOKEN_EXPIRE_DIAS` | 20 min / 7 dias por omissão — manter. | |
 
 ## 3. Opcionais no piloto (decidir e registar)

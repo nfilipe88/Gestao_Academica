@@ -19,6 +19,9 @@ class RegistoInicial(BaseModel):
     # ignorado.
     recaptcha_token: str | None = None
 
+    # Tem de vir True — ver app/core/privacidade.py::VERSAO_TERMOS.
+    aceitou_termos: bool = False
+
     _validar_palavra_passe = field_validator("palavra_passe")(validar_forca_senha)
 
 class TokenResponse(BaseModel):

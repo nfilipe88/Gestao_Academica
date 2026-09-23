@@ -33,6 +33,7 @@ from app.database.models_usuarios import ContaAtivacaoToken, LoginHistorico, Pas
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso, REFRESH_TOKEN_EXPIRE_DIAS
 from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes, revogacao
+from app.core.privacidade import VERSAO_TERMOS
 from app.schemas.auth import RegistoInicial
 
 # Janela de validade do link de recuperação de senha — curta de
@@ -79,7 +80,9 @@ async def registar_escola(dados: RegistoInicial) -> tuple[Tenant, Usuario, str]:
             novo_tenant = Tenant(
                 nome_fantasia=dados.nome_fantasia,
                 nif=dados.nif,
-                status="ATIVO"
+                status="ATIVO",
+                termos_aceites_em=datetime.now(timezone.utc),
+                termos_versao=VERSAO_TERMOS,
             )
             db.add(novo_tenant)
             await db.flush()  # Envia para o Postgres para obter o ID do Tenant, mas não faz commit final

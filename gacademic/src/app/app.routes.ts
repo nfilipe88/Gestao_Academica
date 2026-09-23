@@ -270,6 +270,7 @@ export const routes: Routes = [
     children: [
       { path: 'funcionalidades', loadComponent: () => import('./features/public/funcionalidades/funcionalidades.component/funcionalidades.component').then((m) => m.FuncionalidadesComponent) },
       { path: 'precos', loadComponent: () => import('./features/public/precos/precos.component/precos.component').then((m) => m.PrecosComponent) },
+      { path: 'privacidade', loadComponent: () => import('./features/public/privacidade/privacidade.component/privacidade.component').then((m) => m.PrivacidadeComponent) },
       { path: 'contacto', loadComponent: () => import('./features/public/contacto/contacto.component/contacto.component').then((m) => m.ContactoComponent) },
     ]
   },

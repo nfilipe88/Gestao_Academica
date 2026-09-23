@@ -45,7 +45,7 @@ async def test_registo_bloqueia_login_antes_de_ativar(client):
     senha = "SenhaTeste123!"
     resp = await client.post("/api/v1/auth/registo", json={
         "nome_fantasia": f"Escola Bloqueio {suf}", "nif": suf,
-        "nome_gestor": "Gestor Bloqueio", "email_gestor": email, "palavra_passe": senha,
+        "nome_gestor": "Gestor Bloqueio", "aceitou_termos": True, "email_gestor": email, "palavra_passe": senha,
     })
     assert resp.status_code == 201, resp.text
 

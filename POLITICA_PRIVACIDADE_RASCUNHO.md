@@ -224,11 +224,15 @@ de alterações relevantes. Contacto: **[EQUIPA]**.
 
 ## C.2 Lacunas técnicas que a equipa deve decidir (independentes do parecer jurídico)
 
-1. **Não existe página nem link de política de privacidade** na aplicação, nem no registo de escola,
-   nem nos formulários públicos. Falta também o **registo/aceitação dos termos** no registo da
-   escola e no formulário de candidatura (só existe `aceitou_regulamento`, do regulamento da escola).
-2. **Sem rotina de expiração** para `login_historico` (IP/navegador), tokens expirados,
-   notificações lidas e leads não convertidos — crescem indefinidamente.
+1. ~~Não existe página nem link de política~~ **FEITO (2026-09-23)**: página pública `/privacidade`
+   (com aviso de rascunho enquanto `emRevisao = true`), link no rodapé do site público e checkbox
+   obrigatório no registo de escola, gravado em `Tenant.termos_aceites_em`/`termos_versao`
+   (`VERSAO_TERMOS` em `app/core/privacidade.py`). **Ainda falta**: aviso/aceitação nos formulários
+   públicos de candidatura (só existe `aceitou_regulamento`) e nas escolas criadas pelo Super Admin.
+2. ~~Sem rotina de expiração~~ **FEITO**: job diário às 04:00 (`limpar_dados_operacionais`) apaga tokens
+   inutilizados (30 d), histórico de IP de logins (365 d) e notificações **lidas** (180 d) — prazos por
+   omissão técnicos em variáveis de ambiente, **a confirmar pelo jurista**. Nunca toca em registos
+   escolares. **Ainda falta** decidir o prazo dos leads não convertidos.
 3. **Sem exportação de dados** por titular (acesso/portabilidade): hoje só por pedido manual à equipa.
 4. **Sem processo formal de pedido de retificação/oposição** dentro da aplicação.
 5. **Texto livre** (comportamento, comunicados, referência de transferência, chat do Prof. Virtual)

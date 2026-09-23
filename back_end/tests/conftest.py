@@ -108,7 +108,7 @@ async def criar_escola_e_gestor(client: AsyncClient, prefixo: str = "teste") -> 
         "nome_fantasia": f"Escola {prefixo} {suf}",
         "nif": nif,
         "nome_gestor": f"Gestor {prefixo}",
-        "email_gestor": email,
+        "aceitou_termos": True, "email_gestor": email,
         "palavra_passe": senha,
     })
     assert resp.status_code == 201, resp.text

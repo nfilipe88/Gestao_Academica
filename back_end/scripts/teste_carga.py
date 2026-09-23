@@ -52,7 +52,7 @@ async def _preparar_escola(client: httpx.AsyncClient) -> dict:
     senha = "SenhaTeste123!"
     resp = await client.post("/api/v1/auth/registo", json={
         "nome_fantasia": f"Escola Teste de Carga {suf}", "nif": suf,
-        "nome_gestor": "Gestor Teste de Carga", "email_gestor": email, "palavra_passe": senha,
+        "nome_gestor": "Gestor Teste de Carga", "aceitou_termos": True, "email_gestor": email, "palavra_passe": senha,
     })
     resp.raise_for_status()
     resp = await client.post("/api/v1/auth/login", data={"username": email, "password": senha})

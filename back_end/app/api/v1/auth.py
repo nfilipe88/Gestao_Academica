@@ -53,6 +53,8 @@ async def registo_inicial_escola(dados: RegistoInicial, request: Request):
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Demasiados registos a partir deste endereço. Tente novamente dentro de 1 hora."
         )
+    if not dados.aceitou_termos:
+        raise HTTPException(status_code=400, detail="Tem de aceitar a Política de Privacidade e os Termos para registar a escola.")
     if not await recaptcha.token_e_valido(dados.recaptcha_token, ip_cliente):
         raise HTTPException(status_code=400, detail="Verificação de segurança falhou. Recarregue a página e tente novamente.")
 

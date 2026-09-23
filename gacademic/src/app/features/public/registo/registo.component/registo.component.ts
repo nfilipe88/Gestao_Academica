@@ -35,7 +35,8 @@ export class RegistoComponent {
     nif: ['', Validators.required],
     nome_gestor: ['', Validators.required],
     email_gestor: ['', [Validators.required, Validators.email]],
-    palavra_passe: ['', [Validators.required, Validators.minLength(8)]]
+    palavra_passe: ['', [Validators.required, Validators.minLength(8)]],
+    aceitou_termos: [false, Validators.requiredTrue]
   });
 
   async onRegister() {

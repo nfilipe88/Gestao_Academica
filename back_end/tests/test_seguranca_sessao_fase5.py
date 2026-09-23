@@ -118,7 +118,7 @@ async def test_registo_com_palavra_passe_fraca_e_recusado(client):
     suf = sufixo_unico()
     resp = await client.post("/api/v1/auth/registo", json={
         "nome_fantasia": f"Escola Senha Fraca {suf}", "nif": suf,
-        "nome_gestor": "Gestor Teste", "email_gestor": f"gestor.senhafraca.{suf}@teste.pt",
+        "nome_gestor": "Gestor Teste", "aceitou_termos": True, "email_gestor": f"gestor.senhafraca.{suf}@teste.pt",
         "palavra_passe": "tudominusculo1",  # sem maiúscula
     })
     assert resp.status_code == 422

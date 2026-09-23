@@ -64,6 +64,12 @@
         </div>
       </div>
 
+      <label class="flex items-start gap-2 text-xs text-slate-400 cursor-pointer">
+        <input type="checkbox" formControlName="aceitou_termos" class="mt-0.5 accent-emerald-500" />
+        <span>Li e aceito a <a href="/privacidade" target="_blank" class="text-blue-400 hover:underline">Política de Privacidade</a>
+          e autorizo o tratamento dos dados desta escola nos termos aí descritos.</span>
+      </label>
+
       <button type="submit" [disabled]="registoForm.invalid"
         class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-md py-2.5 mt-2 transition-colors cursor-pointer">
         Concluir Registo
