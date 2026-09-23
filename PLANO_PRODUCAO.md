@@ -131,7 +131,7 @@ isso começa no Dia 1, não a meio.
 
 ## Semana 3 — Estabilização e ensaio geral (Dias 11-15)
 
-- [ ] **Dia 11 — Consolidar o repositório.**
+- [x] **Dia 11 — Consolidar o repositório.** ✅ Trabalho pendente commitado em 9 blocos lógicos, tag `piloto-rc1` (local, sem push) e `RUNBOOK.md` na raiz (criar escola, verificações diárias, incidentes, restauro). Contactos e URLs de produção ficam marcados **[PREENCHER]** — só a equipa os tem.
   Rever e commitar o trabalho pendente em blocos lógicos (não um único commit gigante), criar uma
   tag/branch de release para esta fase, e escrever um runbook operacional curto para quem vai
   acompanhar o piloto: como criar um tenant novo, o que verificar todos os dias, como reagir a um
