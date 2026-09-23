@@ -89,6 +89,31 @@ não tem lock partilhado (com mais de uma instância, cada uma dispara o
 job à mesma hora, duplicando e-mails). Ver `.env.example` para os
 detalhes de cada um.
 
+**Storage de ficheiros (`S3_BUCKET`) — sem isto, cai para disco local**,
+só correto para UMA instância (cada instância teria o seu próprio
+disco, e um redeploy apaga tudo) — ver `app/core/storage.py`. Para
+correr localmente sem depender de uma conta AWS, um MinIO isolado (sem
+subir o `docker-compose.yml` inteiro) resolve:
+
+```bash
+docker run -d --name gacademic-minio \
+  -e MINIO_ROOT_USER=minio_admin -e MINIO_ROOT_PASSWORD=minio_dev_apenas \
+  -p 9000:9000 -p 9001:9001 -v gacademic_minio_data:/data \
+  quay.io/minio/minio:latest server /data --console-address ":9001"
+
+# criar o bucket uma única vez:
+docker run --rm --network host --entrypoint /bin/sh quay.io/minio/mc:latest -c \
+  "mc alias set local http://localhost:9000 minio_admin minio_dev_apenas && mc mb -p local/gestao-academica"
+```
+
+Depois, em `.env`: `S3_BUCKET=gestao-academica`, `S3_ENDPOINT_URL=http://localhost:9000`,
+`S3_ACCESS_KEY=minio_admin`, `S3_SECRET_KEY=minio_dev_apenas` (mesmas
+credenciais já usadas pelo `docker-compose.yml`). Consola web do MinIO
+em `http://localhost:9001`. Em produção, isto é antes um bucket AWS
+S3/equivalente gerido — a imagem oficial `minio/minio` no Docker Hub
+pode levar a "pull access denied" por limite de pulls anónimos; `quay.io/minio/minio`
+é o mesmo projeto, espelhado, sem esse limite.
+
 ### Front-end
 
 ```bash
@@ -135,8 +160,15 @@ documentos/PDF e o webhook de pagamento ainda não têm testes
 automatizados.
 
 ### Front-end
-`npm test` (Vitest) — só o scaffold gerado pelo Angular CLI existe hoje;
-a suite real do front-end ainda está por escrever.
+`npm test` (Vitest, via `ng test`) — cobre hoje só o arranque da app
+(`App`, `src/app/app.spec.ts`): cria sem sessão guardada, e restaura a
+sessão a partir do `localStorage` ao arrancar. O scaffold original do
+Angular CLI (`imports: [App]`, à procura de um `<h1>` que nunca existiu
+neste projeto) nunca tinha sido atualizado — falhava com `NG0201: No
+provider found for Store` assim que se corria `ng test` a sério, e por
+isso nunca esteve ligado ao CI. Cobertura ainda mínima — guardas de
+rota, componentes de feature e stores NgRx ainda não têm testes
+próprios.
 
 ## CI
 
@@ -144,11 +176,64 @@ a suite real do front-end ainda está por escrever.
 - a suite de pytest acima, duas vezes (com Postgres efémero) — uma sem
   Redis (fallback em memória) e outra com Redis real, para os dois
   caminhos do limitador de login/lock do scheduler ficarem cobertos;
-- `ng build` de produção — precisamente o comando que esteve partido,
-  sem ninguém notar, até este ser corrigido;
+- `ng test`/`ng build` de produção — o `ng build` foi precisamente o
+  comando que esteve partido, sem ninguém notar, até este ser
+  corrigido; o `ng test` só passou a correr em CI depois de corrigido
+  (ver secção "Testes" acima);
 - build das duas imagens Docker (`docker/build-push-action`, sem
   publicar) — para um `Dockerfile` partido também deixar de poder
   passar despercebido.
+
+---
+
+## Backup e Restauro
+
+Backup diário da base de dados (`pg_dump`, formato `-Fc`), disparado
+automaticamente às 03:00 pelo agendador interno (`back_end/app/core/scheduler.py`)
+e enviado para o mesmo storage S3-compatível já usado para
+logótipos/anexos (`back_end/app/core/storage.py`, `S3_BUCKET` em
+`.env`). **Sem `S3_BUCKET` configurado, o backup cai para disco local**
+— só correto em desenvolvimento; em produção isso anula a proteção,
+porque um backup que vive no mesmo servidor que protege não sobrevive
+à perda desse servidor. Retenção configurável via
+`BACKUP_RETENCAO_DIAS` (14 dias por omissão) — backups mais antigos são
+apagados automaticamente a seguir a cada backup novo.
+
+`pg_dump`/`pg_restore` não vêm no `PATH` por omissão numa instalação
+Windows do Postgres — apontar `PG_DUMP_PATH`/`PG_RESTORE_PATH` no `.env`
+para o executável completo se for esse o caso (ver `.env.example`).
+
+**Disparar um backup manualmente** (testar a configuração sem esperar
+pelas 03:00, ou tirar um extra antes de uma operação arriscada):
+
+```bash
+cd back_end
+python scripts/backup_manual.py
+```
+
+**Restaurar um backup.** Por omissão, o script recusa-se a restaurar
+por cima de `academic_db`/`academic_db_test` sem `--confirmar-alvo-existente`
+— o uso normal é sempre para uma base de dados nova, criada só para o
+ensaio:
+
+```bash
+python scripts/restaurar_db.py --chave _backups/academic_db_20260920_073646.dump \
+    --bd-destino academic_db_drill --criar-bd
+```
+
+Restauro real (disaster recovery, por cima de uma base já existente):
+
+```bash
+python scripts/restaurar_db.py --chave _backups/<...>.dump \
+    --bd-destino academic_db --confirmar-alvo-existente
+```
+
+**Procedimento testado** (2026-09-20): backup real de `academic_db`
+(76 tabelas, 3644 linhas) → restauro numa base de ensaio nova
+(`academic_db_restore_drill`) → contagem de tabelas e linhas confirmada
+idêntica à origem → base de ensaio removida. Um backup nunca restaurado
+não é um backup, é uma promessa — por isso este passo faz parte do
+próprio trabalho de implementar a funcionalidade, não fica para depois.
 
 ---
 
