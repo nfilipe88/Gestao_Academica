@@ -46,6 +46,9 @@ class ConfiguracaoTenantOut(BaseModel):
     codigo_postal: str | None = None
     pais: str | None = None
     nota_minima_aprovacao: float | None = None
+    # Nota máxima da escala de notas da escola (ex.: 10 ou 20) — ver
+    # Tenant.nota_maxima. Sempre presente (coluna NOT NULL).
+    nota_maxima: float
     # Valor padrão da taxa de matrícula (encargo único, distinto das
     # mensalidades) — None = escola não cobra. Ver Tenant.valor_taxa_matricula.
     valor_taxa_matricula: Decimal | None = None
@@ -78,6 +81,9 @@ class ConfiguracaoTenantUpdate(BaseModel):
     codigo_postal: str | None = None
     pais: str | None = None
     nota_minima_aprovacao: float | None = None
+    # Obrigatório (ao contrário de nota_minima_aprovacao, que é opcional)
+    # — ver Tenant.nota_maxima para o porquê.
+    nota_maxima: float
     valor_taxa_matricula: Decimal | None = None
     data_inicio_ano_letivo: date | None = None
     data_fim_ano_letivo: date | None = None
@@ -88,6 +94,13 @@ class ConfiguracaoTenantUpdate(BaseModel):
     periodo_tarde_fim: time | None = None
     periodo_pos_laboral_inicio: time | None = None
     periodo_pos_laboral_fim: time | None = None
+
+    @field_validator("nota_maxima")
+    @classmethod
+    def validar_nota_maxima(cls, valor: float) -> float:
+        if valor <= 0:
+            raise ValueError("A nota máxima tem de ser maior que zero.")
+        return valor
 
     @field_validator("ano_letivo_atual")
     @classmethod
@@ -132,6 +145,8 @@ class ConfiguracaoTenantUpdate(BaseModel):
         # meio de preencher (só uma das duas) não é bloqueada aqui.
         if self.data_inicio_ano_letivo and self.data_fim_ano_letivo and self.data_fim_ano_letivo <= self.data_inicio_ano_letivo:
             raise ValueError("A data de fim do ano letivo tem de ser posterior à data de início.")
+        if self.nota_minima_aprovacao is not None and self.nota_minima_aprovacao > self.nota_maxima:
+            raise ValueError("A nota mínima de aprovação não pode ser maior do que a nota máxima da escala.")
         return self
 
 

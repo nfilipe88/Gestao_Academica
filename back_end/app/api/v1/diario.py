@@ -7,7 +7,7 @@ from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.diario import (
     AvaliacaoAgendarGeralCreate, AvaliacaoCreate, AvaliacaoUpdate, FrequenciaLoteCreate, NotaAvaliacaoLoteCreate,
-    NotaLoteCreate, PeriodoAvaliacaoCreate
+    NotaExameNacionalLoteCreate, NotaLoteCreate, PeriodoAvaliacaoCreate, PeriodoAvaliacaoJanelaUpdate
 )
 from app.cruds import diario as crud_diario
 
@@ -114,6 +114,17 @@ async def reabrir_periodo_avaliacao(
     periodo = await crud_diario.reabrir_periodo_avaliacao(db, utilizador["tenant_id"], periodo_id)
     return {"mensagem": f'Período "{periodo.nome}" reaberto com sucesso.'}
 
+@router.patch("/periodos/{periodo_id}/janela")
+async def atualizar_janela_periodo_avaliacao(
+    periodo_id: uuid.UUID,
+    dados: PeriodoAvaliacaoJanelaUpdate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_GERIR_PERIODOS)
+):
+    """Define/edita data_inicio e data_fim do período (a janela usada para somar faltas do trimestre na Pauta do Portal) — nunca mexe em aberto/data_fecho."""
+    periodo = await crud_diario.atualizar_janela_periodo_avaliacao(db, utilizador["tenant_id"], periodo_id, dados)
+    return {"mensagem": f'Janela de "{periodo.nome}" atualizada.', "data_inicio": periodo.data_inicio, "data_fim": periodo.data_fim}
+
 # ==========================================
 # F. AVALIAÇÕES (Provas e Contínuas) + Nota Final Calculada
 # ==========================================
@@ -208,3 +219,31 @@ async def listar_notas_finais(
 ):
     """Nota final de cada aluno da turma neste período — calculada a partir das avaliações, ou manual (lançamentos antigos)."""
     return await crud_diario.listar_notas_finais(db, utilizador, turma_id, disciplina_id, periodo_avaliacao)
+
+# ==========================================
+# G. NOTA DE EXAME NACIONAL (NEN) — valor externo por ano letivo,
+# ligado à matrícula (não a um período) — ver models_diario.py::NotaExameNacional.
+# ==========================================
+_PODE_LANCAR_NEN = exigir_perfil("GESTOR", "SECRETARIA")
+
+@router.get("/turmas/{turma_id}/disciplinas/{disciplina_id}/exame-nacional")
+async def listar_notas_exame_nacional_da_turma(
+    turma_id: uuid.UUID,
+    disciplina_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(exigir_perfil_staff)
+):
+    """Nota de Exame Nacional de cada aluno da turma — leitura aberta a qualquer staff, só Gestor/Secretaria lança (ver POST .../lote)."""
+    return await crud_diario.listar_notas_exame_nacional_da_turma(db, utilizador, turma_id, disciplina_id)
+
+@router.post("/turmas/{turma_id}/disciplinas/{disciplina_id}/exame-nacional/lote")
+async def lancar_nota_exame_nacional_lote(
+    turma_id: uuid.UUID,
+    disciplina_id: uuid.UUID,
+    dados: NotaExameNacionalLoteCreate,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_LANCAR_NEN)
+):
+    """Só Gestor/Secretaria — a NEN é uma nota de origem externa à escola, nunca uma avaliação de sala de aula do Professor."""
+    total = await crud_diario.lancar_nota_exame_nacional_lote(db, utilizador, turma_id, disciplina_id, dados)
+    return {"mensagem": "Nota de Exame Nacional registada com sucesso", "total": total}

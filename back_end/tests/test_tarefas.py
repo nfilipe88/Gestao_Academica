@@ -260,3 +260,38 @@ async def test_tarefas_visiveis_no_portal_do_aluno(client):
     assert len(tarefas) == 1
     assert tarefas[0]["titulo"] == "Lista Portal"
     assert tarefas[0]["status"] == "PENDENTE"
+
+
+async def test_avaliar_tarefa_notifica_o_aluno(client):
+    """Ver cruds/tarefas.py::avaliar_tarefa_lote — notificação nova,
+    adicionada a par da funcionalidade de correção manual de exames
+    (mesmo padrão de app/cruds/notificacoes.py já usado noutros módulos)."""
+    escola = await criar_escola_e_gestor(client, "tarefas-notifica")
+    headers = auth_headers(escola["token"])
+    dados = await _criar_aluno_matriculado_com_portal(client, headers, date.today().year)
+    disciplina_id = await _criar_disciplina(client, headers)
+    professor_id, _ = await _criar_professor_com_token(client, headers, f"Prof. Tarefas {sufixo_unico()}")
+    resp = await client.post(f"/api/v1/professores/{professor_id}/alocacoes", headers=headers, json={
+        "turma_id": dados["turma_id"], "disciplina_id": disciplina_id
+    })
+    alocacao_id = resp.json()["id"]
+    resp = await client.get(f"/api/v1/alunos/{dados['aluno_id']}/matriculas", headers=headers)
+    matricula_id = resp.json()[0]["matricula_id"]
+
+    resp = await client.post("/api/v1/tarefas", headers=headers, json={
+        "alocacao_id": alocacao_id, "titulo": "Lista Notificação",
+        "data_entrega": str(date.today() + timedelta(days=7)), "valor_maximo": "10.00"
+    })
+    tarefa_id = resp.json()["id"]
+
+    resp = await client.post(f"/api/v1/tarefas/{tarefa_id}/avaliar", headers=headers, json={
+        "avaliacoes": [{"matricula_id": matricula_id, "status": "ENTREGUE", "nota": "9.0", "observacoes": None}]
+    })
+    assert resp.status_code == 200, resp.text
+
+    resp = await client.post("/api/v1/auth/login", data={"username": dados["email_aluno"], "password": dados["senha"]})
+    headers_aluno = auth_headers(resp.json()["access_token"])
+
+    resp = await client.get("/api/v1/notificacoes", headers=headers_aluno)
+    assert resp.status_code == 200, resp.text
+    assert any(n["tipo"] == "TAREFA_AVALIADA" for n in resp.json())

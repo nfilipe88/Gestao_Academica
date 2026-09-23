@@ -3,7 +3,8 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import * as DiarioActions from './diario.actions';
 import {
-  AlunoDiario, Avaliacao, AvaliacaoAgendada, ConsolidadoTurmaDisciplina, NotaAvaliacaoInput, NotaFinal, PeriodoAvaliacao
+  AlunoDiario, Avaliacao, AvaliacaoAgendada, ConsolidadoTurmaDisciplina, NotaAvaliacaoInput, NotaExameNacional, NotaFinal,
+  PeriodoAvaliacao
 } from './diario.models';
 import { catchError, map, of, switchMap } from 'rxjs';
 
@@ -149,6 +150,23 @@ export class DiarioEffects {
     )
   );
 
+  atualizarJanelaPeriodo$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DiarioActions.atualizarJanelaPeriodo),
+      switchMap(action => this.http.patch<{ mensagem: string }>(`/api/v1/diario/periodos/${action.periodo_id}/janela`, {
+        data_inicio: action.data_inicio, data_fim: action.data_fim
+      }).pipe(
+        switchMap(resp => [
+          DiarioActions.carregarPeriodos(),
+          DiarioActions.diarioOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(DiarioActions.diarioOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível atualizar a janela do período.'
+        })))
+      ))
+    )
+  );
+
   // --- Avaliações (provas e contínuas) + nota final calculada ---
 
   carregarAvaliacoes$ = createEffect(() =>
@@ -270,6 +288,38 @@ export class DiarioEffects {
         map(notasFinais => DiarioActions.carregarNotasFinaisSucesso({ notasFinais })),
         catchError(err => of(DiarioActions.diarioOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar as notas finais.'
+        })))
+      ))
+    )
+  );
+
+  carregarNotasExameNacional$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DiarioActions.carregarNotasExameNacional),
+      switchMap(action => this.http.get<NotaExameNacional[]>(
+        `/api/v1/diario/turmas/${action.turma_id}/disciplinas/${action.disciplina_id}/exame-nacional`
+      ).pipe(
+        map(notasExameNacional => DiarioActions.carregarNotasExameNacionalSucesso({ notasExameNacional })),
+        catchError(err => of(DiarioActions.diarioOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar as notas de Exame Nacional.'
+        })))
+      ))
+    )
+  );
+
+  lancarNotaExameNacionalLote$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DiarioActions.lancarNotaExameNacionalLote),
+      switchMap(action => this.http.post(
+        `/api/v1/diario/turmas/${action.turma_id}/disciplinas/${action.disciplina_id}/exame-nacional/lote`,
+        { notas: action.notas }
+      ).pipe(
+        switchMap(() => [
+          DiarioActions.carregarNotasExameNacional({ turma_id: action.turma_id, disciplina_id: action.disciplina_id }),
+          DiarioActions.diarioOperacaoSucesso({ mensagem: 'Nota de Exame Nacional registada.' })
+        ]),
+        catchError(err => of(DiarioActions.diarioOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível registar a Nota de Exame Nacional.'
         })))
       ))
     )

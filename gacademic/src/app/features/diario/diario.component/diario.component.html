@@ -43,19 +43,40 @@
 
       <div class="flex flex-wrap gap-2">
         @for (periodo of periodos$ | async; track periodo.id) {
-          <div class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-1.5">
-            <span class="text-sm text-slate-700">{{ periodo.nome }}</span>
-            <span class="text-xs font-medium py-0.5 px-2 rounded-full"
-              [class.bg-emerald-100]="periodo.aberto" [class.text-emerald-700]="periodo.aberto"
-              [class.bg-rose-100]="!periodo.aberto" [class.text-rose-700]="!periodo.aberto">
-              {{ periodo.aberto ? 'Aberto' : 'Trancado' }}
-            </span>
-            @if (periodo.aberto) {
-              <button type="button" (click)="onTrancarPeriodo(periodo.id)"
-                class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Trancar</button>
-            } @else {
-              <button type="button" (click)="onReabrirPeriodo(periodo.id)"
-                class="text-xs text-emerald-600 hover:text-emerald-800 font-medium cursor-pointer">Reabrir</button>
+          <div class="flex flex-col gap-1.5 border border-slate-200 rounded-lg px-3 py-1.5">
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-slate-700">{{ periodo.nome }}</span>
+              <span class="text-xs font-medium py-0.5 px-2 rounded-full"
+                [class.bg-emerald-100]="periodo.aberto" [class.text-emerald-700]="periodo.aberto"
+                [class.bg-rose-100]="!periodo.aberto" [class.text-rose-700]="!periodo.aberto">
+                {{ periodo.aberto ? 'Aberto' : 'Trancado' }}
+              </span>
+              @if (periodo.aberto) {
+                <button type="button" (click)="onTrancarPeriodo(periodo.id)"
+                  class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Trancar</button>
+              } @else {
+                <button type="button" (click)="onReabrirPeriodo(periodo.id)"
+                  class="text-xs text-emerald-600 hover:text-emerald-800 font-medium cursor-pointer">Reabrir</button>
+              }
+              <button type="button" (click)="onAlternarJanela(periodo)"
+                class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
+                {{ periodo.data_inicio && periodo.data_fim ? (periodo.data_inicio | date:'dd/MM') + '–' + (periodo.data_fim | date:'dd/MM') : 'Definir janela (faltas)' }}
+              </button>
+            </div>
+            @if (periodoJanelaEmEdicaoId === periodo.id) {
+              <form [formGroup]="janelaForm" (ngSubmit)="onSubmitJanela(periodo.id)" class="flex items-end gap-2 pt-1 border-t border-slate-100">
+                <div>
+                  <label class="block text-xs text-slate-500">Início</label>
+                  <input type="date" formControlName="data_inicio"
+                    class="border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-hidden focus:border-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500">Fim</label>
+                  <input type="date" formControlName="data_fim"
+                    class="border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-hidden focus:border-blue-500" />
+                </div>
+                <button type="submit" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded cursor-pointer">Guardar</button>
+              </form>
             }
           </div>
         } @empty {
@@ -354,7 +375,7 @@
                           <thead>
                             <tr class="text-slate-600 text-xs">
                               <th class="py-1.5 pr-3 font-medium">Aluno</th>
-                              <th class="py-1.5 pr-3 font-medium text-right">Nota (0 a 10)</th>
+                              <th class="py-1.5 pr-3 font-medium text-right">Nota (0 a {{ notaMaxima$ | async }})</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -362,7 +383,7 @@
                               <tr class="border-t border-slate-100">
                                 <td class="py-1.5 pr-3 text-sm text-slate-800">{{ aluno.nome_aluno }}</td>
                                 <td class="py-1.5 pr-3 text-right">
-                                  <input type="number" min="0" max="10" step="0.1"
+                                  <input type="number" min="0" [attr.max]="notaMaxima$ | async" step="0.1"
                                     [value]="notasAvaliacaoPorAluno[aluno.matricula_id]"
                                     (input)="onNotaAvaliacaoChange(aluno.matricula_id, $any($event.target).value)"
                                     class="w-24 border border-slate-300 rounded-lg px-3 py-1 text-sm text-slate-800 text-right focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
@@ -427,6 +448,45 @@
             </table>
           </div>
 
+          <!-- NEN — Nota de Exame Nacional: valor externo por ano letivo (não por período), lançado só por Gestor/Secretaria -->
+          <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+            <h3 class="text-sm font-semibold text-slate-800 mb-1">Nota de Exame Nacional (NEN)</h3>
+            <p class="text-xs text-slate-500 mb-3">Valor do Exame Nacional para esta disciplina, o mesmo em todos os períodos do ano letivo.</p>
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-600 text-sm">
+                  <th class="py-2 pr-3 font-medium">Aluno</th>
+                  <th class="py-2 pr-3 font-medium text-right">NEN (0 a {{ notaMaxima$ | async }})</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (aluno of alunos$ | async; track aluno.matricula_id) {
+                  <tr class="border-b border-slate-100">
+                    <td class="py-2 pr-3 text-slate-800">{{ aluno.nome_aluno }}</td>
+                    <td class="py-2 pr-3 text-right">
+                      @if (podeGerir$ | async) {
+                        <input type="number" min="0" [attr.max]="notaMaxima$ | async" step="0.1"
+                          [value]="notasExameNacionalPorAluno[aluno.matricula_id]"
+                          (input)="onNotaExameNacionalChange(aluno.matricula_id, $any($event.target).value)"
+                          class="w-24 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 text-right focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                      } @else {
+                        <span class="text-slate-800 font-medium">{{ notasExameNacionalPorAluno[aluno.matricula_id] ?? '—' }}</span>
+                      }
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="2" class="py-6 text-center text-slate-500">Nenhum aluno matriculado nesta turma.</td></tr>
+                }
+              </tbody>
+            </table>
+            @if (podeGerir$ | async) {
+              <button type="button" (click)="onSubmitNotasExameNacional()"
+                class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                Guardar Nota de Exame Nacional
+              </button>
+            }
+          </div>
+
           <!-- Lançamento manual — só faz sentido enquanto não houver avaliações neste período -->
           @if ((avaliacoes$ | async)?.length === 0) {
             <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
@@ -451,7 +511,7 @@
                 <thead>
                   <tr class="border-b border-slate-200 text-slate-600 text-sm">
                     <th class="py-2 pr-3 font-medium">Aluno</th>
-                    <th class="py-2 pr-3 font-medium text-right">Nota (0 a 10)</th>
+                    <th class="py-2 pr-3 font-medium text-right">Nota (0 a {{ notaMaxima$ | async }})</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -459,7 +519,7 @@
                     <tr class="border-b border-slate-100">
                       <td class="py-2 pr-3 text-slate-800">{{ aluno.nome_aluno }}</td>
                       <td class="py-2 pr-3 text-right">
-                        <input type="number" min="0" max="10" step="0.1"
+                        <input type="number" min="0" [attr.max]="notaMaxima$ | async" step="0.1"
                           [value]="notasPorAluno[aluno.matricula_id]"
                           (input)="onNotaChange(aluno.matricula_id, $any($event.target).value)"
                           class="w-24 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 text-right focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
@@ -603,7 +663,7 @@
           <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div>
               <h3 class="text-sm font-semibold text-slate-800">Banco de Questões</h3>
-              <p class="text-xs text-slate-500">Questões de escolha múltipla ou verdadeiro/falso desta disciplina — reutilizáveis em vários exames, corrigidas automaticamente.</p>
+              <p class="text-xs text-slate-500">Questões de escolha múltipla, verdadeiro/falso (corrigidas automaticamente) ou resposta aberta (corrigida manualmente por um professor) desta disciplina — reutilizáveis em vários exames.</p>
             </div>
             <button type="button" (click)="alternarFormularioQuestao()"
               class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
@@ -625,6 +685,7 @@
                     class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                     <option value="ESCOLHA_MULTIPLA">Escolha múltipla</option>
                     <option value="VERDADEIRO_FALSO">Verdadeiro/Falso</option>
+                    <option value="ABERTA">Resposta aberta (corrigida manualmente)</option>
                   </select>
                 </div>
                 <div>
@@ -650,7 +711,7 @@
                     }
                   </select>
                 </div>
-              } @else {
+              } @else if (questaoForm.value.tipo === 'VERDADEIRO_FALSO') {
                 <div>
                   <label class="block text-xs font-medium text-slate-600 mb-1">Resposta correta</label>
                   <select formControlName="resposta_correta"
@@ -660,9 +721,16 @@
                     <option value="FALSO">Falso</option>
                   </select>
                 </div>
+              } @else {
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Dica de correção (opcional, só visível ao staff)</label>
+                  <textarea formControlName="resposta_correta" rows="2" placeholder="Ex: espera-se que mencione massa e curvatura do espaço-tempo"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+                  <p class="text-[10px] text-slate-400 mt-1">Esta questão nunca é corrigida automaticamente — um professor atribui os pontos depois de o aluno submeter (ver "Corrigir" nos resultados do exame).</p>
+                </div>
               }
 
-              <button type="submit" [disabled]="questaoForm.invalid"
+              <button type="submit" [disabled]="!podeSubmeterQuestao()"
                 class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
                 {{ questaoEmEdicaoId ? 'Guardar Alterações' : 'Adicionar Questão' }}
               </button>
@@ -675,7 +743,7 @@
                 <div class="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <span class="text-sm text-slate-800">{{ questao.enunciado }}</span>
-                    <span class="text-xs text-slate-400 ml-2">({{ questao.tipo === 'ESCOLHA_MULTIPLA' ? 'Escolha múltipla' : 'V/F' }} · {{ questao.valor }} pts)</span>
+                    <span class="text-xs text-slate-400 ml-2">({{ questao.tipo === 'ESCOLHA_MULTIPLA' ? 'Escolha múltipla' : questao.tipo === 'VERDADEIRO_FALSO' ? 'V/F' : 'Resposta aberta' }} · {{ questao.valor }} pts)</span>
                   </div>
                   <div class="flex items-center gap-3 shrink-0">
                     <button type="button" (click)="onEditarQuestao(questao)"
@@ -704,11 +772,11 @@
           <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div>
               <h3 class="text-sm font-semibold text-slate-800">Exames Online</h3>
-              <p class="text-xs text-slate-500">Correção automática, janela temporal e baralhamento de perguntas por aluno.</p>
+              <p class="text-xs text-slate-500">Correção automática, variantes por turma e distribuição por round-robin ao Iniciar.</p>
             </div>
             <button type="button" (click)="alternarFormularioExame()"
               class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer shrink-0">
-              {{ mostrarFormularioExame ? 'Cancelar' : '+ Novo Exame' }}
+              {{ mostrarFormularioExame ? 'Cancelar' : '+ Novo Grupo de Exame' }}
             </button>
           </div>
 
@@ -738,84 +806,169 @@
               </div>
               <label class="flex items-center gap-2 text-sm text-slate-600">
                 <input type="checkbox" formControlName="baralhar_perguntas" />
-                Baralhar a ordem das perguntas para cada aluno
+                Baralhar a ordem das perguntas dentro de cada variante, para cada aluno
               </label>
 
-              <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Questões incluídas ({{ questoesSelecionadasNoExame.size }} selecionadas)</label>
-                <div class="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
-                  @for (questao of bancoQuestoes$ | async; track questao.id) {
-                    <label class="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-50">
-                      <input type="checkbox" [checked]="questoesSelecionadasNoExame.has(questao.id)" (change)="onToggleQuestaoNoExame(questao.id)" />
-                      <span class="flex-1">{{ questao.enunciado }}</span>
-                      <span class="text-xs text-slate-400">{{ questao.valor }} pts</span>
-                    </label>
-                  } @empty {
-                    <p class="text-sm text-slate-500 px-3 py-3">Crie questões no banco acima primeiro.</p>
-                  }
+              <div class="flex items-center gap-4">
+                <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+                  <input type="radio" formControlName="modalidade" value="PRESENCIAL" /> Presencial
+                </label>
+                <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+                  <input type="radio" formControlName="modalidade" value="REMOTO" /> Remoto
+                </label>
+              </div>
+
+              <!-- A prova alimenta sempre uma Avaliacao do Diário — mesmo catálogo já usado acima em "Avaliações" (o Professor só vê tipos sem agendamento). -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Período de avaliação</label>
+                  <!-- Texto livre, não um <select> preso a PeriodoAvaliacao já
+                       registado — mesmo padrão do campo "Período de avaliação"
+                       da aba Notas (Avaliação em si também aceita qualquer nome
+                       livremente, ver criar_avaliacao). Um <select> obrigaria a
+                       existir já um período criado pelo Gestor/Secretaria antes
+                       de qualquer Professor conseguir criar um grupo de exame —
+                       bloqueio real numa escola que ainda não geriu períodos. -->
+                  <input type="text" formControlName="periodo_avaliacao" list="periodos-existentes-exame" placeholder="Ex: 1º Trimestre"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                  <datalist id="periodos-existentes-exame">
+                    @for (periodo of periodos$ | async; track periodo.id) {
+                      <option [value]="periodo.nome"></option>
+                    }
+                  </datalist>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de avaliação</label>
+                  <select formControlName="tipo_avaliacao"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <option value="">Selecione…</option>
+                    @for (tipo of tiposParaFormulario$ | async; track tipo.id) {
+                      <option [value]="tipo.nome">{{ tipo.nome }}</option>
+                    }
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Peso</label>
+                  <input type="number" min="0.01" step="0.01" formControlName="peso"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
                 </div>
               </div>
 
-              <button type="submit" [disabled]="exameForm.invalid || questoesSelecionadasNoExame.size === 0"
+              <!-- Variantes — cada uma com o seu próprio conjunto de perguntas (perguntas genuinamente diferentes, não só ordem baralhada). -->
+              <div class="pt-2 border-t border-slate-100 space-y-3">
+                <div class="flex items-center justify-between">
+                  <label class="block text-xs font-medium text-slate-600">Variantes ({{ variantesExame.length }})</label>
+                  <button type="button" (click)="onAdicionarVariante()"
+                    class="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer">+ Adicionar variante</button>
+                </div>
+                @for (variante of variantesExame; track variante.letra; let i = $index) {
+                  <div class="border border-slate-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm font-semibold text-slate-700">Variante {{ variante.letra }} ({{ variante.questoes.size }} questões)</span>
+                      @if (variantesExame.length > 1) {
+                        <button type="button" (click)="onRemoverVariante(i)"
+                          class="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer">Remover</button>
+                      }
+                    </div>
+                    <div class="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-40 overflow-y-auto">
+                      @for (questao of bancoQuestoes$ | async; track questao.id) {
+                        <label class="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-50">
+                          <input type="checkbox" [checked]="variante.questoes.has(questao.id)" (change)="onToggleQuestaoNaVariante(i, questao.id)" />
+                          <span class="flex-1">{{ questao.enunciado }}</span>
+                          <span class="text-xs text-slate-400">{{ questao.valor }} pts</span>
+                        </label>
+                      } @empty {
+                        <p class="text-sm text-slate-500 px-3 py-3">Crie questões no banco acima primeiro.</p>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <button type="submit" [disabled]="!podeSubmeterExame()"
                 class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
-                Criar Exame (rascunho)
+                Criar Grupo de Exame (rascunho)
               </button>
             </form>
           }
 
           <div class="space-y-2">
-            @for (exame of exames$ | async; track exame.id) {
+            @for (grupo of gruposExame$ | async; track grupo.grupo_id) {
               <div class="border border-slate-200 rounded-lg px-4 py-2.5">
                 <div class="flex items-center justify-between flex-wrap gap-2">
                   <div class="flex items-center gap-2 flex-wrap">
-                    <span class="text-sm font-medium text-slate-800">{{ exame.titulo }}</span>
-                    @if (exame.publicado) {
-                      <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-emerald-100 text-emerald-700">Publicado</span>
+                    <span class="text-sm font-medium text-slate-800">{{ grupo.titulo }}</span>
+                    <span class="text-[10px] font-medium py-0.5 px-1.5 rounded-full bg-slate-100 text-slate-500">
+                      {{ grupo.modalidade === 'REMOTO' ? 'Remoto' : 'Presencial' }}
+                    </span>
+                    @if (grupo.iniciado) {
+                      <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-emerald-100 text-emerald-700">Iniciado</span>
+                    } @else if (grupo.publicado) {
+                      <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-blue-100 text-blue-700">Pronto — a aguardar Iniciar</span>
                     } @else {
                       <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-slate-100 text-slate-500">Rascunho</span>
                     }
-                    <span class="text-xs text-slate-400">{{ exame.data_inicio | date:'short' }} → {{ exame.data_fim | date:'short' }} · {{ exame.duracao_minutos }} min</span>
+                    <span class="text-xs text-slate-400">
+                      {{ grupo.data_inicio | date:'short' }} → {{ grupo.data_fim | date:'short' }} · {{ grupo.duracao_minutos }} min ·
+                      Variantes:
+                      @for (v of grupo.variantes; track v.exame_id) { {{ v.letra_variante }}{{ !$last ? ', ' : '' }} }
+                    </span>
                   </div>
                   <div class="flex items-center gap-3 shrink-0">
-                    <button type="button" (click)="onAlternarResultadosExame(exame.id)"
+                    <button type="button" (click)="onAlternarResultadosExame(grupo.grupo_id)"
                       class="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
-                      {{ exameResultadosAbertoId === exame.id ? 'Ocultar resultados' : 'Ver resultados' }}
+                      {{ exameResultadosAbertoId === grupo.grupo_id ? 'Ocultar resultados' : 'Ver resultados' }}
                     </button>
-                    @if (exame.publicado) {
-                      <button type="button" (click)="onDespublicarExame(exame.id)"
-                        class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Despublicar</button>
-                    } @else {
-                      <button type="button" (click)="onPublicarExame(exame.id)"
-                        class="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer">Publicar</button>
+                    @if (podeGerir$ | async) {
+                      @if (!grupo.iniciado) {
+                        <button type="button" (click)="onIniciarGrupoExame(grupo.grupo_id)"
+                          class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1 px-3 rounded-lg transition-colors cursor-pointer">
+                          Iniciar
+                        </button>
+                      } @else {
+                        <button type="button" (click)="onAlternarAtribuicoesGrupo(grupo.grupo_id)"
+                          class="text-xs text-slate-600 hover:text-slate-800 font-medium cursor-pointer">
+                          {{ grupoAtribuicoesAbertoId === grupo.grupo_id ? 'Ocultar atribuições' : 'Reatribuir variantes' }}
+                        </button>
+                      }
                     }
-                    @if (exameAApagarId === exame.id) {
+                    @if (exameAApagarId === grupo.grupo_id) {
                       <span class="text-xs text-rose-600">Apagar?</span>
-                      <button type="button" (click)="onConfirmarApagarExame(exame.id)"
+                      <button type="button" (click)="onConfirmarApagarExame(grupo.grupo_id)"
                         class="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
                       <button type="button" (click)="onCancelarApagarExame()"
                         class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Não</button>
                     } @else {
-                      <button type="button" (click)="onPedirApagarExame(exame.id)"
+                      <button type="button" (click)="onPedirApagarExame(grupo.grupo_id)"
                         class="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer">Apagar</button>
                     }
                   </div>
                 </div>
 
-                @if (exameResultadosAbertoId === exame.id) {
+                @if (exameResultadosAbertoId === grupo.grupo_id) {
                   <table class="w-full text-left border-collapse mt-3 pt-3 border-t border-slate-100">
                     <thead>
                       <tr class="text-slate-500 text-xs">
                         <th class="py-1 pr-3 font-medium">Aluno</th>
+                        <th class="py-1 pr-3 font-medium">Variante</th>
                         <th class="py-1 pr-3 font-medium">Estado</th>
                         <th class="py-1 pr-3 font-medium text-right">Nota</th>
                         <th class="py-1 pr-3 font-medium text-right">Eventos suspeitos</th>
+                        <th class="py-1 pr-3 font-medium text-right">Ação</th>
                       </tr>
                     </thead>
                     <tbody>
-                      @for (resultado of (resultadosPorExame$ | async)?.[exame.id]; track resultado.matricula_id) {
+                      @for (resultado of (resultadosPorGrupo$ | async)?.[grupo.grupo_id]; track resultado.matricula_id) {
                         <tr class="border-b border-slate-50 text-sm">
                           <td class="py-1.5 pr-3 text-slate-700">{{ resultado.nome_aluno }}</td>
-                          <td class="py-1.5 pr-3 text-slate-500">{{ resultado.status === 'SUBMETIDA' ? 'Submetida' : 'Em curso' }}</td>
+                          <td class="py-1.5 pr-3 text-slate-500">{{ resultado.letra_variante }}</td>
+                          <td class="py-1.5 pr-3">
+                            @if (resultado.status === 'AGUARDA_CORRECAO') {
+                              <span class="text-xs font-medium text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">A aguardar correção</span>
+                            } @else {
+                              <span class="text-slate-500">{{ resultado.status === 'SUBMETIDA' ? 'Submetida' : 'Em curso' }}</span>
+                            }
+                          </td>
                           <td class="py-1.5 pr-3 text-right font-semibold text-slate-800">
                             {{ resultado.nota_obtida !== null ? (resultado.nota_obtida + ' / ' + resultado.nota_maxima) : '—' }}
                           </td>
@@ -826,16 +979,96 @@
                               <span class="text-xs text-slate-400">—</span>
                             }
                           </td>
+                          <td class="py-1.5 pr-3 text-right">
+                            @if (resultado.data_submissao) {
+                              <button type="button" (click)="onAbrirCorrecao(resultado.matricula_id, resultado.exame_id)"
+                                class="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+                                {{ corrigindoMatriculaId === resultado.matricula_id ? 'Fechar' : 'Corrigir' }}
+                              </button>
+                            }
+                          </td>
+                        </tr>
+                        @if (corrigindoMatriculaId === resultado.matricula_id) {
+                          <tr class="bg-slate-50">
+                            <td colspan="6" class="p-3">
+                              <div class="space-y-3">
+                                @if (exameDetalhe$ | async; as exameDetalhe) {
+                                  @for (pergunta of exameDetalhe.perguntas; track pergunta.id) {
+                                    @if (pergunta.tipo === 'ABERTA') {
+                                      <div class="border border-slate-200 rounded-lg p-2 bg-white">
+                                        <p class="text-xs font-medium text-slate-700">{{ pergunta.enunciado }}</p>
+                                        <p class="text-xs text-slate-500 mt-1">Resposta: {{ resultado.respostas[pergunta.id] || '(em branco)' }}</p>
+                                        <div class="flex items-center gap-2 mt-2">
+                                          <label class="text-xs text-slate-600">Pontos (máx. {{ pergunta.valor }})</label>
+                                          <input type="number" min="0" [max]="pergunta.valor" step="0.01"
+                                            [ngModel]="pontosCorrecao[pergunta.id]" (ngModelChange)="pontosCorrecao[pergunta.id] = $event"
+                                            class="w-20 border border-slate-300 rounded px-2 py-1 text-xs" />
+                                          <input type="text" placeholder="Comentário (opcional)"
+                                            [ngModel]="comentarioCorrecao[pergunta.id]" (ngModelChange)="comentarioCorrecao[pergunta.id] = $event"
+                                            class="flex-1 border border-slate-300 rounded px-2 py-1 text-xs" />
+                                        </div>
+                                      </div>
+                                    }
+                                  }
+                                }
+                                <div class="flex items-center gap-2">
+                                  <label class="text-xs text-slate-600">Ou sobrescrever a nota final (ex.: prova presencial)</label>
+                                  <input type="number" min="0" step="0.01" placeholder="Nota"
+                                    [ngModel]="overrideNotaCorrecao" (ngModelChange)="overrideNotaCorrecao = $event"
+                                    class="w-24 border border-slate-300 rounded px-2 py-1 text-xs" />
+                                </div>
+                                <button type="button" (click)="onConfirmarCorrecao(grupo.grupo_id, resultado.exame_id)"
+                                  class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
+                                  Guardar correção
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        }
+                      } @empty {
+                        <tr><td colspan="6" class="py-3 text-center text-slate-500 text-sm">Ainda ninguém começou este grupo.</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+
+                @if (grupoAtribuicoesAbertoId === grupo.grupo_id) {
+                  <table class="w-full text-left border-collapse mt-3 pt-3 border-t border-slate-100">
+                    <thead>
+                      <tr class="text-slate-500 text-xs">
+                        <th class="py-1 pr-3 font-medium">Aluno</th>
+                        <th class="py-1 pr-3 font-medium">Variante atual</th>
+                        <th class="py-1 pr-3 font-medium">Reatribuir para</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (atribuicao of (atribuicoesPorGrupo$ | async)?.[grupo.grupo_id]; track atribuicao.matricula_id) {
+                        <tr class="border-b border-slate-50 text-sm">
+                          <td class="py-1.5 pr-3 text-slate-700">{{ atribuicao.nome_aluno }}</td>
+                          <td class="py-1.5 pr-3 text-slate-500">
+                            {{ atribuicao.letra_variante }}
+                            @if (atribuicao.atribuido_manualmente) { <span class="text-[10px] text-slate-400">(manual)</span> }
+                          </td>
+                          <td class="py-1.5 pr-3">
+                            <select
+                              (change)="onReatribuirVariante(grupo.grupo_id, atribuicao.matricula_id, $any($event.target).value)"
+                              class="text-xs border border-slate-300 rounded-lg px-2 py-1 text-slate-700">
+                              <option value="" selected disabled>Escolher variante…</option>
+                              @for (v of grupo.variantes; track v.exame_id) {
+                                <option [value]="v.exame_id" [disabled]="v.exame_id === atribuicao.exame_id">{{ v.letra_variante }}</option>
+                              }
+                            </select>
+                          </td>
                         </tr>
                       } @empty {
-                        <tr><td colspan="4" class="py-3 text-center text-slate-500 text-sm">Ainda ninguém começou este exame.</td></tr>
+                        <tr><td colspan="3" class="py-3 text-center text-slate-500 text-sm">Ainda sem atribuições.</td></tr>
                       }
                     </tbody>
                   </table>
                 }
               </div>
             } @empty {
-              <p class="text-sm text-slate-500">Ainda não há exames para esta alocação.</p>
+              <p class="text-sm text-slate-500">Ainda não há grupos de exame para esta alocação.</p>
             }
           </div>
         </div>

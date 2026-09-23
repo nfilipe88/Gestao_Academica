@@ -1,6 +1,8 @@
 // Alinhado com app/api/v1/notificacoes.py.
 
-export type TipoNotificacao = 'COMUNICADO' | 'SOLICITACAO_DOCUMENTO' | 'SOLICITACAO_TRANSFERENCIA' | 'LICENCA' | 'SISTEMA';
+export type TipoNotificacao =
+  | 'COMUNICADO' | 'COMUNICADO_RESPOSTA' | 'SOLICITACAO_DOCUMENTO' | 'SOLICITACAO_TRANSFERENCIA'
+  | 'LICENCA' | 'SISTEMA' | 'EXAME_CORRIGIDO' | 'TAREFA_AVALIADA' | 'REMATRICULA' | 'PROPINA';
 
 export interface Notificacao {
   id: string;

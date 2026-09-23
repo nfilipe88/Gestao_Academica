@@ -1,7 +1,7 @@
 import { createAction, props } from '@ngrx/store';
 import {
   AlunoDiario, Avaliacao, AvaliacaoAgendada, ConsolidadoTurmaDisciplina, FrequenciaAlunoInput,
-  NotaAlunoInput, NotaAvaliacaoInput, NotaFinal, PeriodoAvaliacao
+  NotaAlunoInput, NotaAvaliacaoInput, NotaExameNacional, NotaFinal, PeriodoAvaliacao
 } from './diario.models';
 
 export const carregarAlunosDiario = createAction(
@@ -57,6 +57,10 @@ export const trancarPeriodo = createAction(
 export const reabrirPeriodo = createAction(
   '[Diario] Reabrir Periodo',
   props<{ periodo_id: string }>()
+);
+export const atualizarJanelaPeriodo = createAction(
+  '[Diario] Atualizar Janela Periodo',
+  props<{ periodo_id: string, data_inicio: string | null, data_fim: string | null }>()
 );
 
 // Avaliações (provas e contínuas) + nota final calculada
@@ -134,6 +138,22 @@ export const carregarNotasFinais = createAction(
 export const carregarNotasFinaisSucesso = createAction(
   '[Diario] Carregar Notas Finais Sucesso',
   props<{ notasFinais: NotaFinal[] }>()
+);
+
+// NEN — por ano letivo (ligada à matrícula, não a um período), lida
+// junto com Notas Finais mas guardada à parte (ver reducer/selector) e
+// lançada só por Gestor/Secretaria (RBAC validado no back-end).
+export const carregarNotasExameNacional = createAction(
+  '[Diario] Carregar Notas Exame Nacional',
+  props<{ turma_id: string, disciplina_id: string }>()
+);
+export const carregarNotasExameNacionalSucesso = createAction(
+  '[Diario] Carregar Notas Exame Nacional Sucesso',
+  props<{ notasExameNacional: NotaExameNacional[] }>()
+);
+export const lancarNotaExameNacionalLote = createAction(
+  '[Diario] Lancar Nota Exame Nacional Lote',
+  props<{ turma_id: string, disciplina_id: string, notas: NotaAlunoInput[] }>()
 );
 
 export const diarioOperacaoSucesso = createAction(

@@ -47,6 +47,21 @@ async def obter_boletim_do_educando(
     return await crud_portal.obter_boletim_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id)
 
 
+@router.get("/educandos/{aluno_id}/pauta")
+async def obter_pauta_do_educando(
+    aluno_id: uuid.UUID,
+    ano_letivo: int | None = None,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Pauta unificada: por disciplina, cada período com as avaliações
+    individuais (Diário + Exames LMS) + a média já calculada, mais a
+    Média Final — Trabalhos aparecem à parte, informativos.
+    ano_letivo opcional (por omissão, o ano da matrícula atual) —
+    devolve sempre anos_letivos_disponiveis para o seletor no Portal."""
+    return await crud_portal.obter_pauta_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, ano_letivo)
+
+
 @router.get("/educandos/{aluno_id}/financeiro")
 async def obter_financeiro_do_educando(
     aluno_id: uuid.UUID,

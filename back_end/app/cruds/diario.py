@@ -6,19 +6,31 @@ from datetime import date
 from decimal import Decimal
 import uuid
 
+from app.database.models import Tenant
 from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turma
 from app.database.models_pessoas import Aluno, Professor
 from app.database.models_matricula import Matricula
 from app.database.models_diario import (
-    Avaliacao, NotaAvaliacao, PeriodoAvaliacao, ProfessorTurmaDisciplina,
+    Avaliacao, NotaAvaliacao, NotaExameNacional, PeriodoAvaliacao, ProfessorTurmaDisciplina,
     RegistroFrequencia, RegistroNota, RegistroNotaAuditoria, TipoAvaliacaoConfig
 )
+from app.database.models_lms import LMSExame
 from app.schemas.diario import (
-    AvaliacaoCreate, AvaliacaoUpdate, FrequenciaLoteCreate, NotaAvaliacaoLoteCreate, NotaLoteCreate, PeriodoAvaliacaoCreate
+    AvaliacaoCreate, AvaliacaoUpdate, FrequenciaLoteCreate, NotaAvaliacaoLoteCreate, NotaExameNacionalLoteCreate,
+    NotaLoteCreate, PeriodoAvaliacaoCreate, PeriodoAvaliacaoJanelaUpdate
 )
 
 NOTA_MINIMA = Decimal("0.0")
-NOTA_MAXIMA = Decimal("10.0")
+# Valor de segurança só usado se, por alguma razão, Tenant.nota_maxima
+# vier nulo (a coluna é NOT NULL — não deveria acontecer) — ver
+# _obter_nota_maxima. A escala real é configurável por escola em
+# Configurações (Tenant.nota_maxima, ex.: 10 ou 20).
+NOTA_MAXIMA_OMISSAO = Decimal("10.0")
+
+
+async def _obter_nota_maxima(db: AsyncSession, tenant_id) -> Decimal:
+    valor = (await db.execute(select(Tenant.nota_maxima).where(Tenant.id == tenant_id))).scalar_one_or_none()
+    return Decimal(str(valor)) if valor is not None else NOTA_MAXIMA_OMISSAO
 
 
 # ==========================================
@@ -222,6 +234,7 @@ async def lancar_notas_lote(db: AsyncSession, utilizador: dict, turma_id: uuid.U
     await _validar_autoria(db, utilizador, turma_id, disciplina_id)
     await _validar_periodo_aberto(db, tenant_id, dados.periodo_avaliacao)
     await _validar_sem_avaliacoes(db, turma_id, disciplina_id, dados.periodo_avaliacao)
+    nota_maxima = await _obter_nota_maxima(db, tenant_id)
 
     matriculas_da_turma = set((await db.execute(
         select(Matricula.id).where(Matricula.turma_id == turma_id, Matricula.tenant_id == tenant_id)
@@ -243,10 +256,10 @@ async def lancar_notas_lote(db: AsyncSession, utilizador: dict, turma_id: uuid.U
 
     total = 0
     for item in dados.notas:
-        if item.valor_nota < NOTA_MINIMA or item.valor_nota > NOTA_MAXIMA:
+        if item.valor_nota < NOTA_MINIMA or item.valor_nota > nota_maxima:
             raise HTTPException(
                 status_code=400,
-                detail=f"Nota {item.valor_nota} fora do intervalo permitido ({NOTA_MINIMA} a {NOTA_MAXIMA})."
+                detail=f"Nota {item.valor_nota} fora do intervalo permitido ({NOTA_MINIMA} a {nota_maxima})."
             )
         if item.matricula_id not in matriculas_da_turma:
             raise HTTPException(status_code=400, detail=f"A matrícula {item.matricula_id} não pertence a esta turma.")
@@ -347,7 +360,10 @@ async def listar_periodos_avaliacao(db: AsyncSession, tenant_id) -> list[Periodo
 
 async def criar_periodo_avaliacao(db: AsyncSession, tenant_id, dados: PeriodoAvaliacaoCreate) -> PeriodoAvaliacao:
     """Regista um período (ex: "1º Bimestre") como gerível — nasce aberto; usar trancar_periodo_avaliacao quando o prazo terminar."""
-    novo_periodo = PeriodoAvaliacao(tenant_id=tenant_id, nome=dados.nome, aberto=True)
+    novo_periodo = PeriodoAvaliacao(
+        tenant_id=tenant_id, nome=dados.nome, aberto=True,
+        data_inicio=dados.data_inicio, data_fim=dados.data_fim,
+    )
     db.add(novo_periodo)
     try:
         await db.commit()
@@ -356,6 +372,27 @@ async def criar_periodo_avaliacao(db: AsyncSession, tenant_id, dados: PeriodoAva
         raise HTTPException(status_code=400, detail="Já existe um período de avaliação com este nome.")
     await db.refresh(novo_periodo)
     return novo_periodo
+
+
+async def atualizar_janela_periodo_avaliacao(
+    db: AsyncSession, tenant_id, periodo_id: uuid.UUID, dados: PeriodoAvaliacaoJanelaUpdate
+) -> PeriodoAvaliacao:
+    """Edita só data_inicio/data_fim (a janela calendárica usada para somar
+    faltas do trimestre na Pauta do Portal) — nunca mexe em aberto/data_fecho,
+    que continuam geridos só por trancar_periodo_avaliacao/reabrir_periodo_avaliacao."""
+    periodo = (await db.execute(
+        select(PeriodoAvaliacao).where(PeriodoAvaliacao.id == periodo_id, PeriodoAvaliacao.tenant_id == tenant_id)
+    )).scalars().first()
+    if not periodo:
+        raise HTTPException(status_code=404, detail="Período de avaliação não encontrado na sua instituição.")
+    if dados.data_inicio and dados.data_fim and dados.data_inicio > dados.data_fim:
+        raise HTTPException(status_code=400, detail="data_inicio não pode ser depois de data_fim.")
+
+    periodo.data_inicio = dados.data_inicio
+    periodo.data_fim = dados.data_fim
+    await db.commit()
+    await db.refresh(periodo)
+    return periodo
 
 
 async def trancar_periodo_avaliacao(db: AsyncSession, tenant_id, periodo_id: uuid.UUID) -> PeriodoAvaliacao:
@@ -721,6 +758,18 @@ async def apagar_avaliacao(db: AsyncSession, utilizador: dict, avaliacao_id: uui
     await _validar_autoria(db, utilizador, avaliacao.turma_id, avaliacao.disciplina_id)
     await _validar_periodo_aberto(db, tenant_id, avaliacao.periodo_avaliacao)
 
+    # RESTRICT em LMSExame.avaliacao_id já impediria isto a nível de
+    # BD, mas um 400 explícito aqui é mais claro do que deixar rebentar
+    # o IntegrityError — ver cruds/lms.py::criar_grupo_exame.
+    ligado_a_exame_lms = (await db.execute(
+        select(LMSExame.id).where(LMSExame.avaliacao_id == avaliacao_id).limit(1)
+    )).scalars().first()
+    if ligado_a_exame_lms:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta avaliação está ligada a um exame do motor de Exames Online — apague o exame (ou o grupo de variantes) em vez desta avaliação."
+        )
+
     disciplina_id = avaliacao.disciplina_id
     periodo_avaliacao = avaliacao.periodo_avaliacao
     matriculas_afetadas = (await db.execute(
@@ -762,6 +811,7 @@ async def lancar_notas_avaliacao_lote(db: AsyncSession, utilizador: dict, avalia
     avaliacao = await _obter_avaliacao(db, tenant_id, avaliacao_id)
     await _validar_autoria(db, utilizador, avaliacao.turma_id, avaliacao.disciplina_id)
     await _validar_periodo_aberto(db, tenant_id, avaliacao.periodo_avaliacao)
+    nota_maxima = await _obter_nota_maxima(db, tenant_id)
     if (
         avaliacao.data_limite_correcao
         and avaliacao.data_limite_correcao < date.today()
@@ -790,10 +840,10 @@ async def lancar_notas_avaliacao_lote(db: AsyncSession, utilizador: dict, avalia
     total = 0
     matriculas_afetadas: set[uuid.UUID] = set()
     for item in dados.notas:
-        if item.valor_nota < NOTA_MINIMA or item.valor_nota > NOTA_MAXIMA:
+        if item.valor_nota < NOTA_MINIMA or item.valor_nota > nota_maxima:
             raise HTTPException(
                 status_code=400,
-                detail=f"Nota {item.valor_nota} fora do intervalo permitido ({NOTA_MINIMA} a {NOTA_MAXIMA})."
+                detail=f"Nota {item.valor_nota} fora do intervalo permitido ({NOTA_MINIMA} a {nota_maxima})."
             )
         if item.matricula_id not in matriculas_da_turma:
             raise HTTPException(status_code=400, detail=f"A matrícula {item.matricula_id} não pertence a esta turma.")
@@ -827,6 +877,36 @@ async def lancar_notas_avaliacao_lote(db: AsyncSession, utilizador: dict, avalia
     return total
 
 
+async def lancar_nota_avaliacao_individual(
+    db: AsyncSession, tenant_id, avaliacao_id: uuid.UUID, matricula_id: uuid.UUID, valor_nota: Decimal, usuario_id: uuid.UUID | None = None
+) -> None:
+    """Upsert de uma única NotaAvaliacao + recálculo do período —
+    chamada pelo motor de Exames Online, tanto na correção automática
+    (cruds/lms.py::submeter_tentativa, usuario_id fica None — nenhum
+    staff envolvido) como na correção manual
+    (cruds/lms.py::corrigir_tentativa, usuario_id identifica quem
+    corrigiu, para RegistroNotaAuditoria.alterado_por não ficar vazio).
+    Nunca chamada por um formulário manual de staff no Diário. Por
+    isso, ao contrário de lancar_notas_avaliacao_lote, salta RN01
+    (autoria) e RN03 (período aberto) de propósito: quem submeteu foi
+    o próprio aluno dono da tentativa (ou um professor/staff já
+    validado por _validar_autoria_alocacao do lado do LMS), e o exame
+    já foi validado como publicado+iniciado+atribuído antes de chegar
+    aqui — um período que tenha sido trancado entretanto não deve
+    invalidar retroactivamente uma correção já legítima."""
+    avaliacao = await _obter_avaliacao(db, tenant_id, avaliacao_id)
+    existente = (await db.execute(
+        select(NotaAvaliacao).where(NotaAvaliacao.avaliacao_id == avaliacao_id, NotaAvaliacao.matricula_id == matricula_id)
+    )).scalars().first()
+    if existente:
+        existente.valor_nota = valor_nota
+    else:
+        db.add(NotaAvaliacao(tenant_id=tenant_id, avaliacao_id=avaliacao_id, matricula_id=matricula_id, valor_nota=valor_nota))
+    await db.flush()
+    await _recalcular_nota_periodo(db, tenant_id, usuario_id, matricula_id, avaliacao.disciplina_id, avaliacao.periodo_avaliacao)
+    await db.commit()
+
+
 async def listar_notas_finais(
     db: AsyncSession, utilizador: dict, turma_id: uuid.UUID, disciplina_id: uuid.UUID, periodo_avaliacao: str
 ) -> list[dict]:
@@ -858,3 +938,79 @@ async def listar_notas_finais(
         }
         for matricula_id, nome_aluno, valor_nota, calculada in resultado.all()
     ]
+
+
+# ==========================================
+# F. NOTA DE EXAME NACIONAL (NEN) — valor externo por ano letivo (ver
+# models_diario.py::NotaExameNacional). Ligada a matricula_id, não a
+# periodo_avaliacao — vive ao lado de "Notas Finais", não dentro dela.
+# ==========================================
+async def listar_notas_exame_nacional_da_turma(db: AsyncSession, utilizador: dict, turma_id: uuid.UUID, disciplina_id: uuid.UUID) -> list[dict]:
+    tenant_id = utilizador["tenant_id"]
+    await _validar_turma_disciplina(db, tenant_id, turma_id, disciplina_id)
+    await _validar_autoria(db, utilizador, turma_id, disciplina_id)
+
+    resultado = await db.execute(
+        select(Matricula.id, Aluno.nome_completo, NotaExameNacional.valor_nota)
+        .join(Aluno, Aluno.id == Matricula.aluno_id)
+        .outerjoin(NotaExameNacional, (NotaExameNacional.matricula_id == Matricula.id)
+                   & (NotaExameNacional.disciplina_id == disciplina_id))
+        .where(Matricula.turma_id == turma_id, Matricula.status_matricula == "ATIVO", Matricula.tenant_id == tenant_id)
+        .order_by(Aluno.nome_completo)
+    )
+    return [
+        {"matricula_id": matricula_id, "nome_aluno": nome_aluno, "valor_nota": float(valor_nota) if valor_nota is not None else None}
+        for matricula_id, nome_aluno, valor_nota in resultado.all()
+    ]
+
+
+async def lancar_nota_exame_nacional_lote(
+    db: AsyncSession, utilizador: dict, turma_id: uuid.UUID, disciplina_id: uuid.UUID, dados: NotaExameNacionalLoteCreate
+) -> int:
+    """Upsert em lote — RBAC só Gestor/Secretaria, decidido na rota
+    (exigir_perfil("GESTOR","SECRETARIA")), nunca Professor: a NEN é uma
+    nota de origem externa à escola, não uma avaliação de sala de aula."""
+    tenant_id = utilizador["tenant_id"]
+    await _validar_turma_disciplina(db, tenant_id, turma_id, disciplina_id)
+    nota_maxima = await _obter_nota_maxima(db, tenant_id)
+
+    matriculas_da_turma = set((await db.execute(
+        select(Matricula.id).where(Matricula.turma_id == turma_id, Matricula.tenant_id == tenant_id)
+    )).scalars().all())
+
+    existentes = {
+        r.matricula_id: r
+        for r in (await db.execute(
+            select(NotaExameNacional).where(
+                NotaExameNacional.disciplina_id == disciplina_id,
+                NotaExameNacional.matricula_id.in_(matriculas_da_turma),
+                NotaExameNacional.tenant_id == tenant_id,
+            )
+        )).scalars().all()
+    }
+
+    total = 0
+    for item in dados.notas:
+        if item.valor_nota < NOTA_MINIMA or item.valor_nota > nota_maxima:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Nota {item.valor_nota} fora do intervalo permitido ({NOTA_MINIMA} a {nota_maxima})."
+            )
+        if item.matricula_id not in matriculas_da_turma:
+            raise HTTPException(status_code=400, detail=f"A matrícula {item.matricula_id} não pertence a esta turma.")
+
+        existente = existentes.get(item.matricula_id)
+        if existente:
+            existente.valor_nota = item.valor_nota
+            existente.lancado_por_usuario_id = utilizador["usuario_id"]
+        else:
+            nova = NotaExameNacional(
+                tenant_id=tenant_id, matricula_id=item.matricula_id, disciplina_id=disciplina_id,
+                valor_nota=item.valor_nota, lancado_por_usuario_id=utilizador["usuario_id"],
+            )
+            db.add(nova)
+            existentes[item.matricula_id] = nova
+        total += 1
+
+    await db.commit()
+    return total

@@ -10,17 +10,21 @@ este login pode ver" e delega a leitura em si aos cruds já existentes
 únicos donos das suas tabelas.
 """
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models_academico import Disciplina, ObjetivoAprendizagem, Turma
-from app.database.models_diario import RegistroFrequencia, RegistroNota
+from app.database.models_diario import (
+    Avaliacao, NotaAvaliacao, NotaExameNacional, PeriodoAvaliacao, ProfessorTurmaDisciplina, RegistroFrequencia, RegistroNota
+)
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.database.models_lms import MaterialAula
 from app.database.models_matricula import Matricula, PedidoRematricula
 from app.database.models_pessoas import Aluno
+from app.database.models_tarefas import Tarefa, TarefaAvaliacao
 from app.database.models import Usuario
 from app.cruds import alunos as crud_alunos
 from app.cruds import comportamento as crud_comportamento
@@ -66,6 +70,28 @@ async def _obter_matricula_atual(db: AsyncSession, tenant_id, aluno_id: uuid.UUI
         .where(Matricula.aluno_id == aluno_id, Matricula.tenant_id == tenant_id)
         .order_by(*ordem)
     )).scalars().first()
+
+
+async def _obter_matricula_do_ano(db: AsyncSession, tenant_id, aluno_id: uuid.UUID, ano_letivo: int) -> Matricula | None:
+    """Sibling de _obter_matricula_atual para um ano letivo explícito
+    (ver Pauta com histórico) — sem preferência por ATIVO, porque nos
+    fluxos já existentes (Rematrícula/Transferência) um aluno só tem
+    uma Matricula por ano letivo."""
+    return (await db.execute(
+        select(Matricula).where(
+            Matricula.aluno_id == aluno_id, Matricula.tenant_id == tenant_id, Matricula.ano_letivo == ano_letivo
+        )
+    )).scalars().first()
+
+
+async def listar_anos_letivos_do_educando(db: AsyncSession, tenant_id, aluno_id: uuid.UUID) -> list[int]:
+    """Anos letivos em que o aluno teve alguma Matricula — alimenta o
+    seletor de Ano Letivo da Pauta, mais recente primeiro."""
+    anos = (await db.execute(
+        select(Matricula.ano_letivo).where(Matricula.aluno_id == aluno_id, Matricula.tenant_id == tenant_id)
+        .distinct().order_by(Matricula.ano_letivo.desc())
+    )).scalars().all()
+    return list(anos)
 
 
 async def _tem_propina_em_atraso(db: AsyncSession, tenant_id, matricula_id: uuid.UUID) -> bool:
@@ -432,6 +458,177 @@ async def obter_boletim_do_educando(db: AsyncSession, tenant_id, utilizador: dic
         entrada["total_faltas"] = int(total_faltas or 0)
 
     return {"disciplinas": sorted(por_disciplina.values(), key=lambda d: d["nome_disciplina"])}
+
+
+# ==========================================
+# C2. PAUTA UNIFICADA DO EDUCANDO — por disciplina, cada período com as
+# avaliações individuais (Diário + Exames LMS, já que ambos escrevem em
+# NotaAvaliacao) + a média já calculada desse período, mais uma Média
+# Final por disciplina. Trabalhos aparecem à parte, só informativos —
+# ver docstring de TarefaAvaliacao em models_tarefas.py sobre porque
+# ficam deliberadamente fora do motor de cálculo do Diário. A par de
+# obter_boletim_do_educando acima (que fica inalterada) — nada mais no
+# backend depende da forma exata dela.
+# ==========================================
+async def obter_pauta_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, ano_letivo: int | None = None) -> dict:
+    await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    matricula = await (_obter_matricula_do_ano(db, tenant_id, aluno_id, ano_letivo) if ano_letivo is not None
+                        else _obter_matricula_atual(db, tenant_id, aluno_id))
+    anos_disponiveis = await listar_anos_letivos_do_educando(db, tenant_id, aluno_id)
+    if not matricula:
+        return {"disciplinas": [], "anos_letivos_disponiveis": anos_disponiveis, "ano_letivo_selecionado": ano_letivo}
+
+    linhas_avaliacoes = (await db.execute(
+        select(Avaliacao, NotaAvaliacao, Disciplina.nome)
+        .join(NotaAvaliacao, NotaAvaliacao.avaliacao_id == Avaliacao.id)
+        .join(Disciplina, Disciplina.id == Avaliacao.disciplina_id)
+        .where(NotaAvaliacao.matricula_id == matricula.id, Avaliacao.tenant_id == tenant_id)
+    )).all()
+
+    linhas_registro = (await db.execute(
+        select(RegistroNota, Disciplina.nome)
+        .join(Disciplina, Disciplina.id == RegistroNota.disciplina_id)
+        .where(RegistroNota.matricula_id == matricula.id, RegistroNota.tenant_id == tenant_id)
+    )).all()
+
+    # Trabalhos — query própria (não reaproveita listar_tarefas_do_aluno,
+    # que serve o separador "Trabalhos" do Portal e não devolve
+    # disciplina_id/periodo_avaliacao; alterar o seu contrato só para
+    # aqui arriscaria esse consumidor já existente).
+    linhas_trabalhos = (await db.execute(
+        select(Tarefa, TarefaAvaliacao, ProfessorTurmaDisciplina.disciplina_id)
+        .join(TarefaAvaliacao, TarefaAvaliacao.tarefa_id == Tarefa.id)
+        .join(ProfessorTurmaDisciplina, ProfessorTurmaDisciplina.id == Tarefa.alocacao_id)
+        .where(TarefaAvaliacao.matricula_id == matricula.id, Tarefa.tenant_id == tenant_id)
+    )).all()
+
+    # NEN — externa, por disciplina (ligada à matrícula deste ano letivo).
+    nen_por_disciplina = {
+        disciplina_id: float(valor)
+        for disciplina_id, valor in (await db.execute(
+            select(NotaExameNacional.disciplina_id, NotaExameNacional.valor_nota)
+            .where(NotaExameNacional.matricula_id == matricula.id, NotaExameNacional.tenant_id == tenant_id)
+        )).all()
+    }
+
+    # Faltas do trimestre — só para períodos com data_inicio E data_fim
+    # definidos (ver models_diario.py::PeriodoAvaliacao) — uma query por
+    # período com janela definida (tipicamente ≤4), não por disciplina×período.
+    janelas_periodo = {
+        nome: (inicio, fim)
+        for nome, inicio, fim in (await db.execute(
+            select(PeriodoAvaliacao.nome, PeriodoAvaliacao.data_inicio, PeriodoAvaliacao.data_fim)
+            .where(PeriodoAvaliacao.tenant_id == tenant_id)
+        )).all()
+        if inicio is not None and fim is not None
+    }
+    faltas_por_periodo_disciplina: dict[tuple[str, uuid.UUID], int] = {}
+    for periodo_nome, (inicio, fim) in janelas_periodo.items():
+        linhas_faltas = (await db.execute(
+            select(RegistroFrequencia.disciplina_id, func.coalesce(func.sum(RegistroFrequencia.faltas), 0))
+            .where(
+                RegistroFrequencia.matricula_id == matricula.id, RegistroFrequencia.tenant_id == tenant_id,
+                RegistroFrequencia.data_aula.between(inicio, fim),
+            )
+            .group_by(RegistroFrequencia.disciplina_id)
+        )).all()
+        for disciplina_id, total in linhas_faltas:
+            faltas_por_periodo_disciplina[(periodo_nome, disciplina_id)] = int(total)
+
+    por_disciplina: dict[uuid.UUID, dict] = {}
+
+    def _disciplina(disciplina_id: uuid.UUID, nome_disciplina: str) -> dict:
+        return por_disciplina.setdefault(disciplina_id, {
+            "disciplina_id": disciplina_id, "nome_disciplina": nome_disciplina,
+            "periodos": {}, "trabalhos": [],
+        })
+
+    def _periodo(entrada_disciplina: dict, periodo_avaliacao: str) -> dict:
+        return entrada_disciplina["periodos"].setdefault(periodo_avaliacao, {
+            "periodo_avaliacao": periodo_avaliacao, "avaliacoes": [],
+            "media_periodo": None, "media_data_atualizacao": None,
+            "faltas_periodo": faltas_por_periodo_disciplina.get((periodo_avaliacao, entrada_disciplina["disciplina_id"])),
+            "_ordem_data": None,  # data mais antiga de NotaAvaliacao neste período — só para ordenar, removida antes de devolver
+        })
+
+    for avaliacao, nota_avaliacao, nome_disciplina in linhas_avaliacoes:
+        entrada = _disciplina(avaliacao.disciplina_id, nome_disciplina)
+        periodo = _periodo(entrada, avaliacao.periodo_avaliacao)
+        periodo["avaliacoes"].append({
+            "titulo": avaliacao.titulo,
+            "tipo_avaliacao": avaliacao.tipo_avaliacao,
+            "valor_nota": nota_avaliacao.valor_nota,
+            "data_lancamento": nota_avaliacao.data_atualizacao,
+        })
+        if periodo["_ordem_data"] is None or nota_avaliacao.data_criacao < periodo["_ordem_data"]:
+            periodo["_ordem_data"] = nota_avaliacao.data_criacao
+
+    for registro, nome_disciplina in linhas_registro:
+        entrada = _disciplina(registro.disciplina_id, nome_disciplina)
+        periodo = _periodo(entrada, registro.periodo_avaliacao)
+        periodo["media_periodo"] = registro.valor_nota
+        periodo["media_data_atualizacao"] = registro.data_atualizacao
+        if periodo["_ordem_data"] is None:
+            # RegistroNota manual sem NotaAvaliacao por trás (pré-existente
+            # a esta funcionalidade) — só sobra a sua própria data.
+            periodo["_ordem_data"] = registro.data_criacao
+
+    for tarefa, tarefa_avaliacao, disciplina_id in linhas_trabalhos:
+        nome_disciplina = next(
+            (d["nome_disciplina"] for d in por_disciplina.values() if d["disciplina_id"] == disciplina_id), None
+        )
+        if nome_disciplina is None:
+            # Disciplina ainda sem nenhuma Avaliacao/RegistroNota — busca o nome à parte.
+            nome_disciplina = (await db.execute(select(Disciplina.nome).where(Disciplina.id == disciplina_id))).scalar_one()
+        entrada = _disciplina(disciplina_id, nome_disciplina)
+        entrada["trabalhos"].append({
+            "titulo": tarefa.titulo,
+            "nota": tarefa_avaliacao.nota,
+            "valor_maximo": tarefa.valor_maximo,
+            "periodo_avaliacao": tarefa.periodo_avaliacao,
+            "data_avaliacao": tarefa_avaliacao.data_avaliacao,
+        })
+
+    disciplinas = []
+    for entrada in por_disciplina.values():
+        periodos_ordenados = sorted(
+            entrada["periodos"].values(),
+            key=lambda p: p["_ordem_data"] or datetime.max.replace(tzinfo=timezone.utc)
+        )
+        for periodo in periodos_ordenados:
+            del periodo["_ordem_data"]
+
+        medias = [p["media_periodo"] for p in periodos_ordenados if p["media_periodo"] is not None]
+        media_final = round(sum(medias) / len(medias), 2) if medias else None
+        # MEO = mesmo cálculo do MFD (média dos MT dos 3 trimestres,
+        # confirmado pelo utilizador) — devolvido como campo próprio
+        # para manter todo o cálculo de notas no backend, mesmo sendo
+        # hoje idêntico a media_final.
+        media_exame_oral = media_final
+        nota_exame_nacional = nen_por_disciplina.get(entrada["disciplina_id"])
+        # M. Final: combina MEO+NEN quando há exame nacional lançado;
+        # senão cai para o MFD (fórmula inferida, não confirmada — ver
+        # "Decisões de Design" no plano desta funcionalidade).
+        if nota_exame_nacional is not None and media_exame_oral is not None:
+            # float() nos dois: RegistroNota.valor_nota chega da BD como
+            # Decimal apesar do type hint float no modelo (driver Postgres),
+            # NotaExameNacional.valor_nota também — misturar Decimal+float
+            # dá TypeError.
+            m_final = round((float(media_exame_oral) + float(nota_exame_nacional)) / 2, 2)
+        else:
+            m_final = media_final
+
+        disciplinas.append({
+            "disciplina_id": entrada["disciplina_id"], "nome_disciplina": entrada["nome_disciplina"],
+            "periodos": periodos_ordenados, "trabalhos": entrada["trabalhos"], "media_final": media_final,
+            "media_exame_oral": media_exame_oral, "nota_exame_nacional": nota_exame_nacional, "m_final": m_final,
+        })
+
+    return {
+        "disciplinas": sorted(disciplinas, key=lambda d: d["nome_disciplina"]),
+        "anos_letivos_disponiveis": anos_disponiveis,
+        "ano_letivo_selecionado": matricula.ano_letivo,
+    }
 
 
 # ==========================================

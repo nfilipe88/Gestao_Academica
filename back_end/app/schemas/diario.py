@@ -32,6 +32,33 @@ class NotaLoteCreate(BaseModel):
 
 class PeriodoAvaliacaoCreate(BaseModel):
     nome: str
+    # Janela calendárica opcional — distinta do trancamento
+    # (aberto/data_fecho, ver models_diario.py::PeriodoAvaliacao). Pode
+    # ser preenchida já aqui ou mais tarde via PeriodoAvaliacaoJanelaUpdate.
+    data_inicio: date | None = None
+    data_fim: date | None = None
+
+
+class PeriodoAvaliacaoJanelaUpdate(BaseModel):
+    """Edita só a janela calendárica (data_inicio/data_fim) de um
+    período já criado — nunca mexe em aberto/data_fecho (ver PATCH
+    .../trancar e .../reabrir, que continuam a ser os únicos donos
+    desses dois campos)."""
+    data_inicio: date | None = None
+    data_fim: date | None = None
+
+
+# ==========================================
+# NOTA DE EXAME NACIONAL (NEN) — valor externo lançado à mão pelo
+# Gestor/Secretaria, ver models_diario.py::NotaExameNacional.
+# ==========================================
+class NotaExameNacionalAluno(BaseModel):
+    matricula_id: uuid.UUID
+    valor_nota: Decimal
+
+
+class NotaExameNacionalLoteCreate(BaseModel):
+    notas: list[NotaExameNacionalAluno]
 
 
 # ==========================================

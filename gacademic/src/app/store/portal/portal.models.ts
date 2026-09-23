@@ -55,6 +55,57 @@ export interface Boletim {
   disciplinas: DisciplinaBoletim[];
 }
 
+// ==========================================
+// Pauta unificada — a par do Boletim acima (não o substitui), ver
+// cruds/portal.py::obter_pauta_do_educando. Por período: cada
+// avaliação individual (Diário + Exames LMS) com a data de lançamento
+// (para o tooltip) + a média já calculada desse período. Trabalhos
+// ficam à parte, só informativos — não entram no cálculo da média.
+// ==========================================
+export interface AvaliacaoPauta {
+  titulo: string;
+  tipo_avaliacao: string | null;
+  valor_nota: number;
+  data_lancamento: string;
+}
+
+export interface PeriodoPauta {
+  periodo_avaliacao: string;
+  avaliacoes: AvaliacaoPauta[];
+  media_periodo: number | null;
+  media_data_atualizacao: string | null;
+  // Faltas do trimestre — só disponível quando o período tem
+  // data_inicio E data_fim configurados (ver PeriodoAvaliacao); "—" no
+  // ecrã quando null (nunca 0 por omissão, para não confundir com
+  // "zero faltas confirmadas").
+  faltas_periodo: number | null;
+}
+
+export interface TrabalhoPauta {
+  titulo: string;
+  nota: number | null;
+  valor_maximo: number;
+  periodo_avaliacao: string | null;
+  data_avaliacao: string | null;
+}
+
+export interface DisciplinaPauta {
+  disciplina_id: string;
+  nome_disciplina: string;
+  periodos: PeriodoPauta[];
+  trabalhos: TrabalhoPauta[];
+  media_final: number | null;   // MFD
+  media_exame_oral: number | null;  // MEO — mesmo valor de media_final hoje
+  nota_exame_nacional: number | null;  // NEN — lançada à mão em Diário → Notas
+  m_final: number | null;  // Classificação Geral
+}
+
+export interface Pauta {
+  disciplinas: DisciplinaPauta[];
+  anos_letivos_disponiveis: number[];
+  ano_letivo_selecionado: number | null;
+}
+
 // Formato reduzido — o extrato de faturas em si reaproveita
 // FaturaMensalidade de store/financeiro/financeiro.models.ts.
 export interface FinanceiroEducando {
@@ -115,7 +166,11 @@ export interface ExameEducando {
   data_inicio: string;
   data_fim: string;
   duracao_minutos: number;
-  status_tentativa: 'NAO_INICIADA' | 'EM_CURSO' | 'SUBMETIDA';
+  modalidade: 'PRESENCIAL' | 'REMOTO';
+  // AGUARDA_CORRECAO: já submetida, mas com ≥1 questão de resposta
+  // aberta ainda por corrigir — nota_obtida/nota_maxima ficam a null
+  // enquanto este estiver ativo (ver cruds/lms.py::listar_exames_do_aluno).
+  status_tentativa: 'NAO_INICIADA' | 'EM_CURSO' | 'SUBMETIDA' | 'AGUARDA_CORRECAO';
   pode_iniciar: boolean;
   nota_obtida: number | null;
   nota_maxima: number | null;
@@ -124,7 +179,7 @@ export interface ExameEducando {
 export interface PerguntaTentativa {
   id: string;
   enunciado: string;
-  tipo: 'ESCOLHA_MULTIPLA' | 'VERDADEIRO_FALSO';
+  tipo: 'ESCOLHA_MULTIPLA' | 'VERDADEIRO_FALSO' | 'ABERTA';
   opcoes: string[];
 }
 
@@ -144,15 +199,21 @@ export interface PerguntaResultado {
   enunciado: string;
   tipo: string;
   opcoes: string[];
-  resposta_correta: string;
+  // ABERTA: resposta_correta/correta ficam a null — essa "resposta
+  // certa" é só uma dica de correção para o staff, nunca mostrada ao
+  // aluno (ver cruds/lms.py::obter_resultado_tentativa).
+  resposta_correta: string | null;
   resposta_dada: string | null;
-  correta: boolean;
+  correta: boolean | null;
+  pontos_obtidos: number | null;
+  comentario: string | null;
 }
 
 export interface ResultadoExame {
   nota_obtida: number;
   nota_maxima: number;
   data_submissao: string;
+  corrigida_finalizada: boolean;
   perguntas: PerguntaResultado[];
 }
 

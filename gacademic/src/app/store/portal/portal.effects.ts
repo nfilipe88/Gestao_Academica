@@ -4,7 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import * as PortalActions from './portal.actions';
 import {
   Boletim, ComunicadoEducando, EducandoResumo, EstatisticasEducando, ExameEducando, FinanceiroEducando,
-  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, RespostaComunicado, ResultadoExame,
+  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, Pauta, RespostaComunicado, ResultadoExame,
   TarefaEducando, TentativaIniciada
 } from './portal.models';
 import { catchError, map, of, switchMap } from 'rxjs';
@@ -49,6 +49,20 @@ export class PortalEffects {
         map(boletim => PortalActions.carregarBoletimDoEducandoSucesso({ boletim })),
         catchError(err => of(PortalActions.portalOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível carregar o boletim.'
+        })))
+      ))
+    )
+  );
+
+  carregarPautaDoEducando$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.carregarPautaDoEducando),
+      switchMap(action => this.http.get<Pauta>(
+        `/api/v1/portal/educandos/${action.aluno_id}/pauta${action.ano_letivo ? '?ano_letivo=' + action.ano_letivo : ''}`
+      ).pipe(
+        map(pauta => PortalActions.carregarPautaDoEducandoSucesso({ pauta })),
+        catchError(err => of(PortalActions.portalOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível carregar a pauta.'
         })))
       ))
     )

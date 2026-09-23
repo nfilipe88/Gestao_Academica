@@ -7,27 +7,28 @@ import { CHAVE_SESSAO_PORTAL_EDUCANDO, guardarSessao, lerSessao } from '../../..
 import { CHAVE_LOCAL_DICAS_PORTAL_FECHADAS, guardarLocal, lerLocal } from '../../../core/utils/armazenamento-local';
 import { Actions, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
-import { filter, map, take } from 'rxjs';
+import { combineLatest, filter, map, take } from 'rxjs';
 import { selectUsuario } from '../../../store/auth/auth.selectors';
 import { selectConfiguracao, selectMoeda } from '../../../store/configuracoes/configuracoes.selector';
 import { MOEDAS_PAYPAL_SUPORTADAS } from '../../../store/configuracoes/configuracoes.models';
-import { capturarPagamento, financeiroOperacaoSucesso, gerarCobranca } from '../../../store/financeiro/financeiro.actions';
+import { capturarPagamento, financeiroOperacaoSucesso, gerarCobranca, reportarPagamentoFatura } from '../../../store/financeiro/financeiro.actions';
 import { selectUltimaCobranca } from '../../../store/financeiro/financeiro.selector';
 import {
   carregarBoletimDoEducando, carregarComunicadosDoEducando, carregarEstatisticasDoEducando, carregarExamesDoEducando,
   carregarFinanceiroDoEducando, carregarHorarioDoEducando, carregarMaterialDoEducando, carregarMateriaisDoEducando,
-  carregarMeusEducandos, carregarResultadoExame, carregarTarefasDoEducando, iniciarTentativaExame,
-  limparMaterialAberto, limparTentativaExame, perguntarProfVirtual, registarEventoSuspeito, responderComunicado,
-  responderComunicadoSucesso, submeterTentativaExame
+  carregarMeusEducandos, carregarPautaDoEducando, carregarResultadoExame, carregarTarefasDoEducando,
+  iniciarTentativaExame, limparMaterialAberto, limparTentativaExame, perguntarProfVirtual, registarEventoSuspeito,
+  responderComunicado, responderComunicadoSucesso, submeterTentativaExame
 } from '../../../store/portal/portal.actions';
 import {
   selectAProcessarPerguntaProfVirtual, selectASubmeterTentativa, selectBoletimDoEducando,
   selectComunicadosDoEducando, selectConversaProfVirtual, selectErroProfVirtual, selectEstatisticasDoEducando,
   selectEventosSuspeitosTentativa, selectExamesDoEducando, selectFinanceiroDoEducando, selectHorarioDoEducando,
-  selectMaterialAberto, selectMateriaisDoEducando, selectMeusEducandos, selectPortalError,
+  selectMaterialAberto, selectMateriaisDoEducando, selectMeusEducandos, selectPautaDoEducando, selectPortalError,
   selectResultadoExame, selectTarefasDoEducando, selectTentativaAtual
 } from '../../../store/portal/portal.selector';
 import { EducandoResumo, HorarioAulaPortal } from '../../../store/portal/portal.models';
+import { PautaTabelaComponent } from '../pauta-tabela/pauta-tabela.component';
 import { FotoPerfilAluno } from '../../../store/alunos/alunos.models';
 import * as DocumentosActions from '../../../store/documentos/documentos.actions';
 import {
@@ -49,7 +50,7 @@ const DIAS_DA_SEMANA = [
 
 @Component({
   selector: 'app-portal.component',
-  imports: [CommonModule, AsyncPipe, FormsModule, RouterLink],
+  imports: [CommonModule, AsyncPipe, FormsModule, RouterLink, PautaTabelaComponent],
   templateUrl: './portal.component.html',
   styleUrl: './portal.component.css',
 })
@@ -68,6 +69,20 @@ export class PortalComponent implements OnInit {
   educandosEmAtraso$ = this.educandos$.pipe(map(educandos => educandos.filter(e => e.tem_propina_em_atraso)));
   horario$ = this.store.select(selectHorarioDoEducando);
   boletim$ = this.store.select(selectBoletimDoEducando);
+  pauta$ = this.store.select(selectPautaDoEducando);
+  // Colunas da tabela da Pauta: união dos nomes de período de todas as
+  // disciplinas, na ordem em que aparecem primeiro (cada disciplina já
+  // vem ordenada cronologicamente do back-end — ver
+  // cruds/portal.py::obter_pauta_do_educando).
+  pautaColunas$ = this.pauta$.pipe(map(pauta => {
+    const nomes: string[] = [];
+    for (const disciplina of pauta?.disciplinas ?? []) {
+      for (const periodo of disciplina.periodos) {
+        if (!nomes.includes(periodo.periodo_avaliacao)) nomes.push(periodo.periodo_avaliacao);
+      }
+    }
+    return nomes;
+  }));
   financeiro$ = this.store.select(selectFinanceiroDoEducando);
   tarefas$ = this.store.select(selectTarefasDoEducando);
   materiais$ = this.store.select(selectMateriaisDoEducando);
@@ -113,8 +128,8 @@ export class PortalComponent implements OnInit {
   // só o query param muda), por isso o educando selecionado e os dados
   // já carregados sobrevivem a trocar de separador — só este campo
   // precisa de acompanhar a URL, feito abaixo em ngOnInit.
-  readonly ABAS_VALIDAS = ['dashboard', 'horario', 'boletim', 'trabalhos', 'materiais', 'exames', 'financeiro', 'documentos', 'comunicados'] as const;
-  aba: 'dashboard' | 'horario' | 'boletim' | 'trabalhos' | 'materiais' | 'exames' | 'financeiro' | 'documentos' | 'comunicados' = 'dashboard';
+  readonly ABAS_VALIDAS = ['dashboard', 'horario', 'boletim', 'pauta', 'trabalhos', 'materiais', 'exames', 'financeiro', 'documentos', 'comunicados'] as const;
+  aba: 'dashboard' | 'horario' | 'boletim' | 'pauta' | 'trabalhos' | 'materiais' | 'exames' | 'financeiro' | 'documentos' | 'comunicados' = 'dashboard';
 
   // Rematrícula self-service — estado local do pedido em curso, para o
   // botão mostrar "A enviar..." e não deixar clicar duas vezes.
@@ -247,6 +262,19 @@ export class PortalComponent implements OnInit {
       // "dashboard" logo a seguir a mostrar corretamente "documentos".
       this.router.navigate([], { relativeTo: this.route, queryParams: tab === 'documentos' ? { tab: 'documentos' } : {}, replaceUrl: true });
     }
+
+    // Login ALUNO só tem UM educando possível (ele próprio) — nunca faz
+    // sentido obrigá-lo a escolher-se a si mesmo, ao contrário de
+    // RESPONSAVEL (0, 1 ou vários filhos, ver template). Complementa o
+    // restauro por URL/sessionStorage acima, nunca o substitui — só
+    // atua quando nada foi restaurado (!educandoSelecionadoId), por
+    // isso não interfere com o retorno do PayPal nem com trocar de
+    // separador (mesma instância do componente, este take(1) já não
+    // volta a disparar depois da primeira vez).
+    combineLatest([this.usuario$, this.educandos$]).pipe(
+      filter(([usuario, educandos]) => usuario?.perfil_acesso === 'ALUNO' && educandos.length === 1 && !this.educandoSelecionadoId),
+      take(1)
+    ).subscribe(([, educandos]) => this.onSelecionarEducando(educandos[0].aluno_id));
   }
 
   // Objeto completo do educando atualmente selecionado — o <select>
@@ -309,6 +337,7 @@ export class PortalComponent implements OnInit {
     this.materialAbertoId = null;
     this.store.dispatch(carregarHorarioDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarBoletimDoEducando({ aluno_id: alunoId }));
+    this.store.dispatch(carregarPautaDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarFinanceiroDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarTarefasDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarMateriaisDoEducando({ aluno_id: alunoId }));
@@ -329,6 +358,14 @@ export class PortalComponent implements OnInit {
       relativeTo: this.route, queryParams: { aluno_id: alunoId }, queryParamsHandling: 'merge', replaceUrl: true
     });
     guardarSessao(this.platformId, CHAVE_SESSAO_PORTAL_EDUCANDO, alunoId);
+  }
+
+  // Troca de Ano Letivo no separador Pauta — só ali, o Dashboard
+  // mostra sempre o ano corrente (ver pauta$, carregado sem ano_letivo
+  // em onSelecionarEducando acima).
+  onSelecionarAnoLetivoPauta(anoLetivo: string) {
+    if (!this.educandoSelecionadoId) return;
+    this.store.dispatch(carregarPautaDoEducando({ aluno_id: this.educandoSelecionadoId, ano_letivo: Number(anoLetivo) }));
   }
 
   // --- Foto de perfil (self-service) ---
@@ -474,6 +511,30 @@ export class PortalComponent implements OnInit {
   // quando a moeda da escola está nessa lista.
   moedaSuportaPaypal(moeda: string | null): boolean {
     return !!moeda && MOEDAS_PAYPAL_SUPORTADAS.includes(moeda);
+  }
+
+  // Fatura cujo campo "referência" de auto-relato está aberto — só um
+  // de cada vez, mesmo padrão de templateEmEdicaoTipo em documentos.component.ts.
+  faturaAReportarId: string | null = null;
+  referenciaPagamentoReportado = '';
+
+  onAlternarReportarPagamento(faturaId: string) {
+    this.faturaAReportarId = this.faturaAReportarId === faturaId ? null : faturaId;
+    this.referenciaPagamentoReportado = '';
+  }
+
+  onConfirmarReportarPagamento(faturaId: string, contratoId: string) {
+    this.store.dispatch(reportarPagamentoFatura({
+      fatura_id: faturaId, contrato_id: contratoId, referencia: this.referenciaPagamentoReportado.trim() || null
+    }));
+    this.faturaAReportarId = null;
+    // reportarPagamentoFatura$ só atualiza store/financeiro — mesmo
+    // motivo/padrão de onPagarComPayPal e capturarPagamento acima.
+    this.actions$.pipe(ofType(financeiroOperacaoSucesso), take(1)).subscribe(() => {
+      if (this.educandoSelecionadoId) {
+        this.store.dispatch(carregarFinanceiroDoEducando({ aluno_id: this.educandoSelecionadoId }));
+      }
+    });
   }
 
   onDescarregarRecibo(faturaId: string) {

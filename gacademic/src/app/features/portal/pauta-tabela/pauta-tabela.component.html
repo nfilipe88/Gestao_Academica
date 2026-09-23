@@ -1,0 +1,65 @@
+<div class="overflow-x-auto">
+  @if (pauta && pauta.disciplinas.length) {
+    <table class="w-full text-left text-sm border-collapse">
+      <thead>
+        <tr class="text-slate-500 text-xs">
+          <th class="py-2 pr-3 font-medium border-b border-slate-200">Disciplina</th>
+          @for (coluna of colunas; track coluna) {
+            <th class="py-2 px-3 font-medium border-b border-slate-200">{{ coluna }}</th>
+          }
+          <th class="py-2 px-3 font-medium border-b border-slate-200 text-right" title="Média Final Disciplina">MFD</th>
+          <th class="py-2 px-3 font-medium border-b border-slate-200 text-right" title="Média de Exame Oral">MEO</th>
+          <th class="py-2 px-3 font-medium border-b border-slate-200 text-right" title="Nota do Exame Nacional">NEN</th>
+          <th class="py-2 pl-3 font-medium border-b border-slate-200 text-right">M. Final</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (disciplina of pauta.disciplinas; track disciplina.disciplina_id) {
+          <tr class="border-b border-slate-100 align-top">
+            <td class="py-3 pr-3 font-semibold text-slate-800">{{ disciplina.nome_disciplina }}</td>
+            @for (coluna of colunas; track coluna) {
+              <td class="py-3 px-3">
+                @if (periodoDaDisciplina(disciplina, coluna); as periodo) {
+                  @if (temMactPtEstruturado(periodo)) {
+                    <div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+                      <span class="text-slate-500" [title]="'Lançada em ' + (mact(periodo)!.data_lancamento | date:'dd/MM/yyyy HH:mm')">MACT: <span class="font-semibold text-slate-800">{{ mact(periodo)!.valor_nota }}</span></span>
+                      <span class="text-slate-500" [title]="'Lançada em ' + (pt(periodo)!.data_lancamento | date:'dd/MM/yyyy HH:mm')">PT: <span class="font-semibold text-slate-800">{{ pt(periodo)!.valor_nota }}</span></span>
+                      <span class="text-slate-500" [title]="periodo.media_data_atualizacao ? ('Calculada em ' + (periodo.media_data_atualizacao | date:'dd/MM/yyyy HH:mm')) : ''">MT: <span class="font-bold text-slate-900">{{ periodo.media_periodo ?? '—' }}</span></span>
+                      <span class="text-slate-500">F T: <span class="font-semibold text-slate-800">{{ periodo.faltas_periodo ?? '—' }}</span></span>
+                    </div>
+                  } @else {
+                    <div class="flex flex-wrap gap-1 mb-1">
+                      @for (avaliacao of periodo.avaliacoes; track $index) {
+                        <span
+                          class="inline-block text-xs bg-slate-100 text-slate-700 rounded px-1.5 py-0.5 cursor-default"
+                          [title]="'Lançada em ' + (avaliacao.data_lancamento | date:'dd/MM/yyyy HH:mm') + (avaliacao.tipo_avaliacao ? ' · ' + avaliacao.tipo_avaliacao : '')">
+                          {{ avaliacao.titulo }}: {{ avaliacao.valor_nota }}
+                        </span>
+                      }
+                    </div>
+                    @if (periodo.media_periodo !== null) {
+                      <span
+                        class="text-sm font-bold text-slate-800 cursor-default"
+                        [title]="'Média calculada em ' + (periodo.media_data_atualizacao | date:'dd/MM/yyyy HH:mm')">
+                        Média: {{ periodo.media_periodo }}
+                      </span>
+                    }
+                    <p class="text-xs text-slate-400 mt-0.5">F T: {{ periodo.faltas_periodo ?? '—' }}</p>
+                  }
+                } @else {
+                  <span class="text-slate-300">—</span>
+                }
+              </td>
+            }
+            <td class="py-3 px-3 text-right font-semibold text-slate-700">{{ disciplina.media_final ?? '—' }}</td>
+            <td class="py-3 px-3 text-right text-slate-500">{{ disciplina.media_exame_oral ?? '—' }}</td>
+            <td class="py-3 px-3 text-right text-slate-500">{{ disciplina.nota_exame_nacional ?? '—' }}</td>
+            <td class="py-3 pl-3 text-right font-bold text-slate-900">{{ disciplina.m_final ?? '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <p class="text-sm text-slate-500 text-center py-6">Ainda não há notas lançadas.</p>
+  }
+</div>

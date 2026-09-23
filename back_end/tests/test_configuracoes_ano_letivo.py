@@ -9,9 +9,9 @@ from tests.conftest import auth_headers, criar_escola_e_gestor
 
 
 def _payload_base(**overrides) -> dict:
-    """PUT /configuracoes exige moeda (sem default) — mesmo payload
-    mínimo em todos os testes, só o Ano Letivo varia."""
-    base = {"moeda": "EUR"}
+    """PUT /configuracoes exige moeda e nota_maxima (sem default) — mesmo
+    payload mínimo em todos os testes, só o Ano Letivo varia."""
+    base = {"moeda": "EUR", "nota_maxima": 10}
     base.update(overrides)
     return base
 

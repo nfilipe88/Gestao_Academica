@@ -24,6 +24,7 @@ from app.database.models_pessoas import Aluno, Professor
 from app.database.models_matricula import Matricula
 from app.database.models_diario import PeriodoAvaliacao, ProfessorTurmaDisciplina
 from app.database.models_tarefas import Tarefa, TarefaAvaliacao
+from app.cruds import notificacoes as crud_notificacoes
 from app.schemas.tarefas import AvaliarTarefaLote, TarefaCreate
 
 STATUS_AVALIACAO_VALIDOS = {"ENTREGUE", "ENTREGUE_ATRASADO", "NAO_ENTREGUE"}
@@ -290,6 +291,20 @@ async def avaliar_tarefa_lote(db: AsyncSession, utilizador: dict, tarefa_id: uui
         )).scalars().all()
     }
 
+    # Uma só query para os usuario_id de todos os alunos deste lote, em
+    # vez de N — mesma disciplina de "uma query, não uma por aluno" já
+    # seguida acima para existentes_da_tarefa. Nem todo o Aluno tem
+    # login (usuario_id nullable) — filtrado aqui, sem guardas extra no loop de baixo.
+    usuario_ids_por_matricula = {
+        m_id: usuario_id
+        for m_id, usuario_id in (await db.execute(
+            select(Matricula.id, Aluno.usuario_id)
+            .join(Aluno, Aluno.id == Matricula.aluno_id)
+            .where(Matricula.id.in_([item.matricula_id for item in dados.avaliacoes]))
+        )).all()
+        if usuario_id
+    }
+
     total = 0
     for item in dados.avaliacoes:
         if item.status not in STATUS_AVALIACAO_VALIDOS:
@@ -320,6 +335,16 @@ async def avaliar_tarefa_lote(db: AsyncSession, utilizador: dict, tarefa_id: uui
         total += 1
 
     await db.commit()
+
+    for item in dados.avaliacoes:
+        usuario_id = usuario_ids_por_matricula.get(item.matricula_id)
+        if usuario_id:
+            mensagem = f'O teu trabalho "{tarefa.titulo}" foi avaliado.' + (f" Nota: {item.nota}." if item.nota is not None else "")
+            await crud_notificacoes.criar_notificacao(
+                db, tenant_id, usuario_id, tipo="TAREFA_AVALIADA",
+                titulo=f'Trabalho avaliado: "{tarefa.titulo}"', mensagem=mensagem, link="/portal?tab=trabalhos"
+            )
+
     return total
 
 

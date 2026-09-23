@@ -1,5 +1,8 @@
 import { createAction, props } from '@ngrx/store';
-import { LmsExame, LmsExameDetalhe, LmsQuestao, LmsResultadoAlunoExame, MaterialAula, TipoQuestaoLms } from './lms.models';
+import {
+  LmsAtribuicaoVariante, LmsCorrecaoQuestaoInput, LmsExameDetalhe, LmsGrupoExame, LmsQuestao, LmsResultadoAlunoExame,
+  Modalidade, MaterialAula, TipoQuestaoLms
+} from './lms.models';
 
 export const carregarMateriais = createAction(
   '[Lms] Carregar Materiais',
@@ -90,28 +93,52 @@ export const apagarQuestao = createAction(
 );
 
 // ==========================================
-// EXAMES (motor online) — gestão pelo professor/staff
+// EXAMES (motor online) — gestão pelo professor/staff. Um GRUPO tem
+// 1+ variantes; só Gestor/Secretaria pode iniciarGrupoExame/reatribuirVariante.
 // ==========================================
-export const carregarExames = createAction(
-  '[Lms] Carregar Exames',
+export const carregarGruposExame = createAction(
+  '[Lms] Carregar Grupos Exame',
   props<{ alocacao_id: string }>()
 );
-export const carregarExamesSucesso = createAction(
-  '[Lms] Carregar Exames Sucesso',
-  props<{ exames: LmsExame[] }>()
+export const carregarGruposExameSucesso = createAction(
+  '[Lms] Carregar Grupos Exame Sucesso',
+  props<{ grupos: LmsGrupoExame[] }>()
 );
 
-export const criarExame = createAction(
-  '[Lms] Criar Exame',
+export const criarGrupoExame = createAction(
+  '[Lms] Criar Grupo Exame',
   props<{
     alocacao_id: string, titulo: string, data_inicio: string, data_fim: string,
-    duracao_minutos: number, baralhar_perguntas: boolean, questao_ids: string[]
+    duracao_minutos: number, baralhar_perguntas: boolean, modalidade: Modalidade,
+    periodo_avaliacao: string, tipo_avaliacao: string, peso: number,
+    variantes: { letra_variante: string | null, questao_ids: string[] }[]
   }>()
 );
 
+export const iniciarGrupoExame = createAction(
+  '[Lms] Iniciar Grupo Exame',
+  props<{ grupo_id: string, alocacao_id: string }>()
+);
+
+export const reatribuirVariante = createAction(
+  '[Lms] Reatribuir Variante',
+  props<{ grupo_id: string, matricula_id: string, exame_id: string }>()
+);
+
+export const apagarGrupoExame = createAction('[Lms] Apagar Grupo Exame', props<{ grupo_id: string, alocacao_id: string }>());
+
+export const carregarAtribuicoesGrupo = createAction('[Lms] Carregar Atribuicoes Grupo', props<{ grupo_id: string }>());
+export const carregarAtribuicoesGrupoSucesso = createAction(
+  '[Lms] Carregar Atribuicoes Grupo Sucesso',
+  props<{ grupo_id: string, atribuicoes: LmsAtribuicaoVariante[] }>()
+);
+
+// Continuam por variante individual — publicar/despublicar sozinho já
+// não chega para os alunos começarem (ver docstring de LMSExame no
+// back-end), mas continua útil para esconder temporariamente UMA
+// variante sem desfazer o INICIAR do grupo inteiro.
 export const publicarExame = createAction('[Lms] Publicar Exame', props<{ exame_id: string, alocacao_id: string }>());
 export const despublicarExame = createAction('[Lms] Despublicar Exame', props<{ exame_id: string, alocacao_id: string }>());
-export const apagarExame = createAction('[Lms] Apagar Exame', props<{ exame_id: string, alocacao_id: string }>());
 
 export const carregarExameDetalhe = createAction('[Lms] Carregar Exame Detalhe', props<{ exame_id: string }>());
 export const carregarExameDetalheSucesso = createAction(
@@ -120,8 +147,20 @@ export const carregarExameDetalheSucesso = createAction(
 );
 export const limparExameDetalhe = createAction('[Lms] Limpar Exame Detalhe');
 
-export const carregarResultadosExame = createAction('[Lms] Carregar Resultados Exame', props<{ exame_id: string }>());
-export const carregarResultadosExameSucesso = createAction(
-  '[Lms] Carregar Resultados Exame Sucesso',
-  props<{ exame_id: string, resultados: LmsResultadoAlunoExame[] }>()
+export const carregarResultadosGrupo = createAction('[Lms] Carregar Resultados Grupo', props<{ grupo_id: string }>());
+export const carregarResultadosGrupoSucesso = createAction(
+  '[Lms] Carregar Resultados Grupo Sucesso',
+  props<{ grupo_id: string, resultados: LmsResultadoAlunoExame[] }>()
+);
+
+// Corrige questões ABERTA pendentes e/ou sobrescreve o total (caso
+// "prova presencial, o professor corrige sempre") — depois de
+// sucesso, volta a carregar os resultados do grupo (grupo_id só serve
+// para o refetch, não vai no corpo do pedido).
+export const corrigirTentativa = createAction(
+  '[Lms] Corrigir Tentativa',
+  props<{
+    exame_id: string, matricula_id: string, grupo_id: string,
+    correcoes: LmsCorrecaoQuestaoInput[], nota_obtida_override: number | null
+  }>()
 );

@@ -38,6 +38,11 @@ export const selectNotasFinais = createSelector(
   (state) => state.notasFinais
 );
 
+export const selectNotasExameNacional = createSelector(
+  selectDiarioState,
+  (state) => state.notasExameNacional
+);
+
 export const selectDiarioMensagem = createSelector(
   selectDiarioState,
   (state) => state.mensagem

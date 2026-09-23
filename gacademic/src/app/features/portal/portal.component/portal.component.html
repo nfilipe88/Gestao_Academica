@@ -29,21 +29,23 @@
     }
   }
 
-  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
-    <label class="block text-sm font-medium text-slate-600 mb-1">Educando</label>
-    <select [value]="educandoSelecionadoId" (change)="onSelecionarEducando($any($event.target).value)"
-      class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-      <option value="">Selecione</option>
-      @for (educando of educandos$ | async; track educando.aluno_id) {
-        <option [value]="educando.aluno_id">
-          {{ educando.nome_completo }} — {{ educando.nome_turma || 'sem turma atual' }}{{ educando.tem_propina_em_atraso ? ' ⚠ propina em atraso' : '' }}
-        </option>
+  @if ((usuario$ | async)?.perfil_acesso !== 'ALUNO') {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <label class="block text-sm font-medium text-slate-600 mb-1">Educando</label>
+      <select [value]="educandoSelecionadoId" (change)="onSelecionarEducando($any($event.target).value)"
+        class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        <option value="">Selecione</option>
+        @for (educando of educandos$ | async; track educando.aluno_id) {
+          <option [value]="educando.aluno_id">
+            {{ educando.nome_completo }} — {{ educando.nome_turma || 'sem turma atual' }}{{ educando.tem_propina_em_atraso ? ' ⚠ propina em atraso' : '' }}
+          </option>
+        }
+      </select>
+      @if ((educandos$ | async)?.length === 0) {
+        <p class="text-sm text-amber-600 mt-2">Ainda não há nenhum aluno associado a este login.</p>
       }
-    </select>
-    @if ((educandos$ | async)?.length === 0) {
-      <p class="text-sm text-amber-600 mt-2">Ainda não há nenhum aluno associado a este login.</p>
-    }
-  </div>
+    </div>
+  }
 
   @if (educandoSelecionadoId) {
     @if (educandoAtual(educandos$ | async); as edu) {
@@ -205,24 +207,8 @@
           </div>
 
           <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
-            <h3 class="text-sm font-semibold text-slate-800 mb-3">Aproveitamento por disciplina</h3>
-            @if (est.media_por_disciplina.length > 0) {
-              <div class="space-y-2">
-                @for (d of est.media_por_disciplina; track d.disciplina_id) {
-                  <div class="flex items-center justify-between gap-3">
-                    <span class="text-sm text-slate-700">{{ d.nome_disciplina }}</span>
-                    <div class="flex items-center gap-2 flex-1 max-w-xs">
-                      <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div class="h-full bg-blue-500 rounded-full" [style.width.%]="(d.media / 10) * 100"></div>
-                      </div>
-                      <span class="text-sm font-medium text-slate-800 w-10 text-right">{{ d.media }}</span>
-                    </div>
-                  </div>
-                }
-              </div>
-            } @else {
-              <p class="text-sm text-slate-400">Ainda não há notas lançadas.</p>
-            }
+            <h3 class="text-sm font-semibold text-slate-800 mb-3">Notas — {{ (pauta$ | async)?.ano_letivo_selecionado }}</h3>
+            <app-pauta-tabela [pauta]="pauta$ | async" [colunas]="(pautaColunas$ | async) ?? []" />
           </div>
 
           <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
@@ -316,6 +302,48 @@
               <p class="text-sm text-slate-500 text-center py-6">Ainda não há notas ou frequência lançadas.</p>
             }
           </div>
+        }
+      </div>
+    }
+
+    @if (aba === 'pauta') {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+        @if (pauta$ | async; as pauta) {
+          @if (pauta.anos_letivos_disponiveis.length > 1) {
+            <div class="mb-4">
+              <label class="block text-xs font-medium text-slate-600 mb-1">Ano Letivo</label>
+              <select [value]="pauta.ano_letivo_selecionado" (change)="onSelecionarAnoLetivoPauta($any($event.target).value)"
+                class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                @for (ano of pauta.anos_letivos_disponiveis; track ano) {
+                  <option [value]="ano">{{ ano }}/{{ ano + 1 }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <app-pauta-tabela [pauta]="pauta" [colunas]="(pautaColunas$ | async) ?? []" />
+
+          @if (pauta.disciplinas.length) {
+            <div class="mt-6 space-y-3">
+              <h4 class="text-sm font-semibold text-slate-800">Trabalhos (informativo — não entram na média)</h4>
+              @for (disciplina of pauta.disciplinas; track disciplina.disciplina_id) {
+                @if (disciplina.trabalhos.length) {
+                  <div class="border border-slate-200 rounded-lg p-3">
+                    <p class="text-xs font-semibold text-slate-600 mb-1">{{ disciplina.nome_disciplina }}</p>
+                    <div class="flex flex-wrap gap-1">
+                      @for (trabalho of disciplina.trabalhos; track $index) {
+                        <span
+                          class="inline-block text-xs bg-indigo-50 text-indigo-700 rounded px-1.5 py-0.5 cursor-default"
+                          [title]="trabalho.data_avaliacao ? ('Lançada em ' + (trabalho.data_avaliacao | date:'dd/MM/yyyy HH:mm')) : 'Ainda não avaliado'">
+                          {{ trabalho.titulo }}: {{ trabalho.nota !== null ? (trabalho.nota + ' / ' + trabalho.valor_maximo) : 'Por avaliar' }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+          }
         }
       </div>
     }
@@ -472,6 +500,12 @@
                         </label>
                       }
                     </div>
+                  } @else if (pergunta.tipo === 'ABERTA') {
+                    <textarea rows="3" [value]="respostasTentativa[pergunta.id] ?? ''"
+                      (input)="onResponder(pergunta.id, $any($event.target).value)"
+                      placeholder="Escreve a tua resposta…"
+                      class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+                    <p class="text-[10px] text-slate-400 mt-1">Esta questão é corrigida manualmente pelo professor — a tua nota fica pendente até lá.</p>
                   } @else {
                     <div class="flex gap-4">
                       <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
@@ -502,7 +536,12 @@
               <div class="border border-slate-200 rounded-lg px-4 py-3">
                 <div class="flex items-center justify-between flex-wrap gap-2">
                   <div>
-                    <h4 class="text-sm font-semibold text-slate-800">{{ exame.titulo }}</h4>
+                    <div class="flex items-center gap-2">
+                      <h4 class="text-sm font-semibold text-slate-800">{{ exame.titulo }}</h4>
+                      <span class="text-[10px] font-medium py-0.5 px-1.5 rounded-full bg-slate-100 text-slate-500">
+                        {{ exame.modalidade === 'REMOTO' ? 'Remoto' : 'Presencial' }}
+                      </span>
+                    </div>
                     <p class="text-xs text-slate-500">{{ exame.nome_disciplina }} · {{ exame.data_inicio | date:'short' }} → {{ exame.data_fim | date:'short' }} · {{ exame.duracao_minutos }} min</p>
                   </div>
                   <div class="flex items-center gap-3 shrink-0">
@@ -514,6 +553,10 @@
                         class="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
                         {{ exameResultadoAbertoId === exame.id ? 'Ocultar' : 'Ver correção' }}
                       </button>
+                    } @else if (exame.status_tentativa === 'AGUARDA_CORRECAO') {
+                      <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-amber-100 text-amber-700">
+                        Submetido — a aguardar correção do professor
+                      </span>
                     } @else if ((usuario$ | async)?.perfil_acesso !== 'ALUNO') {
                       <span class="text-xs text-slate-400">Só o aluno pode realizar o exame.</span>
                     } @else if (exame.pode_iniciar) {
@@ -532,9 +575,18 @@
                     @for (pergunta of resultado.perguntas; track pergunta.id; let i = $index) {
                       <div class="text-sm">
                         <p class="text-slate-800">{{ i + 1 }}. {{ pergunta.enunciado }}</p>
-                        <p [class.text-emerald-600]="pergunta.correta" [class.text-rose-600]="!pergunta.correta" class="text-xs mt-1">
-                          {{ pergunta.correta ? '✓ Correta' : '✗ Resposta dada: ' + (pergunta.resposta_dada ?? '(em branco)') + ' — correta: ' + pergunta.resposta_correta }}
-                        </p>
+                        @if (pergunta.tipo === 'ABERTA') {
+                          <p class="text-xs mt-1 text-slate-600">Resposta: {{ pergunta.resposta_dada ?? '(em branco)' }}</p>
+                          @if (pergunta.pontos_obtidos !== null) {
+                            <p class="text-xs text-emerald-600">✓ {{ pergunta.pontos_obtidos }} ponto(s)@if (pergunta.comentario) {<span> — {{ pergunta.comentario }}</span>}</p>
+                          } @else {
+                            <p class="text-xs text-amber-600">A aguardar correção do professor.</p>
+                          }
+                        } @else {
+                          <p [class.text-emerald-600]="pergunta.correta" [class.text-rose-600]="!pergunta.correta" class="text-xs mt-1">
+                            {{ pergunta.correta ? '✓ Correta' : '✗ Resposta dada: ' + (pergunta.resposta_dada ?? '(em branco)') + ' — correta: ' + pergunta.resposta_correta }}
+                          </p>
+                        }
                       </div>
                     }
                   </div>
@@ -601,22 +653,61 @@
                             <span class="text-xs text-slate-400" title="Pague as parcelas anteriores primeiro — as parcelas têm de ser pagas em ordem.">
                               Aguarda parcela(s) anterior(es)
                             </span>
-                          } @else if (moedaSuportaPaypal(moeda$ | async)) {
-                            @if (fatura.transacoes_ativas.length > 0) {
-                              <a [href]="fatura.transacoes_ativas[0].approve_url" target="_blank" rel="noopener"
-                                class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-lg transition-colors">
-                                Continuar pagamento PayPal
-                              </a>
-                            } @else {
-                              <button type="button" (click)="onPagarComPayPal(fatura.id, financeiro.contrato.id)"
-                                class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
-                                Pagar com PayPal
-                              </button>
-                            }
-                          } @else if (iban$ | async; as iban) {
-                            <span class="text-xs text-slate-500" title="O PayPal não aceita a moeda desta escola — pague por transferência para este IBAN e a Secretaria confirma o pagamento.">
-                              Transferência para {{ iban }}
-                            </span>
+                          } @else {
+                            <div class="flex flex-col items-end gap-1.5">
+                              <!-- Transferência bancária — método em destaque, independente da moeda. -->
+                              @if (iban$ | async; as iban) {
+                                <div class="text-left bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-full max-w-[260px]">
+                                  <p class="text-xs font-semibold text-slate-700">Transferência bancária</p>
+                                  <p class="text-xs text-slate-600 font-mono mt-0.5">{{ iban }}</p>
+                                  <p class="text-xs text-slate-500 mt-0.5">
+                                    Valor: {{ fatura.valor_atualizado | currency:((moeda$ | async) ?? undefined) }} ·
+                                    Referência: {{ fatura.id | slice:0:8 }}
+                                  </p>
+                                  @if (fatura.pagamento_reportado_em) {
+                                    <p class="text-xs text-emerald-600 font-medium mt-1.5">Aguarda confirmação da secretaria</p>
+                                  } @else if (faturaAReportarId === fatura.id) {
+                                    <div class="mt-1.5 flex flex-col gap-1.5">
+                                      <input type="text" [(ngModel)]="referenciaPagamentoReportado" placeholder="Referência/nota (opcional)"
+                                        class="text-xs border border-slate-300 rounded px-2 py-1 w-full" />
+                                      <div class="flex gap-1.5">
+                                        <button type="button" (click)="onConfirmarReportarPagamento(fatura.id, financeiro.contrato.id)"
+                                          class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1 px-2 rounded cursor-pointer">
+                                          Confirmar
+                                        </button>
+                                        <button type="button" (click)="onAlternarReportarPagamento(fatura.id)"
+                                          class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">
+                                          Cancelar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  } @else {
+                                    <button type="button" (click)="onAlternarReportarPagamento(fatura.id)"
+                                      class="text-xs text-blue-600 hover:text-blue-800 font-medium mt-1.5 cursor-pointer">
+                                      Já efetuei a transferência
+                                    </button>
+                                  }
+                                </div>
+                              } @else {
+                                <span class="text-xs text-slate-400" title="Ainda não foi configurado um IBAN — a escola tem de o indicar noutro canal.">
+                                  Contacte a secretaria para indicações de pagamento
+                                </span>
+                              }
+                              <!-- PayPal — alternativa secundária, só quando a moeda é aceite. -->
+                              @if (moedaSuportaPaypal(moeda$ | async)) {
+                                @if (fatura.transacoes_ativas.length > 0) {
+                                  <a [href]="fatura.transacoes_ativas[0].approve_url" target="_blank" rel="noopener"
+                                    class="text-xs text-amber-600 hover:text-amber-800 font-medium">
+                                    Continuar pagamento PayPal
+                                  </a>
+                                } @else {
+                                  <button type="button" (click)="onPagarComPayPal(fatura.id, financeiro.contrato.id)"
+                                    class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">
+                                    Ou pagar com PayPal
+                                  </button>
+                                }
+                              }
+                            </div>
                           }
                         } @else if (fatura.status_efetivo === 'PAGO') {
                           <div class="flex items-center justify-end gap-2">

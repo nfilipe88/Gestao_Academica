@@ -1,8 +1,8 @@
 import { createAction, props } from '@ngrx/store';
 import {
   Boletim, ComunicadoEducando, EducandoResumo, EstatisticasEducando, ExameEducando, FinanceiroEducando,
-  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, RespostaComunicado, ResultadoExame,
-  TarefaEducando, TentativaIniciada
+  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, Pauta, RespostaComunicado,
+  ResultadoExame, TarefaEducando, TentativaIniciada
 } from './portal.models';
 
 export const carregarMeusEducandos = createAction('[Portal] Carregar Meus Educandos');
@@ -27,6 +27,18 @@ export const carregarBoletimDoEducando = createAction(
 export const carregarBoletimDoEducandoSucesso = createAction(
   '[Portal] Carregar Boletim Do Educando Sucesso',
   props<{ boletim: Boletim }>()
+);
+
+// A par de carregarBoletimDoEducando acima (não o substitui) — pauta
+// unificada com o detalhe por avaliação/período que o Boletim não tem.
+// ano_letivo opcional: por omissão devolve o ano da matrícula atual.
+export const carregarPautaDoEducando = createAction(
+  '[Portal] Carregar Pauta Do Educando',
+  props<{ aluno_id: string; ano_letivo?: number }>()
+);
+export const carregarPautaDoEducandoSucesso = createAction(
+  '[Portal] Carregar Pauta Do Educando Sucesso',
+  props<{ pauta: Pauta }>()
 );
 
 export const carregarFinanceiroDoEducando = createAction(

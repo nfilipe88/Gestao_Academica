@@ -279,7 +279,7 @@ async def criar_comunicado(db: AsyncSession, utilizador: dict, dados: Comunicado
         tipo="COMUNICADO",
         titulo=f"Novo {dados.tipo.lower()}: {dados.titulo}",
         mensagem=dados.corpo[:280],
-        link="/comunicacoes"
+        link="/portal?tab=comunicados"
     )
 
     return novo_comunicado, emails

@@ -22,6 +22,9 @@ class Tenant(Base):
     # alerta a aproximar-se e suspende automaticamente ao expirar (ver
     # app/core/scheduler.py::job_validade_licenca_diaria).
     data_validade_licenca: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Isenção do limite de alunos do plano ativo (PlanoSaaS.limite_alunos),
+    # concedida pelo Super Admin — ver app/core/limites_plano.py.
+    isento_limite_alunos: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     # Configurações da escola (editável pelo próprio GESTOR, ao contrário
@@ -57,6 +60,17 @@ class Tenant(Base):
     # ex.: 0-20 ou 0-10) — usada no Boletim/Indicadores para marcar
     # Aprovado/Reprovado. Sem valor definido, essa marcação não aparece.
     nota_minima_aprovacao: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
+    # Nota máxima da escala de notas da escola (ex.: 10 em Portugal/
+    # Brasil, 20 em Angola/MININED) — usada por
+    # cruds/diario.py::lancar_notas_lote/lancar_notas_avaliacao_lote para
+    # validar o intervalo aceite ao lançar uma nota. Obrigatório (por
+    # isso NOT NULL, ao contrário de nota_minima_aprovacao, que é só
+    # informativo) — sem isto o motor de notas assumiria sempre 0-10,
+    # o que rejeitava silenciosamente notas reais de escolas na escala
+    # 0-20 (caso real: importação de mini-pautas MININED, que têm
+    # notas MACT/PT até 20). server_default preserva o comportamento
+    # anterior (0-10, fixo) para as escolas já existentes.
+    nota_maxima: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False, server_default=text("10"))
 
     # Ano Letivo corrente da escola — regra geral, começa num ano e
     # termina no seguinte (ex.: início em setembro de 2026, fim em

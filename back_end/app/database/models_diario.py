@@ -205,6 +205,18 @@ class PeriodoAvaliacao(Base):
     nome: Mapped[str] = mapped_column(String(50), nullable=False)  # tem de bater certo com RegistroNota.periodo_avaliacao
     aberto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     data_fecho: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # data_inicio/data_fim: janela CALENDÁRICA do período (ex.: 1º
+    # Trimestre corre de 15/09 a 15/12), distinta e independente de
+    # aberto/data_fecho (que só marcam o TRANCAMENTO de lançamentos —
+    # data_fecho é preenchida automaticamente ao trancar, não escolhida
+    # pelo Gestor, por isso nunca serve como fim de janela real).
+    # Opcionais, editáveis via PATCH depois de criado (ver
+    # cruds/diario.py::atualizar_janela_periodo_avaliacao) — usadas só
+    # para somar faltas desse trimestre na Pauta do Portal (ver
+    # cruds/portal.py::_faltas_do_periodo); sem as duas preenchidas,
+    # essa soma fica indisponível ("—"), nunca um erro.
+    data_inicio: Mapped[date | None] = mapped_column(Date, nullable=True)
+    data_fim: Mapped[date | None] = mapped_column(Date, nullable=True)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (
@@ -227,6 +239,34 @@ class RegistroNotaAuditoria(Base):
     valor_antigo: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
     valor_novo: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
     alterado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class NotaExameNacional(Base):
+    """Nota do Exame Nacional (NEN) — valor de origem externa à escola,
+    lançado à mão pelo Gestor/Secretaria (nunca pelo Professor, nunca
+    calculado), só relevante em classes terminais com exame nacional
+    (ex.: 9ª/12ª classe). Ligada a matricula_id (não aluno_id), por
+    isso já fica isolada por ano letivo sem esforço extra — repetir o
+    ano começa sempre sem NEN antiga.
+
+    Entra na Pauta do Portal só como mais um valor a par de MFD/MEO —
+    ver cruds/portal.py::obter_pauta_do_educando, campo "m_final"."""
+    __tablename__ = "nota_exame_nacional"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    matricula_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matricula.id", ondelete="CASCADE"), nullable=False)
+    disciplina_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disciplina.id", ondelete="CASCADE"), nullable=False)
+
+    valor_nota: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
+    lancado_por_usuario_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
+    data_lancamento: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP")
+    )
+
+    __table_args__ = (
+        UniqueConstraint("matricula_id", "disciplina_id", name="uq_nen_matricula_disciplina"),
+    )
 
 
 class RegistroComportamento(Base):

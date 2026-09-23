@@ -9,6 +9,7 @@ export const selectLmsError = createSelector(selectLmsState, (state) => state.er
 export const selectASugerirConteudo = createSelector(selectLmsState, (state) => state.aSugerirConteudo);
 export const selectSugestaoConteudo = createSelector(selectLmsState, (state) => state.sugestaoConteudo);
 export const selectBancoQuestoes = createSelector(selectLmsState, (state) => state.bancoQuestoes);
-export const selectExames = createSelector(selectLmsState, (state) => state.exames);
+export const selectGruposExame = createSelector(selectLmsState, (state) => state.grupos);
 export const selectExameDetalhe = createSelector(selectLmsState, (state) => state.exameDetalhe);
-export const selectResultadosPorExame = createSelector(selectLmsState, (state) => state.resultadosPorExame);
+export const selectResultadosPorGrupo = createSelector(selectLmsState, (state) => state.resultadosPorGrupo);
+export const selectAtribuicoesPorGrupo = createSelector(selectLmsState, (state) => state.atribuicoesPorGrupo);

@@ -25,11 +25,16 @@ export interface NotaAlunoInput {
   valor_nota: number;
 }
 
+// data_inicio/data_fim são distintos de aberto/data_fecho (que só
+// servem o mecanismo de trancamento) — usados só para somar as Faltas
+// do Trimestre na Pauta do Portal (ver PATCH .../periodos/{id}/janela).
 export interface PeriodoAvaliacao {
   id: string;
   nome: string;
   aberto: boolean;
   data_fecho: string | null;
+  data_inicio: string | null;
+  data_fim: string | null;
 }
 
 // O catálogo de tipos deixou de ser fixo — cada escola define os seus
@@ -80,4 +85,13 @@ export interface NotaFinal {
   nome_aluno: string;
   valor_nota: number | null;
   calculada_automaticamente: boolean;
+}
+
+// Nota de Exame Nacional (NEN) — valor externo por ano letivo (ligado
+// à matrícula, não a um período), lançado só por Gestor/Secretaria —
+// ver cruds/diario.py::lancar_nota_exame_nacional_lote.
+export interface NotaExameNacional {
+  matricula_id: string;
+  nome_aluno: string;
+  valor_nota: number | null;
 }

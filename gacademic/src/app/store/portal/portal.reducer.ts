@@ -2,7 +2,7 @@ import { createReducer, on } from '@ngrx/store';
 import * as PortalActions from './portal.actions';
 import {
   Boletim, ComunicadoEducando, EducandoResumo, EstatisticasEducando, ExameEducando, FinanceiroEducando,
-  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, ResultadoExame,
+  HorarioAulaPortal, MaterialEducando, MaterialEducandoDetalhe, MensagemProfVirtual, Pauta, ResultadoExame,
   TarefaEducando, TentativaIniciada
 } from './portal.models';
 
@@ -10,6 +10,7 @@ export interface PortalState {
   educandos: EducandoResumo[];
   horario: HorarioAulaPortal[];
   boletim: Boletim | null;
+  pauta: Pauta | null;
   financeiro: FinanceiroEducando | null;
   tarefas: TarefaEducando[];
   materiais: MaterialEducando[];
@@ -31,6 +32,7 @@ export const initialState: PortalState = {
   educandos: [],
   horario: [],
   boletim: null,
+  pauta: null,
   financeiro: null,
   tarefas: [],
   materiais: [],
@@ -51,7 +53,7 @@ export const initialState: PortalState = {
 export const portalReducer = createReducer(
   initialState,
   on(PortalActions.carregarMeusEducandos, PortalActions.carregarHorarioDoEducando,
-     PortalActions.carregarBoletimDoEducando, PortalActions.carregarFinanceiroDoEducando,
+     PortalActions.carregarBoletimDoEducando, PortalActions.carregarPautaDoEducando, PortalActions.carregarFinanceiroDoEducando,
      PortalActions.carregarTarefasDoEducando, PortalActions.carregarMateriaisDoEducando,
      PortalActions.carregarMaterialDoEducando, PortalActions.carregarExamesDoEducando,
      PortalActions.carregarEstatisticasDoEducando, PortalActions.carregarComunicadosDoEducando,
@@ -61,6 +63,7 @@ export const portalReducer = createReducer(
   on(PortalActions.carregarMeusEducandosSucesso, (state, { educandos }) => ({ ...state, educandos })),
   on(PortalActions.carregarHorarioDoEducandoSucesso, (state, { horario }) => ({ ...state, horario })),
   on(PortalActions.carregarBoletimDoEducandoSucesso, (state, { boletim }) => ({ ...state, boletim })),
+  on(PortalActions.carregarPautaDoEducandoSucesso, (state, { pauta }) => ({ ...state, pauta })),
   on(PortalActions.carregarFinanceiroDoEducandoSucesso, (state, { financeiro }) => ({ ...state, financeiro })),
   on(PortalActions.carregarTarefasDoEducandoSucesso, (state, { tarefas }) => ({ ...state, tarefas })),
   on(PortalActions.carregarMateriaisDoEducandoSucesso, (state, { materiais }) => ({ ...state, materiais })),

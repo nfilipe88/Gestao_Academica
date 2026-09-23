@@ -1,6 +1,6 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { combineLatest, Subscription, take } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
@@ -11,34 +11,36 @@ import { carregarObjetivosAprendizagem } from '../../../store/academico/academic
 import { selectObjetivosAprendizagem } from '../../../store/academico/academic.selector';
 import { ObjetivoAprendizagem } from '../../../store/academico/academic.models';
 import {
-  apagarAvaliacao, atualizarAvaliacao, carregarAlunosDiario, carregarAvaliacoes, carregarConsolidado,
-  carregarNotasAvaliacao, carregarNotasFinais, carregarPeriodos, criarAvaliacao, criarPeriodo,
-  lancarFrequencias, lancarNotas, lancarNotasAvaliacao, reabrirPeriodo, trancarPeriodo
+  apagarAvaliacao, atualizarAvaliacao, atualizarJanelaPeriodo, carregarAlunosDiario, carregarAvaliacoes,
+  carregarConsolidado, carregarNotasAvaliacao, carregarNotasExameNacional, carregarNotasFinais, carregarPeriodos,
+  criarAvaliacao, criarPeriodo, lancarFrequencias, lancarNotaExameNacionalLote, lancarNotas, lancarNotasAvaliacao,
+  reabrirPeriodo, trancarPeriodo
 } from '../../../store/diario/diario.actions';
 import {
   selectAlunosDiario, selectAvaliacoes, selectConsolidado, selectDiarioError, selectDiarioMensagem,
-  selectNotasAvaliacaoSelecionada, selectNotasFinais, selectPeriodos
+  selectNotasAvaliacaoSelecionada, selectNotasExameNacional, selectNotasFinais, selectPeriodos
 } from '../../../store/diario/diario.selector';
-import { AlunoDiario, Avaliacao } from '../../../store/diario/diario.models';
-import { carregarTiposAvaliacao } from '../../../store/configuracoes/configuracoes.actions';
-import { selectTiposAvaliacaoAtivos } from '../../../store/configuracoes/configuracoes.selector';
+import { AlunoDiario, Avaliacao, PeriodoAvaliacao } from '../../../store/diario/diario.models';
+import { carregarConfiguracao, carregarTiposAvaliacao } from '../../../store/configuracoes/configuracoes.actions';
+import { selectConfiguracao, selectTiposAvaliacaoAtivos } from '../../../store/configuracoes/configuracoes.selector';
 import {
-  apagarExame, apagarMaterial, apagarQuestao, atualizarMaterial, atualizarQuestao, carregarBancoQuestoes,
-  carregarExameDetalhe, carregarExames, carregarMateriais, carregarResultadosExame, criarExame, criarMaterial,
-  criarQuestao, despublicarExame, limparExameDetalhe, limparSugestaoConteudo, publicarExame, sugerirConteudo
+  apagarGrupoExame, apagarMaterial, apagarQuestao, atualizarMaterial, atualizarQuestao, carregarAtribuicoesGrupo,
+  carregarBancoQuestoes, carregarExameDetalhe, carregarGruposExame, carregarMateriais, carregarResultadosGrupo,
+  corrigirTentativa, criarGrupoExame, criarMaterial, criarQuestao, despublicarExame, iniciarGrupoExame,
+  limparExameDetalhe, limparSugestaoConteudo, publicarExame, reatribuirVariante, sugerirConteudo
 } from '../../../store/lms/lms.actions';
 import {
-  selectASugerirConteudo, selectBancoQuestoes, selectExameDetalhe, selectExames, selectLmsError, selectLmsMensagem,
-  selectMateriais, selectResultadosPorExame, selectSugestaoConteudo
+  selectASugerirConteudo, selectAtribuicoesPorGrupo, selectBancoQuestoes, selectExameDetalhe, selectGruposExame,
+  selectLmsError, selectLmsMensagem, selectMateriais, selectResultadosPorGrupo, selectSugestaoConteudo
 } from '../../../store/lms/lms.selector';
-import { LmsQuestao, MaterialAula, TipoQuestaoLms } from '../../../store/lms/lms.models';
+import { LmsCorrecaoQuestaoInput, LmsQuestao, MaterialAula, Modalidade, TipoQuestaoLms } from '../../../store/lms/lms.models';
 import { carregarGradeDaTurma } from '../../../store/horarios/horarios.actions';
 import { selectGradeDaTurma } from '../../../store/horarios/horarios.selector';
 import { HorarioAula } from '../../../store/horarios/horarios.models';
 
 @Component({
   selector: 'app-diario.component',
-  imports: [ReactiveFormsModule, CommonModule, AsyncPipe],
+  imports: [ReactiveFormsModule, FormsModule, CommonModule, AsyncPipe],
   templateUrl: './diario.component.html',
   styleUrl: './diario.component.css',
 })
@@ -55,12 +57,14 @@ export class DiarioComponent implements OnInit, OnDestroy {
   avaliacoes$ = this.store.select(selectAvaliacoes);
   notasAvaliacaoSelecionada$ = this.store.select(selectNotasAvaliacaoSelecionada);
   notasFinais$ = this.store.select(selectNotasFinais);
+  notasExameNacional$ = this.store.select(selectNotasExameNacional);
   objetivos$ = this.store.select(selectObjetivosAprendizagem);
   materiais$ = this.store.select(selectMateriais);
   bancoQuestoes$ = this.store.select(selectBancoQuestoes);
-  exames$ = this.store.select(selectExames);
+  gruposExame$ = this.store.select(selectGruposExame);
   exameDetalhe$ = this.store.select(selectExameDetalhe);
-  resultadosPorExame$ = this.store.select(selectResultadosPorExame);
+  resultadosPorGrupo$ = this.store.select(selectResultadosPorGrupo);
+  atribuicoesPorGrupo$ = this.store.select(selectAtribuicoesPorGrupo);
   erro$ = this.store.select(selectDiarioError);
   mensagem$ = this.store.select(selectDiarioMensagem);
   erroLms$ = this.store.select(selectLmsError);
@@ -77,9 +81,20 @@ export class DiarioComponent implements OnInit, OnDestroy {
   // Professor só vê os que NÃO exigem agendamento (ex.: Contínua); o
   // Gestor/Secretaria vê o catálogo completo (ver tiposDisponiveis()).
   tiposAvaliacaoAtivos$ = this.store.select(selectTiposAvaliacaoAtivos);
+  // Nota máxima da escala desta escola (ver Tenant.nota_maxima) —
+  // limita os dois <input> de lançamento de nota abaixo (nota final
+  // manual e nota por avaliação). Sempre um número (o back-end garante
+  // a coluna NOT NULL); o valor por omissão do store (10) só aparece
+  // por instantes, antes de carregarConfiguracao() responder.
+  notaMaxima$ = this.store.select(selectConfiguracao).pipe(map(config => config.nota_maxima));
 
   mostrarFormularioPeriodo = false;
   periodoForm = this.fb.group({ nome: ['', Validators.required] });
+
+  // Janela (data_inicio/data_fim) usada para somar Faltas do Trimestre
+  // na Pauta do Portal — distinta de aberto/data_fecho (trancamento).
+  periodoJanelaEmEdicaoId: string | null = null;
+  janelaForm = this.fb.group({ data_inicio: [''], data_fim: [''] });
 
   // Cópia local dos alunos da turma/disciplina atual — usada para
   // construir os mapas de notas por avaliação (o valor vem de um
@@ -160,22 +175,50 @@ export class DiarioComponent implements OnInit, OnDestroy {
     // — evita montar um FormArray só para isto; convertidas em array no
     // submit (ver opcoesArray()/onSubmitQuestao()).
     opcoesTexto: [''],
-    resposta_correta: ['', Validators.required],
+    // Sem Validators.required aqui de propósito: ABERTA não exige
+    // resposta_correta preenchida (é só uma dica de correção opcional
+    // para o staff — ver podeSubmeterQuestao() abaixo, que continua a
+    // exigi-la para ESCOLHA_MULTIPLA/VERDADEIRO_FALSO).
+    resposta_correta: [''],
     valor: [1, [Validators.required, Validators.min(0.01)]]
   });
   questaoAApagarId: string | null = null;
 
+  // Um grupo de exame tem 1+ variantes (Variante A/B/C — perguntas
+  // genuinamente diferentes, não só ordem baralhada) e liga sempre a
+  // uma Avaliacao nova (periodo_avaliacao/tipo_avaliacao/peso,
+  // reaproveitando o mesmo catálogo já usado no formulário de
+  // Avaliações acima — ver tiposParaFormulario$, que já filtra os
+  // tipos com agendamento fora do alcance do Professor: sem esse
+  // filtro aqui, um Professor escolhia "Prova" e o back-end recusava
+  // com 403 ao submeter).
   mostrarFormularioExame = false;
   exameForm = this.fb.group({
     titulo: ['', Validators.required],
     data_inicio: ['', Validators.required],
     data_fim: ['', Validators.required],
     duracao_minutos: [30, [Validators.required, Validators.min(1)]],
-    baralhar_perguntas: [true]
+    baralhar_perguntas: [true],
+    modalidade: ['PRESENCIAL' as Modalidade, Validators.required],
+    periodo_avaliacao: ['', Validators.required],
+    tipo_avaliacao: ['', Validators.required],
+    peso: [100, [Validators.required, Validators.min(0.01)]]
   });
-  questoesSelecionadasNoExame = new Set<string>();
-  exameAApagarId: string | null = null;
-  exameResultadosAbertoId: string | null = null;
+  // Uma variante por linha — pelo menos "A", cada uma com o seu
+  // próprio conjunto de questões escolhido no banco da disciplina.
+  variantesExame: { letra: string; questoes: Set<string> }[] = [{ letra: 'A', questoes: new Set() }];
+  exameAApagarId: string | null = null;      // grupo_id
+  exameResultadosAbertoId: string | null = null;  // grupo_id
+  grupoAtribuicoesAbertoId: string | null = null; // grupo_id — tabela de reatribuição manual (Gestor/Secretaria)
+
+  // Corrigir tentativa (questões ABERTA pendentes e/ou override do
+  // total — ver corrigirTentativa) — matricula_id da linha aberta.
+  // Ao abrir, carrega o gabarito completo da variante (carregarExameDetalhe)
+  // para saber quais perguntas são ABERTA e o seu enunciado.
+  corrigindoMatriculaId: string | null = null;
+  pontosCorrecao: Record<string, number> = {};      // questao_id -> pontos
+  comentarioCorrecao: Record<string, string> = {};  // questao_id -> comentário
+  overrideNotaCorrecao: number | null = null;
 
   chamadaForm = this.fb.group({
     data_aula: [new Date().toISOString().substring(0, 10), Validators.required],
@@ -190,6 +233,9 @@ export class DiarioComponent implements OnInit, OnDestroy {
     data_avaliacao: ['']
   });
   notasPorAluno: Record<string, number | null> = {};
+  // NEN — por disciplina (não por período), preenchida a partir de
+  // notasExameNacional$ quando chega (ver onCarregarPeriodoNotas).
+  notasExameNacionalPorAluno: Record<string, number | null> = {};
 
   constructor() {
     // Sempre que a lista de alunos da turma/disciplina muda, prepara os
@@ -234,6 +280,19 @@ export class DiarioComponent implements OnInit, OnDestroy {
       })
     );
 
+    // Pré-preenche o formulário de NEN com as notas já lançadas (ver
+    // onCarregarPeriodoNotas, que despacha carregarNotasExameNacional).
+    this.subscricoes.add(
+      this.notasExameNacional$.subscribe(notas => {
+        const mapa: Record<string, number | null> = {};
+        for (const nota of notas) {
+          mapa[nota.matricula_id] = nota.valor_nota;
+        }
+        this.notasExameNacionalPorAluno = mapa;
+        this.cdr.markForCheck();
+      })
+    );
+
     // Sempre que chega uma sugestão de conteúdo do Prof. Virtual: se o
     // Conteúdo já tinha texto, pede confirmação antes de substituir; se
     // estava vazio, aplica logo (nada a perder).
@@ -266,6 +325,10 @@ export class DiarioComponent implements OnInit, OnDestroy {
     this.store.dispatch(carregarAlocacoes());
     this.store.dispatch(carregarPeriodos());
     this.store.dispatch(carregarTiposAvaliacao());
+    // Só para ter nota_maxima disponível (ver notaMaxima$) — um
+    // Professor nunca passa por configuracao-inicial.guard.ts, que só
+    // despacha isto para o Gestor.
+    this.store.dispatch(carregarConfiguracao());
   }
 
   ngOnDestroy() {
@@ -290,8 +353,9 @@ export class DiarioComponent implements OnInit, OnDestroy {
       this.store.dispatch(carregarMateriais({ turma_id: alocacao.turma_id, disciplina_id: alocacao.disciplina_id }));
       this.store.dispatch(carregarGradeDaTurma({ turma_id: alocacao.turma_id }));
       this.store.dispatch(carregarBancoQuestoes({ disciplina_id: alocacao.disciplina_id }));
-      this.store.dispatch(carregarExames({ alocacao_id: alocacaoId }));
+      this.store.dispatch(carregarGruposExame({ alocacao_id: alocacaoId }));
       this.exameResultadosAbertoId = null;
+      this.grupoAtribuicoesAbertoId = null;
       this.store.dispatch(limparExameDetalhe());
     });
   }
@@ -381,9 +445,52 @@ export class DiarioComponent implements OnInit, OnDestroy {
     }));
   }
 
+  onNotaExameNacionalChange(matriculaId: string, valorTexto: string) {
+    this.notasExameNacionalPorAluno = {
+      ...this.notasExameNacionalPorAluno,
+      [matriculaId]: valorTexto === '' ? null : Number(valorTexto)
+    };
+  }
+
+  onSubmitNotasExameNacional() {
+    if (!this.turmaSelecionadaId || !this.disciplinaSelecionadaId) return;
+    const notas = Object.entries(this.notasExameNacionalPorAluno)
+      .filter((entrada): entrada is [string, number] => entrada[1] !== null)
+      .map(([matricula_id, valor_nota]) => ({ matricula_id, valor_nota }));
+    if (notas.length === 0) return;
+
+    this.store.dispatch(lancarNotaExameNacionalLote({
+      turma_id: this.turmaSelecionadaId,
+      disciplina_id: this.disciplinaSelecionadaId,
+      notas
+    }));
+  }
+
   alternarFormularioPeriodo() {
     this.mostrarFormularioPeriodo = !this.mostrarFormularioPeriodo;
     this.periodoForm.reset();
+  }
+
+  onAlternarJanela(periodo: PeriodoAvaliacao) {
+    if (this.periodoJanelaEmEdicaoId === periodo.id) {
+      this.periodoJanelaEmEdicaoId = null;
+      return;
+    }
+    this.periodoJanelaEmEdicaoId = periodo.id;
+    this.janelaForm.reset({
+      data_inicio: periodo.data_inicio ? periodo.data_inicio.slice(0, 10) : '',
+      data_fim: periodo.data_fim ? periodo.data_fim.slice(0, 10) : ''
+    });
+  }
+
+  onSubmitJanela(periodoId: string) {
+    const { data_inicio, data_fim } = this.janelaForm.value;
+    this.store.dispatch(atualizarJanelaPeriodo({
+      periodo_id: periodoId,
+      data_inicio: data_inicio || null,
+      data_fim: data_fim || null
+    }));
+    this.periodoJanelaEmEdicaoId = null;
   }
 
   onSubmitPeriodo() {
@@ -420,6 +527,7 @@ export class DiarioComponent implements OnInit, OnDestroy {
     this.mostrarFormularioAvaliacao = false;
     this.store.dispatch(carregarAvaliacoes({ turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId, periodo_avaliacao: periodo }));
     this.store.dispatch(carregarNotasFinais({ turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId, periodo_avaliacao: periodo }));
+    this.store.dispatch(carregarNotasExameNacional({ turma_id: this.turmaSelecionadaId, disciplina_id: this.disciplinaSelecionadaId }));
   }
 
   alternarFormularioAvaliacao() {
@@ -632,8 +740,16 @@ export class DiarioComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ESCOLHA_MULTIPLA/VERDADEIRO_FALSO continuam a exigir resposta_correta
+  // preenchida; ABERTA não (ver comentário no questaoForm acima).
+  podeSubmeterQuestao(): boolean {
+    if (this.questaoForm.invalid) return false;
+    const { tipo, resposta_correta } = this.questaoForm.value;
+    return tipo === 'ABERTA' || !!resposta_correta;
+  }
+
   onSubmitQuestao() {
-    if (this.questaoForm.invalid || !this.disciplinaSelecionadaId) return;
+    if (!this.podeSubmeterQuestao() || !this.disciplinaSelecionadaId) return;
     const { enunciado, tipo, resposta_correta, valor } = this.questaoForm.value;
     const opcoes = tipo === 'ESCOLHA_MULTIPLA' ? this.opcoesArray() : [];
 
@@ -666,36 +782,67 @@ export class DiarioComponent implements OnInit, OnDestroy {
     this.questaoAApagarId = null;
   }
 
-  // --- Motor de Exames (LMS): exames ---
+  // --- Motor de Exames (LMS): grupos de exame (1+ variantes) ---
 
   alternarFormularioExame() {
     this.mostrarFormularioExame = !this.mostrarFormularioExame;
-    this.exameForm.reset({ titulo: '', data_inicio: '', data_fim: '', duracao_minutos: 30, baralhar_perguntas: true });
-    this.questoesSelecionadasNoExame = new Set();
+    this.exameForm.reset({
+      titulo: '', data_inicio: '', data_fim: '', duracao_minutos: 30, baralhar_perguntas: true,
+      modalidade: 'PRESENCIAL', periodo_avaliacao: '', tipo_avaliacao: '', peso: 100
+    });
+    this.variantesExame = [{ letra: 'A', questoes: new Set() }];
   }
 
-  onToggleQuestaoNoExame(questaoId: string) {
-    const novo = new Set(this.questoesSelecionadasNoExame);
-    if (novo.has(questaoId)) novo.delete(questaoId); else novo.add(questaoId);
-    this.questoesSelecionadasNoExame = novo;
+  onAdicionarVariante() {
+    const proximaLetra = String.fromCharCode(65 + this.variantesExame.length); // A, B, C...
+    this.variantesExame = [...this.variantesExame, { letra: proximaLetra, questoes: new Set() }];
+  }
+
+  onRemoverVariante(indice: number) {
+    if (this.variantesExame.length <= 1) return; // pelo menos uma variante sempre
+    this.variantesExame = this.variantesExame.filter((_, i) => i !== indice);
+  }
+
+  onToggleQuestaoNaVariante(indice: number, questaoId: string) {
+    const variante = this.variantesExame[indice];
+    const novasQuestoes = new Set(variante.questoes);
+    if (novasQuestoes.has(questaoId)) novasQuestoes.delete(questaoId); else novasQuestoes.add(questaoId);
+    this.variantesExame = this.variantesExame.map((v, i) => i === indice ? { ...v, questoes: novasQuestoes } : v);
+  }
+
+  podeSubmeterExame(): boolean {
+    return this.exameForm.valid && this.variantesExame.every(v => v.questoes.size > 0);
   }
 
   onSubmitExame() {
-    if (this.exameForm.invalid || !this.alocacaoSelecionadaId || this.questoesSelecionadasNoExame.size === 0) return;
-    const { titulo, data_inicio, data_fim, duracao_minutos, baralhar_perguntas } = this.exameForm.value;
-    this.store.dispatch(criarExame({
+    if (!this.alocacaoSelecionadaId || !this.podeSubmeterExame()) return;
+    const { titulo, data_inicio, data_fim, duracao_minutos, baralhar_perguntas, modalidade, periodo_avaliacao, tipo_avaliacao, peso } = this.exameForm.value;
+    this.store.dispatch(criarGrupoExame({
       alocacao_id: this.alocacaoSelecionadaId,
       titulo: titulo!,
       data_inicio: new Date(data_inicio!).toISOString(),
       data_fim: new Date(data_fim!).toISOString(),
       duracao_minutos: duracao_minutos!,
       baralhar_perguntas: baralhar_perguntas ?? true,
-      questao_ids: Array.from(this.questoesSelecionadasNoExame)
+      modalidade: modalidade as Modalidade,
+      periodo_avaliacao: periodo_avaliacao!,
+      tipo_avaliacao: tipo_avaliacao!,
+      peso: peso!,
+      variantes: this.variantesExame.map(v => ({ letra_variante: v.letra, questao_ids: Array.from(v.questoes) }))
     }));
     this.mostrarFormularioExame = false;
-    this.questoesSelecionadasNoExame = new Set();
+    this.variantesExame = [{ letra: 'A', questoes: new Set() }];
   }
 
+  // Só Gestor/Secretaria (ver podeGerir$ no template) — abre o grupo
+  // aos alunos e dispara a distribuição por round-robin.
+  onIniciarGrupoExame(grupoId: string) {
+    if (!this.alocacaoSelecionadaId) return;
+    this.store.dispatch(iniciarGrupoExame({ grupo_id: grupoId, alocacao_id: this.alocacaoSelecionadaId }));
+  }
+
+  // Continuam por variante individual — publicar/despublicar sozinho
+  // já não abre o exame aos alunos (é preciso também Iniciar o grupo).
   onPublicarExame(exameId: string) {
     if (!this.alocacaoSelecionadaId) return;
     this.store.dispatch(publicarExame({ exame_id: exameId, alocacao_id: this.alocacaoSelecionadaId }));
@@ -706,24 +853,61 @@ export class DiarioComponent implements OnInit, OnDestroy {
     this.store.dispatch(despublicarExame({ exame_id: exameId, alocacao_id: this.alocacaoSelecionadaId }));
   }
 
-  onPedirApagarExame(exameId: string) {
-    this.exameAApagarId = exameId;
+  onPedirApagarExame(grupoId: string) {
+    this.exameAApagarId = grupoId;
   }
 
   onCancelarApagarExame() {
     this.exameAApagarId = null;
   }
 
-  onConfirmarApagarExame(exameId: string) {
+  onConfirmarApagarExame(grupoId: string) {
     if (!this.alocacaoSelecionadaId) return;
-    this.store.dispatch(apagarExame({ exame_id: exameId, alocacao_id: this.alocacaoSelecionadaId }));
+    this.store.dispatch(apagarGrupoExame({ grupo_id: grupoId, alocacao_id: this.alocacaoSelecionadaId }));
     this.exameAApagarId = null;
   }
 
-  onAlternarResultadosExame(exameId: string) {
-    this.exameResultadosAbertoId = this.exameResultadosAbertoId === exameId ? null : exameId;
+  onAlternarResultadosExame(grupoId: string) {
+    this.exameResultadosAbertoId = this.exameResultadosAbertoId === grupoId ? null : grupoId;
     if (this.exameResultadosAbertoId) {
-      this.store.dispatch(carregarResultadosExame({ exame_id: exameId }));
+      this.store.dispatch(carregarResultadosGrupo({ grupo_id: grupoId }));
     }
+  }
+
+  // Reatribuição manual (só Gestor/Secretaria) — mostra quem está em
+  // cada variante e permite mudar antes de o aluno começar a tentativa.
+  onAlternarAtribuicoesGrupo(grupoId: string) {
+    this.grupoAtribuicoesAbertoId = this.grupoAtribuicoesAbertoId === grupoId ? null : grupoId;
+    if (this.grupoAtribuicoesAbertoId) {
+      this.store.dispatch(carregarAtribuicoesGrupo({ grupo_id: grupoId }));
+    }
+  }
+
+  onReatribuirVariante(grupoId: string, matriculaId: string, exameId: string) {
+    this.store.dispatch(reatribuirVariante({ grupo_id: grupoId, matricula_id: matriculaId, exame_id: exameId }));
+  }
+
+  // --- Corrigir tentativa (questões ABERTA + override do total) ---
+
+  onAbrirCorrecao(matriculaId: string, exameId: string) {
+    this.corrigindoMatriculaId = this.corrigindoMatriculaId === matriculaId ? null : matriculaId;
+    this.pontosCorrecao = {};
+    this.comentarioCorrecao = {};
+    this.overrideNotaCorrecao = null;
+    if (this.corrigindoMatriculaId) {
+      this.store.dispatch(carregarExameDetalhe({ exame_id: exameId }));
+    }
+  }
+
+  onConfirmarCorrecao(grupoId: string, exameId: string) {
+    if (!this.corrigindoMatriculaId) return;
+    const correcoes: LmsCorrecaoQuestaoInput[] = Object.entries(this.pontosCorrecao)
+      .filter(([, pontos]) => pontos !== null && pontos !== undefined)
+      .map(([questao_id, pontos]) => ({ questao_id, pontos, comentario: this.comentarioCorrecao[questao_id] || null }));
+    this.store.dispatch(corrigirTentativa({
+      exame_id: exameId, matricula_id: this.corrigindoMatriculaId, grupo_id: grupoId,
+      correcoes, nota_obtida_override: this.overrideNotaCorrecao
+    }));
+    this.corrigindoMatriculaId = null;
   }
 }

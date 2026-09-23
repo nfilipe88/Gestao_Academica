@@ -14,6 +14,11 @@ export interface ConfiguracaoTenant {
   codigo_postal: string | null;
   pais: string | null;
   nota_minima_aprovacao: number | null;
+  // Nota máxima da escala de notas da escola (ex.: 10 ou 20) — sempre
+  // presente (campo obrigatório, ver ConfiguracaoTenantUpdate no
+  // back-end). Usada por Diário de Classe para validar/limitar o
+  // lançamento de notas.
+  nota_maxima: number;
   // Valor padrão da taxa de matrícula (encargo único, distinto das
   // mensalidades) — null = a escola não cobra. Usada ao assinar um
   // contrato em Financeiro e pela conversão automática RN01 a partir da
@@ -85,6 +90,7 @@ export const CONFIGURACAO_INICIAL: ConfiguracaoTenant = {
   codigo_postal: null,
   pais: null,
   nota_minima_aprovacao: null,
+  nota_maxima: 10,
   valor_taxa_matricula: null,
   data_inicio_ano_letivo: null,
   data_fim_ano_letivo: null,
