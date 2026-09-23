@@ -24,6 +24,12 @@ class FaturaMarcarPago(BaseModel):
     forma_pagamento: str = "MANUAL"
 
 
+class FaturaReportarPagamento(BaseModel):
+    """Auto-relato do Responsável ("já efetuei a transferência") — ver
+    cruds/financeiro.py::reportar_pagamento_fatura."""
+    referencia: str | None = None
+
+
 class GerarCobrancaRequest(BaseModel):
     metodo_pagamento: str = "PAYPAL"
 

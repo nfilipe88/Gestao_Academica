@@ -20,14 +20,16 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Tenant
+from app.database.models import Tenant, Usuario
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.database.models_matricula import Matricula
 from app.database.models_financeiro import ContadorRecibo, ContratoFinanceiro, Despesa, FaturaMensalidade, Recibo, TransacaoGateway
 from app.core.email import enviar_email, template_base
 from app.core import documentos_pdf, paypal, storage
 from app.core.paginacao import paginar
-from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, DespesaCreate, FaturaMarcarPago, GerarCobrancaRequest
+from app.schemas.financeiro import (
+    CapturarPagamentoRequest, ContratoCreate, DespesaCreate, FaturaMarcarPago, FaturaReportarPagamento, GerarCobrancaRequest
+)
 from app.schemas.configuracoes import MOEDAS_PAYPAL_SUPORTADAS
 from app.cruds.admin import esta_bloqueado_parcialmente
 from app.cruds import notificacoes as crud_notificacoes
@@ -285,6 +287,8 @@ def serializar_fatura(
         "data_pagamento_realizado": fatura.data_pagamento_realizado,
         "valor_pago_realizado": fatura.valor_pago_realizado,
         "forma_pagamento": fatura.forma_pagamento,
+        "pagamento_reportado_em": fatura.pagamento_reportado_em,
+        "pagamento_reportado_referencia": fatura.pagamento_reportado_referencia,
         **situacao,
         "transacoes_ativas": [_serializar_transacao(t) for t in (transacoes_ativas or [])],
         # RN08: só se pode pagar/cobrar a parcela mais antiga ainda
@@ -603,6 +607,61 @@ async def marcar_fatura_paga(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, 
 
 
 # ==========================================
+# F2. AUTO-RELATO DE PAGAMENTO (Responsável — "já efetuei a transferência")
+# ==========================================
+async def reportar_pagamento_fatura(
+    db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dados: FaturaReportarPagamento, utilizador: dict
+) -> dict:
+    """
+    O Responsável/Aluno regista que já fez a transferência bancária —
+    não confirma o pagamento em si (isso continua a ser só
+    marcar_fatura_paga, pela Secretaria, depois de conferir o extrato),
+    só avisa que está à espera de confirmação. Aditivo: nunca toca em
+    status_pagamento (ver docstring de FaturaMensalidade).
+    """
+    fatura = (await db.execute(
+        select(FaturaMensalidade).where(FaturaMensalidade.id == fatura_id, FaturaMensalidade.tenant_id == tenant_id)
+    )).scalars().first()
+    if not fatura:
+        raise HTTPException(status_code=404, detail="Fatura não encontrada na sua instituição.")
+    await _garantir_acesso_via_fatura(db, tenant_id, utilizador, fatura)
+    if fatura.status_pagamento == "PAGO":
+        raise HTTPException(status_code=400, detail="Esta fatura já está marcada como paga.")
+    if fatura.status_pagamento == "CANCELADO":
+        raise HTTPException(status_code=400, detail="Esta fatura está cancelada.")
+
+    fatura.pagamento_reportado_em = datetime.now(timezone.utc)
+    fatura.pagamento_reportado_referencia = dados.referencia
+    await db.commit()
+
+    contrato = (await db.execute(
+        select(ContratoFinanceiro).where(ContratoFinanceiro.id == fatura.contrato_id)
+    )).scalars().first()
+    aluno_nome = None
+    if contrato:
+        linha_aluno = (await db.execute(
+            select(Aluno.nome_completo).join(Matricula, Matricula.aluno_id == Aluno.id)
+            .where(Matricula.id == contrato.matricula_id)
+        )).scalar_one_or_none()
+        aluno_nome = linha_aluno
+
+    destinatarios = (await db.execute(
+        select(Usuario.id).where(Usuario.tenant_id == tenant_id, Usuario.perfil_acesso.in_(["GESTOR", "SECRETARIA"]))
+    )).scalars().all()
+    if destinatarios:
+        rotulo = _rotulo_parcela(fatura.numero_parcela, contrato.quantidade_parcelas if contrato else None)
+        mensagem = f"{aluno_nome or 'Um encarregado'} reportou o pagamento de {rotulo} por transferência bancária."
+        if dados.referencia:
+            mensagem += f" Referência informada: {dados.referencia}."
+        await crud_notificacoes.criar_notificacoes_em_lote(
+            db, tenant_id, list(destinatarios), tipo="PROPINA",
+            titulo="Pagamento reportado — aguarda confirmação", mensagem=mensagem, link="/financeiro"
+        )
+
+    return {"pagamento_reportado_em": fatura.pagamento_reportado_em}
+
+
+# ==========================================
 # G1. GERAR/EMITIR COBRANÇA (PayPal)
 # ==========================================
 async def gerar_cobranca(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, dados: GerarCobrancaRequest, utilizador: dict) -> dict:
@@ -862,7 +921,14 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
         .join(Matricula, Matricula.id == ContratoFinanceiro.matricula_id)
         .join(Aluno, Aluno.id == Matricula.aluno_id)
         .join(ResponsavelFinanceiroLegal, ResponsavelFinanceiroLegal.id == ContratoFinanceiro.responsavel_id)
-        .where(FaturaMensalidade.tenant_id == tenant_id, FaturaMensalidade.status_pagamento == "PENDENTE")
+        .where(
+            FaturaMensalidade.tenant_id == tenant_id, FaturaMensalidade.status_pagamento == "PENDENTE",
+            # Já reportou a transferência — não faz sentido avisar de
+            # atraso/vencimento logo a seguir a isso (ver
+            # reportar_pagamento_fatura); a Secretaria já foi notificada
+            # à parte quando o relato chegou.
+            FaturaMensalidade.pagamento_reportado_em.is_(None),
+        )
     )).all()
 
     contagem = {"lembrete_previo": 0, "lembrete_vencimento": 0, "aviso_atraso": 0}
@@ -888,7 +954,7 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
             for usuario_id in (usuario_id_responsavel, usuario_id_aluno):
                 if usuario_id:
                     await crud_notificacoes.criar_notificacao(
-                        db, tenant_id, usuario_id, tipo="PROPINA", titulo=titulo, mensagem=mensagem, link="/portal"
+                        db, tenant_id, usuario_id, tipo="PROPINA", titulo=titulo, mensagem=mensagem, link="/portal?tab=financeiro"
                     )
 
         if dias_para_vencer == 3 and fatura.lembrete_previo_enviado_em is None:

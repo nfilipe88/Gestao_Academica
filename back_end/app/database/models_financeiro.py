@@ -70,6 +70,16 @@ class FaturaMensalidade(Base):
     lembrete_vencimento_enviado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     aviso_atraso_enviado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Auto-relato do Responsável ("já efetuei a transferência bancária")
+    # — aditivo, nunca substitui status_pagamento; "aguarda confirmação"
+    # é status_pagamento == PENDENTE com isto preenchido (ver
+    # cruds/financeiro.py::reportar_pagamento_fatura/serializar_fatura).
+    # Enquanto preenchido, a régua de cobrança (RN04) deixa de notificar
+    # esta fatura — não faz sentido avisar de atraso logo a seguir ao
+    # Responsável reportar que já pagou.
+    pagamento_reportado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pagamento_reportado_referencia: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     __table_args__ = (
         UniqueConstraint("contrato_id", "numero_parcela", name="uq_fatura_contrato_parcela"),
         # Cobre a query mais pesada desta tabela: a régua de cobrança

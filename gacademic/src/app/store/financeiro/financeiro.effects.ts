@@ -126,6 +126,24 @@ export class FinanceiroEffects {
     )
   );
 
+  reportarPagamentoFatura$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(FinanceiroActions.reportarPagamentoFatura),
+      switchMap(action => this.http.patch<{ mensagem: string }>(
+        `/api/v1/financeiro/faturas/${action.fatura_id}/reportar-pagamento`,
+        { referencia: action.referencia }
+      ).pipe(
+        switchMap(resp => [
+          FinanceiroActions.carregarFaturasDoContrato({ contrato_id: action.contrato_id }),
+          FinanceiroActions.financeiroOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(FinanceiroActions.financeiroOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível reportar o pagamento.'
+        })))
+      ))
+    )
+  );
+
   gerarCobranca$ = createEffect(() =>
     this.actions$.pipe(
       ofType(FinanceiroActions.gerarCobranca),

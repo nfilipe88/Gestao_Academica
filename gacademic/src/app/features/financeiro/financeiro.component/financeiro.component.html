@@ -249,6 +249,12 @@
                             Transferência para {{ iban }}
                           </span>
                         }
+                        @if (fatura.pagamento_reportado_em) {
+                          <span class="text-xs bg-amber-100 text-amber-700 font-medium py-1 px-2 rounded-full"
+                            [title]="'Reportado em ' + (fatura.pagamento_reportado_em | date:'dd/MM/yyyy HH:mm') + (fatura.pagamento_reportado_referencia ? ' — ' + fatura.pagamento_reportado_referencia : '')">
+                            Responsável reportou pagamento
+                          </span>
+                        }
                         @if (podeGerir$ | async) {
                           <select [(ngModel)]="formaPagamentoPorFatura[fatura.id]" [ngModelOptions]="{ standalone: true }"
                             class="text-xs border border-slate-300 rounded-lg px-2 py-1 text-slate-700 focus:outline-hidden">

@@ -55,6 +55,14 @@ export const marcarFaturaPaga = createAction(
   props<{ fatura_id: string, contrato_id: string, valor_pago: number | null, forma_pagamento: string }>()
 );
 
+// Auto-relato do Responsável ("já efetuei a transferência") — nunca
+// marca a fatura como paga sozinho, só avisa a Secretaria (ver
+// reportar_pagamento_fatura no back-end).
+export const reportarPagamentoFatura = createAction(
+  '[Financeiro] Reportar Pagamento Fatura',
+  props<{ fatura_id: string, contrato_id: string, referencia: string | null }>()
+);
+
 // Pede ao PayPal os dados de pagamento (approve_url) — o effect abre-a
 // numa nova aba assim que a resposta chega.
 export const gerarCobranca = createAction(

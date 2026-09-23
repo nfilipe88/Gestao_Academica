@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import obter_sessao_db, obter_sessao_db_publica
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core import fila_notificacoes
-from app.schemas.financeiro import CapturarPagamentoRequest, ContratoCreate, DespesaCreate, FaturaMarcarPago, GerarCobrancaRequest
+from app.schemas.financeiro import (
+    CapturarPagamentoRequest, ContratoCreate, DespesaCreate, FaturaMarcarPago, FaturaReportarPagamento, GerarCobrancaRequest
+)
 from app.cruds import financeiro as crud_financeiro
 
 router = APIRouter(prefix="/api/v1/financeiro", tags=["Financeiro"])
@@ -113,6 +115,22 @@ async def marcar_fatura_paga(
 ):
     valor_pago = await crud_financeiro.marcar_fatura_paga(db, utilizador["tenant_id"], fatura_id, dados, fila_notificacoes.agendar_email)
     return {"mensagem": "Fatura marcada como paga.", "valor_pago_realizado": valor_pago}
+
+# ==========================================
+# F2. AUTO-RELATO DE PAGAMENTO (Responsável/Aluno — "já efetuei a transferência")
+# ==========================================
+@router.patch("/faturas/{fatura_id}/reportar-pagamento")
+async def reportar_pagamento_fatura(
+    fatura_id: uuid.UUID,
+    dados: FaturaReportarPagamento,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Aberto a qualquer utilizador autenticado — a guarda de "só a sua
+    própria fatura" vive no crud (_garantir_acesso_via_fatura), mesmo
+    padrão de obter_fatura/gerar_cobranca acima."""
+    resultado = await crud_financeiro.reportar_pagamento_fatura(db, utilizador["tenant_id"], fatura_id, dados, utilizador)
+    return {"mensagem": "Pagamento reportado — aguarda confirmação da secretaria.", **resultado}
 
 # ==========================================
 # G1. GERAR/EMITIR COBRANÇA (PayPal)

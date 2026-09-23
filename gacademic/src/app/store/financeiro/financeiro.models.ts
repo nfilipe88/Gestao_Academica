@@ -58,6 +58,11 @@ export interface FaturaMensalidade {
   data_pagamento_realizado: string | null;
   valor_pago_realizado: number | null;
   forma_pagamento: string | null;
+  // Auto-relato do Responsável ("já efetuei a transferência") — nunca
+  // implica status_pagamento === 'PAGO'; só a Secretaria (marcar-pago)
+  // confirma de facto. Ver back_end/app/cruds/financeiro.py::reportar_pagamento_fatura.
+  pagamento_reportado_em: string | null;
+  pagamento_reportado_referencia: string | null;
   transacoes_ativas: TransacaoAtiva[];
   // RN08: só a parcela mais antiga ainda pendente do contrato é pagável
   // — nunca é possível saltar parcelas.
