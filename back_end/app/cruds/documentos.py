@@ -430,7 +430,7 @@ async def capturar_pagamento_documento(db: AsyncSession, tenant_id, order_id: st
         )
         await crud_notificacoes.criar_notificacao(
             db, tenant_id, aluno.usuario_id, tipo="SOLICITACAO_DOCUMENTO",
-            titulo="Pagamento confirmado", mensagem=mensagem, link="/documentos"
+            titulo="Pagamento confirmado", mensagem=mensagem, link="/portal?tab=documentos"
         )
 
     return _serializar_emissao(solicitacao)
@@ -579,7 +579,7 @@ async def marcar_entrega_fisica(db: AsyncSession, tenant_id, solicitacao_id: uui
             db, tenant_id, aluno.usuario_id, tipo="SOLICITACAO_DOCUMENTO",
             titulo="Documento pronto para levantamento",
             mensagem=f"O seu {NOMES_TIPO_DOCUMENTO.get(solicitacao.tipo_documento, solicitacao.tipo_documento)} já pode ser levantado na secretaria.",
-            link="/documentos"
+            link="/portal?tab=documentos"
         )
     return _serializar_emissao(solicitacao)
 
@@ -663,9 +663,12 @@ async def criar_solicitacao_escola(db: AsyncSession, tenant_id, utilizador: dict
     await db.refresh(nova)
 
     if usuario_id_destinatario:
+        # PROFESSOR não tem acesso a /documentos (guard é GESTOR/SECRETARIA
+        # só) nem tem página própria para ver isto — sem link nesse caso.
+        link = "/portal?tab=documentos" if dados.destinatario_tipo in ("ALUNO", "RESPONSAVEL") else None
         await crud_notificacoes.criar_notificacao(
             db, tenant_id, usuario_id_destinatario, tipo="SOLICITACAO_DOCUMENTO",
-            titulo=f"A escola pediu: {dados.titulo}", mensagem=dados.descricao[:280], link="/documentos"
+            titulo=f"A escola pediu: {dados.titulo}", mensagem=dados.descricao[:280], link=link
         )
 
     return _serializar_escola(nova, destinatario_nome=nome_destinatario)

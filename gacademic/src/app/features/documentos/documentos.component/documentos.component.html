@@ -221,9 +221,40 @@
                   — use <code class="bg-white px-1 rounded">{{ exemploSintaxeVariavel }}</code> no HTML abaixo.
                 </div>
 
-                <textarea [(ngModel)]="corpoEmEdicao" rows="10" spellcheck="false"
-                  [placeholder]="exemploPlaceholderTemplate"
-                  class="w-full border border-slate-300 rounded-lg px-4 py-3 text-slate-800 font-mono text-xs leading-relaxed"></textarea>
+                <div>
+                  <label class="block text-xs font-medium text-slate-600 mb-1">Ou carregar um modelo em .docx</label>
+                  <input type="file" accept=".docx" (change)="onSelecionarDocx($event)" [disabled]="aConverterDocx()"
+                    class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50" />
+                  <p class="text-xs text-slate-400 mt-1">
+                    Escreva os placeholders (ex.: {{ exemploSintaxeVariavel }}) como texto normal no Word — o carregamento só transfere o texto/tabelas, não recalcula nada.
+                    Reveja sempre com "Pré-visualizar" antes de guardar.
+                  </p>
+                  @if (aConverterDocx()) {
+                    <p class="text-xs text-blue-600 mt-1">A converter o ficheiro…</p>
+                  }
+                  @if (erroConversaoDocx()) {
+                    <p class="text-xs text-rose-600 mt-1">{{ erroConversaoDocx() }}</p>
+                  }
+                </div>
+
+                <div class="flex items-center justify-end">
+                  <button type="button" (click)="modoAvancado.set(!modoAvancado())"
+                    class="text-xs font-medium text-blue-600 hover:text-blue-800 cursor-pointer">
+                    {{ modoAvancado() ? 'Voltar ao editor visual' : 'HTML avançado' }}
+                  </button>
+                </div>
+
+                @if (!modoAvancado()) {
+                  <quill-editor [(ngModel)]="corpoEmEdicao" theme="snow"
+                    class="block bg-white rounded-lg [&_.ql-editor]:min-h-[240px]"></quill-editor>
+                } @else {
+                  <textarea [(ngModel)]="corpoEmEdicao" rows="10" spellcheck="false"
+                    [placeholder]="exemploPlaceholderTemplate"
+                    class="w-full border border-slate-300 rounded-lg px-4 py-3 text-slate-800 font-mono text-xs leading-relaxed"></textarea>
+                  <p class="text-xs text-slate-400">
+                    Só aqui dá para editar diretamente os ciclos de repetição do Jinja usados no Histórico Escolar/Boletim — o editor visual não os entende.
+                  </p>
+                }
 
                 @if (erroPreVisualizacao()) {
                   <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erroPreVisualizacao() }}</div>
@@ -243,6 +274,10 @@
                     Cancelar
                   </button>
                 </div>
+
+                @if (pdfPreviewUrl()) {
+                  <iframe [src]="pdfPreviewUrl()" class="w-full h-[70vh] border border-slate-200 rounded-lg"></iframe>
+                }
               </div>
             }
           </div>

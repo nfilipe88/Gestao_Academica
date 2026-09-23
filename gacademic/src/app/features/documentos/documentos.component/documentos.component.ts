@@ -1,10 +1,15 @@
 import { AsyncPipe, CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Store } from '@ngrx/store';
 import { Actions, ofType } from '@ngrx/effects';
 import { take } from 'rxjs';
+import { QuillEditorComponent } from 'ngx-quill';
+// entry-point de browser da biblioteca — o entry principal ("mammoth")
+// usa `fs` e não resolve num bundler de frontend.
+import * as mammoth from 'mammoth/mammoth.browser';
 import { selectPerfilAcesso } from '../../../store/auth/auth.selectors';
 import { carregarAlunos, carregarResponsaveis } from '../../../store/alunos/alunos.actions';
 import { selectAlunos, selectResponsaveis } from '../../../store/alunos/alunos.selector';
@@ -28,13 +33,14 @@ const ESTADOS_ESCOLA = ['PENDENTE', 'RESPONDIDO', 'CONCLUIDO'];
 
 @Component({
   selector: 'app-documentos.component',
-  imports: [AsyncPipe, CurrencyPipe, DatePipe, FormsModule, PaginacaoComponent],
+  imports: [AsyncPipe, CurrencyPipe, DatePipe, FormsModule, PaginacaoComponent, QuillEditorComponent],
   templateUrl: './documentos.component.html',
   styleUrl: './documentos.component.css',
 })
-export class DocumentosComponent implements OnInit {
+export class DocumentosComponent implements OnInit, OnDestroy {
   private store = inject(Store);
   private http = inject(HttpClient);
+  private sanitizer = inject(DomSanitizer);
   private actions$ = inject(Actions);
 
   perfil$ = this.store.select(selectPerfilAcesso);
@@ -191,6 +197,24 @@ export class DocumentosComponent implements OnInit {
   corpoEmEdicao = '';
   erroPreVisualizacao = signal<string | null>(null);
 
+  // Editor visual (Quill) por defeito; "Avançado" mostra a mesma
+  // corpoEmEdicao numa textarea de HTML em bruto — só aí é que dá para
+  // editar os {% for %} do Jinja usados no Histórico Escolar/Boletim
+  // (nenhum editor visual entende essa sintaxe de repetição).
+  modoAvancado = signal(false);
+
+  // Pré-visualização embutida (iframe) — substitui a nova aba/download
+  // de antes. pdfPreviewUrlRaw guarda o object URL "cru" só para poder
+  // revogá-lo (URL.revokeObjectURL não aceita o SafeResourceUrl).
+  pdfPreviewUrl = signal<SafeResourceUrl | null>(null);
+  private pdfPreviewUrlRaw: string | null = null;
+
+  // Carregar .docx — conversão feita no browser (mammoth), só preenche
+  // corpoEmEdicao; o resto do fluxo (Pré-visualizar/Guardar, validação
+  // Jinja2 no back-end) é exatamente o mesmo de escrever o HTML à mão.
+  aConverterDocx = signal(false);
+  erroConversaoDocx = signal<string | null>(null);
+
   // Strings simples interpoladas em vez de {{ }} literais escritos
   // diretamente no template: Angular decodifica entidades HTML como
   // &#123;&#123; para "{{" ANTES de procurar bindings, por isso
@@ -240,11 +264,43 @@ export class DocumentosComponent implements OnInit {
     this.templateEmEdicaoTipo.set(template.tipo_documento);
     this.corpoEmEdicao = template.corpo_html ?? (template.tipo_documento === 'CARTAO_ACESSO' ? this.exemploCartaoAcesso : '');
     this.erroPreVisualizacao.set(null);
+    this.erroConversaoDocx.set(null);
+    this.limparPreVisualizacaoPdf();
+  }
+
+  async onSelecionarDocx(evento: Event) {
+    const ficheiro = (evento.target as HTMLInputElement).files?.[0];
+    (evento.target as HTMLInputElement).value = ''; // permite escolher o mesmo ficheiro outra vez
+    if (!ficheiro) return;
+
+    this.erroConversaoDocx.set(null);
+    this.aConverterDocx.set(true);
+    try {
+      const arrayBuffer = await ficheiro.arrayBuffer();
+      const resultado = await mammoth.convertToHtml({ arrayBuffer });
+      this.corpoEmEdicao = resultado.value;
+    } catch {
+      this.erroConversaoDocx.set('Não foi possível ler este ficheiro — confirme que é um .docx válido.');
+    } finally {
+      this.aConverterDocx.set(false);
+    }
   }
 
   onCancelarEdicaoTemplate() {
     this.templateEmEdicaoTipo.set(null);
     this.erroPreVisualizacao.set(null);
+    this.erroConversaoDocx.set(null);
+    this.limparPreVisualizacaoPdf();
+  }
+
+  private limparPreVisualizacaoPdf() {
+    if (this.pdfPreviewUrlRaw) URL.revokeObjectURL(this.pdfPreviewUrlRaw);
+    this.pdfPreviewUrlRaw = null;
+    this.pdfPreviewUrl.set(null);
+  }
+
+  ngOnDestroy() {
+    this.limparPreVisualizacaoPdf();
   }
 
   // Guardar pode falhar (template inválido/SSTI bloqueado pelo
@@ -274,20 +330,23 @@ export class DocumentosComponent implements OnInit {
 
   // Pré-visualiza o texto ainda por guardar (não o que já está no
   // store) — o Gestor quer ver o efeito do que está a escrever, antes
-  // de decidir guardar. Mesmo truque de separador pré-aberto que
-  // onVerPdf usa (evita bloqueio de pop-up); erro de validação vem
-  // como Blob (responseType:'blob' aplica-se à resposta toda, mesmo a
-  // de erro), por isso é preciso ler o texto do blob para extrair a
-  // mensagem em vez de usar err.error.detail diretamente.
+  // de decidir guardar. O PDF aparece embutido na própria página (ver
+  // pdfPreviewUrl/iframe no template) em vez de nova aba/download; erro
+  // de validação vem como Blob (responseType:'blob' aplica-se à
+  // resposta toda, mesmo a de erro), por isso é preciso ler o texto do
+  // blob para extrair a mensagem em vez de usar err.error.detail diretamente.
   onPreVisualizarTemplate() {
     if (!this.templateEmEdicaoTipo() || !this.corpoEmEdicao.trim()) return;
     const tipo = this.templateEmEdicaoTipo()!;
     this.erroPreVisualizacao.set(null);
-    const aba = window.open('', '_blank');
     this.http.post(`/api/v1/documentos/templates/${tipo}/pre-visualizar`, { corpo_html: this.corpoEmEdicao }, { responseType: 'blob' }).subscribe({
-      next: (blob) => abrirOuTransferirBlob(aba, blob, `pre-visualizacao-${tipo.toLowerCase()}.pdf`),
+      next: (blob) => {
+        this.limparPreVisualizacaoPdf();
+        const url = URL.createObjectURL(blob);
+        this.pdfPreviewUrlRaw = url;
+        this.pdfPreviewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
+      },
       error: (err: HttpErrorResponse) => {
-        if (aba) aba.close();
         const corpoErro = err.error;
         if (corpoErro instanceof Blob) {
           corpoErro.text().then(texto => {

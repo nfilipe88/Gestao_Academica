@@ -32,7 +32,11 @@
             "outputMode": "server",
             "ssr": {
               "entry": "src/server.ts"
-            }
+            },
+            "allowedCommonJsDependencies": [
+              "mammoth",
+              "quill-delta"
+            ]
           },
           "configurations": {
             "production": {

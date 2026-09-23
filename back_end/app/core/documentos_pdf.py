@@ -206,7 +206,18 @@ def renderizar_corpo_personalizado(corpo_html_personalizado: str, contexto: dict
     o Gestor tem de corrigir o template) ou algo a ignorar com
     fallback (gerar_pdf_documento, na emissão real de um documento já
     pago, ver abaixo).
+
+    O corpo_html chega como TEXTO (não HTML já interpretado por um
+    browser) — editores WYSIWYG (ver Quill em documentos.component.ts)
+    escrevem espaços como a entidade "&nbsp;" em vez de " ", o que
+    parte a sintaxe Jinja sempre que um {{ variavel }} tem espaço a
+    seguir a "{{"/antes de "}}" (ex.: "{{&nbsp;aluno_nome&nbsp;}}" —
+    Jinja vê um "&" onde esperava o nome da variável e falha a
+    analisar). Normalizar antes de entregar ao Jinja resolve isto sem
+    mudar visualmente nada no documento final (espaço normal e &nbsp;
+    renderizam-se de forma indistinguível em prosa comum).
     """
+    corpo_html_personalizado = corpo_html_personalizado.replace("&nbsp;", " ").replace("\xa0", " ")
     return _AMBIENTE_SEGURO.from_string(corpo_html_personalizado).render(**contexto)
 
 
