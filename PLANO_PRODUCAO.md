@@ -208,7 +208,7 @@ calendário:
 2. **`JWT_SECRET_KEY` de produção** (o valor de desenvolvimento é um placeholder) e restantes segredos novos, fora do git.
 3. **`S3_BUCKET` real** (o MinIO local não sobrevive à máquina de desenvolvimento) — sem isto o backup fica no mesmo disco.
 4. **Confirmar o primeiro backup agendado das 03:00.** O job está testado e o backup manual comprovado, mas **não há nenhum backup agendado no bucket** (a máquina de desenvolvimento não esteve ligada às 03:00). Verificar na manhã seguinte ao arranque em produção.
-5. **Política de privacidade e retenção**, revista por alguém com conhecimento da lei angolana de proteção de dados (retenção de 15 anos). Não escrita — não posso certificá-la.
+5. **Política de privacidade e retenção**: rascunho pronto em `POLITICA_PRIVACIDADE_RASCUNHO.md` (texto para utilizadores + perguntas abertas + inventário técnico), **por rever por um jurista angolano**; não posso certificá-lo. Falta ainda decidir a rotina de expiração de logs/tokens e publicar a política na app (hoje não há página nem link).
 6. **Preencher `RUNBOOK.md`** (contactos, URL de produção, Sentry) e definir quem acompanha o piloto.
 
 **Riscos aceites para o piloto (documentados, não bloqueiam):** instância única sem alta disponibilidade; pagamentos por transferência com conciliação manual; sem 2FA no Super Admin; concorrência do Dashboard quase em série (9 pedidos em paralelo = 1,1 s) a investigar antes de escalar; a BD de desenvolvimento tem ~45 escolas de teste antigas e a limpeza dos dados de teste da "Escola Professor Teste" (Dia 10) continua pendente.
