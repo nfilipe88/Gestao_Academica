@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RecaptchaService } from '../../../../core/services/recaptcha.service';
 
 @Component({
   selector: 'app-registo.component',
@@ -12,6 +13,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 export class RegistoComponent {
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
+  private recaptcha = inject(RecaptchaService);
 
   // Nenhum diálogo nativo (alert/confirm) — não é intercetável em
   // automação/testes e destoa do resto da UI, que nunca usa diálogos
@@ -36,10 +38,11 @@ export class RegistoComponent {
     palavra_passe: ['', [Validators.required, Validators.minLength(8)]]
   });
 
-  onRegister() {
+  async onRegister() {
     if (this.registoForm.valid) {
       this.erro = null;
-      this.http.post('/api/v1/auth/registo', this.registoForm.value)
+      const recaptcha_token = await this.recaptcha.obterToken('registo_escola');
+      this.http.post('/api/v1/auth/registo', { ...this.registoForm.value, recaptcha_token })
         .subscribe({
           next: () => {
             this.emailRegistado = this.registoForm.value.email_gestor ?? '';

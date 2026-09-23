@@ -37,6 +37,9 @@ class LeadPublicoCreate(_NormalizaEmailOpcional):
     # Mensagem livre e opcional deixada no formulário público — ver
     # LeadCandidato.mensagem.
     mensagem: str | None = None
+    # Token do Google reCAPTCHA v3 (ver core/recaptcha.py) — opcional
+    # aqui pela mesma razão de RegistoInicial.recaptcha_token.
+    recaptcha_token: str | None = None
 
 
 class LeadStaffCreate(_NormalizaEmailOpcional):

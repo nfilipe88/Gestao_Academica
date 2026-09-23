@@ -8,6 +8,14 @@ import uuid
 from app.schemas.admin import PlanoSaaSModuloOut
 
 
+class ConfigPublicaOut(BaseModel):
+    """Só valores seguros para expor ao frontend sem autenticação — a
+    chave pública do reCAPTCHA v3 (ver core/recaptcha.py), nunca a
+    RECAPTCHA_SECRET_KEY. None quando não está configurada (dev/testes),
+    e o frontend simplesmente não pede token nenhum nesse caso."""
+    recaptcha_site_key: str | None
+
+
 class PlanoSaaSPublicoOut(BaseModel):
     """Igual a PlanoSaaSOut (app/schemas/admin.py) mas sem `ativo` — a
     lista pública já só devolve planos ativos, o campo seria sempre

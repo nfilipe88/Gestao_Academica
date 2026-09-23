@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
+import { RecaptchaService } from '../../../../core/services/recaptcha.service';
 import { SitePublico } from '../../../../shared/models/site-publico.models';
 import { TemplateClassicoComponent } from '../templates/template-classico/template-classico.component/template-classico.component';
 import { TemplateModernoComponent } from '../templates/template-moderno/template-moderno.component/template-moderno.component';
@@ -37,6 +38,7 @@ export class EscolaComponent implements OnInit {
   private fb = inject(FormBuilder);
   private titleService = inject(Title);
   private meta = inject(Meta);
+  private recaptcha = inject(RecaptchaService);
 
   identificador = this.route.snapshot.paramMap.get('tenantId') ?? '';
 
@@ -77,7 +79,7 @@ export class EscolaComponent implements OnInit {
     if (escola.logotipo) this.meta.updateTag({ property: 'og:image', content: escola.logotipo });
   }
 
-  onSubmitLead() {
+  async onSubmitLead() {
     // O endpoint de leads (RN03 do CRM) só aceita o uuid do tenant, ao
     // contrário do endpoint da página em si — que já aceita slug ou
     // uuid (ver ngOnInit). Por isso vai sempre pelo tenant_id devolvido
@@ -86,7 +88,8 @@ export class EscolaComponent implements OnInit {
     const tenantId = this.escola()?.tenant_id;
     if (this.leadForm.invalid || !tenantId) return;
     this.erroLead.set(null);
-    this.http.post(`/api/v1/public/${tenantId}/leads`, this.leadForm.value).subscribe({
+    const recaptcha_token = await this.recaptcha.obterToken('lead_publico');
+    this.http.post(`/api/v1/public/${tenantId}/leads`, { ...this.leadForm.value, recaptcha_token }).subscribe({
       next: () => { this.leadEnviado.set(true); },
       error: (err) => {
         const detail = err.error?.detail;

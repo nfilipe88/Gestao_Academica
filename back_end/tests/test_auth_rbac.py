@@ -2,7 +2,7 @@
 import re
 
 from main import app
-from tests.conftest import auth_headers, criar_escola_e_gestor
+from tests.conftest import auth_headers, criar_escola_e_gestor, sufixo_unico
 from tests.test_comportamento import _criar_professor_com_token
 
 
@@ -139,4 +139,26 @@ async def test_limite_de_tentativas_login_bloqueia_forca_bruta(client):
 
     assert ultima_resposta is not None and ultima_resposta.status_code == 429, (
         "o limitador de tentativas de login nunca bloqueou depois de várias falhas seguidas"
+    )
+
+
+async def test_limite_de_registos_bloqueia_criacao_em_massa(client):
+    """Anti-spam do auto-registo de escola (ver
+    api/v1/auth.py::_REGISTO_MAX_TENTATIVAS) — sem isto, um script podia
+    criar tenants indefinidamente a partir de um único endereço."""
+    ultima_resposta = None
+    for _ in range(15):
+        suf = sufixo_unico()
+        ultima_resposta = await client.post("/api/v1/auth/registo", json={
+            "nome_fantasia": f"Escola Spam {suf}",
+            "nif": suf,
+            "nome_gestor": "Spammer",
+            "email_gestor": f"spam.{suf}@teste.pt",
+            "palavra_passe": "SenhaTeste123!",
+        })
+        if ultima_resposta.status_code == 429:
+            break
+
+    assert ultima_resposta is not None and ultima_resposta.status_code == 429, (
+        "o limitador de registos nunca bloqueou depois de vários pedidos seguidos"
     )

@@ -42,8 +42,24 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import update
 
 from main import app
+from app.core import rate_limiter
 from app.database.models import Usuario
 from app.database.session import AsyncSessionLocalSistema
+
+
+@pytest.fixture(autouse=True)
+def _limpar_rate_limiter():
+    """O limitador em memória (sem REDIS_URL em .env.test, ver
+    app/core/rate_limiter.py) é um dict a nível de módulo — sem isto,
+    testes sem relação nenhuma entre si (todos batendo no mesmo IP
+    "testclient" do ASGITransport) partilhavam o mesmo contador, e o
+    enésimo teste a chamar POST /auth/registo ou /public/.../leads
+    numa sessão longa começava a levar 429 só por causa da ordem de
+    execução. Cada teste começa com o contador limpo, como se fosse
+    sempre um cliente novo — exceto os testes que testam o limitador
+    em si, que disparam o limite dentro do próprio teste."""
+    rate_limiter._memoria.clear()
+    yield
 
 
 @pytest.fixture

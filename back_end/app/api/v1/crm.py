@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db, obter_sessao_db_publica
 from app.core.security import obter_utilizador_atual, exigir_perfil
+from app.core import recaptcha
 from app.core.rate_limiter import excedeu_limite
 from app.schemas.crm import (
     EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, MensagemLeadCreate, MensagemLeadOut,
@@ -27,6 +28,13 @@ _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 _DOCUMENTOS_MAX_PEDIDOS = 20
 _DOCUMENTOS_JANELA_SEGUNDOS = 3600
 
+# Formulário de contacto/matrícula sem autenticação nenhuma — alvo
+# óbvio de spam automatizado (o problema real não é sobrecarga, é o
+# Kanban da Secretaria encher-se de lixo). Limite por IP, não por
+# tenant, já que o mesmo endpoint serve o site de qualquer escola.
+_LEAD_MAX_PEDIDOS = 10
+_LEAD_JANELA_SEGUNDOS = 3600
+
 # ==========================================
 # A. CAPTAÇÃO PÚBLICA (RN03) — sem autenticação
 # ==========================================
@@ -34,11 +42,18 @@ _DOCUMENTOS_JANELA_SEGUNDOS = 3600
 async def criar_lead_publico(
     tenant_id: uuid.UUID,
     dados: LeadPublicoCreate,
+    request: Request,
     db: AsyncSession = Depends(obter_sessao_db_publica)
 ):
     """Endpoint público para a escola incorporar um formulário no seu
     próprio site (RN03) — tanto o formulário rápido de contacto como o
     assistente de matrícula self-service (features/public/matricula)."""
+    ip_cliente = request.client.host if request.client else "desconhecido"
+    if await excedeu_limite(f"lead-publico:{ip_cliente}", _LEAD_MAX_PEDIDOS, _LEAD_JANELA_SEGUNDOS):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Demasiados pedidos. Tente novamente dentro de 1 hora.")
+    if not await recaptcha.token_e_valido(dados.recaptcha_token, ip_cliente):
+        raise HTTPException(status_code=400, detail="Verificação de segurança falhou. Recarregue a página e tente novamente.")
+
     lead = await crud_crm.criar_lead_publico(db, tenant_id, dados)
     return {"mensagem": "Pedido recebido com sucesso! Entraremos em contacto brevemente.", "id": lead.id}
 

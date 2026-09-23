@@ -7,6 +7,7 @@ from app.schemas.auth import (
 )
 from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes
+from app.core import recaptcha
 from app.core.rate_limiter import excedeu_limite
 from app.core.security import obter_utilizador_atual
 from app.cruds import auth as crud_auth
@@ -22,6 +23,14 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação e Onboarding"])
 _LOGIN_MAX_TENTATIVAS = 5
 _LOGIN_JANELA_SEGUNDOS = 60
 
+# Registo de escola não tem histórico de tentativas prévias para
+# comparar (ao contrário do login), por isso o limite é só por IP —
+# generoso o suficiente para não incomodar uma escola real a repetir
+# o formulário por um erro de validação, apertado o suficiente para
+# travar um script a criar tenants em massa.
+_REGISTO_MAX_TENTATIVAS = 5
+_REGISTO_JANELA_SEGUNDOS = 3600
+
 
 async def _verificar_limite_login(chave: str) -> None:
     if await excedeu_limite(chave, _LOGIN_MAX_TENTATIVAS, _LOGIN_JANELA_SEGUNDOS):
@@ -31,13 +40,22 @@ async def _verificar_limite_login(chave: str) -> None:
         )
 
 @router.post("/registo", status_code=status.HTTP_201_CREATED)
-async def registo_inicial_escola(dados: RegistoInicial):
+async def registo_inicial_escola(dados: RegistoInicial, request: Request):
     """
     Regista uma nova escola (Tenant) e o seu primeiro Gestor — a conta
     fica por ativar (email_verificado=False) até se clicar no link
     enviado por e-mail; o login (POST /login) recusa-se até lá, ver
     cruds/auth.py::autenticar.
     """
+    ip_cliente = request.client.host if request.client else "desconhecido"
+    if await excedeu_limite(f"registo:{ip_cliente}", _REGISTO_MAX_TENTATIVAS, _REGISTO_JANELA_SEGUNDOS):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados registos a partir deste endereço. Tente novamente dentro de 1 hora."
+        )
+    if not await recaptcha.token_e_valido(dados.recaptcha_token, ip_cliente):
+        raise HTTPException(status_code=400, detail="Verificação de segurança falhou. Recarregue a página e tente novamente.")
+
     novo_tenant, novo_gestor, token_ativacao = await crud_auth.registar_escola(dados)
 
     # E-mail de ativação (best-effort — não atrasa a resposta nem falha

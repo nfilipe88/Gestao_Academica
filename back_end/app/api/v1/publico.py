@@ -8,16 +8,25 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db_publica
+from app.core import recaptcha
 from app.core.rate_limiter import excedeu_limite
 from app.core.suporte_virtual import perguntar_suporte
 from app.cruds import admin as crud_admin
 from app.cruds import site_publico as crud_site_publico
 from app.cruds import suporte as crud_suporte
-from app.schemas.publico import PlanoSaaSPublicoOut
+from app.schemas.publico import ConfigPublicaOut, PlanoSaaSPublicoOut
 from app.schemas.site_publico import SitePublicoOut
 from app.schemas.suporte import PerguntaSuporteVirtual, TicketCreate
 
 router = APIRouter(prefix="/api/v1/public", tags=["Público"])
+
+
+@router.get("/config", response_model=ConfigPublicaOut)
+async def obter_config_publica():
+    """Configuração pública mínima que o frontend precisa antes de
+    autenticar — hoje só a chave do reCAPTCHA v3 (ver core/recaptcha.py),
+    consultada pelos formulários sem sessão (registo de escola, leads)."""
+    return ConfigPublicaOut(recaptcha_site_key=recaptcha.RECAPTCHA_SITE_KEY)
 
 
 @router.get("/planos", response_model=list[PlanoSaaSPublicoOut])

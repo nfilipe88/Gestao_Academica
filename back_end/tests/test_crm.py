@@ -26,6 +26,25 @@ async def test_lead_publico_devolve_id_da_candidatura(client):
     assert resp.json()["id"]
 
 
+async def test_lead_publico_bloqueia_spam_do_mesmo_ip(client):
+    """Anti-spam do formulário público (ver api/v1/crm.py::_LEAD_MAX_PEDIDOS)
+    — sem autenticação nenhuma, é o alvo óbvio de um script a encher o
+    Kanban da Secretaria de lixo; a partir do limite, passa a 429."""
+    escola = await criar_escola_e_gestor(client, "crm-lead-spam")
+
+    ultima_resposta = None
+    for _ in range(15):
+        ultima_resposta = await client.post(f"/api/v1/public/{escola['tenant_id']}/leads", json={
+            "nome_responsavel": "Spammer", "nome_aluno_candidato": "Candidato",
+        })
+        if ultima_resposta.status_code == 429:
+            break
+
+    assert ultima_resposta is not None and ultima_resposta.status_code == 429, (
+        "o limitador de leads públicos nunca bloqueou depois de vários pedidos seguidos"
+    )
+
+
 async def test_lead_publico_aceita_data_nascimento_e_desbloqueia_rn01(client):
     """Antes desta funcionalidade, o formulário público nunca enviava
     data_nascimento_candidato — a conversão RN01 ficava sempre bloqueada
@@ -152,7 +171,7 @@ async def test_conversao_automatica_inclui_taxa_de_matricula_padrao(client):
     headers = auth_headers(escola["token"])
 
     resp = await client.put("/api/v1/configuracoes", headers=headers, json={
-        "moeda": "EUR", "valor_taxa_matricula": "150.00",
+        "moeda": "EUR", "nota_maxima": 10, "valor_taxa_matricula": "150.00",
     })
     assert resp.status_code == 200, resp.text
     assert float(resp.json()["valor_taxa_matricula"]) == 150.0

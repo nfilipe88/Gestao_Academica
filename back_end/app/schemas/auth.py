@@ -13,6 +13,12 @@ class RegistoInicial(BaseModel):
     email_gestor: EmailStr = Field(..., example="joao.silva@colegiofuturo.pt")
     palavra_passe: str = Field(..., min_length=8, example="SenhaSegura123!")
 
+    # Token do Google reCAPTCHA v3 (ver core/recaptcha.py) — opcional no
+    # schema porque só é exigido quando RECAPTCHA_SECRET_KEY está
+    # configurada no backend; em dev/testes sem essa chave, o campo é
+    # ignorado.
+    recaptcha_token: str | None = None
+
     _validar_palavra_passe = field_validator("palavra_passe")(validar_forca_senha)
 
 class TokenResponse(BaseModel):

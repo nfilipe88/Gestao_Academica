@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { RecaptchaService } from '../../../../core/services/recaptcha.service';
 import { SitePublico } from '../../../../shared/models/site-publico.models';
 
 interface DocumentoAnexado {
@@ -44,6 +45,7 @@ export class MatriculaWizardComponent implements OnInit {
   private http = inject(HttpClient);
   private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
+  private recaptcha = inject(RecaptchaService);
 
   readonly tiposDocumento = TIPOS_DOCUMENTO;
 
@@ -98,12 +100,13 @@ export class MatriculaWizardComponent implements OnInit {
   }
 
   // Passo 2 — aqui sim cria-se o Lead + Oportunidade no CRM (RN03).
-  onAvancarPasso2() {
+  async onAvancarPasso2() {
     const tenantId = this.escola()?.tenant_id;
     if (!tenantId) return;
     this.erro.set(null);
     this.aSubmeter.set(true);
     const v = this.form.getRawValue();
+    const recaptcha_token = await this.recaptcha.obterToken('lead_publico');
     this.http.post<{ id: string }>(`/api/v1/public/${tenantId}/leads`, {
       nome_responsavel: v.nome_responsavel,
       email_contato: v.email_contato || null,
@@ -113,6 +116,7 @@ export class MatriculaWizardComponent implements OnInit {
       curso_interesse_id: v.curso_interesse_id || null,
       aceitou_regulamento: v.aceitou_regulamento,
       origem_lead: 'SITE',
+      recaptcha_token,
     }).subscribe({
       next: (resp) => {
         this.aSubmeter.set(false);
