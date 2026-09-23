@@ -61,6 +61,7 @@ back-end corre sem `--reload`, por isso alterar código ou `.env` só tem efeito
 | Uploads (logótipo, anexos) falham | MinIO/S3 em baixo ou credenciais erradas (`S3_*`). Ver `docker ps` / consola MinIO em `:9001`. |
 | Formulários públicos devolvem 429 | Rate limiting a funcionar (registo 5/h, leads 10/h por IP). Esperar, ou investigar abuso. |
 | Formulários públicos devolvem 400 "Verificação de segurança falhou" | reCAPTCHA recusou o pedido (score < 0.5). O log tem `reCAPTCHA recusou um pedido:` com o motivo. |
+| Um pedido de documento fica em "pendente de pagamento" | Pagamento por transferência: a Secretaria confirma em Documentos → **Marcar paga** (o PayPal só serve moedas que aceita; Kwanza não). Depois o PDF fica disponível ao Responsável. |
 | PDFs (documentos) com erro | Modelo personalizado inválido — em Documentos, repor o modelo ao padrão; o layout nativo é sempre a reserva. |
 
 **Nunca eliminar dados** para "resolver" um incidente: a lei angolana exige reter os dados 15 anos.
@@ -84,7 +85,7 @@ Avisar as escolas afetadas.
 
 ## 6. Variáveis de ambiente que importam em produção
 
-Ver `back_end/.env.example` (comentado). Mínimo para o piloto: `DATABASE_URL*`, `JWT_SECRET_KEY`
+Ver `back_end/.env.example` (comentado). **SMTP é obrigatório**: sem ele, o e-mail de ativação de conta nunca chega e nenhuma escola nova consegue entrar (o token só existe no e-mail). Mínimo para o piloto: `SMTP_*`, `DATABASE_URL*`, `JWT_SECRET_KEY`
 (**trocar o valor de desenvolvimento**), `S3_*` (backups e ficheiros fora do servidor),
 `RECAPTCHA_*`, SMTP para e-mails de ativação/lembretes, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`.
 `REDIS_URL` é opcional com uma só instância. Os segredos do `.env` de desenvolvimento **não** são

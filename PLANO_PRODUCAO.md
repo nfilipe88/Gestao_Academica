@@ -143,19 +143,19 @@ isso começa no Dia 1, não a meio.
   escolas de teste vão realmente gerar, e confirmar que nada degrada de forma óbvia (tempos de
   resposta do Diário, da Pauta, dos relatórios de Indicadores).
 
-- [ ] **Dia 13 — Suite de testes completa + code freeze de novas funcionalidades.**
+- [x] **Dia 13 — Suite de testes completa + code freeze de novas funcionalidades.** ✅ Backend 333 testes (1 ignorado), `ng test` 2/2, `ng build` limpo, contra a BD de teste já com ~2340 alunos.
   Correr tudo (backend + frontend, agora já ligado ao CI), corrigir o que aparecer. A partir daqui,
   zero funcionalidades novas até abrir às escolas — só correções do que os dias seguintes
   revelarem.
 
-- [ ] **Dia 14 — Ensaio geral.**
+- [x] **Dia 14 — Ensaio geral.** ✅ `back_end/scripts/ensaio_geral.py`: percurso de escola nova por HTTP, 27/27 passos. Apanhou 1 bloqueio real — pedidos de documento só passavam a "pago" por captura PayPal (não aceita Kwanza) — corrigido com `PATCH /documentos/solicitacoes/{id}/marcar-pago` + botão "Marcar paga" + teste.
   Simular, com a equipa a acompanhar como se fosse uma escola real: registo → configuração inicial
   → matrícula de alunos → lançamento de notas/faltas → geração de fatura → pagamento pelo novo meio
   → emissão de um documento (declaração/recibo) → notificação a chegar e a levar ao sítio certo.
   Qualquer tropeço encontrado aqui é a última oportunidade de corrigir antes de uma escola real
   sentir o mesmo tropeço.
 
-- [ ] **Dia 15 — Revisão go/no-go + abertura controlada.**
+- [x] **Dia 15 — Revisão go/no-go.** ✅ Ver "Parecer go/no-go" no fim deste ficheiro. A abertura à primeira escola é decisão da equipa.
   Rever o runbook, confirmar que o backup do Dia 6 continua a correr e que o restauro ainda
   funciona, e só então abrir a plataforma às primeiras escolas de teste — uma de cada vez, não as
   10 ao mesmo tempo, para poder observar cada onboarding isoladamente.
@@ -191,3 +191,25 @@ calendário:
 - **Faturação fiscal certificada** — sai fora de âmbito de propósito; o recibo já avisa
   explicitamente que não tem valor fiscal, e resolver isto a sério é uma decisão de conformidade
   por mercado, não uma tarefa de 15 dias.
+
+---
+
+## Parecer go/no-go (Dia 15, 2026-09-23)
+
+**Veredicto: GO condicional para a fase de teste supervisionada (1 escola de cada vez), NO-GO para abrir sem cumprir os pré-requisitos abaixo.** Nada aqui é técnico-complicado; são configurações e decisões que só a equipa pode tomar.
+
+**Verificado agora (não só afirmado):**
+- Backup real de `academic_db` para o MinIO + restauro para uma base nova: 76 tabelas / 3664 linhas iguais; base de ensaio removida.
+- Suite completa do backend (333), `ng test`, `ng build`, ensaio geral 27/27, teste de fumo com ~2340 alunos (tudo < 300 ms exceto o PDF de Indicadores, 1,25 s).
+
+**Pré-requisitos ANTES da primeira escola real (bloqueadores):**
+1. **SMTP configurado.** Sem ele o e-mail de ativação nunca chega e nenhuma escola consegue entrar; hoje o ambiente de desenvolvimento não tem SMTP.
+2. **`JWT_SECRET_KEY` de produção** (o valor de desenvolvimento é um placeholder) e restantes segredos novos, fora do git.
+3. **`S3_BUCKET` real** (o MinIO local não sobrevive à máquina de desenvolvimento) — sem isto o backup fica no mesmo disco.
+4. **Confirmar o primeiro backup agendado das 03:00.** O job está testado e o backup manual comprovado, mas **não há nenhum backup agendado no bucket** (a máquina de desenvolvimento não esteve ligada às 03:00). Verificar na manhã seguinte ao arranque em produção.
+5. **Política de privacidade e retenção**, revista por alguém com conhecimento da lei angolana de proteção de dados (retenção de 15 anos). Não escrita — não posso certificá-la.
+6. **Preencher `RUNBOOK.md`** (contactos, URL de produção, Sentry) e definir quem acompanha o piloto.
+
+**Riscos aceites para o piloto (documentados, não bloqueiam):** instância única sem alta disponibilidade; pagamentos por transferência com conciliação manual; sem 2FA no Super Admin; concorrência do Dashboard quase em série (9 pedidos em paralelo = 1,1 s) a investigar antes de escalar; a BD de desenvolvimento tem ~45 escolas de teste antigas e a limpeza dos dados de teste da "Escola Professor Teste" (Dia 10) continua pendente.
+
+**Abertura controlada:** uma escola de cada vez, com o Super Admin a criar a escola (não auto-registo), a atribuir plano/licença e a acompanhar o primeiro dia; só passar à seguinte depois de 1-2 dias sem incidentes. Critérios para a fase de 50 escolas: ver a secção anterior.
