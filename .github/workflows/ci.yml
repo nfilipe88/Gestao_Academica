@@ -127,6 +127,10 @@ jobs:
         working-directory: gacademic
         run: npm ci
 
+      - name: ng test (Vitest, sem watch)
+        working-directory: gacademic
+        run: npx ng test --watch=false
+
       - name: ng build (configuração de produção — a que um deploy real usa)
         working-directory: gacademic
         run: npx ng build

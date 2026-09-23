@@ -4,8 +4,18 @@ import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
 import { superAdminGuard } from './core/guards/super-admin.guard';
 import { permissoesGuard } from './core/guards/permissoes.guard';
+import { perfilGuard } from './core/guards/perfil.guard';
 import { publicoMatchGuard } from './core/guards/publico.guard';
 import { configuracaoInicialGuard } from './core/guards/configuracao-inicial.guard';
+
+// Grupos de perfis reaproveitados em várias rotas abaixo — mesma
+// partição já usada no menu lateral (dashboard-layout.component.html):
+// cada bloco ali (isGestorOuSecretaria$/isGestor$) corresponde
+// exatamente a um destes, e ao RBAC do back-end citado em cada rota.
+const _STAFF = ['GESTOR', 'SECRETARIA', 'PROFESSOR'];
+const _GESTOR_SECRETARIA = ['GESTOR', 'SECRETARIA'];
+const _GESTOR = ['GESTOR'];
+const _PORTAL = ['ALUNO', 'RESPONSAVEL'];
 
 export const routes: Routes = [
   // ==========================================
@@ -94,63 +104,83 @@ export const routes: Routes = [
     children: [
       {
         path: 'dashboard',
+        canActivate: [perfilGuard(..._STAFF)],
         // Componente temporário só para preencher o vazio
         loadComponent: () => import('./features/academico/dashboard-home.component/dashboard-home.component').then((m) => m.DashboardHomeComponent)
       },
       {
         path: 'cursos',
+        canActivate: [perfilGuard(..._STAFF)],
         loadComponent: () => import('./features/academico/cursos/cursos.component/cursos.component').then((m) => m.CursosComponent)
       },
       {
         path: 'turmas',
+        canActivate: [perfilGuard(..._STAFF)],
         loadComponent: () => import('./features/academico/turmas/turmas.component/turmas.component').then((m) => m.TurmasComponent)
       },
       {
         path: 'rematricula',
+        canActivate: [perfilGuard(..._GESTOR_SECRETARIA)],
         loadComponent: () => import('./features/academico/rematricula/rematricula.component/rematricula.component').then((m) => m.RematriculaComponent)
       },
       {
         path: 'alunos',
+        canActivate: [perfilGuard(..._STAFF)],
         loadComponent: () => import('./features/pessoas/alunos.component/alunos.component').then((m) => m.AlunosComponent)
       },
       {
         path: 'professores',
+        canActivate: [perfilGuard(..._GESTOR)],
         loadComponent: () => import('./features/pessoas/professores.component/professores.component').then((m) => m.ProfessoresComponent)
       },
       {
         path: 'comunicacoes',
+        canActivate: [perfilGuard(..._STAFF)],
         loadComponent: () => import('./features/comunicacoes/comunicacoes.component/comunicacoes.component').then((m) => m.ComunicacoesComponent)
       },
       {
         path: 'diario',
+        canActivate: [perfilGuard(..._STAFF)],
         loadComponent: () => import('./features/diario/diario.component/diario.component').then((m) => m.DiarioComponent)
       },
       {
         path: 'financeiro',
+        canActivate: [perfilGuard(..._GESTOR_SECRETARIA)],
         loadComponent: () => import('./features/financeiro/financeiro.component/financeiro.component').then((m) => m.FinanceiroComponent)
       },
       {
         path: 'propinas',
+        canActivate: [perfilGuard(..._GESTOR_SECRETARIA)],
         loadComponent: () => import('./features/propinas/propinas.component/propinas.component').then((m) => m.PropinasComponent)
       },
       {
         path: 'crm',
+        canActivate: [perfilGuard(..._GESTOR_SECRETARIA)],
         loadComponent: () => import('./features/crm/crm.component/crm.component').then((m) => m.CrmComponent)
       },
       {
         path: 'eventos',
+        canActivate: [perfilGuard(..._GESTOR)],
         loadComponent: () => import('./features/eventos/eventos.component/eventos.component').then((m) => m.EventosComponent)
       },
       {
+        path: 'importacao',
+        canActivate: [perfilGuard(..._GESTOR)],
+        loadComponent: () => import('./features/importacao/importacao.component/importacao.component').then((m) => m.ImportacaoComponent)
+      },
+      {
         path: 'horarios',
+        canActivate: [perfilGuard(..._STAFF)],
         loadComponent: () => import('./features/horarios/horarios.component/horarios.component').then((m) => m.HorariosComponent)
       },
       {
         path: 'portal',
+        canActivate: [perfilGuard(..._PORTAL)],
         loadComponent: () => import('./features/portal/portal.component/portal.component').then((m) => m.PortalComponent)
       },
       {
         path: 'admin',
+        canActivate: [superAdminGuard],
         loadComponent: () => import('./features/admin/admin.component/admin.component').then((m) => m.AdminComponent)
       },
       {
@@ -159,54 +189,61 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/permissoes.component/permissoes.component').then((m) => m.PermissoesComponent)
       },
       {
-        // Sem guard próprio (mesmo padrão de 'admin' acima) — o link só
-        // aparece no menu para SUPER_ADMIN, e a API já recusa (403)
-        // qualquer outro perfil em /api/v1/admin/tickets.
         path: 'admin/tickets',
+        canActivate: [superAdminGuard],
         loadComponent: () => import('./features/admin/tickets.component/tickets.component').then((m) => m.TicketsComponent)
       },
       {
         // Estatísticas de qualquer escola, à escolha — envelope fino à
         // volta do EstatisticasComponent normal (ver
-        // features/admin/estatisticas.component). Mesmo padrão de guard
-        // (nenhum próprio) de 'admin'/'admin/tickets' acima.
+        // features/admin/estatisticas.component).
         path: 'admin/estatisticas',
+        canActivate: [superAdminGuard],
         loadComponent: () => import('./features/admin/estatisticas.component/estatisticas.component').then((m) => m.EstatisticasAdminComponent)
       },
       {
         path: 'tarefas',
+        canActivate: [perfilGuard(..._STAFF)],
         loadComponent: () => import('./features/tarefas/tarefas.component/tarefas.component').then((m) => m.TarefasComponent)
       },
       {
         path: 'documentos',
+        canActivate: [perfilGuard(..._STAFF)],
         loadComponent: () => import('./features/documentos/documentos.component/documentos.component').then((m) => m.DocumentosComponent)
       },
       {
         path: 'transferencias',
+        canActivate: [perfilGuard(..._GESTOR_SECRETARIA)],
         loadComponent: () => import('./features/transferencias/transferencias.component/transferencias.component').then((m) => m.TransferenciasComponent)
       },
       {
         path: 'indicadores',
+        canActivate: [perfilGuard(..._GESTOR_SECRETARIA)],
         loadComponent: () => import('./features/indicadores/indicadores.component/indicadores.component').then((m) => m.IndicadoresComponent)
       },
       {
         path: 'estatisticas',
+        canActivate: [perfilGuard(..._GESTOR_SECRETARIA)],
         loadComponent: () => import('./features/estatisticas/estatisticas.component/estatisticas.component').then((m) => m.EstatisticasComponent)
       },
       {
         path: 'configuracoes',
+        canActivate: [perfilGuard(..._GESTOR)],
         loadComponent: () => import('./features/configuracoes/configuracoes.component/configuracoes.component').then((m) => m.ConfiguracoesComponent)
       },
       {
         path: 'acessos',
+        canActivate: [perfilGuard(..._GESTOR)],
         loadComponent: () => import('./features/usuarios/acessos.component/acessos.component').then((m) => m.AcessosComponent)
       },
       {
         path: 'auditoria',
+        canActivate: [perfilGuard(..._GESTOR)],
         loadComponent: () => import('./features/auditoria/auditoria.component/auditoria.component').then((m) => m.AuditoriaComponent)
       },
       {
         path: 'suporte',
+        canActivate: [perfilGuard(..._GESTOR_SECRETARIA)],
         loadComponent: () => import('./features/suporte/suporte.component/suporte.component').then((m) => m.SuporteComponent)
       },
       {
