@@ -117,6 +117,15 @@ async def gerar_cobranca_documento(
     return await crud_documentos.gerar_cobranca_documento(db, utilizador["tenant_id"], solicitacao_id, utilizador)
 
 
+@router.patch("/solicitacoes/{solicitacao_id}/marcar-pago")
+async def marcar_solicitacao_emissao_paga(
+    solicitacao_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR_STAFF)
+):
+    """Confirmação manual do pagamento (transferência bancária) pela Secretaria/Gestor."""
+    return await crud_documentos.marcar_solicitacao_emissao_paga(db, utilizador["tenant_id"], solicitacao_id)
+
+
 @router.post("/solicitacoes/capturar")
 async def capturar_pagamento_documento(
     order_id: str,

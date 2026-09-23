@@ -119,6 +119,10 @@
                       <button type="button" (click)="onAbrirEntrega(s.id)" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium cursor-pointer">Marcar entregue</button>
                     }
                   }
+                  @if (s.status === 'PENDENTE_PAGAMENTO') {
+                    <button type="button" (click)="onMarcarSolicitacaoPaga(s.id)" title="Confirmar que a transferência bancária foi recebida"
+                      class="text-emerald-600 hover:text-emerald-800 text-xs font-medium cursor-pointer">Marcar paga</button>
+                  }
                   @if (s.status === 'PENDENTE_PAGAMENTO' || s.status === 'PAGO') {
                     <button type="button" (click)="onCancelarSolicitacaoEmissao(s.id)" class="text-rose-500 hover:text-rose-700 text-xs cursor-pointer">Cancelar</button>
                   }

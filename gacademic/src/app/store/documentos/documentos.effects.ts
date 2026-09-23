@@ -186,6 +186,23 @@ export class DocumentosEffects {
     )
   );
 
+  marcarSolicitacaoEmissaoPaga$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(DocumentosActions.marcarSolicitacaoEmissaoPaga),
+      switchMap(action => this.http.patch<SolicitacaoDocumentoEmissao>(
+        `/api/v1/documentos/solicitacoes/${action.solicitacao_id}/marcar-pago`, {}
+      ).pipe(
+        switchMap(() => [
+          DocumentosActions.carregarSolicitacoesEmissaoStaff({}),
+          DocumentosActions.documentosOperacaoSucesso({ mensagem: 'Pagamento confirmado.' })
+        ]),
+        catchError(err => of(DocumentosActions.documentosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível confirmar o pagamento.'
+        })))
+      ))
+    )
+  );
+
   entregarFisico$ = createEffect(() =>
     this.actions$.pipe(
       ofType(DocumentosActions.entregarFisico),

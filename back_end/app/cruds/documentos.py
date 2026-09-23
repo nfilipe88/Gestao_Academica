@@ -396,6 +396,37 @@ async def gerar_cobranca_documento(db: AsyncSession, tenant_id, solicitacao_id: 
     return {"solicitacao_id": solicitacao.id, "valor_cobrado": solicitacao.preco, "dados_pagamento": {"approve_url": approve_url}}
 
 
+async def _confirmar_pagamento_emissao(db: AsyncSession, tenant_id, solicitacao: SolicitacaoDocumentoEmissao) -> None:
+    """PENDENTE_PAGAMENTO -> PAGO + notificação ao aluno. Partilhado pela
+    captura do PayPal e pela confirmação manual da Secretaria (transferência
+    bancária — a via principal, e a única possível em moedas que o PayPal
+    não aceita, como o Kwanza)."""
+    solicitacao.status = "PAGO"
+    solicitacao.data_pagamento = datetime.now(timezone.utc)
+    await db.commit()
+
+    aluno = (await db.execute(select(Aluno).where(Aluno.id == solicitacao.aluno_id))).scalars().first()
+    if aluno and aluno.usuario_id:
+        mensagem = (
+            f"O pagamento do seu pedido de {NOMES_TIPO_DOCUMENTO.get(solicitacao.tipo_documento, solicitacao.tipo_documento)} "
+            f"foi confirmado. {'Já pode fazer o download.' if solicitacao.formato_entrega == 'DIGITAL' else 'A escola vai preparar o documento para levantamento.'}"
+        )
+        await crud_notificacoes.criar_notificacao(
+            db, tenant_id, aluno.usuario_id, tipo="SOLICITACAO_DOCUMENTO",
+            titulo="Pagamento confirmado", mensagem=mensagem, link="/portal?tab=documentos"
+        )
+
+
+async def marcar_solicitacao_emissao_paga(db: AsyncSession, tenant_id, solicitacao_id: uuid.UUID) -> dict:
+    """Confirmação manual do pagamento de um pedido de documento pela
+    Secretaria (transferência bancária), ver _confirmar_pagamento_emissao."""
+    solicitacao = await _obter_solicitacao_emissao(db, tenant_id, solicitacao_id)
+    if solicitacao.status != "PENDENTE_PAGAMENTO":
+        raise HTTPException(status_code=400, detail="Só um pedido com pagamento pendente pode ser marcado como pago.")
+    await _confirmar_pagamento_emissao(db, tenant_id, solicitacao)
+    return _serializar_emissao(solicitacao)
+
+
 async def capturar_pagamento_documento(db: AsyncSession, tenant_id, order_id: str, utilizador: dict) -> dict:
     solicitacao = (await db.execute(
         select(SolicitacaoDocumentoEmissao).where(
@@ -418,20 +449,7 @@ async def capturar_pagamento_documento(db: AsyncSession, tenant_id, order_id: st
     if captura.get("status") != "COMPLETED":
         raise HTTPException(status_code=400, detail="O pagamento não foi concluído no PayPal.")
 
-    solicitacao.status = "PAGO"
-    solicitacao.data_pagamento = datetime.now(timezone.utc)
-    await db.commit()
-
-    aluno = (await db.execute(select(Aluno).where(Aluno.id == solicitacao.aluno_id))).scalars().first()
-    if aluno and aluno.usuario_id:
-        mensagem = (
-            f"O pagamento do seu pedido de {NOMES_TIPO_DOCUMENTO.get(solicitacao.tipo_documento, solicitacao.tipo_documento)} "
-            f"foi confirmado. {'Já pode fazer o download.' if solicitacao.formato_entrega == 'DIGITAL' else 'A escola vai preparar o documento para levantamento.'}"
-        )
-        await crud_notificacoes.criar_notificacao(
-            db, tenant_id, aluno.usuario_id, tipo="SOLICITACAO_DOCUMENTO",
-            titulo="Pagamento confirmado", mensagem=mensagem, link="/portal?tab=documentos"
-        )
+    await _confirmar_pagamento_emissao(db, tenant_id, solicitacao)
 
     return _serializar_emissao(solicitacao)
 

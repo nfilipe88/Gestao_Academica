@@ -64,6 +64,7 @@ export const cobrancaDocumentoGerada = createAction('[Documentos] Cobranca Docum
 
 export const capturarPagamentoDocumento = createAction('[Documentos] Capturar Pagamento Documento', props<{ order_id: string }>());
 
+export const marcarSolicitacaoEmissaoPaga = createAction('[Documentos] Marcar Solicitacao Emissao Paga', props<{ solicitacao_id: string }>());
 export const entregarFisico = createAction('[Documentos] Entregar Fisico', props<{ solicitacao_id: string, observacoes?: string }>());
 export const cancelarSolicitacaoEmissao = createAction('[Documentos] Cancelar Solicitacao Emissao', props<{ solicitacao_id: string }>());
 

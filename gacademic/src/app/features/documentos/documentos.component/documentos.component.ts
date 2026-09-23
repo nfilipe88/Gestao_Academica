@@ -374,6 +374,10 @@ export class DocumentosComponent implements OnInit, OnDestroy {
     this.solicitacaoAEntregar = null;
   }
 
+  onMarcarSolicitacaoPaga(solicitacaoId: string) {
+    this.store.dispatch(DocumentosActions.marcarSolicitacaoEmissaoPaga({ solicitacao_id: solicitacaoId }));
+  }
+
   onCancelarSolicitacaoEmissao(solicitacaoId: string) {
     this.store.dispatch(DocumentosActions.cancelarSolicitacaoEmissao({ solicitacao_id: solicitacaoId }));
   }

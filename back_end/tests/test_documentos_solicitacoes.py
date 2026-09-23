@@ -158,3 +158,37 @@ async def test_criar_solicitacao_isolada_por_tenant(client):
     resp = await client.get("/api/v1/documentos/solicitacoes", headers=auth_headers(escola_b["token"]))
     assert resp.status_code == 200, resp.text
     assert resp.json()["total"] == 0
+
+
+async def test_secretaria_marca_pedido_de_documento_como_pago_e_o_pdf_sai(client):
+    """Via manual (transferência bancária) — antes disto, um pedido só
+    passava a PAGO por uma captura do PayPal, que não aceita Kwanza: uma
+    escola angolana nunca conseguia emitir uma Declaração (apanhado no
+    ensaio geral, scripts/ensaio_geral.py)."""
+    escola = await criar_escola_e_gestor(client, "doc-marcar-pago")
+    headers = auth_headers(escola["token"])
+    dados = await _criar_aluno_matriculado_com_portal(client, headers, date.today().year)
+    await _ativar_preco(client, headers, "DECLARACAO")
+    resp = await client.post("/api/v1/auth/login", data={"username": dados["email_responsavel"], "password": dados["senha"]})
+    headers_responsavel = auth_headers(resp.json()["access_token"])
+    resp = await client.post("/api/v1/documentos/solicitacoes", headers=headers_responsavel, json={
+        "tipo_documento": "DECLARACAO", "formato_entrega": "DIGITAL"})
+    solicitacao_id = resp.json()["id"]
+
+    # O Responsável não pode confirmar o próprio pagamento.
+    resp = await client.patch(f"/api/v1/documentos/solicitacoes/{solicitacao_id}/marcar-pago", headers=headers_responsavel)
+    assert resp.status_code == 403
+
+    resp = await client.get(f"/api/v1/documentos/solicitacoes/{solicitacao_id}/pdf", headers=headers)
+    assert resp.status_code != 200, "sem pagamento, o PDF não pode sair"
+
+    resp = await client.patch(f"/api/v1/documentos/solicitacoes/{solicitacao_id}/marcar-pago", headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "PAGO"
+
+    resp = await client.get(f"/api/v1/documentos/solicitacoes/{solicitacao_id}/pdf", headers=headers_responsavel)
+    assert resp.status_code == 200 and resp.content[:4] == b"%PDF", resp.text[:200]
+
+    # Já pago: confirmar outra vez é recusado (não duplica a data/notificação).
+    resp = await client.patch(f"/api/v1/documentos/solicitacoes/{solicitacao_id}/marcar-pago", headers=headers)
+    assert resp.status_code == 400
