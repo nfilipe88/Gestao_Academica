@@ -137,7 +137,7 @@ isso começa no Dia 1, não a meio.
   acompanhar o piloto: como criar um tenant novo, o que verificar todos os dias, como reagir a um
   incidente (quem contactar, onde estão os logs, como fazer o restauro de backup se precisar).
 
-- [ ] **Dia 12 — Teste de fumo com volume realista.**
+- [x] **Dia 12 — Teste de fumo com volume realista.** ✅ `back_end/scripts/teste_fumo_volume.py` (semear + medir, recusa correr fora de uma BD "test"). Volume na `academic_db_test`: ~13 escolas, ~2340 alunos, ~28 mil faturas, ~110 mil notas, ~290 mil registos de presença. Tempos por HTTP (mediana): Alunos 20 ms · Diário 14-18 ms · Pauta/Boletim/Financeiro do Portal 14-24 ms · Estatísticas dashboard 140 ms · Indicadores 272 ms · relatório .xlsx 185 ms · **relatório de Indicadores em PDF 1,25 s (o mais lento, sob o limite de 1,5 s)**; 0 erros. Concorrência: 9 dashboards de 3 escolas em paralelo = 1,1 s no total (quase em série — a investigar antes de escalar; não bloqueia o piloto).
   Não é teste de carga a sério (isso continua corretamente adiado para depois do piloto) — é
   popular a plataforma com um número de escolas/turmas/alunos/faturas parecido com o que as 10
   escolas de teste vão realmente gerar, e confirmar que nada degrada de forma óbvia (tempos de
