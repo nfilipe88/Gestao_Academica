@@ -114,6 +114,31 @@ async def obter_ficheiro(chave: str) -> bytes | None:
     return await asyncio.to_thread(caminho.read_bytes)
 
 
+async def listar_ficheiros(prefixo: str) -> list[str]:
+    """Lista as chaves existentes com este prefixo — hoje só usado pela
+    retenção de backups (ver app/core/backup.py); os ficheiros de
+    utilizador nunca precisam disto porque são sempre referenciados
+    pela chave exata já guardada na BD, nunca "descobertos" por
+    listagem."""
+    if _s3_cliente is not None:
+        def _listar_s3():
+            chaves = []
+            paginador = _s3_cliente.get_paginator("list_objects_v2")
+            for pagina in paginador.paginate(Bucket=S3_BUCKET, Prefix=prefixo):
+                for item in pagina.get("Contents", []):
+                    chaves.append(item["Key"])
+            return chaves
+        return await asyncio.to_thread(_listar_s3)
+
+    def _listar_local():
+        pasta = _caminho_local(prefixo.rstrip("/"))
+        if not pasta.is_dir():
+            return []
+        return sorted(f"{prefixo.rstrip('/')}/{f.name}" for f in pasta.iterdir() if f.is_file())
+
+    return await asyncio.to_thread(_listar_local)
+
+
 async def apagar_ficheiro(chave: str) -> None:
     """Best-effort — uma falha a apagar o ficheiro antigo nunca deve
     impedir a operação principal (ex.: substituir o logótipo)."""

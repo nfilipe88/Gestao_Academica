@@ -26,7 +26,7 @@ from app.database.session import AsyncSessionLocal, AsyncSessionLocalSistema
 from app.database.models import Tenant
 from app.cruds.financeiro import processar_regua_cobranca_do_tenant
 from app.cruds.admin import processar_validade_licencas
-from app.core import fila_notificacoes
+from app.core import backup, fila_notificacoes
 from app.core.lock_distribuido import tentar_obter_lock
 
 logger = logging.getLogger("scheduler")
@@ -112,6 +112,28 @@ async def job_validade_licenca_diaria() -> dict:
     return resumo
 
 
+async def job_backup_diario() -> dict:
+    """Backup diário da base de dados (Dia 6 do plano de produção) — ver
+    app/core/backup.py para o pg_dump em si e a política de retenção.
+    Mesmo lock distribuído dos jobs acima, mesma razão: com mais de uma
+    instância, só a primeira a chegar tira o backup, as outras saltam.
+
+    Ao contrário dos outros jobs (que continuam corretos mesmo se
+    falharem um dia — o Gestor só não recebe um lembrete), uma falha
+    aqui é silenciosa por natureza (ninguém "sente" a falta de um
+    backup até precisar de um) — por isso o log de erro é sempre em
+    nível exception, nunca só um aviso, para ficar visível em qualquer
+    alerta de monitorização já ligado aos logs da aplicação."""
+    if not await tentar_obter_lock("backup_diario", ttl_segundos=3600):
+        logger.info("Backup diário: outra instância já está a tratar disto agora — a saltar.")
+        return {}
+    try:
+        return await backup.executar_backup_diario()
+    except Exception:
+        logger.exception("Falha ao executar o backup diário.")
+        return {}
+
+
 def iniciar_scheduler() -> AsyncIOScheduler:
     """Chamado uma vez, no arranque da aplicação (ver main.py)."""
     global _scheduler
@@ -136,8 +158,20 @@ def iniciar_scheduler() -> AsyncIOScheduler:
         id="validade_licenca_diaria",
         replace_existing=True,
     )
+    # 03:00 — antes de qualquer um dos jobs acima, em horário de menor
+    # utilização (evita competir por I/O da base de dados com quem
+    # possa estar a trabalhar fora do horário normal).
+    _scheduler.add_job(
+        job_backup_diario,
+        trigger=CronTrigger(hour=3, minute=0),
+        id="backup_diario",
+        replace_existing=True,
+    )
     _scheduler.start()
-    logger.info("Scheduler iniciado — validade de licenças às 07:00 e régua de cobrança às 08:00, todos os dias.")
+    logger.info(
+        "Scheduler iniciado — backup às 03:00, validade de licenças às 07:00 e "
+        "régua de cobrança às 08:00, todos os dias."
+    )
     return _scheduler
 
 
