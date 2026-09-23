@@ -8,22 +8,26 @@ Duas coisas independentes do parecer jurídico:
    versão real (e mudar o texto em features/public/privacidade) quando o
    jurista aprovar.
 
-2. limpar_dados_operacionais: apaga só dados OPERACIONAIS que crescem sem
-   limite e não são registo escolar — tokens já inúteis, histórico de IP de
-   logins antigos e notificações lidas antigas. NUNCA toca em alunos,
-   matrículas, notas, faturas, documentos, comunicados ou leads: esses ficam
-   sujeitos à retenção legal (a plataforma desativa, nunca elimina).
+2. limpar_dados_operacionais: apaga só dados que NÃO são registo escolar —
+   tokens já inúteis, histórico de IP de logins antigos, notificações lidas
+   antigas e candidaturas (leads) que nunca se converteram em aluno. NUNCA
+   toca em alunos, matrículas, notas, faturas, documentos ou comunicados:
+   esses ficam sujeitos à retenção legal (15 anos, a plataforma desativa,
+   nunca elimina).
 
-   Os prazos abaixo são valores técnicos por omissão, **a confirmar pelo
-   jurista** (ver POLITICA_PRIVACIDADE_RASCUNHO.md, B.7).
+   Prazo dos leads (15 dias sem atividade): definido pela equipa. Os outros
+   prazos são valores técnicos por omissão, **a confirmar pelo jurista** (ver
+   POLITICA_PRIVACIDADE_RASCUNHO.md, B.7).
 """
 import logging
 import os
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, or_
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import storage
+from app.database.models_crm import FunilEtapa, LeadCandidato, LeadDocumento, MensagemLead, OportunidadeCRM
 from app.database.models_notificacoes import Notificacao
 from app.database.models_usuarios import ContaAtivacaoToken, LoginHistorico, PasswordResetToken, RefreshToken
 
@@ -37,6 +41,11 @@ VERSAO_TERMOS = "rascunho-2026-09"
 LOGIN_HISTORICO_RETENCAO_DIAS = int(os.getenv("LOGIN_HISTORICO_RETENCAO_DIAS", "365"))
 # Só notificações JÁ LIDAS — as por ler nunca são apagadas.
 NOTIFICACOES_LIDAS_RETENCAO_DIAS = int(os.getenv("NOTIFICACOES_LIDAS_RETENCAO_DIAS", "180"))
+# Candidaturas que nunca viraram aluno: apagadas (com os documentos anexados,
+# incluindo os ficheiros no storage) ao fim deste tempo SEM ATIVIDADE — a
+# contagem recomeça sempre que a escola mexe no cartão do funil ou troca
+# mensagens com a família, para nunca apagar um lead que está a ser trabalhado.
+LEADS_NAO_CONVERTIDOS_RETENCAO_DIAS = int(os.getenv("LEADS_NAO_CONVERTIDOS_RETENCAO_DIAS", "15"))
 # Tokens expirados/usados/revogados ficam este tempo (para auditar incidentes) e depois saem.
 TOKENS_RETENCAO_DIAS = int(os.getenv("TOKENS_RETENCAO_DIAS", "30"))
 
@@ -74,6 +83,55 @@ async def limpar_dados_operacionais(db: AsyncSession, agora: datetime | None = N
     )
     resumo["notificacoes_lidas"] = resultado.rowcount or 0
 
+    resumo.update(await _limpar_leads_nao_convertidos(db, agora))
+
     await db.commit()
     logger.info("Limpeza de dados operacionais: %s", resumo)
     return resumo
+
+
+async def _limpar_leads_nao_convertidos(db: AsyncSession, agora: datetime) -> dict[str, int]:
+    """Apaga leads sem atividade há LEADS_NAO_CONVERTIDOS_RETENCAO_DIAS e que
+    nunca viraram aluno (nenhuma oportunidade com aluno gerado nem em etapa
+    de ganho). Os ficheiros anexados saem primeiro do storage (as linhas em
+    LeadDocumento só apagariam a referência, deixando o ficheiro órfão)."""
+    limite = agora - timedelta(days=LEADS_NAO_CONVERTIDOS_RETENCAO_DIAS)
+
+    candidatos = {lead_id: entrada for lead_id, entrada in (await db.execute(
+        select(LeadCandidato.id, LeadCandidato.data_entrada).where(LeadCandidato.data_entrada < limite)
+    )).all()}
+    if not candidatos:
+        return {"leads_nao_convertidos": 0, "leads_documentos_ficheiros": 0}
+    ids = list(candidatos)
+
+    convertidos = set((await db.execute(
+        select(OportunidadeCRM.lead_id)
+        .join(FunilEtapa, FunilEtapa.id == OportunidadeCRM.etapa_id)
+        .where(OportunidadeCRM.lead_id.in_(ids), or_(OportunidadeCRM.aluno_gerado_id.is_not(None), FunilEtapa.eh_etapa_ganho == True))  # noqa: E712
+    )).scalars().all())
+
+    ultima_atividade = dict(candidatos)
+    for lead_id, quando in (await db.execute(
+        select(OportunidadeCRM.lead_id, func.max(OportunidadeCRM.data_atualizacao))
+        .where(OportunidadeCRM.lead_id.in_(ids)).group_by(OportunidadeCRM.lead_id)
+    )).all():
+        if quando and quando > ultima_atividade[lead_id]:
+            ultima_atividade[lead_id] = quando
+    for lead_id, quando in (await db.execute(
+        select(MensagemLead.lead_id, func.max(MensagemLead.criado_em))
+        .where(MensagemLead.lead_id.in_(ids)).group_by(MensagemLead.lead_id)
+    )).all():
+        if quando and quando > ultima_atividade[lead_id]:
+            ultima_atividade[lead_id] = quando
+
+    a_apagar = [i for i in ids if i not in convertidos and ultima_atividade[i] < limite]
+    if not a_apagar:
+        return {"leads_nao_convertidos": 0, "leads_documentos_ficheiros": 0}
+
+    chaves = (await db.execute(select(LeadDocumento.chave_storage).where(LeadDocumento.lead_id.in_(a_apagar)))).scalars().all()
+    for chave in chaves:
+        await storage.apagar_ficheiro(chave)
+
+    # oportunidade/documento/mensagem caem em cascata (ON DELETE CASCADE).
+    await db.execute(delete(LeadCandidato).where(LeadCandidato.id.in_(a_apagar)))
+    return {"leads_nao_convertidos": len(a_apagar), "leads_documentos_ficheiros": len(chaves)}

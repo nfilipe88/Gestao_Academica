@@ -25,5 +25,10 @@
     <label>Mensagem — opcional</label>
     <textarea formControlName="mensagem" rows="3"></textarea>
   </div>
+  <p class="aviso-privacidade">
+    Os dados que indicar são usados pela escola só para responder a este pedido. Se não avançar para
+    matrícula, são apagados ao fim de 15 dias sem atividade.
+    <a href="/privacidade" target="_blank" rel="noopener">Política de Privacidade</a>.
+  </p>
   <button type="submit" [disabled]="form.invalid">Enviar Pedido de Contacto</button>
 </form>

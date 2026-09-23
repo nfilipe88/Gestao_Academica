@@ -17,6 +17,19 @@
   margin-inline: auto;
 }
 
+.aviso-privacidade {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--sp-label);
+  opacity: 0.85;
+}
+
+.aviso-privacidade a {
+  color: var(--sp-accent);
+  text-decoration: underline;
+}
+
 :host([data-tema="classico"]) {
   --sp-accent: #b45309;
   --sp-btn-bg: #d97706;

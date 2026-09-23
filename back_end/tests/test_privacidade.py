@@ -75,3 +75,83 @@ async def test_limpeza_operacional_apaga_so_o_antigo_e_nunca_registos_escolares(
         assert await existe(RefreshToken, "token_valido")
         assert (await db.execute(select(Aluno.id).where(Aluno.id == uuid.UUID(aluno)))).first() is not None, \
             "a limpeza operacional nunca pode tocar em registos escolares"
+
+
+# ==========================================
+# Candidaturas (leads) não convertidas — 15 dias sem atividade
+# ==========================================
+from sqlalchemy import update  # noqa: E402
+
+from app.core import storage  # noqa: E402
+from app.database.models_crm import LeadCandidato, LeadDocumento, MensagemLead, OportunidadeCRM  # noqa: E402
+from tests.test_crm import _PNG_1X1  # noqa: E402
+
+
+async def _criar_lead(client, escola, nome: str, com_documento: bool = False) -> uuid.UUID:
+    resp = await client.post(f"/api/v1/public/{escola['tenant_id']}/leads", json={
+        "nome_responsavel": nome, "nome_aluno_candidato": f"Candidato {nome}",
+        "email_contato": f"lead.{sufixo_unico()}@teste.pt"})
+    assert resp.status_code == 201, resp.text
+    lead_id = resp.json()["id"]
+    if com_documento:
+        resp = await client.post(
+            f"/api/v1/public/{escola['tenant_id']}/leads/{lead_id}/documentos", params={"tipo": "BI"},
+            files={"ficheiro": ("bi.png", _PNG_1X1, "image/png")})
+        assert resp.status_code == 201, resp.text
+    return uuid.UUID(lead_id)
+
+
+async def _envelhecer_lead(lead_id: uuid.UUID, dias: int) -> None:
+    """Recua a entrada E a atividade do cartão do funil (criada agora, contaria como atividade recente)."""
+    antigo = datetime.now(timezone.utc) - timedelta(days=dias)
+    async with AsyncSessionLocalSistema() as db:
+        await db.execute(update(LeadCandidato).where(LeadCandidato.id == lead_id).values(data_entrada=antigo))
+        await db.execute(update(OportunidadeCRM).where(OportunidadeCRM.lead_id == lead_id).values(data_atualizacao=antigo))
+        await db.commit()
+
+
+async def _lead_existe(lead_id: uuid.UUID) -> bool:
+    async with AsyncSessionLocalSistema() as db:
+        return (await db.execute(select(LeadCandidato.id).where(LeadCandidato.id == lead_id))).first() is not None
+
+
+async def test_lead_nao_convertido_sem_atividade_e_apagado_com_os_ficheiros(client):
+    escola = await criar_escola_e_gestor(client, "lead-15-dias")
+    lead_id = await _criar_lead(client, escola, "Antigo", com_documento=True)
+    async with AsyncSessionLocalSistema() as db:
+        chave = (await db.execute(select(LeadDocumento.chave_storage).where(LeadDocumento.lead_id == lead_id))).scalar_one()
+    assert await storage.obter_ficheiro(chave) is not None
+
+    await _envelhecer_lead(lead_id, privacidade.LEADS_NAO_CONVERTIDOS_RETENCAO_DIAS + 2)
+    async with AsyncSessionLocalSistema() as db:
+        resumo = await privacidade.limpar_dados_operacionais(db)
+
+    assert resumo["leads_nao_convertidos"] >= 1
+    assert not await _lead_existe(lead_id)
+    assert await storage.obter_ficheiro(chave) is None, "o ficheiro anexado também tem de sair do storage"
+
+
+async def test_lead_recente_ou_com_atividade_recente_ou_convertido_nao_e_apagado(client):
+    escola = await criar_escola_e_gestor(client, "lead-15-dias-poupados")
+    headers = auth_headers(escola["token"])
+    recente = await _criar_lead(client, escola, "Recente")
+    com_mensagem = await _criar_lead(client, escola, "ComMensagem")
+    convertido = await _criar_lead(client, escola, "Convertido")
+    for lead in (com_mensagem, convertido):
+        await _envelhecer_lead(lead, privacidade.LEADS_NAO_CONVERTIDOS_RETENCAO_DIAS + 30)
+
+    resp = await client.post(f"/api/v1/crm/leads/{com_mensagem}/mensagens", headers=headers, json={"corpo": "Olá, ainda a tratar disto."})
+    assert resp.status_code == 201, resp.text
+
+    aluno_id = uuid.UUID((await client.post("/api/v1/alunos", headers=headers, json={
+        "matricula_interna": f"AL{sufixo_unico()}", "nome_completo": "Aluno Convertido", "data_nascimento": "2012-01-01"})).json()["id"])
+    async with AsyncSessionLocalSistema() as db:
+        await db.execute(update(OportunidadeCRM).where(OportunidadeCRM.lead_id == convertido).values(aluno_gerado_id=aluno_id))
+        await db.commit()
+
+    async with AsyncSessionLocalSistema() as db:
+        await privacidade.limpar_dados_operacionais(db)
+
+    assert await _lead_existe(recente), "lead recente nunca é apagado"
+    assert await _lead_existe(com_mensagem), "uma resposta recente da escola conta como atividade"
+    assert await _lead_existe(convertido), "lead já convertido em aluno nunca é apagado"

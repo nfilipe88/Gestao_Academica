@@ -29,8 +29,8 @@
   professores e funcionários da escola, candidatos (leads) que preenchem formulários públicos, e
   visitantes do site da plataforma.
 - **A plataforma nunca elimina** escolas nem alunos: só os **desativa** (decisão da equipa: a
-  legislação exigiria conservar os dados 15 anos antes de qualquer arquivo **[JURISTA: confirmar o
-  prazo, a lei que o impõe, o que conta como "arquivo" e se o prazo varia por tipo de dado]**).
+  lei angolana prevê a conservação dos dados durante **15 anos** (confirmado pela equipa) — **[JURISTA:
+  citar o diploma, o que conta como "arquivo" e o que fazer depois do prazo; e se o prazo varia por tipo de dado]**).
 - Localização dos servidores: **[EQUIPA: onde ficam a base de dados, o storage e os backups — país e
   fornecedor]**.
 - Subcontratantes/terceiros que recebem dados: ver B.5 (Google, PayPal, Anthropic, Sentry, SMTP,
@@ -147,13 +147,15 @@ autorizações, a redigir pelo jurista.]**
 - **Não eliminamos** alunos nem escolas. Quando uma escola deixa de usar a Plataforma ou um aluno
   sai, os registos são **desativados**: deixam de ter acesso e deixam de contar para o plano, mas o
   histórico (matrículas, notas, faturas, documentos) **é conservado**.
-- Conservamos os dados **durante [15] anos** por exigência legal **[JURISTA: prazo, fundamento e
+- Conservamos os dados **durante 15 anos**, como prevê a lei angolana **[JURISTA: citar o diploma e
   o que acontece depois — arquivo, anonimização ou eliminação]**.
 - **Cópias de segurança**: mantemos as **últimas [14] cópias diárias** e apagamos automaticamente as
   mais antigas. Por isso, dados corrigidos ou alterados podem subsistir nas cópias até esse prazo.
 - **Registos de início de sessão** (IP e navegador), **tokens de sessão/redefinição de palavra-passe**
   e **notificações**: **[EQUIPA/JURISTA: prazo a definir — hoje não há eliminação automática]**.
-- Dados de **candidatos** que nunca se tornam alunos: **[JURISTA: prazo]** (hoje ficam no CRM da escola).
+- Dados de **candidatos** (leads) que nunca se tornam alunos: **apagados, com os documentos anexados,
+  ao fim de 15 dias sem atividade** (definido pela equipa; a contagem recomeça sempre que a escola mexe
+  no cartão do funil ou troca mensagens com a família). Os formulários de candidatura mostram este aviso.
 
 ## B.8 Os seus direitos
 
@@ -227,12 +229,13 @@ de alterações relevantes. Contacto: **[EQUIPA]**.
 1. ~~Não existe página nem link de política~~ **FEITO (2026-09-23)**: página pública `/privacidade`
    (com aviso de rascunho enquanto `emRevisao = true`), link no rodapé do site público e checkbox
    obrigatório no registo de escola, gravado em `Tenant.termos_aceites_em`/`termos_versao`
-   (`VERSAO_TERMOS` em `app/core/privacidade.py`). **Ainda falta**: aviso/aceitação nos formulários
-   públicos de candidatura (só existe `aceitou_regulamento`) e nas escolas criadas pelo Super Admin.
+   (`VERSAO_TERMOS` em `app/core/privacidade.py`). O aviso de privacidade (com o prazo de 15 dias) já
+   aparece nos 3 formulários de candidatura (contacto rápido, página pública da escola e assistente de
+   matrícula). **Ainda falta** a aceitação nas escolas criadas pelo Super Admin.
 2. ~~Sem rotina de expiração~~ **FEITO**: job diário às 04:00 (`limpar_dados_operacionais`) apaga tokens
    inutilizados (30 d), histórico de IP de logins (365 d) e notificações **lidas** (180 d) — prazos por
    omissão técnicos em variáveis de ambiente, **a confirmar pelo jurista**. Nunca toca em registos
-   escolares. **Ainda falta** decidir o prazo dos leads não convertidos.
+   escolares. Leads não convertidos: **15 dias sem atividade** (`LEADS_NAO_CONVERTIDOS_RETENCAO_DIAS`), com os ficheiros do storage.
 3. **Sem exportação de dados** por titular (acesso/portabilidade): hoje só por pedido manual à equipa.
 4. **Sem processo formal de pedido de retificação/oposição** dentro da aplicação.
 5. **Texto livre** (comportamento, comunicados, referência de transferência, chat do Prof. Virtual)

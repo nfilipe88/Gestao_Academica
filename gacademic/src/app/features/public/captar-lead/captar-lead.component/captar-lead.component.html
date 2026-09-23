@@ -40,6 +40,12 @@
             class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500"></textarea>
         </div>
 
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Os dados que indicar são usados pela escola só para responder a este pedido. Se não avançar para
+          matrícula, são apagados ao fim de 15 dias sem atividade.
+          <a href="/privacidade" target="_blank" class="text-blue-400 hover:underline">Política de Privacidade</a>.
+        </p>
+
         <button type="submit" [disabled]="leadForm.invalid"
           class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-md py-2.5 mt-2 transition-colors cursor-pointer">
           Enviar Pedido de Contacto

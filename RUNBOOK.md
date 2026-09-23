@@ -44,7 +44,7 @@ Depois de criada, no painel Super Admin:
    ficheiro de log próprio: é o stdout/stderr do processo (ou `docker compose logs backend`).
 4. Sentry (se ativo): erros novos desde ontem.
 5. Painel Super Admin: escolas perto de expirar a licença; Tickets de Suporte por responder.
-6. Jobs diários: 03:00 backup · 04:00 limpeza de dados operacionais (tokens, histórico de IP, notificações lidas) · 07:00 validade de licenças · 08:00 régua de cobrança.
+6. Jobs diários: 03:00 backup · 04:00 limpeza de dados operacionais (tokens, histórico de IP, notificações lidas, candidaturas não convertidas há 15 dias) · 07:00 validade de licenças · 08:00 régua de cobrança.
 
 ## 4. Incidentes
 
