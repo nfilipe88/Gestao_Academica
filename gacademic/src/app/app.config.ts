@@ -6,6 +6,7 @@ import { provideEffects } from '@ngrx/effects';
 
 // Importações dos seus ficheiros
 import { authReducer } from './store/auth/auth.reducer';
+import { limparEstadoNoLogout } from './store/auth/limpar-estado.meta-reducer';
 import { AuthEffects } from './store/auth/auth.effects';
 import { academicoReducer } from './store/academico/academic.reducer';
 import { AcademicoEffects } from './store/academico/academic.effects';
@@ -96,7 +97,7 @@ export const appConfig: ApplicationConfig = {
       suporte: suporteReducer,
       estatisticas: estatisticasReducer,
       eventos: eventosReducer
-    }),
+    }, { metaReducers: [limparEstadoNoLogout] }),
     provideEffects(AuthEffects, AcademicoEffects, AlunosEffects, MatriculasEffects, ProfessoresEffects, ComunicacoesEffects, DiarioEffects, FinanceiroEffects, CrmEffects, HorariosEffects, PortalEffects, AdminEffects, TarefasEffects, IndicadoresEffects, NotificacoesEffects, DocumentosEffects, TransferenciasEffects, ConfiguracoesEffects, LmsEffects, UsuariosEffects, PerfilEffects, PermissoesEffects, PropinasEffects, AuditoriaEffects, SuporteEffects, EstatisticasEffects, EventosEffects),
   ]
 };

@@ -18,15 +18,17 @@ let refrescarEmCurso$: Observable<string | null> | null = null;
 function refrescarToken(http: HttpClient, platformId: object): Observable<string | null> {
   if (refrescarEmCurso$) return refrescarEmCurso$;
 
-  const refreshToken = isPlatformBrowser(platformId) ? localStorage.getItem('saas_refresh_token') : null;
-  if (!refreshToken) return of(null);
+  if (!isPlatformBrowser(platformId)) return of(null);
 
-  refrescarEmCurso$ = http.post<{ access_token: string; refresh_token: string }>('/api/v1/auth/refresh', { refresh_token: refreshToken }).pipe(
+  // O refresh token vive num cookie HttpOnly (enviado pelo browser sozinho, o
+  // JavaScript nunca o vê). Só numa sessão iniciada antes desta mudança ainda
+  // existe uma cópia no localStorage: usa-se uma última vez e apaga-se.
+  const legado = localStorage.getItem('saas_refresh_token');
+
+  refrescarEmCurso$ = http.post<{ access_token: string }>('/api/v1/auth/refresh', { refresh_token: legado }).pipe(
     switchMap(res => {
-      if (isPlatformBrowser(platformId)) {
-        localStorage.setItem('saas_access_token', res.access_token);
-        localStorage.setItem('saas_refresh_token', res.refresh_token);
-      }
+      localStorage.setItem('saas_access_token', res.access_token);
+      localStorage.removeItem('saas_refresh_token');
       return of(res.access_token);
     }),
     catchError(() => of(null)),

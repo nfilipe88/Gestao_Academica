@@ -1,4 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+import os
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.schemas.auth import (
@@ -9,7 +12,7 @@ from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes
 from app.core import recaptcha
 from app.core.rate_limiter import excedeu_limite
-from app.core.security import obter_utilizador_atual
+from app.core.security import REFRESH_TOKEN_EXPIRE_DIAS, obter_utilizador_atual
 from app.cruds import auth as crud_auth
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação e Onboarding"])
@@ -30,6 +33,31 @@ _LOGIN_JANELA_SEGUNDOS = 60
 # travar um script a criar tenants em massa.
 _REGISTO_MAX_TENTATIVAS = 5
 _REGISTO_JANELA_SEGUNDOS = 3600
+
+
+# Refresh token do browser: cookie HttpOnly (JavaScript nunca o lê, por isso uma
+# falha XSS não o consegue roubar), SameSite=Strict (só segue em pedidos da
+# própria app) e limitado ao caminho /api/v1/auth. O access token (curto,
+# ~20 min) é que continua a viajar no cabeçalho Authorization.
+# AUTH_COOKIE_SECURE=true por omissão (produção, HTTPS); pôr false só em
+# desenvolvimento sem HTTPS.
+COOKIE_REFRESH = os.getenv("AUTH_COOKIE_NAME", "saas_refresh")
+_COOKIE_CAMINHO = "/api/v1/auth"
+
+
+def _cookie_secure() -> bool:
+    return os.getenv("AUTH_COOKIE_SECURE", "true").lower() != "false"
+
+
+def _definir_cookie_refresh(response: Response, refresh_token: str) -> None:
+    response.set_cookie(
+        COOKIE_REFRESH, refresh_token, max_age=REFRESH_TOKEN_EXPIRE_DIAS * 86400, path=_COOKIE_CAMINHO,
+        httponly=True, secure=_cookie_secure(), samesite="strict",
+    )
+
+
+def _limpar_cookie_refresh(response: Response) -> None:
+    response.delete_cookie(COOKIE_REFRESH, path=_COOKIE_CAMINHO, httponly=True, secure=_cookie_secure(), samesite="strict")
 
 
 async def _verificar_limite_login(chave: str) -> None:
@@ -93,28 +121,42 @@ async def ativar_conta(dados: AtivarContaIn):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(request: Request, response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
     """Valida a hash da palavra-passe com o passlib e gera o access token
     (curto) + refresh token (mais duradouro, ver TokenResponse)."""
     ip_cliente = request.client.host if request.client else "desconhecido"
     await _verificar_limite_login(f"{ip_cliente}:{form_data.username}")
 
-    return await crud_auth.autenticar(form_data.username, form_data.password, ip=ip_cliente, user_agent=request.headers.get("user-agent"))
+    sessao = await crud_auth.autenticar(form_data.username, form_data.password, ip=ip_cliente, user_agent=request.headers.get("user-agent"))
+    _definir_cookie_refresh(response, sessao["refresh_token"])
+    return sessao
 
 
 @router.post("/refresh", response_model=RefreshTokenOut)
-async def refresh(dados: RefreshTokenIn):
+async def refresh(request: Request, response: Response, dados: RefreshTokenIn | None = None):
     """
     Troca o refresh token por um access token novo, sem pedir login
     outra vez — o front-end chama isto sozinho, em background, quando o
     access token (curto, ~20 min) expira. Ver
     cruds/auth.py::renovar_access_token para a rotação/deteção de roubo.
     """
-    return await crud_auth.renovar_access_token(dados.refresh_token)
+    token = (dados.refresh_token if dados else None) or request.cookies.get(COOKIE_REFRESH)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão inexistente ou expirada.")
+    try:
+        novo = await crud_auth.renovar_access_token(token)
+    except HTTPException as erro:
+        # Um HTTPException levantado descartaria o cabeçalho de `response`, por isso a
+        # resposta de erro é construída aqui, já com o cookie inválido a ser apagado.
+        recusa = JSONResponse(status_code=erro.status_code, content={"detail": erro.detail})
+        _limpar_cookie_refresh(recusa)
+        return recusa
+    _definir_cookie_refresh(response, novo["refresh_token"])
+    return novo
 
 
 @router.post("/logout")
-async def logout(dados: LogoutIn, utilizador: dict = Depends(obter_utilizador_atual)):
+async def logout(request: Request, response: Response, dados: LogoutIn, utilizador: dict = Depends(obter_utilizador_atual)):
     """
     Logout com efeito real no back-end (Fase 5) — antes disto, "Sair do
     Sistema" só apagava o token no browser; ele continuava válido até
@@ -122,7 +164,8 @@ async def logout(dados: LogoutIn, utilizador: dict = Depends(obter_utilizador_at
     revogar) e aceita opcionalmente o refresh_token, para revogar
     também essa sessão longa.
     """
-    await crud_auth.terminar_sessao(dados.refresh_token, utilizador.get("jti"))
+    await crud_auth.terminar_sessao(dados.refresh_token or request.cookies.get(COOKIE_REFRESH), utilizador.get("jti"))
+    _limpar_cookie_refresh(response)
     return {"mensagem": "Sessão terminada."}
 
 

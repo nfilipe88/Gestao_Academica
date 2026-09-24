@@ -60,6 +60,7 @@ def main() -> None:
     bloqueadores.append(("FRONTEND_URL é https e não é localhost", front.startswith("https://") and "localhost" not in front, ""))
     cors = _v(env, "CORS_ALLOWED_ORIGINS")
     bloqueadores.append(("CORS_ALLOWED_ORIGINS definido, sem localhost", bool(cors) and "localhost" not in cors, ""))
+    bloqueadores.append(("AUTH_COOKIE_SECURE não está a false (cookie do refresh token só por HTTPS)", _v(env, "AUTH_COOKIE_SECURE").lower() != "false", ""))
 
     avisos.append(("reCAPTCHA v3 configurado", bool(_v(env, "RECAPTCHA_SITE_KEY") and _v(env, "RECAPTCHA_SECRET_KEY")), "só rate limiting sem isto"))
     avisos.append(("Sentry configurado e ambiente = production", bool(_v(env, "SENTRY_DSN")) and _v(env, "SENTRY_ENVIRONMENT") == "production", ""))

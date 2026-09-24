@@ -32,6 +32,7 @@ python scripts/verificar_env_producao.py
 | [ ] | `S3_BUCKET`, `S3_ENDPOINT_URL` (vazio se AWS), `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` | Bucket **fora** do servidor da base de dados, com credenciais só para esse bucket. Sem isto os backups e os ficheiros ficam em disco local e um redeploy/perda do servidor apaga tudo. | Subir um logótipo em Configurações e ver o objeto no bucket; o log de arranque **não** pode dizer `S3_BUCKET não definido`. |
 | [ ] | `FRONTEND_URL` | URL público do front-end (`https://…`), usado nos links dos e-mails de ativação e de redefinição de senha. | O link do e-mail de ativação abre a página certa. |
 | [ ] | `CORS_ALLOWED_ORIGINS` | Só as origens reais do front-end, separadas por vírgula. **Nunca** deixar o default `http://localhost:4200`. | O front-end de produção consegue fazer login (sem erro CORS na consola do browser). |
+| [ ] | `AUTH_COOKIE_SECURE` | Deixar `true` (ou não definir): o refresh token vai num cookie HttpOnly que só segue por HTTPS. `false` só em desenvolvimento. Requer o site servido por HTTPS e o nginx de `deploy/nginx.conf` (com CSP) à frente. | Depois de iniciar sessão, no browser (Ferramentas de programador > Aplicação > Cookies) existe `saas_refresh` com HttpOnly e Secure, e `localStorage` já não tem `saas_refresh_token`. |
 
 ## 2. Fortemente recomendado
 

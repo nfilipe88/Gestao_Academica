@@ -61,7 +61,6 @@ export class AuthEffects {
         }).pipe(
           map(res => AuthActions.loginSuccess({
             token: res.access_token,
-            refreshToken: res.refresh_token,
             usuario: res.utilizador
           })),
           catchError(err => of(AuthActions.loginFalhou({ 
@@ -75,11 +74,14 @@ export class AuthEffects {
   saveAuthData$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AuthActions.loginSuccess),
-      tap(({ token, refreshToken, usuario }) => {
+      tap(({ token, usuario }) => {
         if (isPlatformBrowser(this.platformId)) {
+          // O refresh token NÃO passa por aqui: o back-end põe-no num cookie
+          // HttpOnly (JavaScript não o lê, logo uma falha XSS não o rouba).
+          // Só o access token curto (~20 min) fica acessível ao JavaScript.
           localStorage.setItem('saas_access_token', token);
-          localStorage.setItem('saas_refresh_token', refreshToken);
           localStorage.setItem('saas_user', JSON.stringify(usuario));
+          localStorage.removeItem('saas_refresh_token'); // resto de versões anteriores
         }
       })
     ),
@@ -128,12 +130,13 @@ export class AuthEffects {
       tap(() => {
         if (isPlatformBrowser(this.platformId)) {
           const token = localStorage.getItem('saas_access_token');
-          const refreshToken = localStorage.getItem('saas_refresh_token');
           if (token) {
             fetch('/api/v1/auth/logout', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ refresh_token: refreshToken || null }),
+              // O refresh token segue no cookie HttpOnly (mesma origem); o back-end revoga-o e apaga-o.
+              body: JSON.stringify({ refresh_token: null }),
+              credentials: 'same-origin',
               keepalive: true,
             }).catch(() => {});
           }

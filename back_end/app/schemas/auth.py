@@ -32,7 +32,9 @@ class TokenResponse(BaseModel):
 
 
 class RefreshTokenIn(BaseModel):
-    refresh_token: str
+    # Opcional: o browser envia-o no cookie HttpOnly (ver api/v1/auth.py); clientes
+    # de API continuam a poder mandá-lo no corpo.
+    refresh_token: str | None = None
 
 
 class RefreshTokenOut(BaseModel):

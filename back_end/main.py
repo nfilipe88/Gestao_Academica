@@ -57,6 +57,18 @@ app.add_middleware(
     allow_headers=["*"], # Permite o envio do cabeçalho de Authorization (Bearer Token)
 )
 
+@app.middleware("http")
+async def cabecalhos_de_seguranca(request, call_next):
+    """Cabeçalhos defensivos em todas as respostas da API (o CSP da app vive no nginx)."""
+    resposta = await call_next(request)
+    resposta.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resposta.headers.setdefault("X-Frame-Options", "DENY")
+    resposta.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if request.url.path.startswith("/api/v1/auth"):
+        resposta.headers.setdefault("Cache-Control", "no-store")
+    return resposta
+
+
 # ==========================================
 # ENDPOINTS (Rotas da API)
 # ==========================================
