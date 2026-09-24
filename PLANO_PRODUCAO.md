@@ -122,10 +122,15 @@ isso começa no Dia 1, não a meio.
   Alunos do painel, que agora mostra `ativos / limite`). 9 testes novos. **Fica por fazer**: o rascunho
   de política de privacidade/retenção (precisa de revisão legal — não é algo que eu possa certificar).
 
-- [ ] **Dia 10 — Limpeza de dados de teste + arrumar o repositório.**
+- [x] **Dia 10 — Limpeza de dados de teste + arrumar o repositório.**
   (O "limite de alunos" foi antecipado para o Dia 9.) Limpar os dados de teste acumulados no tenant
   partilhado usado durante o desenvolvimento (ex.: o "Boletim de Notas" personalizado esquecido lá,
   responsável/contrato/IBAN de teste do pagamento). Começar a arrumar os ficheiros por commitar.
+  **Feito (24/09/2026):** repositório arrumado e commitado em blocos; na "Escola Professor Teste" apagado o
+  modelo "Boletim de Notas" personalizado (voltou ao padrão) e limpo o IBAN fictício, via API como Gestor.
+  **Ficou de fora, de propósito:** o responsável "Encarregado do Carlos" e o contrato do aluno Carlos Neto
+  (registos financeiros, sem endpoint de eliminação por retenção legal; só apagáveis com DELETE direto na BD),
+  os 51 alunos dessa escola (a plataforma só desativa) e as ~45 escolas de teste antigas.
 
 ---
 
@@ -211,6 +216,6 @@ calendário:
 5. **Política de privacidade e retenção**: rascunho pronto em `POLITICA_PRIVACIDADE_RASCUNHO.md` (texto para utilizadores + perguntas abertas + inventário técnico), **por rever por um jurista angolano**; não posso certificá-lo. A parte técnica está feita: página `/privacidade` (com aviso de rascunho), checkbox de aceitação no registo gravado no tenant, e limpeza diária de dados operacionais (tokens, IP de logins, notificações lidas). Falta o texto final aprovado e trocar `emRevisao`/`VERSAO_TERMOS`.
 6. **Preencher `RUNBOOK.md`** (contactos, URL de produção, Sentry) e definir quem acompanha o piloto.
 
-**Riscos aceites para o piloto (documentados, não bloqueiam):** instância única sem alta disponibilidade; pagamentos por transferência com conciliação manual; sem 2FA no Super Admin; concorrência do Dashboard quase em série (9 pedidos em paralelo = 1,1 s) a investigar antes de escalar; a BD de desenvolvimento tem ~45 escolas de teste antigas e a limpeza dos dados de teste da "Escola Professor Teste" (Dia 10) continua pendente.
+**Riscos aceites para o piloto (documentados, não bloqueiam):** instância única sem alta disponibilidade; pagamentos por transferência com conciliação manual; sem 2FA no Super Admin; concorrência do Dashboard quase em série (9 pedidos em paralelo = 1,1 s) a investigar antes de escalar; a BD de desenvolvimento tem ~45 escolas de teste antigas e na "Escola Professor Teste" o responsável/contrato de teste do Carlos Neto (Dia 10) ficaram por apagar de propósito (retenção); só na BD de desenvolvimento.
 
 **Abertura controlada:** uma escola de cada vez, com o Super Admin a criar a escola (não auto-registo), a atribuir plano/licença e a acompanhar o primeiro dia; só passar à seguinte depois de 1-2 dias sem incidentes. Critérios para a fase de 50 escolas: ver a secção anterior.
