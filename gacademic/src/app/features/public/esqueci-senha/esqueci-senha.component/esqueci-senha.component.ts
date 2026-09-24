@@ -1,3 +1,4 @@
+import { VoltarInicioComponent } from '../../../../shared/components/voltar-inicio/voltar-inicio.component';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
@@ -18,7 +19,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 // de facto observa.
 @Component({
   selector: 'app-esqueci-senha.component',
-  imports: [ReactiveFormsModule, CommonModule],
+  imports: [ReactiveFormsModule, CommonModule, VoltarInicioComponent],
   templateUrl: './esqueci-senha.component.html',
   styleUrl: './esqueci-senha.component.css',
 })

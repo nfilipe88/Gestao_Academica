@@ -1,3 +1,4 @@
+import { VoltarInicioComponent } from '../../../../shared/components/voltar-inicio/voltar-inicio.component';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
@@ -17,7 +18,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 // zoneless de facto observa.
 @Component({
   selector: 'app-redefinir-senha.component',
-  imports: [ReactiveFormsModule, CommonModule],
+  imports: [ReactiveFormsModule, CommonModule, VoltarInicioComponent],
   templateUrl: './redefinir-senha.component.html',
   styleUrl: './redefinir-senha.component.css',
 })

@@ -1,3 +1,4 @@
+import { VoltarInicioComponent } from '../../../../shared/components/voltar-inicio/voltar-inicio.component';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, OnInit, signal } from '@angular/core';
@@ -20,7 +21,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 // o mecanismo que o CD zoneless de facto observa.
 @Component({
   selector: 'app-ativar-conta.component',
-  imports: [CommonModule],
+  imports: [CommonModule, VoltarInicioComponent],
   templateUrl: './ativar-conta.component.html',
   styleUrl: './ativar-conta.component.css',
 })

@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AsyncPipe } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { filter, take } from 'rxjs';
+import { logout } from '../../../store/auth/auth.actions';
 import { aceitarTermos } from '../../../store/configuracoes/configuracoes.actions';
 import { selectConfiguracao, selectConfiguracoesError } from '../../../store/configuracoes/configuracoes.selector';
 
@@ -37,6 +38,7 @@ import { selectConfiguracao, selectConfiguracoesError } from '../../../store/con
           class="mt-6 w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50">
           Aceitar e continuar
         </button>
+        <button type="button" (click)="sair()" class="mt-3 w-full text-xs text-slate-400 hover:text-white cursor-pointer">Terminar sessão</button>
       </section>
     </main>
   `,
@@ -48,6 +50,8 @@ export class AceitarTermosComponent {
   aceite = false;
   aEnviar = false;
   erro$ = this.store.select(selectConfiguracoesError);
+
+  sair() { this.store.dispatch(logout()); }
 
   confirmar() {
     this.aEnviar = true;

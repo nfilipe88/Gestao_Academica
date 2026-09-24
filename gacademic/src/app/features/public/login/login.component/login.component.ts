@@ -1,3 +1,4 @@
+import { VoltarInicioComponent } from '../../../../shared/components/voltar-inicio/voltar-inicio.component';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -8,7 +9,7 @@ import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-login.component',
-  imports: [ReactiveFormsModule, CommonModule],
+  imports: [ReactiveFormsModule, CommonModule, VoltarInicioComponent],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css',
 })

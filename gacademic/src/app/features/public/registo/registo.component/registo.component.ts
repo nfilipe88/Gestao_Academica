@@ -1,3 +1,4 @@
+import { VoltarInicioComponent } from '../../../../shared/components/voltar-inicio/voltar-inicio.component';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
@@ -6,7 +7,7 @@ import { RecaptchaService } from '../../../../core/services/recaptcha.service';
 
 @Component({
   selector: 'app-registo.component',
-  imports: [ReactiveFormsModule, CommonModule],
+  imports: [ReactiveFormsModule, CommonModule, VoltarInicioComponent],
   templateUrl: './registo.component.html',
   styleUrl: './registo.component.css',
 })

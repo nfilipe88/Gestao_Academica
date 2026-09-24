@@ -14,6 +14,7 @@
 
     <header class="bg-white border-b border-slate-200">
       <div class="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+        <a [routerLink]="['/escola', e.tenant_id]" class="text-xs text-slate-400 hover:text-slate-700 mr-1" aria-label="Voltar à página da escola">← Voltar</a>
         @if (e.logotipo) {
           <img [src]="e.logotipo" [alt]="e.nome_fantasia" class="h-9 w-auto object-contain" />
         }

@@ -1,3 +1,4 @@
+import { RouterLink } from '@angular/router';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
@@ -37,7 +38,7 @@ const TIPOS_DOCUMENTO = [
  */
 @Component({
   selector: 'app-matricula-wizard',
-  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe],
+  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe, RouterLink],
   templateUrl: './matricula-wizard.component.html',
   styleUrl: './matricula-wizard.component.css',
 })
