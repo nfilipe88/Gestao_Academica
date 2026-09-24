@@ -98,3 +98,31 @@ os de produção e nunca vão para o git.
   alternativa. Sem gateway local automático.
 - Política de privacidade e retenção **ainda por escrever/rever juridicamente**.
 - Sem 2FA no Super Admin; sem CD automático.
+
+## 8. Notificações em tempo real e renderização no servidor (decisões)
+
+**Contagem de notificações (sino).** O front-end pergunta `GET /api/v1/notificacoes/contagem` de ~60 em
+60 s, mas só com o separador visível, com variação aleatória de ±20 %, com recuo (até 5 min) se o
+servidor falhar e parando no logout. Um separador escondido não gera carga. Ordem de grandeza:
+1 000 utilizadores com o separador aberto ≈ 17 pedidos/s; 5 000 ≈ 83 pedidos/s. No ambiente de
+desenvolvimento (Windows, 1 processo) medi ~10 ms por pedido em série e uma capacidade de ~30–100
+pedidos/s em paralelo, pelo que **até algumas centenas de utilizadores em simultâneo o polling chega**.
+Antes de migrar, escalar na horizontal: `uvicorn --workers N` ou várias instâncias, **com `REDIS_URL`
+definida** (a revogação de sessões e o limitador de tentativas são em memória sem Redis).
+
+**SSE/WebSockets: avaliado, não feito agora.** Custos reais: uma ligação aberta por utilizador (o
+`EventSource` não envia o cabeçalho Authorization, logo seria preciso `fetch` em streaming ou um token
+de curta duração no URL); com mais de uma instância obriga a Redis pub/sub para distribuir os eventos;
+proxies/nginx precisam de `proxy_buffering off` e tempos limite longos. Migrar quando: >~1 000 utilizadores
+em simultâneo, ou quando se quiser feedback instantâneo (chat, avisos em tempo real). Até lá, o
+polling com pausa por visibilidade dá 90 % do ganho com 5 % da complexidade.
+
+**Renderização (SSR).** Só as páginas públicas são servidas no servidor ou pré-renderizadas
+(ver `gacademic/src/app/app.routes.server.ts`). **Todas as rotas autenticadas são `Client`**: o
+servidor não tem a sessão (está no `localStorage`), por isso pré-renderizá-las só produzia uma página
+"Redirecting to /login" e uma ida e volta ao login em cada F5. A hidratação (`provideClientHydration`)
+**não** está ativa; se algum dia for ligada, as rotas `Client` evitam divergências (hydration mismatch).
+Uma rota nova é `Client` por omissão; uma página pública nova que precise de SSR tem de ser acrescentada
+à lista de propósito. Em produção o servidor Angular SSR exige `allowedHosts` com o domínio real (variável
+`NG_ALLOWED_HOSTS`), senão volta ao modo cliente para todas as páginas (funciona, mas sem SSR).
+
