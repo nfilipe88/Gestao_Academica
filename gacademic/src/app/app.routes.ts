@@ -6,6 +6,7 @@ import { superAdminGuard } from './core/guards/super-admin.guard';
 import { permissoesGuard } from './core/guards/permissoes.guard';
 import { perfilGuard } from './core/guards/perfil.guard';
 import { publicoMatchGuard } from './core/guards/publico.guard';
+import { termosGuard } from './core/guards/termos.guard';
 import { configuracaoInicialGuard } from './core/guards/configuracao-inicial.guard';
 
 // Grupos de perfis reaproveitados em várias rotas abaixo — mesma
@@ -50,6 +51,14 @@ export const routes: Routes = [
     path: 'esqueci-senha',
     canActivate: [guestGuard],
     loadComponent: () => import('./features/public/esqueci-senha/esqueci-senha.component/esqueci-senha.component').then((m) => m.EsqueciSenhaComponent)
+  },
+
+  {
+    // Só para quem tem sessão: o Gestor de uma escola criada pelo Super
+    // Admin aceita aqui a Política de Privacidade (ver termosGuard).
+    path: 'aceitar-termos',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/public/aceitar-termos/aceitar-termos.component').then((m) => m.AceitarTermosComponent)
   },
 
   // ==========================================
@@ -99,7 +108,7 @@ export const routes: Routes = [
     // nada enquanto o Ano Letivo não estiver definido (ver docstring
     // do guard) — ambos avaliados por ordem, o segundo só decide
     // quando o primeiro já deixou passar.
-    canActivate: [authGuard, configuracaoInicialGuard],
+    canActivate: [authGuard, termosGuard, configuracaoInicialGuard],
     loadComponent: () => import('./shared/components/dashboard-layout/dashboard-layout.component/dashboard-layout.component').then((m) => m.DashboardLayoutComponent),
     children: [
       {

@@ -46,6 +46,11 @@ export interface ConfiguracaoTenant {
   periodo_tarde_fim: string | null;
   periodo_pos_laboral_inicio: string | null;
   periodo_pos_laboral_fim: string | null;
+  // Aceitação da Política de Privacidade/Termos. null = por aceitar
+  // (escola criada pelo Super Admin) — ver core/guards/termos.guard.ts.
+  // Opcionais: só se leem, nunca vão no corpo do PUT.
+  termos_aceites_em?: string | null;
+  termos_versao?: string | null;
 }
 
 // Catálogo de tipos de avaliação da escola — ver

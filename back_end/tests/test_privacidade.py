@@ -155,3 +155,42 @@ async def test_lead_recente_ou_com_atividade_recente_ou_convertido_nao_e_apagado
     assert await _lead_existe(recente), "lead recente nunca é apagado"
     assert await _lead_existe(com_mensagem), "uma resposta recente da escola conta como atividade"
     assert await _lead_existe(convertido), "lead já convertido em aluno nunca é apagado"
+
+
+# ==========================================
+# Escola criada pelo Super Admin — o Gestor aceita os termos no 1º acesso
+# ==========================================
+from tests.test_planos_por_aluno_modulo import _criar_super_admin  # noqa: E402
+
+
+async def test_escola_criada_pelo_super_admin_nasce_sem_termos_e_o_gestor_aceita(client):
+    admin = await _criar_super_admin(client)
+    suf = sufixo_unico()
+    email = f"gestor.admin.{suf}@teste.pt"
+    resp = await client.post("/api/v1/admin/tenants", headers=auth_headers(admin["access_token"]), json={
+        "nome_fantasia": f"Escola Do Admin {suf}", "nif": suf, "nome_gestor": "Gestor",
+        "email_gestor": email, "palavra_passe": "SenhaTeste123!"})
+    assert resp.status_code == 201, resp.text
+
+    login = await client.post("/api/v1/auth/login", data={"username": email, "password": "SenhaTeste123!"})
+    assert login.status_code == 200, login.text
+    headers = auth_headers(login.json()["access_token"])
+
+    config = (await client.get("/api/v1/configuracoes", headers=headers)).json()
+    assert config["termos_aceites_em"] is None and config["termos_versao"] is None
+
+    resp = await client.post("/api/v1/configuracoes/aceitar-termos", headers=headers)
+    assert resp.status_code == 200, resp.text
+    primeira = resp.json()
+    assert primeira["termos_versao"] == privacidade.VERSAO_TERMOS and primeira["termos_aceites_em"]
+
+    # idempotente: repetir não altera a data original
+    segunda = (await client.post("/api/v1/configuracoes/aceitar-termos", headers=headers)).json()
+    assert segunda["termos_aceites_em"] == primeira["termos_aceites_em"]
+
+
+async def test_so_o_gestor_pode_aceitar_os_termos(client):
+    escola = await criar_escola_e_gestor(client, "termos-perfil")
+    admin = await _criar_super_admin(client)
+    resp = await client.post("/api/v1/configuracoes/aceitar-termos", headers=auth_headers(admin["access_token"]))
+    assert resp.status_code == 403

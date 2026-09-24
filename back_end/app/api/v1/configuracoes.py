@@ -30,6 +30,15 @@ async def obter_configuracao(
     return await crud_configuracoes.obter_configuracao(db, utilizador["tenant_id"])
 
 
+@router.post("/aceitar-termos", response_model=ConfiguracaoTenantOut)
+async def aceitar_termos(
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    """O Gestor aceita, em nome da escola, a Política de Privacidade e os Termos
+    (escolas criadas pelo Super Admin não os aceitam no registo)."""
+    return await crud_configuracoes.aceitar_termos(db, utilizador["tenant_id"])
+
+
 @router.put("", response_model=ConfiguracaoTenantOut)
 async def atualizar_configuracao(
     dados: ConfiguracaoTenantUpdate,

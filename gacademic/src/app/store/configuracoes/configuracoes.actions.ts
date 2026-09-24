@@ -16,6 +16,8 @@ export const atualizarConfiguracao = createAction(
   props<{ dados: Omit<ConfiguracaoTenant, 'tem_logotipo'> }>()
 );
 
+export const aceitarTermos = createAction('[Configuracoes] Aceitar Termos');
+
 export const configuracoesOperacaoSucesso = createAction('[Configuracoes] Operacao Sucesso', props<{ mensagem: string }>());
 export const configuracoesOperacaoFalhou = createAction('[Configuracoes API] Operação Falhou', props<{ erro: string }>());
 

@@ -7,12 +7,14 @@ acesso (leitura aberta a qualquer autenticado do tenant, escrita
 restrita ao GESTOR).
 """
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
+from app.core.privacidade import VERSAO_TERMOS
 from app.database.models import Tenant
 from app.database.models_diario import Avaliacao, TipoAvaliacaoConfig
 from app.schemas.configuracoes import ConfiguracaoTenantUpdate, TipoAvaliacaoCreate, TipoAvaliacaoUpdate
@@ -33,6 +35,18 @@ async def _obter_tenant(db: AsyncSession, tenant_id) -> Tenant:
 
 async def obter_configuracao(db: AsyncSession, tenant_id) -> Tenant:
     return await _obter_tenant(db, tenant_id)
+
+
+async def aceitar_termos(db: AsyncSession, tenant_id) -> Tenant:
+    """Regista a aceitação da Política de Privacidade/Termos pela escola.
+    Idempotente: se já aceitou, mantém a data e a versão originais."""
+    tenant = await _obter_tenant(db, tenant_id)
+    if tenant.termos_aceites_em is None:
+        tenant.termos_aceites_em = datetime.now(timezone.utc)
+        tenant.termos_versao = VERSAO_TERMOS
+        await db.commit()
+        await db.refresh(tenant)
+    return tenant
 
 
 async def atualizar_configuracao(db: AsyncSession, tenant_id, dados: ConfiguracaoTenantUpdate) -> Tenant:

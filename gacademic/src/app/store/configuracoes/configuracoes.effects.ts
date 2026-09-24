@@ -37,6 +37,18 @@ export class ConfiguracoesEffects {
     )
   );
 
+  aceitarTermos$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ConfiguracoesActions.aceitarTermos),
+      switchMap(() => this.http.post<ConfiguracaoTenant>('/api/v1/configuracoes/aceitar-termos', {}).pipe(
+        map(configuracao => ConfiguracoesActions.carregarConfiguracaoSucesso({ configuracao })),
+        catchError(err => of(ConfiguracoesActions.configuracoesOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível registar a aceitação.'
+        })))
+      ))
+    )
+  );
+
   // ==========================================
   // TIPOS DE AVALIAÇÃO
   // ==========================================

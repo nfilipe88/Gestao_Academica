@@ -1,6 +1,6 @@
 import re
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from pydantic import BaseModel, field_validator, model_validator
@@ -67,6 +67,11 @@ class ConfiguracaoTenantOut(BaseModel):
     periodo_tarde_fim: time | None = None
     periodo_pos_laboral_inicio: time | None = None
     periodo_pos_laboral_fim: time | None = None
+    # Aceitação da Política de Privacidade/Termos pela escola. None =
+    # ainda por aceitar (escola criada pelo Super Admin, que não pode
+    # aceitar em nome dela) — o front-end obriga o Gestor a aceitar.
+    termos_aceites_em: datetime | None = None
+    termos_versao: str | None = None
 
     model_config = {"from_attributes": True}
 
