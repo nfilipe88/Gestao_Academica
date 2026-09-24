@@ -21,30 +21,30 @@
   } @else {
     <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8">
       @if (erro(); as msg) {
-        <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">{{ msg }}</div>
+        <div role="alert" class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">{{ msg }}</div>
       }
       <form [formGroup]="contactoForm" (ngSubmit)="onSubmit()" class="space-y-5">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label class="block text-sm font-medium text-slate-300 mb-1.5">O seu nome</label>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5" for="f-contacto-1">O seu nome</label>
             <input type="text" formControlName="nome"
-              class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" />
+              class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" id="f-contacto-1" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-300 mb-1.5">E-mail</label>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5" for="f-contacto-2">E-mail</label>
             <input type="email" formControlName="email" placeholder="voce@email.pt"
-              class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" />
+              class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" id="f-contacto-2" />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-300 mb-1.5">Assunto</label>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5" for="f-contacto-3">Assunto</label>
           <input type="text" formControlName="assunto" placeholder="Ex: Quero saber mais sobre os planos"
-            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" />
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" id="f-contacto-3" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-300 mb-1.5">Mensagem</label>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5" for="f-contacto-4">Mensagem</label>
           <textarea formControlName="mensagem" rows="5" placeholder="Escreva a sua mensagem…"
-            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors"></textarea>
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors" id="f-contacto-4"></textarea>
         </div>
         <button type="submit" [disabled]="contactoForm.invalid || aEnviar()"
           class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-lg py-3 transition-colors cursor-pointer disabled:cursor-not-allowed shadow-lg shadow-blue-600/20">

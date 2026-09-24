@@ -6,10 +6,10 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
   @if (mensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
   <div class="flex gap-1 border-b border-slate-200">
@@ -49,9 +49,9 @@
   @if (aba === 'emissao') {
     <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-documentos-1">Estado</label>
         <select [(ngModel)]="filtroStatusEmissao" (ngModelChange)="aplicarFiltroEmissao()"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-documentos-1">
           <option value="">Todos</option>
           @for (estado of estadosEmissao; track estado) {
             <option [value]="estado">{{ estado }}</option>
@@ -59,14 +59,14 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Pedido entre</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-documentos-2">Pedido entre</label>
         <input type="date" [(ngModel)]="filtroDataInicioEmissao" (ngModelChange)="aplicarFiltroEmissao()"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-documentos-2" />
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-documentos-3">e</label>
         <input type="date" [(ngModel)]="filtroDataFimEmissao" (ngModelChange)="aplicarFiltroEmissao()"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-documentos-3" />
       </div>
       <button type="button" (click)="limparFiltroEmissao()"
         class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
@@ -226,9 +226,9 @@
                 </div>
 
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Ou carregar um modelo em .docx</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-documentos-4">Ou carregar um modelo em .docx</label>
                   <input type="file" accept=".docx" (change)="onSelecionarDocx($event)" [disabled]="aConverterDocx()"
-                    class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50" />
+                    class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50" id="f-documentos-4" />
                   <p class="text-xs text-slate-400 mt-1">
                     Escreva os placeholders (ex.: {{ exemploSintaxeVariavel }}) como texto normal no Word — o carregamento só transfere o texto/tabelas, não recalcula nada.
                     Reveja sempre com "Pré-visualizar" antes de guardar.
@@ -261,7 +261,7 @@
                 }
 
                 @if (erroPreVisualizacao()) {
-                  <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erroPreVisualizacao() }}</div>
+                  <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erroPreVisualizacao() }}</div>
                 }
 
                 <div class="flex gap-2">
@@ -304,17 +304,17 @@
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Pedir a</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-documentos-5">Pedir a</label>
             <select [ngModel]="novoPedidoTipo" (ngModelChange)="onMudarTipoDestinatario($event)"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800">
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800" id="f-documentos-5">
               <option value="ALUNO">Aluno</option>
               <option value="RESPONSAVEL">Responsável</option>
               <option value="PROFESSOR">Professor</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Destinatário</label>
-            <select [(ngModel)]="novoPedidoDestinatarioId" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800">
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-documentos-6">Destinatário</label>
+            <select [(ngModel)]="novoPedidoDestinatarioId" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800" id="f-documentos-6">
               <option value="">Selecione...</option>
               @if (novoPedidoTipo === 'ALUNO') {
                 @for (a of (alunos$ | async); track a.id) { <option [value]="a.id">{{ a.nome_completo }}</option> }
@@ -327,14 +327,14 @@
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Título</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-documentos-7">Título</label>
           <input type="text" [(ngModel)]="novoPedidoTitulo" placeholder="Ex: Cópia do Cartão de Cidadão"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800" id="f-documentos-7" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Descrição</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-documentos-8">Descrição</label>
           <textarea [(ngModel)]="novoPedidoDescricao" rows="2"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800"></textarea>
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800" id="f-documentos-8"></textarea>
         </div>
         <button type="button" (click)="onSubmitNovoPedido()"
           [disabled]="!novoPedidoDestinatarioId || !novoPedidoTitulo || !novoPedidoDescricao"
@@ -346,9 +346,9 @@
 
     <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-documentos-9">Estado</label>
         <select [(ngModel)]="filtroStatusEscola" (ngModelChange)="aplicarFiltroEscola()"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-documentos-9">
           <option value="">Todos</option>
           @for (estado of estadosEscola; track estado) {
             <option [value]="estado">{{ estado }}</option>
@@ -356,14 +356,14 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Pedido entre</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-documentos-10">Pedido entre</label>
         <input type="date" [(ngModel)]="filtroDataInicioEscola" (ngModelChange)="aplicarFiltroEscola()"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-documentos-10" />
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-documentos-11">e</label>
         <input type="date" [(ngModel)]="filtroDataFimEscola" (ngModelChange)="aplicarFiltroEscola()"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-documentos-11" />
       </div>
       <button type="button" (click)="limparFiltroEscola()"
         class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">

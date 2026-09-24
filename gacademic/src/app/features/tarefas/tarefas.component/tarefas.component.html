@@ -6,17 +6,17 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
 
   @if (mensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
-    <label class="block text-sm font-medium text-slate-600 mb-1">Turma / Disciplina</label>
+    <label class="block text-sm font-medium text-slate-600 mb-1" for="f-tarefas-1">Turma / Disciplina</label>
     <select [value]="alocacaoSelecionadaId" (change)="onSelecionarAlocacao($any($event.target).value)"
-      class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+      class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-tarefas-1">
       <option value="">Selecione uma turma/disciplina</option>
       @for (alocacao of alocacoes$ | async; track alocacao.id) {
         <option [value]="alocacao.id">{{ alocacao.nome_disciplina }} — {{ alocacao.nome_turma }}</option>
@@ -43,30 +43,30 @@
       <form [formGroup]="tarefaForm" (ngSubmit)="onSubmitTarefa()"
         class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Título</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-tarefas-2">Título</label>
           <input type="text" formControlName="titulo" placeholder="Ex: Lista de exercícios 1"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-tarefas-2" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Descrição — opcional</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-tarefas-3">Descrição — opcional</label>
           <textarea formControlName="descricao" rows="2"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-tarefas-3"></textarea>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Data de entrega</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-tarefas-4">Data de entrega</label>
             <input type="date" formControlName="data_entrega"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-tarefas-4" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Valor máximo</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-tarefas-5">Valor máximo</label>
             <input type="number" min="0.01" step="0.5" formControlName="valor_maximo"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-tarefas-5" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Período de avaliação — opcional</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-tarefas-6">Período de avaliação — opcional</label>
             <input type="text" formControlName="periodo_avaliacao" placeholder="Ex: 1º Trimestre" list="lista-periodos-tarefas"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-tarefas-6" />
             <datalist id="lista-periodos-tarefas">
               @for (periodo of periodos$ | async; track periodo.id) {
                 <option [value]="periodo.nome">{{ periodo.aberto ? 'Aberto' : 'Trancado' }}</option>
@@ -84,14 +84,14 @@
     <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
       <form [formGroup]="filtroForm" class="flex flex-wrap items-end gap-3">
         <div class="flex-1 min-w-40">
-          <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-tarefas-7">Pesquisar</label>
           <input type="text" formControlName="busca" placeholder="Título do trabalho"
-            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-tarefas-7" />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Período</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-tarefas-8">Período</label>
           <select formControlName="periodo_avaliacao"
-            class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-tarefas-8">
             <option value="">Todos</option>
             @for (periodo of periodos$ | async; track periodo.id) {
               <option [value]="periodo.nome">{{ periodo.nome }}</option>

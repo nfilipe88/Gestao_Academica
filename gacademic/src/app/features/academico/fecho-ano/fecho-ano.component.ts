@@ -35,8 +35,8 @@ interface Previa {
         <p class="text-sm text-slate-500">Confirme que todas as notas estão lançadas, tranque o trimestre e, no fim do ano, feche os resultados finais dos alunos.</p>
       </div>
 
-      @if (mensagem()) { <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-lg px-4 py-3">{{ mensagem() }}</div> }
-      @if (erro()) { <div class="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-lg px-4 py-3">{{ erro() }}</div> }
+      @if (mensagem()) { <div role="status" class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-lg px-4 py-3">{{ mensagem() }}</div> }
+      @if (erro()) { <div role="alert" class="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-lg px-4 py-3">{{ erro() }}</div> }
 
       <section class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
         <h3 class="text-sm font-semibold text-slate-800">1. Trimestres</h3>
@@ -77,8 +77,8 @@ interface Previa {
         <h3 class="text-sm font-semibold text-slate-800">2. Fecho do ano letivo</h3>
         <div class="flex flex-wrap items-end gap-3">
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Ano letivo (ano de início)</label>
-            <input type="number" [(ngModel)]="ano" class="w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-sm" />
+            <label class="block text-xs font-medium text-slate-600 mb-1" for="f-fecho-ano-1">Ano letivo (ano de início)</label>
+            <input type="number" [(ngModel)]="ano" class="w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-sm" id="f-fecho-ano-1" />
           </div>
           <button type="button" (click)="carregarPrevia()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg cursor-pointer">Ver prévia dos resultados</button>
         </div>
@@ -186,8 +186,9 @@ export class FechoAnoComponent implements OnInit {
     });
   }
 
-  carregarPrevia() {
-    this.erro.set(null); this.mensagem.set(null); this.confirmarFecho = false;
+  carregarPrevia(limparMensagem = true) {
+    this.erro.set(null); this.confirmarFecho = false;
+    if (limparMensagem) this.mensagem.set(null);
     this.http.get<Previa>(`/api/v1/fecho/ano/${this.ano}/previa`).subscribe({ next: r => this.previa.set(r), error: this.falha });
   }
 
@@ -197,7 +198,7 @@ export class FechoAnoComponent implements OnInit {
       next: r => {
         this.mensagem.set(r.completo ? `Ano fechado: ${r.fechados} resultado(s) gravado(s).`
           : `${r.fechados} resultado(s) gravado(s). ${r.incompletos.length} aluno(s) ficaram por fechar por terem notas em falta — corrija e volte a fechar.`);
-        this.carregarPrevia();
+        this.carregarPrevia(false);
       },
       error: this.falha,
     });
@@ -205,7 +206,7 @@ export class FechoAnoComponent implements OnInit {
 
   reabrir() {
     this.http.post<{ reabertas: number }>(`/api/v1/fecho/ano/${this.ano}/reabrir`, {}).subscribe({
-      next: r => { this.mensagem.set(`Fecho reaberto: ${r.reabertas} resultado(s) anulado(s).`); this.carregarPrevia(); }, error: this.falha,
+      next: r => { this.mensagem.set(`Fecho reaberto: ${r.reabertas} resultado(s) anulado(s).`); this.carregarPrevia(false); }, error: this.falha,
     });
   }
 

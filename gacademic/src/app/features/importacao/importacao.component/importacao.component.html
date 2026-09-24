@@ -6,7 +6,7 @@
   </div>
 
   @if (erro(); as mensagemErro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ mensagemErro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ mensagemErro }}</div>
   }
 
   <!-- Indicador de passo -->
@@ -23,9 +23,9 @@
   <!-- PASSO 1 — upload -->
   @if (passoAtual() === 1) {
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
-      <label class="block text-sm font-medium text-slate-600 mb-1">Ficheiro da mini-pauta (.xlsx)</label>
+      <label class="block text-sm font-medium text-slate-600 mb-1" for="f-importacao-1">Ficheiro da mini-pauta (.xlsx)</label>
       <input type="file" accept=".xlsx" (change)="onSelecionarFicheiro($event)"
-        class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+        class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" id="f-importacao-1" />
       <p class="text-xs text-slate-400">Nada é gravado ainda — o próximo passo só mostra o que foi encontrado no ficheiro, para rever antes de confirmar.</p>
       <button type="button" (click)="enviarParaPreview()" [disabled]="!ficheiroSelecionado() || aProcessar()"
         class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
@@ -45,9 +45,9 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Ano letivo (início) *</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-importacao-2">Ano letivo (início) *</label>
         <input type="number" [ngModel]="anoLetivoEditado()" (ngModelChange)="anoLetivoEditado.set($event)"
-          class="w-full max-w-32 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full max-w-32 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-importacao-2" />
       </div>
 
       <!-- Curso -->
@@ -267,7 +267,7 @@
   <!-- PASSO 4 — resultado -->
   @if (passoAtual() === 4 && resultado(); as r) {
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
-      <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
         Importação concluída — {{ r.resumo.total_alunos_criados }} aluno(s) novo(s),
         {{ r.resumo.total_alunos_reaproveitados }} reaproveitado(s), {{ r.resumo.total_notas_lancadas }} nota(s) lançada(s).
       </div>

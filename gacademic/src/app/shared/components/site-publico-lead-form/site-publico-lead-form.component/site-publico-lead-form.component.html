@@ -4,26 +4,26 @@
 
 <form [formGroup]="form" (ngSubmit)="enviar.emit()" class="grupo">
   <div class="campo">
-    <label>O seu nome</label>
-    <input type="text" formControlName="nome_responsavel" />
+    <label for="f-site-publico-lead-form-1">O seu nome</label>
+    <input type="text" formControlName="nome_responsavel" id="f-site-publico-lead-form-1" />
   </div>
   <div class="campo">
-    <label>Nome do candidato (aluno)</label>
-    <input type="text" formControlName="nome_aluno_candidato" />
+    <label for="f-site-publico-lead-form-2">Nome do candidato (aluno)</label>
+    <input type="text" formControlName="nome_aluno_candidato" id="f-site-publico-lead-form-2" />
   </div>
   <div class="duplo">
     <div class="campo">
-      <label>E-mail — opcional</label>
-      <input type="email" formControlName="email_contato" />
+      <label for="f-site-publico-lead-form-3">E-mail — opcional</label>
+      <input type="email" formControlName="email_contato" id="f-site-publico-lead-form-3" />
     </div>
     <div class="campo">
-      <label>Telefone — opcional</label>
-      <input type="text" formControlName="telefone" />
+      <label for="f-site-publico-lead-form-4">Telefone — opcional</label>
+      <input type="text" formControlName="telefone" id="f-site-publico-lead-form-4" />
     </div>
   </div>
   <div class="campo">
-    <label>Mensagem — opcional</label>
-    <textarea formControlName="mensagem" rows="3"></textarea>
+    <label for="f-site-publico-lead-form-5">Mensagem — opcional</label>
+    <textarea formControlName="mensagem" rows="3" id="f-site-publico-lead-form-5"></textarea>
   </div>
   <p class="aviso-privacidade">
     Os dados que indicar são usados pela escola só para responder a este pedido. Se não avançar para

@@ -6,11 +6,11 @@
   </div>
 
   <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Escola</label>
+    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5" for="f-estatisticas-1">Escola</label>
     <select
       class="w-full sm:w-96 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700"
       [ngModel]="tenantIdSelecionado"
-      (ngModelChange)="onEscolherEscola($event)">
+      (ngModelChange)="onEscolherEscola($event)" id="f-estatisticas-1">
       <option [ngValue]="null">Selecione uma escola…</option>
       @for (tenant of tenants$ | async; track tenant.id) {
         <option [ngValue]="tenant.id">{{ tenant.nome_fantasia }}</option>

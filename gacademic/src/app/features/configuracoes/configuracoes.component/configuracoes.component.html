@@ -12,14 +12,14 @@
   }
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
   @if (mensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
   @if (!(podeEditar$ | async)) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">Acesso restrito a: GESTOR.</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">Acesso restrito a: GESTOR.</div>
   }
 
   @if (podeEditar$ | async) {
@@ -58,10 +58,10 @@
     </div>
 
     @if (erroSitePublico(); as erro) {
-      <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+      <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
     }
     @if (mensagemSitePublico(); as msg) {
-      <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ msg }}</div>
+      <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ msg }}</div>
     }
 
     <form [formGroup]="sitePublicoForm" (ngSubmit)="onGuardarSitePublico()" class="space-y-4">
@@ -103,30 +103,30 @@
         </div>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Missão</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-configuracoes-1">Missão</label>
         <textarea formControlName="missao" rows="3" placeholder="O que a sua escola representa e para quem…"
-          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-1"></textarea>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Metodologia</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-configuracoes-2">Metodologia</label>
         <textarea formControlName="metodologia" rows="3" placeholder="Como a sua escola ensina…"
-          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-2"></textarea>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Facebook — opcional</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-configuracoes-3">Facebook — opcional</label>
           <input type="text" formControlName="facebook" placeholder="https://facebook.com/…"
-            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-3" />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Instagram — opcional</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-configuracoes-4">Instagram — opcional</label>
           <input type="text" formControlName="instagram" placeholder="https://instagram.com/…"
-            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-4" />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">WhatsApp — opcional</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-configuracoes-5">WhatsApp — opcional</label>
           <input type="text" formControlName="whatsapp" placeholder="912 345 678"
-            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-5" />
         </div>
       </div>
       <button type="submit" [disabled]="sitePublicoForm.invalid"
@@ -187,19 +187,19 @@
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Início</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-6">Início</label>
           <input type="date" formControlName="data_inicio_ano_letivo"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-6" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Fim</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-7">Fim</label>
           <input type="date" formControlName="data_fim_ano_letivo"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-7" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Ano Letivo</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-8">Ano Letivo</label>
           <input type="text" formControlName="ano_letivo_atual" placeholder="Ex: 2026/2027" pattern="\d{4}/\d{4}"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-8" />
           <p class="text-xs text-slate-400 mt-1">Preenchido automaticamente a partir do Início e do Fim (ex.: 2026/2027) — continua editável.</p>
         </div>
       </div>
@@ -210,16 +210,16 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">IBAN de destino</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-9">IBAN de destino</label>
           <input type="text" formControlName="iban" placeholder="AO06 0000 0000 0000 0000 0000 0"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-9" />
           <p class="text-xs text-slate-400 mt-1">Referência para transferência bancária — informativo, não é usado pelo PayPal.</p>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Moeda</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-10">Moeda</label>
           <select formControlName="moeda"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-10">
             @for (m of moedasSuportadas; track m) {
               <option [value]="m">{{ m }}</option>
             }
@@ -228,9 +228,9 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Taxa de matrícula (valor padrão)</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-11">Taxa de matrícula (valor padrão)</label>
           <input type="number" min="0" step="0.01" formControlName="valor_taxa_matricula" placeholder="Sem taxa de matrícula"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-11" />
           <p class="text-xs text-slate-400 mt-1">Encargo único cobrado uma vez, à parte das mensalidades — em branco = a escola não cobra taxa de matrícula. Aplicado automaticamente aos contratos gerados a partir de candidaturas self-service, e sugerido ao criar um contrato à mão em Financeiro.</p>
         </div>
       </div>
@@ -241,14 +241,14 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Telefone</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-12">Telefone</label>
           <input type="text" formControlName="telefone_contacto" placeholder="+244 900 000 000"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-12" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">E-mail</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-13">E-mail</label>
           <input type="email" formControlName="email_contacto" placeholder="secretaria@escola.co.ao"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-13" />
           @if (form.controls.email_contacto.invalid && form.controls.email_contacto.dirty) {
             <p class="text-xs text-rose-600 mt-1">E-mail inválido.</p>
           }
@@ -261,26 +261,26 @@
       <p class="text-xs text-slate-400 -mt-2">Aparece no cabeçalho dos documentos emitidos (certificados, declarações, ...).</p>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Morada</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-14">Morada</label>
         <input type="text" formControlName="morada" placeholder="Rua, número, bairro"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-14" />
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Cidade</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-15">Cidade</label>
           <input type="text" formControlName="cidade"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-15" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Código postal</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-16">Código postal</label>
           <input type="text" formControlName="codigo_postal"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-16" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">País</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-17">País</label>
           <input type="text" formControlName="pais"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-17" />
         </div>
       </div>
     </div>
@@ -289,30 +289,30 @@
       <h3 class="text-sm font-semibold text-slate-800">Avaliação</h3>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Nota máxima da escala *</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-18">Nota máxima da escala *</label>
         <input type="number" step="0.01" min="0.01" formControlName="nota_maxima" placeholder="Ex: 10 ou 20"
-          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-18" />
         <p class="text-xs text-slate-400 mt-1">O valor mais alto que uma nota pode ter nesta escola (ex.: 10 em Portugal/Brasil, 20 em Angola) — o Diário de Classe passa a aceitar notas só até este valor.</p>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Nota mínima de aprovação</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-19">Nota mínima de aprovação</label>
         <input type="number" step="0.01" formControlName="nota_minima_aprovacao" placeholder="Ex: 5.0 ou 10.0"
-          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-19" />
         <p class="text-xs text-slate-400 mt-1">Usada no Boletim/Indicadores para marcar Aprovado/Reprovado — deixe em branco se a escola não usa esta marcação.</p>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Disciplinas em atraso permitidas</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-20">Disciplinas em atraso permitidas</label>
         <input type="number" min="0" step="1" formControlName="max_disciplinas_reprovadas"
-          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-20" />
         <p class="text-xs text-slate-400 mt-1">No fecho do ano, quantas disciplinas abaixo da nota mínima o aluno pode ter e ainda transitar (0 = tem de passar a todas). Confirme com o regulamento da escola.</p>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Limite de faltas (% das aulas)</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-configuracoes-21">Limite de faltas (% das aulas)</label>
         <input type="number" min="0" max="100" step="0.01" formControlName="limite_faltas_percentagem" placeholder="Ex: 25"
-          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-21" />
         <p class="text-xs text-slate-400 mt-1">Acima desta percentagem de faltas, o aluno reprova por faltas no fecho do ano. Deixe em branco se a escola não aplica este critério.</p>
       </div>
     </div>
@@ -378,9 +378,9 @@
     @if (mostrarFormularioNovoTipo) {
       <form [formGroup]="novoTipoForm" (ngSubmit)="onCriarTipo()" class="flex flex-wrap items-end gap-3 border border-slate-200 rounded-lg p-4 bg-slate-50">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Nome</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-configuracoes-22">Nome</label>
           <input type="text" formControlName="nome" placeholder="Ex: Exame Final"
-            class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-22" />
         </div>
         <label class="flex items-center gap-2 text-sm text-slate-600 pb-1.5">
           <input type="checkbox" formControlName="requer_agendamento" class="rounded border-slate-300" />
@@ -410,9 +410,9 @@
                 <td class="py-2 pr-4" colspan="4">
                   <form [formGroup]="edicaoTipoForm" (ngSubmit)="onGuardarEdicaoTipo()" class="flex flex-wrap items-end gap-3">
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Nome</label>
+                      <label class="block text-xs font-medium text-slate-600 mb-1" for="f-configuracoes-23">Nome</label>
                       <input type="text" formControlName="nome"
-                        class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                        class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-configuracoes-23" />
                     </div>
                     <label class="flex items-center gap-2 text-sm text-slate-600 pb-1.5">
                       <input type="checkbox" formControlName="requer_agendamento" class="rounded border-slate-300" />

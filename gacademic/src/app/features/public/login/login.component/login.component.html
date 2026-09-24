@@ -7,13 +7,13 @@
         </div>
 
         @if (mostrarMensagemAtivado) {
-          <div class="mb-5 rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
+          <div role="status" class="mb-5 rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
             Conta ativada com sucesso! Já pode iniciar sessão.
           </div>
         }
 
         @if (erro$ | async; as erro) {
-          <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
+          <div role="alert" class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
             {{ erro }}
           </div>
         }
@@ -21,13 +21,13 @@
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-5">
 
           <div>
-            <label class="block text-sm font-medium text-slate-300 mb-1.5">E-mail Institucional</label>
+            <label class="block text-sm font-medium text-slate-300 mb-1.5" for="f-login-1">E-mail Institucional</label>
             <input
               type="email"
+              autocomplete="username"
               formControlName="email"
               class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors"
-              placeholder="exemplo@escola.pt"
-            />
+              placeholder="exemplo@escola.pt" id="f-login-1" />
             @if (loginForm.get('email')?.touched && loginForm.get('email')?.invalid) {
               <span class="text-xs text-rose-500 mt-1 block">Insira um e-mail válido.</span>
             }
@@ -35,11 +35,13 @@
 
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <label class="block text-sm font-medium text-slate-300">Palavra-passe</label>
+              <label class="block text-sm font-medium text-slate-300" for="f-login-senha">Palavra-passe</label>
               <a href="/esqueci-senha" class="text-xs text-blue-400 hover:underline">Esqueceu-se da palavra-passe?</a>
             </div>
             <input
               type="password"
+              id="f-login-senha"
+              autocomplete="current-password"
               formControlName="palavraPasse"
               class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors"
               placeholder="••••••••"

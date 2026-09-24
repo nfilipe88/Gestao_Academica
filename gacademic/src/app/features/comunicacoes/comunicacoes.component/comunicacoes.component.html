@@ -12,7 +12,7 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
       {{ erro }}
     </div>
   }
@@ -24,9 +24,9 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Tipo</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-comunicacoes-1">Tipo</label>
           <select formControlName="tipo"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-comunicacoes-1">
             @for (tipo of tiposComunicado; track tipo) {
               <option [value]="tipo">{{ tipo === 'CONVOCATORIA' ? 'Convocatória' : 'Comunicado' }}</option>
             }
@@ -34,9 +34,9 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Destinatário</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-comunicacoes-2">Destinatário</label>
           <select formControlName="destinatario_tipo"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-comunicacoes-2">
             <option value="TURMA">Uma turma</option>
             <option value="ALUNO">Um aluno</option>
             @if ((perfilAcesso$ | async) !== 'PROFESSOR') {
@@ -51,9 +51,9 @@
 
       @if (comunicadoForm.value.destinatario_tipo === 'TURMA') {
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Turma</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-comunicacoes-3">Turma</label>
           <select formControlName="destinatario_turma_id"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-comunicacoes-3">
             <option value="" disabled>Selecione uma turma</option>
             @for (turma of turmas$ | async; track turma.id) {
               <option [value]="turma.id">{{ turma.nome_codigo }}</option>
@@ -64,9 +64,9 @@
 
       @if (comunicadoForm.value.destinatario_tipo === 'ALUNO') {
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Aluno</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-comunicacoes-4">Aluno</label>
           <select formControlName="destinatario_aluno_id"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-comunicacoes-4">
             <option value="" disabled>Selecione um aluno</option>
             @for (aluno of alunos$ | async; track aluno.id) {
               <option [value]="aluno.id">{{ aluno.nome_completo }}</option>
@@ -76,21 +76,21 @@
       }
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Título</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-comunicacoes-5">Título</label>
         <input type="text" formControlName="titulo"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-comunicacoes-5" />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Mensagem</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-comunicacoes-6">Mensagem</label>
         <textarea formControlName="corpo" rows="4"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-comunicacoes-6"></textarea>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Anexo (opcional)</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-comunicacoes-7">Anexo (opcional)</label>
         <input type="file" (change)="onSelecionarAnexo($event)"
-          class="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:text-sm hover:file:bg-slate-200 cursor-pointer" />
+          class="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:text-sm hover:file:bg-slate-200 cursor-pointer" id="f-comunicacoes-7" />
         <p class="text-xs text-slate-400 mt-1">
           Fica disponível para download na plataforma — não é incluído automaticamente no e-mail já enviado aos destinatários.
         </p>

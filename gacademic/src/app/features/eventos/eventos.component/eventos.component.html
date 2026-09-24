@@ -12,10 +12,10 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
   @if (mensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
   @if (mostrarFormulario) {
@@ -24,20 +24,20 @@
       <form [formGroup]="eventoForm" (ngSubmit)="onSubmit()" class="space-y-4">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Título</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-eventos-1">Título</label>
             <input type="text" formControlName="titulo"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-eventos-1" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Data</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-eventos-2">Data</label>
             <input type="date" formControlName="data"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-eventos-2" />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Descrição — opcional</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-eventos-3">Descrição — opcional</label>
           <textarea formControlName="descricao" rows="3"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-eventos-3"></textarea>
         </div>
         <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer w-fit">
           <input type="checkbox" formControlName="publicado" class="rounded border-slate-300" />

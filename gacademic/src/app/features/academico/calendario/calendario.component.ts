@@ -36,32 +36,32 @@ const TIPOS: { valor: Tipo; rotulo: string; cor: string }[] = [
           <p class="text-sm text-slate-500">Períodos letivos, avaliações, exames, exames finais e exames de recurso do ano.</p>
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Ano letivo (ano de início)</label>
-          <input type="number" [(ngModel)]="ano" (change)="carregar()" class="w-28 border border-slate-300 rounded-lg px-3 py-1.5 text-sm" />
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-calendario-1">Ano letivo (ano de início)</label>
+          <input type="number" [(ngModel)]="ano" (change)="carregar()" class="w-28 border border-slate-300 rounded-lg px-3 py-1.5 text-sm" id="f-calendario-1" />
         </div>
       </div>
 
-      @if (erro()) { <div class="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-lg px-4 py-3">{{ erro() }}</div> }
+      @if (erro()) { <div role="alert" class="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-lg px-4 py-3">{{ erro() }}</div> }
 
       @if (isGestor$ | async) {
         <form (ngSubmit)="guardar()" class="bg-white p-5 rounded-xl shadow-xs border border-slate-200 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
-            <select name="tipo" [(ngModel)]="novo.tipo" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+            <label class="block text-xs font-medium text-slate-600 mb-1" for="f-calendario-2">Tipo</label>
+            <select name="tipo" [(ngModel)]="novo.tipo" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" id="f-calendario-2">
               @for (t of tipos; track t.valor) { <option [value]="t.valor">{{ t.rotulo }}</option> }
             </select>
           </div>
           <div class="lg:col-span-2">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Nome</label>
-            <input name="nome" [(ngModel)]="novo.nome" required minlength="2" placeholder="Ex.: Exames do 1º trimestre" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            <label class="block text-xs font-medium text-slate-600 mb-1" for="f-calendario-3">Nome</label>
+            <input name="nome" [(ngModel)]="novo.nome" required minlength="2" placeholder="Ex.: Exames do 1º trimestre" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" id="f-calendario-3" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Início</label>
-            <input type="date" name="ini" [(ngModel)]="novo.data_inicio" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            <label class="block text-xs font-medium text-slate-600 mb-1" for="f-calendario-4">Início</label>
+            <input type="date" name="ini" [(ngModel)]="novo.data_inicio" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" id="f-calendario-4" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Fim</label>
-            <input type="date" name="fim" [(ngModel)]="novo.data_fim" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            <label class="block text-xs font-medium text-slate-600 mb-1" for="f-calendario-5">Fim</label>
+            <input type="date" name="fim" [(ngModel)]="novo.data_fim" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" id="f-calendario-5" />
           </div>
           <div class="sm:col-span-2 lg:col-span-4">
             <input name="obs" [(ngModel)]="novo.observacoes" placeholder="Observações (opcional)" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />

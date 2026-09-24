@@ -6,10 +6,10 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
   @if (mensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
   @if (perfil$ | async; as perfil) {
@@ -30,14 +30,14 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Nome completo</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-perfil-1">Nome completo</label>
         <input type="text" formControlName="nome_completo"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-perfil-1" />
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">E-mail (usado para iniciar sessão)</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-perfil-2">E-mail (usado para iniciar sessão)</label>
         <input type="email" formControlName="email"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-perfil-2" />
         @if (dadosForm.controls.email.invalid && dadosForm.controls.email.dirty) {
           <p class="text-xs text-rose-600 mt-1">E-mail inválido.</p>
         }
@@ -54,24 +54,24 @@
     <h3 class="text-sm font-semibold text-slate-800">Alterar Palavra-passe</h3>
 
     <div>
-      <label class="block text-sm font-medium text-slate-600 mb-1">Palavra-passe atual</label>
+      <label class="block text-sm font-medium text-slate-600 mb-1" for="f-perfil-3">Palavra-passe atual</label>
       <input type="password" formControlName="senha_atual"
-        class="w-full max-w-sm border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        class="w-full max-w-sm border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-perfil-3" />
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Nova palavra-passe</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-perfil-4">Nova palavra-passe</label>
         <input type="password" formControlName="nova_senha"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-perfil-4" />
         @if (senhaForm.controls.nova_senha.invalid && senhaForm.controls.nova_senha.dirty) {
           <p class="text-xs text-rose-600 mt-1">Mínimo 8 caracteres.</p>
         }
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Confirmar nova palavra-passe</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-perfil-5">Confirmar nova palavra-passe</label>
         <input type="password" formControlName="confirmar_senha"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-perfil-5" />
         @if (senhasDiferentes) {
           <p class="text-xs text-rose-600 mt-1">As palavras-passe não coincidem.</p>
         }

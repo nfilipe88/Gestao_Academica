@@ -53,7 +53,7 @@
         </ol>
 
         @if (erro()) {
-          <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-6">{{ erro() }}</div>
+          <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-6">{{ erro() }}</div>
         }
 
         <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-6 sm:p-8">
@@ -64,30 +64,30 @@
             <p class="text-sm text-slate-500 mb-6">Do candidato e do encarregado de educação.</p>
             <form [formGroup]="form" (ngSubmit)="onAvancarPasso1()" class="space-y-4">
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Nome do candidato (aluno)</label>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="f-matricula-wizard-1">Nome do candidato (aluno)</label>
                 <input type="text" formControlName="nome_aluno_candidato"
-                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-matricula-wizard-1" />
               </div>
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Data de nascimento do candidato</label>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="f-matricula-wizard-2">Data de nascimento do candidato</label>
                 <input type="date" formControlName="data_nascimento_candidato"
-                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-matricula-wizard-2" />
               </div>
               <div class="pt-2 border-t border-slate-100">
-                <label class="block text-xs font-medium text-slate-600 mb-1">O seu nome (encarregado de educação)</label>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="f-matricula-wizard-3">O seu nome (encarregado de educação)</label>
                 <input type="text" formControlName="nome_responsavel"
-                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-matricula-wizard-3" />
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">E-mail — opcional</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-matricula-wizard-4">E-mail — opcional</label>
                   <input type="email" formControlName="email_contato"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-matricula-wizard-4" />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Telefone — opcional</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-matricula-wizard-5">Telefone — opcional</label>
                   <input type="text" formControlName="telefone"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-matricula-wizard-5" />
                 </div>
               </div>
               <label class="flex items-start gap-2 text-sm text-slate-600 pt-2 cursor-pointer">
@@ -114,9 +114,9 @@
             <p class="text-sm text-slate-500 mb-6">Se ainda não tiver a certeza, pode deixar por definir.</p>
             <div [formGroup]="form" class="space-y-4">
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Curso</label>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="f-matricula-wizard-6">Curso</label>
                 <select formControlName="curso_interesse_id"
-                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-matricula-wizard-6">
                   <option value="">Ainda não sei / outro</option>
                   @for (curso of e.cursos; track curso.id) {
                     <option [value]="curso.id">{{ curso.nome }}</option>

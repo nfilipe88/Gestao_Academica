@@ -8,36 +8,36 @@
       </div>
 
       @if (erro()) {
-        <div class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-300 mb-4">{{ erro() }}</div>
+        <div role="alert" class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-300 mb-4">{{ erro() }}</div>
       }
 
       <form [formGroup]="leadForm" (ngSubmit)="onSubmit()" class="space-y-3">
         <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">O seu nome</label>
+          <label class="block text-xs font-medium text-slate-400 mb-1" for="f-captar-lead-1">O seu nome</label>
           <input type="text" formControlName="nome_responsavel"
-            class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+            class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-captar-lead-1" />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Nome do candidato (aluno)</label>
+          <label class="block text-xs font-medium text-slate-400 mb-1" for="f-captar-lead-2">Nome do candidato (aluno)</label>
           <input type="text" formControlName="nome_aluno_candidato"
-            class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+            class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-captar-lead-2" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">E-mail — opcional</label>
+            <label class="block text-xs font-medium text-slate-400 mb-1" for="f-captar-lead-3">E-mail — opcional</label>
             <input type="email" formControlName="email_contato"
-              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-captar-lead-3" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Telefone — opcional</label>
+            <label class="block text-xs font-medium text-slate-400 mb-1" for="f-captar-lead-4">Telefone — opcional</label>
             <input type="text" formControlName="telefone"
-              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-captar-lead-4" />
           </div>
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1">Mensagem — opcional</label>
+          <label class="block text-xs font-medium text-slate-400 mb-1" for="f-captar-lead-5">Mensagem — opcional</label>
           <textarea formControlName="mensagem" rows="3"
-            class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500"></textarea>
+            class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-captar-lead-5"></textarea>
         </div>
 
         <p class="text-xs text-slate-500 leading-relaxed">

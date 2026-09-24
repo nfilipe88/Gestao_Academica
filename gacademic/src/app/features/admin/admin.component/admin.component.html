@@ -19,23 +19,23 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
 
   @if (mensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
   <form [formGroup]="filtroTenantsForm" class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
     <div class="flex-1 min-w-48">
-      <label class="block text-xs font-medium text-slate-500 mb-1">Nome da escola</label>
+      <label class="block text-xs font-medium text-slate-500 mb-1" for="f-admin-1">Nome da escola</label>
       <input type="text" formControlName="nome" placeholder="Pesquisar por nome..."
-        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-1" />
     </div>
     <div class="min-w-40">
-      <label class="block text-xs font-medium text-slate-500 mb-1">Plano</label>
+      <label class="block text-xs font-medium text-slate-500 mb-1" for="f-admin-2">Plano</label>
       <select formControlName="plano_id"
-        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-2">
         <option value="">Todos os planos</option>
         @for (p of (planos$ | async); track p.id) {
           <option [value]="p.id">{{ p.nome }}</option>
@@ -43,14 +43,14 @@
       </select>
     </div>
     <div class="w-28">
-      <label class="block text-xs font-medium text-slate-500 mb-1">Nº utiliz. mín.</label>
+      <label class="block text-xs font-medium text-slate-500 mb-1" for="f-admin-3">Nº utiliz. mín.</label>
       <input type="number" min="0" formControlName="usuarios_min"
-        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-3" />
     </div>
     <div class="w-28">
-      <label class="block text-xs font-medium text-slate-500 mb-1">Nº utiliz. máx.</label>
+      <label class="block text-xs font-medium text-slate-500 mb-1" for="f-admin-4">Nº utiliz. máx.</label>
       <input type="number" min="0" formControlName="usuarios_max"
-        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-4" />
     </div>
     <button type="button" (click)="limparFiltrosTenants()"
       class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
@@ -65,29 +65,29 @@
       <p class="text-xs text-slate-400 -mt-2">Cria a instituição e a primeira conta de Gestor diretamente, sem passar pelo auto-serviço em /registo.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Nome da escola</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-5">Nome da escola</label>
           <input type="text" formControlName="nome_fantasia" placeholder="Ex: Colégio do Futuro"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-5" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">NIF</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-6">NIF</label>
           <input type="text" formControlName="nif"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-6" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Nome do Gestor</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-7">Nome do Gestor</label>
           <input type="text" formControlName="nome_gestor"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-7" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">E-mail do Gestor</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-8">E-mail do Gestor</label>
           <input type="email" formControlName="email_gestor"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-8" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Palavra-passe inicial</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-9">Palavra-passe inicial</label>
           <input type="text" formControlName="palavra_passe" placeholder="Mínimo 8 caracteres"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-9" />
         </div>
       </div>
       <button type="submit" [disabled]="novaEscolaForm.invalid"
@@ -219,10 +219,10 @@
                 <td colspan="11" class="p-4">
 
                   @if (erroUsuarios$ | async; as erroU) {
-                    <div class="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-xs text-rose-700">{{ erroU }}</div>
+                    <div role="alert" class="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-xs text-rose-700">{{ erroU }}</div>
                   }
                   @if (mensagemUsuarios$ | async; as mensagemU) {
-                    <div class="mb-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs text-emerald-700">{{ mensagemU }}</div>
+                    <div role="status" class="mb-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs text-emerald-700">{{ mensagemU }}</div>
                   }
 
                   <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -348,17 +348,17 @@
                   @if (planosAtivos$ | async; as planosAtivos) {
                     <div class="flex items-end gap-2">
                       <div>
-                        <label class="block text-xs font-medium text-slate-500 mb-1">Plano</label>
+                        <label class="block text-xs font-medium text-slate-500 mb-1" for="f-admin-10">Plano</label>
                         <select #planoSelect class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800"
-                          (change)="proximaCobrancaInput.value = sugerirProximaCobranca(planoSelect.value, planosAtivos)">
+                          (change)="proximaCobrancaInput.value = sugerirProximaCobranca(planoSelect.value, planosAtivos)" id="f-admin-10">
                           @for (p of planosAtivos; track p.id) {
                             <option [value]="p.id">{{ p.nome }} — {{ p.preco_por_aluno | number:'1.2-2' }}/aluno/mês{{ p.dias_periodo_teste > 0 ? ' (' + p.dias_periodo_teste + ' dias de teste)' : '' }}</option>
                           }
                         </select>
                       </div>
                       <div>
-                        <label class="block text-xs font-medium text-slate-500 mb-1">Próxima cobrança</label>
-                        <input type="date" #proximaCobrancaInput class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800" />
+                        <label class="block text-xs font-medium text-slate-500 mb-1" for="f-admin-11">Próxima cobrança</label>
+                        <input type="date" #proximaCobrancaInput class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800" id="f-admin-11" />
                         <p class="text-[10px] text-slate-400 mt-0.5">Sugerida ao escolher o plano — pode ajustar.</p>
                       </div>
                       <button type="button" (click)="onDefinirAssinatura(tenant.id, planoSelect.value, proximaCobrancaInput.value)"
@@ -418,30 +418,30 @@
         <h4 class="text-sm font-semibold text-slate-800">{{ planoAEditar ? 'Editar Plano' : 'Novo Plano' }}</h4>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Nome</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-12">Nome</label>
             <input type="text" formControlName="nome" placeholder="Ex: Bronze"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" id="f-admin-12" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Preço por aluno</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-13">Preço por aluno</label>
             <input type="number" step="0.01" formControlName="preco_por_aluno"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" id="f-admin-13" />
             <p class="text-xs text-slate-400 mt-1">Multiplicado pelo nº de alunos cadastrados na escola, todos os meses.</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Limite de alunos</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-14">Limite de alunos</label>
             <input type="number" formControlName="limite_alunos" placeholder="Sem limite"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" id="f-admin-14" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Descrição</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-15">Descrição</label>
             <input type="text" formControlName="descricao"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" id="f-admin-15" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Período de teste (dias)</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-admin-16">Período de teste (dias)</label>
             <input type="number" min="0" formControlName="dias_periodo_teste" placeholder="0 = sem teste"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-violet-500 focus:ring-1 focus:ring-violet-500" id="f-admin-16" />
           </div>
         </div>
 
@@ -543,10 +543,10 @@
     <p class="text-slate-500 text-sm mb-4">Migração real entre duas instituições desta plataforma. Só consulta: quem aceita ou nega é o Gestor/Secretaria da instituição de destino, diretamente — não o Super Admin.</p>
 
     @if (erroTransferencias$ | async; as erroT) {
-      <div class="mb-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erroT }}</div>
+      <div role="alert" class="mb-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erroT }}</div>
     }
     @if (mensagemTransferencias$ | async; as mensagemT) {
-      <div class="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagemT }}</div>
+      <div role="status" class="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagemT }}</div>
     }
 
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-x-auto">

@@ -7,45 +7,43 @@
     </div>
 
     @if (!token) {
-      <div class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
+      <div role="alert" class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
         Este link é inválido — falta o token de redefinição. Peça um novo link em "Esqueci-me da palavra-passe".
       </div>
       <div class="mt-6 text-center text-sm">
         <a href="/esqueci-senha" class="text-blue-400 hover:underline">Pedir novo link</a>
       </div>
     } @else if (concluido()) {
-      <div class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
+      <div role="status" class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
         Palavra-passe redefinida com sucesso. A redirecionar para o início de sessão...
       </div>
     } @else {
       @if (erro()) {
-        <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
+        <div role="alert" class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
           {{ erro() }}
         </div>
       }
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-5">
         <div>
-          <label class="block text-sm font-medium text-slate-300 mb-1.5">Nova palavra-passe</label>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5" for="f-redefinir-senha-1">Nova palavra-passe</label>
           <input
             type="password"
             formControlName="nova_senha"
             class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors"
-            placeholder="••••••••"
-          />
+            placeholder="••••••••" id="f-redefinir-senha-1" />
           @if (form.get('nova_senha')?.touched && form.get('nova_senha')?.invalid) {
             <span class="text-xs text-rose-500 mt-1 block">Mínimo 8 caracteres.</span>
           }
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-300 mb-1.5">Confirmar nova palavra-passe</label>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5" for="f-redefinir-senha-2">Confirmar nova palavra-passe</label>
           <input
             type="password"
             formControlName="confirmar_senha"
             class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors"
-            placeholder="••••••••"
-          />
+            placeholder="••••••••" id="f-redefinir-senha-2" />
           @if (senhasDiferentes) {
             <span class="text-xs text-rose-500 mt-1 block">As palavras-passe não coincidem.</span>
           }

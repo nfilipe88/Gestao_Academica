@@ -6,13 +6,13 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
   @if (despesasErro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
   @if (despesasMensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
   <!-- ========================================== -->
@@ -168,14 +168,14 @@
     <p class="text-sm text-slate-500 mb-4">Escolha um intervalo de datas para ver e exportar as estatísticas financeiras e académicas desse período.</p>
     <div class="flex flex-wrap items-end gap-3">
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">De</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-estatisticas-1">De</label>
         <input type="date" [(ngModel)]="dataInicio"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" id="f-estatisticas-1" />
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Até</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-estatisticas-2">Até</label>
         <input type="date" [(ngModel)]="dataFim"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" id="f-estatisticas-2" />
       </div>
       <button type="button" (click)="onGerarRelatorio()"
         class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors cursor-pointer">
@@ -341,27 +341,27 @@
     @if (mostrarFormularioDespesa) {
       <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 pb-4 border-b border-slate-100">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Categoria</label>
-          <select [(ngModel)]="novaDespesa.categoria" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800">
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-estatisticas-3">Categoria</label>
+          <select [(ngModel)]="novaDespesa.categoria" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" id="f-estatisticas-3">
             @for (cat of categoriasDespesa; track cat) {
               <option [value]="cat">{{ cat }}</option>
             }
           </select>
         </div>
         <div class="md:col-span-2">
-          <label class="block text-xs font-medium text-slate-600 mb-1">Descrição</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-estatisticas-4">Descrição</label>
           <input type="text" [(ngModel)]="novaDespesa.descricao" placeholder="Ex: Renda de agosto"
-            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" id="f-estatisticas-4" />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Valor</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-estatisticas-5">Valor</label>
           <input type="number" min="0" step="0.01" [(ngModel)]="novaDespesa.valor"
-            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" id="f-estatisticas-5" />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Data</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1" for="f-estatisticas-6">Data</label>
           <input type="date" [(ngModel)]="novaDespesa.data_despesa"
-            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" />
+            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800" id="f-estatisticas-6" />
         </div>
         <div class="md:col-span-5">
           <button type="button" (click)="onRegistarDespesa()"

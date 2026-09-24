@@ -14,7 +14,7 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
       {{ erro }}
     </div>
   }
@@ -25,27 +25,27 @@
     <form [formGroup]="professorForm" (ngSubmit)="onSubmit()" class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Nome completo</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-professores-1">Nome completo</label>
         <input type="text" formControlName="nome_completo"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-professores-1" />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">E-mail (login)</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-professores-2">E-mail (login)</label>
         <input type="email" formControlName="email"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-professores-2" />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Palavra-passe inicial</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-professores-3">Palavra-passe inicial</label>
         <input type="password" formControlName="palavra_passe"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-professores-3" />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Formação académica — opcional</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-professores-4">Formação académica — opcional</label>
         <input type="text" formControlName="formacao_academica"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-professores-4" />
       </div>
 
       <div class="md:col-span-2">
@@ -61,9 +61,9 @@
   <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
     <form [formGroup]="filtroForm" class="flex flex-wrap items-end gap-3">
       <div class="flex-1 min-w-48">
-        <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-professores-5">Pesquisar</label>
         <input type="text" formControlName="busca" placeholder="Nome ou e-mail"
-          class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-professores-5" />
       </div>
       <button type="button" (click)="limparFiltro()"
         class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">

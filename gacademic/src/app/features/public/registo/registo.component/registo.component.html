@@ -7,7 +7,7 @@
     </div>
 
     @if (concluido()) {
-      <div class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
+      <div role="status" class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
         Escola e conta de Gestor criadas com sucesso! Verifique o e-mail <strong>{{ emailRegistado }}</strong>
         e clique no link de ativação antes de iniciar sessão.
       </div>
@@ -17,7 +17,7 @@
     } @else {
 
     @if (erro) {
-      <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
+      <div role="alert" class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
         {{ erro }}
       </div>
     }
@@ -28,14 +28,14 @@
         <h3 class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">Dados da Escola</h3>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Nome da Escola</label>
+            <label class="block text-xs font-medium text-slate-400 mb-1" for="f-registo-1">Nome da Escola</label>
             <input type="text" formControlName="nome_fantasia"
-              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-registo-1" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">NIF / Número de Identificação</label>
+            <label class="block text-xs font-medium text-slate-400 mb-1" for="f-registo-2">NIF / Número de Identificação</label>
             <input type="text" formControlName="nif"
-              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-registo-2" />
           </div>
         </div>
       </div>
@@ -45,21 +45,21 @@
 
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Nome Completo</label>
+            <label class="block text-xs font-medium text-slate-400 mb-1" for="f-registo-3">Nome Completo</label>
             <input type="text" formControlName="nome_gestor"
-              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-registo-3" />
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">E-mail Administrativo</label>
+            <label class="block text-xs font-medium text-slate-400 mb-1" for="f-registo-4">E-mail Administrativo</label>
             <input type="email" formControlName="email_gestor"
-              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-registo-4" />
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Defina a Palavra-passe</label>
+            <label class="block text-xs font-medium text-slate-400 mb-1" for="f-registo-5">Defina a Palavra-passe</label>
             <input type="password" formControlName="palavra_passe"
-              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" />
+              class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-white text-sm focus:outline-hidden focus:border-blue-500" id="f-registo-5" />
           </div>
         </div>
       </div>

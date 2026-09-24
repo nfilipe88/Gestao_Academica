@@ -6,13 +6,13 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
       {{ erro }}
     </div>
   }
 
   @if (mensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
       {{ mensagem }}
     </div>
   }
@@ -66,14 +66,14 @@
             @if (periodoJanelaEmEdicaoId === periodo.id) {
               <form [formGroup]="janelaForm" (ngSubmit)="onSubmitJanela(periodo.id)" class="flex items-end gap-2 pt-1 border-t border-slate-100">
                 <div>
-                  <label class="block text-xs text-slate-500">Início</label>
+                  <label class="block text-xs text-slate-500" for="f-diario-1">Início</label>
                   <input type="date" formControlName="data_inicio"
-                    class="border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-hidden focus:border-blue-500" />
+                    class="border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-hidden focus:border-blue-500" id="f-diario-1" />
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-500">Fim</label>
+                  <label class="block text-xs text-slate-500" for="f-diario-2">Fim</label>
                   <input type="date" formControlName="data_fim"
-                    class="border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-hidden focus:border-blue-500" />
+                    class="border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-hidden focus:border-blue-500" id="f-diario-2" />
                 </div>
                 <button type="submit" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded cursor-pointer">Guardar</button>
               </form>
@@ -87,9 +87,9 @@
   }
 
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
-    <label class="block text-sm font-medium text-slate-600 mb-1">Turma / Disciplina</label>
+    <label class="block text-sm font-medium text-slate-600 mb-1" for="f-diario-3">Turma / Disciplina</label>
     <select [value]="alocacaoSelecionadaId" (change)="onSelecionarAlocacao($any($event.target).value)"
-      class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+      class="w-full md:w-96 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-3">
       <option value="">Selecione uma turma/disciplina</option>
       @for (alocacao of alocacoes$ | async; track alocacao.id) {
         <option [value]="alocacao.id">{{ alocacao.nome_disciplina }} — {{ alocacao.nome_turma }}</option>
@@ -138,29 +138,29 @@
     </div>
 
     @if (erroLms$ | async; as erro) {
-      <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+      <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
     }
     @if (mensagemLms$ | async; as mensagem) {
-      <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+      <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
     }
 
     @if (aba === 'chamada') {
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
         <form [formGroup]="chamadaForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Data da aula</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-diario-4">Data da aula</label>
             <input type="date" formControlName="data_aula"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-4" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Nº de aulas</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-diario-5">Nº de aulas</label>
             <input type="number" formControlName="quantidade_aulas"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-5" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Conteúdo programado — opcional</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-diario-6">Conteúdo programado — opcional</label>
             <input type="text" formControlName="conteudo_programado"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-6" />
           </div>
         </form>
 
@@ -213,9 +213,9 @@
         <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
           <form [formGroup]="notasForm" class="flex flex-wrap items-end gap-4">
             <div class="flex-1 min-w-48">
-              <label class="block text-sm font-medium text-slate-600 mb-1">Período de avaliação</label>
+              <label class="block text-sm font-medium text-slate-600 mb-1" for="f-diario-7">Período de avaliação</label>
               <input type="text" formControlName="periodo_avaliacao" placeholder="Ex: 1º Trimestre" list="lista-periodos"
-                class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-7" />
               <datalist id="lista-periodos">
                 @for (periodo of periodos$ | async; track periodo.id) {
                   <option [value]="periodo.nome">{{ periodo.aberto ? 'Aberto' : 'Trancado' }}</option>
@@ -247,14 +247,14 @@
             @if (mostrarFormularioAvaliacao) {
               <form [formGroup]="avaliacaoForm" (ngSubmit)="onSubmitAvaliacao()" class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 pb-4 border-b border-slate-100">
                 <div class="md:col-span-2">
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Título</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-8">Título</label>
                   <input type="text" formControlName="titulo" placeholder="Ex: Teste de Células"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-8" />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-9">Tipo</label>
                   <select formControlName="tipo_avaliacao"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-9">
                     <option value="" disabled>Escolher…</option>
                     @for (tipo of (tiposParaFormulario$ | async); track tipo.id) {
                       <option [value]="tipo.nome">{{ tipo.nome }}{{ tipo.requer_agendamento ? ' (exige agendamento)' : '' }}</option>
@@ -262,46 +262,46 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Peso (%)</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-10">Peso (%)</label>
                   <input type="number" min="0.01" step="1" formControlName="peso"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-10" />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Data{{ (tipoSelecionadoExigeAgendamento$ | async) ? '' : ' — opcional' }}</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-11">Data{{ (tipoSelecionadoExigeAgendamento$ | async) ? '' : ' — opcional' }}</label>
                   <input type="date" formControlName="data_avaliacao"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-11" />
                 </div>
 
                 @if (tipoSelecionadoExigeAgendamento$ | async) {
                   <div class="md:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p class="col-span-2 md:col-span-4 text-xs text-amber-700 -mb-1">Este tipo exige agendamento — data, hora de início/fim e prazo de correção obrigatórios.</p>
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Hora início</label>
+                      <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-12">Hora início</label>
                       <input type="time" formControlName="hora_inicio"
-                        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-12" />
                     </div>
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Hora fim</label>
+                      <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-13">Hora fim</label>
                       <input type="time" formControlName="hora_fim"
-                        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-13" />
                     </div>
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Sala — opcional</label>
+                      <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-14">Sala — opcional</label>
                       <input type="text" formControlName="sala" placeholder="Ex: Sala 12"
-                        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-14" />
                     </div>
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Prazo p/ corrigir — opcional</label>
+                      <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-15">Prazo p/ corrigir — opcional</label>
                       <input type="date" formControlName="data_limite_correcao"
-                        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-15" />
                     </div>
                   </div>
                 }
 
                 <div class="md:col-span-2">
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Objetivo de aprendizagem — opcional</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-16">Objetivo de aprendizagem — opcional</label>
                   <select formControlName="objetivo_aprendizagem_id"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-16">
                     <option value="">Nenhum (não entra no relatório de eficiência)</option>
                     @for (objetivo of objetivosDaDisciplina(objetivos$ | async); track objetivo.id) {
                       <option [value]="objetivo.id">{{ objetivo.nome }}</option>
@@ -496,14 +496,14 @@
               </div>
               <form [formGroup]="notasForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-600 mb-1">Tipo de avaliação — opcional</label>
+                  <label class="block text-sm font-medium text-slate-600 mb-1" for="f-diario-17">Tipo de avaliação — opcional</label>
                   <input type="text" formControlName="tipo_avaliacao" placeholder="Ex: Prova Escrita"
-                    class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-17" />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-600 mb-1">Data da avaliação — opcional</label>
+                  <label class="block text-sm font-medium text-slate-600 mb-1" for="f-diario-18">Data da avaliação — opcional</label>
                   <input type="date" formControlName="data_avaliacao"
-                    class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-18" />
                 </div>
               </form>
 
@@ -563,15 +563,15 @@
         @if (mostrarFormularioMaterial) {
           <form [formGroup]="materialForm" (ngSubmit)="onSubmitMaterial()" class="space-y-3 mb-4 pb-4 border-b border-slate-100">
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Título</label>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-19">Título</label>
               <input type="text" formControlName="titulo" placeholder="Ex: Equações do 2º Grau"
-                class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-19" />
             </div>
 
             <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3 space-y-2">
-              <label class="block text-xs font-medium text-indigo-700">✨ Prof. Virtual — sugerir o Conteúdo a partir do Título</label>
+              <label class="block text-xs font-medium text-indigo-700" for="f-diario-20">✨ Prof. Virtual — sugerir o Conteúdo a partir do Título</label>
               <input type="text" formControlName="instrucoes_sugestao" placeholder="Instruções opcionais (ex: nível iniciante, com exemplos práticos)"
-                class="w-full border border-indigo-200 bg-white rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                class="w-full border border-indigo-200 bg-white rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" id="f-diario-20" />
               <button type="button" (click)="onSugerirConteudo()"
                 [disabled]="!materialForm.value.titulo?.trim() || (aSugerirConteudo$ | async)"
                 class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1.5 px-3 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
@@ -592,15 +592,15 @@
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Conteúdo</label>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-21">Conteúdo</label>
               <textarea formControlName="corpo" rows="6" placeholder="Explica a matéria como se fosse para o aluno ler diretamente — o Prof. Virtual vai basear-se neste texto para ajudar."
-                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-21"></textarea>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Objetivo de aprendizagem — opcional</label>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-22">Objetivo de aprendizagem — opcional</label>
                 <select formControlName="objetivo_aprendizagem_id"
-                  class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                  class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-22">
                   <option value="">Nenhum</option>
                   @for (objetivo of objetivosDaDisciplina(objetivos$ | async); track objetivo.id) {
                     <option [value]="objetivo.id">{{ objetivo.nome }}</option>
@@ -674,37 +674,37 @@
           @if (mostrarFormularioQuestao) {
             <form [formGroup]="questaoForm" (ngSubmit)="onSubmitQuestao()" class="space-y-3 mb-4 pb-4 border-b border-slate-100">
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Enunciado</label>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-23">Enunciado</label>
                 <textarea formControlName="enunciado" rows="2" placeholder="Ex: Quanto é 2+2?"
-                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-23"></textarea>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-24">Tipo</label>
                   <select formControlName="tipo"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-24">
                     <option value="ESCOLHA_MULTIPLA">Escolha múltipla</option>
                     <option value="VERDADEIRO_FALSO">Verdadeiro/Falso</option>
                     <option value="ABERTA">Resposta aberta (corrigida manualmente)</option>
                   </select>
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Valor (pontos)</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-25">Valor (pontos)</label>
                   <input type="number" step="0.5" min="0.5" formControlName="valor"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-25" />
                 </div>
               </div>
 
               @if (questaoForm.value.tipo === 'ESCOLHA_MULTIPLA') {
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Opções, separadas por vírgula</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-26">Opções, separadas por vírgula</label>
                   <input type="text" formControlName="opcoesTexto" placeholder="Ex: 3, 4, 5"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-26" />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Opção correta</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-27">Opção correta</label>
                   <select formControlName="resposta_correta"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-27">
                     <option value="" disabled>Escolha a opção certa...</option>
                     @for (opcao of opcoesArray(); track $index) {
                       <option [value]="$index">{{ opcao }}</option>
@@ -713,9 +713,9 @@
                 </div>
               } @else if (questaoForm.value.tipo === 'VERDADEIRO_FALSO') {
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Resposta correta</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-28">Resposta correta</label>
                   <select formControlName="resposta_correta"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-28">
                     <option value="" disabled>Escolha...</option>
                     <option value="VERDADEIRO">Verdadeiro</option>
                     <option value="FALSO">Falso</option>
@@ -723,9 +723,9 @@
                 </div>
               } @else {
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Dica de correção (opcional, só visível ao staff)</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-29">Dica de correção (opcional, só visível ao staff)</label>
                   <textarea formControlName="resposta_correta" rows="2" placeholder="Ex: espera-se que mencione massa e curvatura do espaço-tempo"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-29"></textarea>
                   <p class="text-[10px] text-slate-400 mt-1">Esta questão nunca é corrigida automaticamente — um professor atribui os pontos depois de o aluno submeter (ver "Corrigir" nos resultados do exame).</p>
                 </div>
               }
@@ -783,25 +783,25 @@
           @if (mostrarFormularioExame) {
             <form [formGroup]="exameForm" (ngSubmit)="onSubmitExame()" class="space-y-3 mb-4 pb-4 border-b border-slate-100">
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Título</label>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-30">Título</label>
                 <input type="text" formControlName="titulo" placeholder="Ex: Teste 1 — Equações"
-                  class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                  class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-30" />
               </div>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Abre em</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-31">Abre em</label>
                   <input type="datetime-local" formControlName="data_inicio"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-31" />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Fecha em</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-32">Fecha em</label>
                   <input type="datetime-local" formControlName="data_fim"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-32" />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Duração (minutos)</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-33">Duração (minutos)</label>
                   <input type="number" min="1" formControlName="duracao_minutos"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-33" />
                 </div>
               </div>
               <label class="flex items-center gap-2 text-sm text-slate-600">
@@ -838,9 +838,9 @@
                   </datalist>
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de avaliação</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-34">Tipo de avaliação</label>
                   <select formControlName="tipo_avaliacao"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-34">
                     <option value="">Selecione…</option>
                     @for (tipo of tiposParaFormulario$ | async; track tipo.id) {
                       <option [value]="tipo.nome">{{ tipo.nome }}</option>
@@ -848,9 +848,9 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-slate-600 mb-1">Peso</label>
+                  <label class="block text-xs font-medium text-slate-600 mb-1" for="f-diario-35">Peso</label>
                   <input type="number" min="0.01" step="0.01" formControlName="peso"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                    class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-diario-35" />
                 </div>
               </div>
 
@@ -999,10 +999,10 @@
                                         <p class="text-xs font-medium text-slate-700">{{ pergunta.enunciado }}</p>
                                         <p class="text-xs text-slate-500 mt-1">Resposta: {{ resultado.respostas[pergunta.id] || '(em branco)' }}</p>
                                         <div class="flex items-center gap-2 mt-2">
-                                          <label class="text-xs text-slate-600">Pontos (máx. {{ pergunta.valor }})</label>
+                                          <label class="text-xs text-slate-600" for="f-diario-36">Pontos (máx. {{ pergunta.valor }})</label>
                                           <input type="number" min="0" [max]="pergunta.valor" step="0.01"
                                             [ngModel]="pontosCorrecao[pergunta.id]" (ngModelChange)="pontosCorrecao[pergunta.id] = $event"
-                                            class="w-20 border border-slate-300 rounded px-2 py-1 text-xs" />
+                                            class="w-20 border border-slate-300 rounded px-2 py-1 text-xs" id="f-diario-36" />
                                           <input type="text" placeholder="Comentário (opcional)"
                                             [ngModel]="comentarioCorrecao[pergunta.id]" (ngModelChange)="comentarioCorrecao[pergunta.id] = $event"
                                             class="flex-1 border border-slate-300 rounded px-2 py-1 text-xs" />
@@ -1012,10 +1012,10 @@
                                   }
                                 }
                                 <div class="flex items-center gap-2">
-                                  <label class="text-xs text-slate-600">Ou sobrescrever a nota final (ex.: prova presencial)</label>
+                                  <label class="text-xs text-slate-600" for="f-diario-37">Ou sobrescrever a nota final (ex.: prova presencial)</label>
                                   <input type="number" min="0" step="0.01" placeholder="Nota"
                                     [ngModel]="overrideNotaCorrecao" (ngModelChange)="overrideNotaCorrecao = $event"
-                                    class="w-24 border border-slate-300 rounded px-2 py-1 text-xs" />
+                                    class="w-24 border border-slate-300 rounded px-2 py-1 text-xs" id="f-diario-37" />
                                 </div>
                                 <button type="button" (click)="onConfirmarCorrecao(grupo.grupo_id, resultado.exame_id)"
                                   class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">

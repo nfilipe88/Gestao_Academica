@@ -12,18 +12,18 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
   @if (mensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem }}</div>
   }
 
   <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
     <form [formGroup]="filtroForm" class="flex flex-wrap items-end gap-3">
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Origem</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-crm-1">Origem</label>
         <select formControlName="origem_lead"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-1">
           <option value="">Todas</option>
           @for (origem of origens; track origem) {
             <option [value]="origem">{{ origem }}</option>
@@ -31,9 +31,9 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Curso de interesse</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-crm-2">Curso de interesse</label>
         <select formControlName="curso_interesse_id"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-2">
           <option value="">Todos</option>
           @for (curso of cursos$ | async; track curso.id) {
             <option [value]="curso.id">{{ curso.nome }}</option>
@@ -41,14 +41,14 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Entrada entre</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-crm-3">Entrada entre</label>
         <input type="date" formControlName="data_entrada_inicio"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-3" />
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-crm-4">e</label>
         <input type="date" formControlName="data_entrada_fim"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-4" />
       </div>
       <button type="button" (click)="limparFiltro()"
         class="text-sm text-slate-500 hover:text-slate-700 font-medium py-1.5 px-3 cursor-pointer">
@@ -61,43 +61,43 @@
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
       <form [formGroup]="leadForm" (ngSubmit)="onSubmitLead()" class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Nome do responsável</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-crm-5">Nome do responsável</label>
           <input type="text" formControlName="nome_responsavel"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-5" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">E-mail — opcional</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-crm-6">E-mail — opcional</label>
           <input type="email" formControlName="email_contato"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-6" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Telefone — opcional</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-crm-7">Telefone — opcional</label>
           <input type="text" formControlName="telefone"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-7" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Nome do candidato (aluno)</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-crm-8">Nome do candidato (aluno)</label>
           <input type="text" formControlName="nome_aluno_candidato"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-8" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Data de nascimento — opcional</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-crm-9">Data de nascimento — opcional</label>
           <input type="date" formControlName="data_nascimento_candidato"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-9" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Origem</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-crm-10">Origem</label>
           <select formControlName="origem_lead"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-10">
             @for (origem of origens; track origem) {
               <option [value]="origem">{{ origem }}</option>
             }
           </select>
         </div>
         <div class="md:col-span-3">
-          <label class="block text-sm font-medium text-slate-600 mb-1">Mensagem — opcional</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-crm-11">Mensagem — opcional</label>
           <textarea formControlName="mensagem" rows="2"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-crm-11"></textarea>
         </div>
         <div class="md:col-span-3">
           <button type="submit" [disabled]="leadForm.invalid"

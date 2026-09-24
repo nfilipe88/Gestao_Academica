@@ -14,7 +14,7 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
       {{ erro }}
     </div>
   }
@@ -24,10 +24,10 @@
     <h3 class="text-lg font-semibold text-slate-800 mb-4">Novo Curso</h3>
     <form [formGroup]="cursoForm" (ngSubmit)="onSubmit()" class="flex gap-4 items-end">
       <div class="flex-1">
-        <label class="block text-sm font-medium text-slate-600 mb-1">Nome do Curso</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-cursos-1">Nome do Curso</label>
         <input type="text" formControlName="nome"
           class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          placeholder="Ex: Ensino Secundário - Ciências e Tecnologias" />
+          placeholder="Ex: Ensino Secundário - Ciências e Tecnologias" id="f-cursos-1" />
       </div>
       <button type="submit" [disabled]="cursoForm.invalid"
         class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
@@ -39,9 +39,9 @@
 
   <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
     <form [formGroup]="filtroCursos">
-      <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+      <label class="block text-xs font-medium text-slate-600 mb-1" for="f-cursos-2">Pesquisar</label>
       <input type="text" formControlName="busca" placeholder="Nome do curso"
-        class="w-full md:w-96 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        class="w-full md:w-96 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-cursos-2" />
     </form>
   </div>
 
@@ -65,9 +65,9 @@
           <td colspan="4" class="px-6 py-3">
             <form [formGroup]="edicaoCursoForm" (ngSubmit)="onGuardarEdicaoCurso()" class="flex flex-wrap items-end gap-3">
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Nome do Curso</label>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="f-cursos-3">Nome do Curso</label>
                 <input type="text" formControlName="nome"
-                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                  class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-cursos-3" />
               </div>
               <button type="submit" [disabled]="edicaoCursoForm.invalid"
                 class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
@@ -119,9 +119,9 @@
                       Mostrar este curso na página pública da escola
                     </label>
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Conteúdo programático</label>
+                      <label class="block text-xs font-medium text-slate-600 mb-1" for="f-cursos-4">Conteúdo programático</label>
                       <textarea formControlName="descricao" rows="3" placeholder="O que o aluno vai aprender neste curso — disciplinas, competências, duração…"
-                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"></textarea>
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-cursos-4"></textarea>
                     </div>
                     <div class="flex items-center gap-3">
                       <button type="submit"
@@ -229,14 +229,14 @@
     <h3 class="text-lg font-semibold text-slate-800 mb-4">Nova Disciplina</h3>
     <form [formGroup]="disciplinaForm" (ngSubmit)="onSubmitDisciplina()" class="flex gap-4 items-end">
       <div class="flex-1">
-        <label class="block text-sm font-medium text-slate-600 mb-1">Nome</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-cursos-5">Nome</label>
         <input type="text" formControlName="nome" placeholder="Ex: Matemática"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-cursos-5" />
       </div>
       <div class="w-40">
-        <label class="block text-sm font-medium text-slate-600 mb-1">Carga horária — opcional</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-cursos-6">Carga horária — opcional</label>
         <input type="number" formControlName="carga_horaria_total"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-cursos-6" />
       </div>
       <button type="submit" [disabled]="disciplinaForm.invalid"
         class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
@@ -248,9 +248,9 @@
 
   <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
     <form [formGroup]="filtroDisciplinas">
-      <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+      <label class="block text-xs font-medium text-slate-600 mb-1" for="f-cursos-7">Pesquisar</label>
       <input type="text" formControlName="busca" placeholder="Nome da disciplina"
-        class="w-full md:w-96 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        class="w-full md:w-96 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-cursos-7" />
     </form>
   </div>
 

@@ -6,13 +6,13 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
       {{ erro }}
     </div>
   }
 
   @if (mensagem$ | async; as mensagem) {
-    <div class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
       {{ mensagem }}
     </div>
   }
@@ -32,26 +32,26 @@
       @if (mostrarFormularioAluno && (podeGerir$ | async)) {
       <form [formGroup]="alunoForm" (ngSubmit)="onSubmitAluno()" class="space-y-3">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Nome completo</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-alunos-1">Nome completo</label>
           <input type="text" formControlName="nome_completo"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-1" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Matrícula (RA)</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-alunos-2">Matrícula (RA)</label>
             <input type="text" formControlName="matricula_interna" placeholder="Ex: RA-0001"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-2" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Data de nascimento</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-alunos-3">Data de nascimento</label>
             <input type="date" formControlName="data_nascimento"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-3" />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Documento (NIF/CC) — opcional</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-alunos-4">Documento (NIF/CC) — opcional</label>
           <input type="text" formControlName="numero_documento"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-4" />
         </div>
         <button type="submit" [disabled]="alunoForm.invalid"
           class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
@@ -74,26 +74,26 @@
       @if (mostrarFormularioResponsavel && (podeGerir$ | async)) {
       <form [formGroup]="responsavelForm" (ngSubmit)="onSubmitResponsavel()" class="space-y-3">
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">Nome completo</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-alunos-5">Nome completo</label>
           <input type="text" formControlName="nome_completo"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-5" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Telefone</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-alunos-6">Telefone</label>
             <input type="text" formControlName="telefone_contato"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-6" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Documento — opcional</label>
+            <label class="block text-sm font-medium text-slate-600 mb-1" for="f-alunos-7">Documento — opcional</label>
             <input type="text" formControlName="numero_documento"
-              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+              class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-7" />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">E-mail — opcional (usado para notificar)</label>
+          <label class="block text-sm font-medium text-slate-600 mb-1" for="f-alunos-8">E-mail — opcional (usado para notificar)</label>
           <input type="email" formControlName="email"
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-8" />
         </div>
         <button type="submit" [disabled]="responsavelForm.invalid"
           class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors">
@@ -108,24 +108,24 @@
   <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
     <form [formGroup]="filtroForm" class="flex flex-wrap items-end gap-3">
       <div class="flex-1 min-w-48">
-        <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-alunos-9">Pesquisar</label>
         <input type="text" formControlName="busca" placeholder="Nome, matrícula ou nº de documento"
-          class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-9" />
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Nascido(a) entre</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-alunos-10">Nascido(a) entre</label>
         <input type="date" formControlName="data_nascimento_inicio"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-10" />
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">e</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-alunos-11">e</label>
         <input type="date" formControlName="data_nascimento_fim"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-11" />
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-alunos-12">Estado</label>
         <select formControlName="estado"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-alunos-12">
           <option value="">Todos</option>
           <option value="ativo">Ativos</option>
           <option value="inativo">Desativados</option>

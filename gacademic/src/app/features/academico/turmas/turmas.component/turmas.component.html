@@ -14,13 +14,13 @@
   </div>
 
   @if (erro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
       {{ erro }}
     </div>
   }
 
   @if (matriculasErro$ | async; as erro) {
-    <div class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
       {{ erro }}
     </div>
   }
@@ -37,9 +37,9 @@
     <form [formGroup]="turmaForm" (ngSubmit)="onSubmit()" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
 
       <div class="md:col-span-2">
-        <label class="block text-sm font-medium text-slate-600 mb-1">Curso / Série-Ano</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-turmas-1">Curso / Série-Ano</label>
         <select formControlName="serie_ano_id"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-turmas-1">
           <option value="" disabled>Selecione uma série/ano</option>
           @for (serie of seriesOptions$ | async; track serie.id) {
             <option [value]="serie.id">{{ serie.label }}</option>
@@ -48,22 +48,22 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Turma</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-turmas-2">Turma</label>
         <input type="text" formControlName="nome_codigo"
           class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          placeholder="Ex: Turma A" />
+          placeholder="Ex: Turma A" id="f-turmas-2" />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Ano Letivo</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-turmas-3">Ano Letivo</label>
         <input type="number" formControlName="ano_letivo"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-turmas-3" />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Vagas</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-turmas-4">Vagas</label>
         <input type="number" formControlName="vagas_maximas"
-          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-turmas-4" />
       </div>
 
       <div class="md:col-span-5">
@@ -79,14 +79,14 @@
   <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex flex-wrap items-end gap-3">
     <form [formGroup]="filtroForm" class="flex flex-wrap items-end gap-3">
       <div class="flex-1 min-w-48">
-        <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisar</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-turmas-5">Pesquisar</label>
         <input type="text" formControlName="busca" placeholder="Turma, curso ou série"
-          class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-turmas-5" />
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">Ano letivo</label>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-turmas-6">Ano letivo</label>
         <select formControlName="ano_letivo"
-          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-turmas-6">
           <option value="">Todos</option>
           @for (ano of anosLetivosDisponiveis$ | async; track ano) {
             <option [value]="ano">{{ ano }}</option>

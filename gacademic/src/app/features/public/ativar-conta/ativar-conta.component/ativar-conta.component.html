@@ -7,7 +7,7 @@
     </div>
 
     @if (!token) {
-      <div class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
+      <div role="alert" class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
         Este link é inválido — falta o token de ativação. Verifique o e-mail que recebeu ao registar a escola.
       </div>
       <div class="mt-6 text-center text-sm">
@@ -18,11 +18,11 @@
         A ativar a sua conta...
       </div>
     } @else if (concluido()) {
-      <div class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
+      <div role="status" class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
         Conta ativada com sucesso. A redirecionar para o início de sessão...
       </div>
     } @else if (erro()) {
-      <div class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
+      <div role="alert" class="rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
         {{ erro() }}
       </div>
       <div class="mt-6 text-center text-sm">

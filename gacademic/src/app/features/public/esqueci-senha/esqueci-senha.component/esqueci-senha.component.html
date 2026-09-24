@@ -7,7 +7,7 @@
     </div>
 
     @if (enviado()) {
-      <div class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
+      <div role="status" class="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
         Se este email estiver registado, vai receber um link para redefinir a sua palavra-passe. Verifique também a pasta de spam.
       </div>
       <div class="mt-6 text-center text-sm">
@@ -17,20 +17,19 @@
       <p class="text-slate-400 text-sm mb-5">Indique o e-mail da sua conta — vamos enviar-lhe um link para escolher uma nova palavra-passe.</p>
 
       @if (erro()) {
-        <div class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
+        <div role="alert" class="mb-5 rounded-lg border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-400">
           {{ erro() }}
         </div>
       }
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-5">
         <div>
-          <label class="block text-sm font-medium text-slate-300 mb-1.5">E-mail</label>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5" for="f-esqueci-senha-1">E-mail</label>
           <input
             type="email"
             formControlName="email"
             class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-hidden focus:border-blue-500 transition-colors"
-            placeholder="exemplo@escola.pt"
-          />
+            placeholder="exemplo@escola.pt" id="f-esqueci-senha-1" />
           @if (form.get('email')?.touched && form.get('email')?.invalid) {
             <span class="text-xs text-rose-500 mt-1 block">Insira um e-mail válido.</span>
           }
