@@ -155,6 +155,30 @@
     </div>
   </div>
 
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4 mb-6">
+    <h3 class="text-sm font-semibold text-slate-800">Matrículas e Rematrículas</h3>
+    <p class="text-xs text-slate-400 -mt-2">Abra ou encerre os pedidos feitos pelas famílias: a candidatura de matrícula no site da escola e o botão "Pedir Rematrícula" no Portal. A Secretaria e o Gestor podem matricular e renovar sempre, com ou sem inscrições abertas. A mudança é imediata.</p>
+    @if (configuracao$ | async; as cfg) {
+      @for (item of [
+        { campo: 'matriculas_abertas', titulo: 'Matrículas (candidaturas online)', abertas: cfg.matriculas_abertas !== false },
+        { campo: 'rematriculas_abertas', titulo: 'Rematrículas (Portal do Encarregado)', abertas: cfg.rematriculas_abertas !== false }
+      ]; track item.campo) {
+        <div class="flex flex-wrap items-center gap-3 border border-slate-200 rounded-lg px-4 py-3">
+          <span class="text-sm text-slate-700 min-w-64">{{ item.titulo }}</span>
+          <span class="text-xs font-medium py-0.5 px-2 rounded-full"
+            [class.bg-emerald-100]="item.abertas" [class.text-emerald-700]="item.abertas"
+            [class.bg-rose-100]="!item.abertas" [class.text-rose-700]="!item.abertas">{{ item.abertas ? 'Abertas' : 'Encerradas' }}</span>
+          <button type="button" (click)="onAlternarInscricoes($any(item.campo), !item.abertas)"
+            class="text-sm font-medium py-1.5 px-4 rounded-lg cursor-pointer text-white"
+            [class.bg-rose-600]="item.abertas" [class.hover:bg-rose-700]="item.abertas"
+            [class.bg-emerald-600]="!item.abertas" [class.hover:bg-emerald-700]="!item.abertas">
+            {{ item.abertas ? 'Encerrar' : 'Abrir' }}
+          </button>
+        </div>
+      }
+    }
+  </div>
+
   <form [formGroup]="form" (ngSubmit)="onGuardar()" class="space-y-6">
 
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">

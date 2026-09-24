@@ -20,6 +20,8 @@ export interface EducandoResumo {
   bloqueado_rematricula_por_atraso: boolean;
   pedido_rematricula_confirmado: boolean;
   ano_letivo_destino_rematricula: number | null;
+  // false = a escola encerrou as rematrículas: o botão dá lugar a um aviso.
+  rematriculas_abertas?: boolean;
 }
 
 // A grade horária reaproveita exatamente o formato de HorarioAula do

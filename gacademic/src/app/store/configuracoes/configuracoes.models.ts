@@ -55,6 +55,9 @@ export interface ConfiguracaoTenant {
   // Opcionais: só se leem, nunca vão no corpo do PUT.
   termos_aceites_em?: string | null;
   termos_versao?: string | null;
+  // Inscrições de autoatendimento (candidatura pública e pedido de rematrícula no Portal).
+  matriculas_abertas?: boolean;
+  rematriculas_abertas?: boolean;
 }
 
 // Catálogo de tipos de avaliação da escola — ver

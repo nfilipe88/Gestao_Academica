@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, eventos, financeiro, horarios, importacao, indicadores, lms, matriculas, notificacoes, perfil, fecho, permissoes, portal, privacidade, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
+from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, calendario, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, eventos, financeiro, horarios, importacao, indicadores, lms, matriculas, notificacoes, perfil, fecho, permissoes, portal, privacidade, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
 from fastapi import Depends
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
@@ -100,6 +100,7 @@ app.include_router(suporte.router)
 app.include_router(configuracoes.router)
 app.include_router(privacidade.router)
 app.include_router(fecho.router)
+app.include_router(calendario.router)
 app.include_router(lms.router)
 app.include_router(perfil.router)
 app.include_router(permissoes.router)

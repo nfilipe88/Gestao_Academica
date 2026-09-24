@@ -63,6 +63,8 @@
             <p class="text-sm text-rose-600">
               Há mensalidades em atraso que bloqueiam a rematrícula — regularize a situação no separador Financeiro antes de pedir a renovação.
             </p>
+          } @else if (edu.rematriculas_abertas === false) {
+            <p class="text-sm text-slate-500">As rematrículas estão encerradas neste momento. Quando abrirem, o botão para pedir a renovação aparece aqui — em caso de dúvida, contacte a secretaria.</p>
           } @else {
             <p class="text-sm text-slate-500 mb-3">Confirme que pretende renovar a matrícula de {{ edu.nome_completo }} para {{ edu.ano_letivo_destino_rematricula }} — a Secretaria trata da atribuição de turma a seguir.</p>
             @if (erroRematricula) {

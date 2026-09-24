@@ -1,6 +1,6 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Boolean, DateTime, String, Integer, ForeignKey, Text, UniqueConstraint, text
+from datetime import date, datetime
+from sqlalchemy import Boolean, Date, DateTime, String, Integer, ForeignKey, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.models import Base # A nossa Base declarativa original
 
@@ -109,3 +109,23 @@ class ObjetivoAprendizagem(Base):
     __table_args__ = (
         UniqueConstraint("disciplina_id", "nome", name="uq_objetivo_disciplina_nome"),
     )
+
+
+class CalendarioLetivo(Base):
+    """Calendário do ano letivo: períodos letivos, períodos de avaliações,
+    de exames, de exames finais e de exames de recurso (mais "OUTRO" para
+    férias/feriados). Um registo = um intervalo de datas de um tipo, num ano
+    letivo. Gerido pelo Gestor (app/api/v1/calendario.py). A janela de
+    lançamento de notas continua a ser a de PeriodoAvaliacao (Diário) — o
+    calendário só a mostra a par dos restantes marcos, sem a duplicar."""
+    __tablename__ = "calendario_letivo"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    ano_letivo: Mapped[int] = mapped_column(Integer, nullable=False)
+    tipo: Mapped[str] = mapped_column(String(30), nullable=False)
+    nome: Mapped[str] = mapped_column(String(120), nullable=False)
+    data_inicio: Mapped[date] = mapped_column(Date, nullable=False)
+    data_fim: Mapped[date] = mapped_column(Date, nullable=False)
+    observacoes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))

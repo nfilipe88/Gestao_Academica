@@ -26,7 +26,12 @@
 
     <main class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
 
-      @if (!concluido()) {
+      @if (e.matriculas_abertas === false) {
+        <div class="bg-white border border-slate-200 rounded-xl p-8 text-center">
+          <p class="text-slate-800 font-semibold text-lg">Matrículas encerradas</p>
+          <p class="text-slate-500 text-sm mt-2">A escola não está a receber candidaturas de matrícula neste momento. Volte mais tarde ou contacte a escola diretamente.</p>
+        </div>
+      } @else if (!concluido()) {
         <!-- Stepper -->
         <ol class="flex items-center justify-between mb-10 text-xs sm:text-sm">
           @for (rotulo of ['Dados', 'Curso', 'Documentos', 'Confirmação']; track rotulo; let i = $index) {

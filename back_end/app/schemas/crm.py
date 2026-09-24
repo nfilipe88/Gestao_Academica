@@ -34,6 +34,9 @@ class LeadPublicoCreate(_NormalizaEmailOpcional):
     # com documentos) — o formulário de contacto rápido não o mostra e
     # continua a enviar False, o que é correto para esse caso.
     aceitou_regulamento: bool = False
+    # True só no assistente de matrícula (candidatura): fica recusada quando a
+    # escola encerrou as matrículas. O contacto rápido (False) nunca é bloqueado.
+    candidatura_matricula: bool = False
     # Mensagem livre e opcional deixada no formulário público — ver
     # LeadCandidato.mensagem.
     mensagem: str | None = None

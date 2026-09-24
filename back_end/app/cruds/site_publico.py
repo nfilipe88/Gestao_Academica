@@ -187,4 +187,5 @@ async def obter_site_publico(db: AsyncSession, identificador: str) -> SitePublic
         whatsapp=tenant.site_publico_whatsapp,
         cursos=cursos, fotos=fotos_urls, eventos=eventos,
         moeda=tenant.moeda, valor_taxa_matricula=tenant.valor_taxa_matricula,
+        matriculas_abertas=tenant.matriculas_abertas,
     )

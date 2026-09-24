@@ -15,7 +15,9 @@
         @if (escola.fotos.length) { <a href="#galeria" class="px-3 py-1.5 rounded-full text-slate-600 hover:bg-slate-100 transition-colors">Galeria</a> }
         @if (escola.eventos.length) { <a href="#eventos" class="px-3 py-1.5 rounded-full text-slate-600 hover:bg-slate-100 transition-colors">Eventos</a> }
         <a href="#contacto" class="px-3 py-1.5 rounded-full text-slate-600 hover:bg-slate-100 transition-colors">Contacto</a>
-        <a [routerLink]="['/escola', escola.tenant_id, 'matricula']" class="px-4 py-1.5 rounded-full bg-linear-to-r from-indigo-600 to-pink-600 text-white font-semibold hover:opacity-90 transition-opacity">Matricule-se</a>
+        @if (escola.matriculas_abertas !== false) {
+          <a [routerLink]="['/escola', escola.tenant_id, 'matricula']" class="px-4 py-1.5 rounded-full bg-linear-to-r from-indigo-600 to-pink-600 text-white font-semibold hover:opacity-90 transition-opacity">Matricule-se</a>
+        }
       </div>
     </div>
   </nav>

@@ -213,6 +213,9 @@ async def criar_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, dados: Lead
     if not tenant or tenant.status != "ATIVO":
         raise HTTPException(status_code=404, detail="Escola não encontrada.")
 
+    if dados.candidatura_matricula and not tenant.matriculas_abertas:
+        raise HTTPException(status_code=403, detail="As matrículas estão encerradas neste momento. Contacte a escola para mais informações.")
+
     if dados.origem_lead not in ORIGENS_VALIDAS:
         raise HTTPException(status_code=400, detail=f"Origem inválida. Use uma de: {', '.join(sorted(ORIGENS_VALIDAS))}.")
 

@@ -71,6 +71,11 @@ class Tenant(Base):
     # lecionadas) a partir do qual reprova por faltas (nulo = não se aplica).
     max_disciplinas_reprovadas: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     limite_faltas_percentagem: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    # Abrir/encerrar as inscrições de AUTOATENDIMENTO: candidatura pública de
+    # matrícula e pedido de rematrícula no Portal. A Secretaria/Gestor
+    # continuam a poder matricular e renovar a qualquer altura.
+    matriculas_abertas: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
+    rematriculas_abertas: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
     # Nota máxima da escala de notas da escola (ex.: 10 em Portugal/
     # Brasil, 20 em Angola/MININED) — usada por
     # cruds/diario.py::lancar_notas_lote/lancar_notas_avaliacao_lote para

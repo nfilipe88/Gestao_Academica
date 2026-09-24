@@ -8,7 +8,7 @@ from app.core.security import exigir_perfil, exigir_perfil_staff, obter_utilizad
 from app.cruds import configuracoes as crud_configuracoes
 from app.cruds import site_publico as crud_site_publico
 from app.schemas.configuracoes import (
-    ConfiguracaoTenantOut, ConfiguracaoTenantUpdate, TipoAvaliacaoCreate, TipoAvaliacaoOut, TipoAvaliacaoUpdate
+    ConfiguracaoTenantOut, ConfiguracaoTenantUpdate, InscricoesUpdate, TipoAvaliacaoCreate, TipoAvaliacaoOut, TipoAvaliacaoUpdate
 )
 from app.schemas.site_publico import SitePublicoConfigOut, SitePublicoConfigUpdate
 
@@ -28,6 +28,16 @@ async def obter_configuracao(
     Responsável vê no Portal, por isso não pode ficar restrita ao GESTOR.
     """
     return await crud_configuracoes.obter_configuracao(db, utilizador["tenant_id"])
+
+
+@router.patch("/inscricoes", response_model=ConfiguracaoTenantOut)
+async def atualizar_inscricoes(
+    dados: InscricoesUpdate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    """Abre/encerra as matrículas e/ou rematrículas de autoatendimento (candidatura
+    pública e Portal). Secretaria e Gestor continuam a poder matricular e renovar."""
+    return await crud_configuracoes.atualizar_inscricoes(db, utilizador["tenant_id"], dados)
 
 
 @router.post("/aceitar-termos", response_model=ConfiguracaoTenantOut)

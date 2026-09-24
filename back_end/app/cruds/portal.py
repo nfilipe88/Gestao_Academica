@@ -25,7 +25,7 @@ from app.database.models_lms import MaterialAula
 from app.database.models_matricula import Matricula, PedidoRematricula
 from app.database.models_pessoas import Aluno
 from app.database.models_tarefas import Tarefa, TarefaAvaliacao
-from app.database.models import Usuario
+from app.database.models import Tenant, Usuario
 from app.core.resultados import calcular_media_final
 from app.cruds import alunos as crud_alunos
 from app.cruds import comportamento as crud_comportamento
@@ -119,9 +119,10 @@ async def _situacao_rematricula(db: AsyncSession, tenant_id, matricula: Matricul
     existe nenhuma matrícula para o ano seguinte — reaproveita a MESMA
     verificação de RN05 que criar_matricula aplica de facto, para o
     Portal nunca prometer algo que a Secretaria depois recusa."""
-    nao_disponivel = {"elegivel_rematricula": False, "bloqueado_rematricula_por_atraso": False, "pedido_rematricula_confirmado": False, "ano_letivo_destino_rematricula": None}
+    nao_disponivel = {"elegivel_rematricula": False, "bloqueado_rematricula_por_atraso": False, "pedido_rematricula_confirmado": False, "ano_letivo_destino_rematricula": None, "rematriculas_abertas": True}
     if not matricula or matricula.status_matricula != "ATIVO":
         return nao_disponivel
+    abertas = (await db.execute(select(Tenant.rematriculas_abertas).where(Tenant.id == tenant_id))).scalar_one()
 
     ano_destino = matricula.ano_letivo + 1
     ja_renovado = (await db.execute(
@@ -145,6 +146,8 @@ async def _situacao_rematricula(db: AsyncSession, tenant_id, matricula: Matricul
         "bloqueado_rematricula_por_atraso": bloqueado,
         "pedido_rematricula_confirmado": pedido is not None,
         "ano_letivo_destino_rematricula": ano_destino,
+        # Encerradas pela escola: o Portal esconde o botão e mostra o aviso.
+        "rematriculas_abertas": abertas,
     }
 
 
@@ -194,6 +197,8 @@ async def pedir_rematricula(db: AsyncSession, tenant_id, utilizador: dict, aluno
     turma de destino no ecrã de Rematrícula) e fica visível lá como
     "família já confirmou interesse"."""
     aluno = await _garantir_aluno_permitido(db, tenant_id, utilizador, aluno_id)
+    if not (await db.execute(select(Tenant.rematriculas_abertas).where(Tenant.id == tenant_id))).scalar_one():
+        raise HTTPException(status_code=403, detail="As rematrículas estão encerradas neste momento. Contacte a secretaria da escola.")
     matricula = await _obter_matricula_atual(db, tenant_id, aluno_id)
     if not matricula or matricula.status_matricula != "ATIVO":
         raise HTTPException(status_code=400, detail="Este educando não tem uma matrícula ativa para renovar.")

@@ -77,6 +77,8 @@ class SitePublicoOut(BaseModel):
     fotos: list[str] = []  # data URIs
     eventos: list[EventoPublicoOut] = []
     moeda: str
+    # False = a escola encerrou as candidaturas de matrícula (o site esconde o botão).
+    matriculas_abertas: bool = True
     # Valor da taxa de matrícula (encargo único) — None = escola não cobra.
     # Publicado de propósito (tal como os preços/cursos acima): uma
     # família candidata-se a saber já quanto vai custar a matrícula em

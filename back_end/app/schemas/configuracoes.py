@@ -49,6 +49,9 @@ class ConfiguracaoTenantOut(BaseModel):
     # Critérios do fecho do ano — ver app/core/resultados.py.
     max_disciplinas_reprovadas: int = 0
     limite_faltas_percentagem: float | None = None
+    # Inscrições de autoatendimento abertas/encerradas (ver Tenant).
+    matriculas_abertas: bool = True
+    rematriculas_abertas: bool = True
     # Nota máxima da escala de notas da escola (ex.: 10 ou 20) — ver
     # Tenant.nota_maxima. Sempre presente (coluna NOT NULL).
     nota_maxima: float
@@ -183,3 +186,9 @@ class TipoAvaliacaoUpdate(BaseModel):
     nome: str
     requer_agendamento: bool
     ativo: bool
+
+
+class InscricoesUpdate(BaseModel):
+    """Abrir/encerrar matrículas e/ou rematrículas — só o que vier é alterado."""
+    matriculas_abertas: bool | None = None
+    rematriculas_abertas: bool | None = None

@@ -69,6 +69,7 @@ export class ConfiguracoesComponent implements OnInit {
   mensagem$ = this.store.select(selectConfiguracoesMensagem);
   erro$ = this.store.select(selectConfiguracoesError);
   tiposAvaliacao$ = this.store.select(selectTiposAvaliacao);
+  configuracao$ = this.store.select(selectConfiguracao);
 
   form = this.fb.group({
     iban: [''],
@@ -336,6 +337,12 @@ export class ConfiguracoesComponent implements OnInit {
     this.http.delete<SitePublicoConfig>(`/api/v1/configuracoes/site-publico/fotos/${fotoId}`).subscribe({
       next: (config) => this.sitePublico.set(config),
     });
+  }
+
+  // Abrir/encerrar as inscrições de autoatendimento — efeito imediato, fora do
+  // formulário (não precisa de "Guardar"). Secretaria/Gestor matriculam sempre.
+  onAlternarInscricoes(campo: 'matriculas_abertas' | 'rematriculas_abertas', abertas: boolean) {
+    this.store.dispatch(ConfiguracoesActions.atualizarInscricoes({ dados: { [campo]: abertas } }));
   }
 
   onGuardar() {

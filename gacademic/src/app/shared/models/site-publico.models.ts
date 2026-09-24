@@ -40,6 +40,8 @@ export interface SitePublico {
   fotos: string[];
   eventos: EventoPublico[];
   moeda: string;
+  // false = a escola encerrou as candidaturas de matrícula.
+  matriculas_abertas?: boolean;
   // Valor da taxa de matrícula (encargo único) — null = a escola não
   // cobra. Ver Tenant.valor_taxa_matricula no back-end.
   valor_taxa_matricula: number | null;

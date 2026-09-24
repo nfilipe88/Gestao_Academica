@@ -133,6 +133,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/academico/rematricula/rematricula.component/rematricula.component').then((m) => m.RematriculaComponent)
       },
       {
+        path: 'calendario',
+        canActivate: [perfilGuard(..._STAFF)],
+        loadComponent: () => import('./features/academico/calendario/calendario.component').then((m) => m.CalendarioComponent)
+      },
+      {
         path: 'fecho-ano',
         canActivate: [perfilGuard(..._GESTOR_SECRETARIA)],
         loadComponent: () => import('./features/academico/fecho-ano/fecho-ano.component').then((m) => m.FechoAnoComponent)

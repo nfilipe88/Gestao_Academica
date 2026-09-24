@@ -16,6 +16,10 @@ export const atualizarConfiguracao = createAction(
   props<{ dados: Omit<ConfiguracaoTenant, 'tem_logotipo'> }>()
 );
 
+export const atualizarInscricoes = createAction(
+  '[Configuracoes] Atualizar Inscricoes',
+  props<{ dados: { matriculas_abertas?: boolean; rematriculas_abertas?: boolean } }>()
+);
 export const aceitarTermos = createAction('[Configuracoes] Aceitar Termos');
 
 export const configuracoesOperacaoSucesso = createAction('[Configuracoes] Operacao Sucesso', props<{ mensagem: string }>());

@@ -37,6 +37,21 @@ export class ConfiguracoesEffects {
     )
   );
 
+  atualizarInscricoes$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ConfiguracoesActions.atualizarInscricoes),
+      switchMap(action => this.http.patch<ConfiguracaoTenant>('/api/v1/configuracoes/inscricoes', action.dados).pipe(
+        switchMap(configuracao => [
+          ConfiguracoesActions.carregarConfiguracaoSucesso({ configuracao }),
+          ConfiguracoesActions.configuracoesOperacaoSucesso({ mensagem: 'Estado das inscrições atualizado.' })
+        ]),
+        catchError(err => of(ConfiguracoesActions.configuracoesOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível atualizar as inscrições.'
+        })))
+      ))
+    )
+  );
+
   aceitarTermos$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ConfiguracoesActions.aceitarTermos),

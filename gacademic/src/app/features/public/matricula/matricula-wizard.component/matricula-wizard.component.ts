@@ -116,6 +116,7 @@ export class MatriculaWizardComponent implements OnInit {
       curso_interesse_id: v.curso_interesse_id || null,
       aceitou_regulamento: v.aceitou_regulamento,
       origem_lead: 'SITE',
+      candidatura_matricula: true,
       recaptcha_token,
     }).subscribe({
       next: (resp) => {

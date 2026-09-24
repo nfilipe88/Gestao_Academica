@@ -49,6 +49,17 @@ async def aceitar_termos(db: AsyncSession, tenant_id) -> Tenant:
     return tenant
 
 
+async def atualizar_inscricoes(db: AsyncSession, tenant_id, dados) -> Tenant:
+    tenant = await _obter_tenant(db, tenant_id)
+    if dados.matriculas_abertas is not None:
+        tenant.matriculas_abertas = dados.matriculas_abertas
+    if dados.rematriculas_abertas is not None:
+        tenant.rematriculas_abertas = dados.rematriculas_abertas
+    await db.commit()
+    await db.refresh(tenant)
+    return tenant
+
+
 async def atualizar_configuracao(db: AsyncSession, tenant_id, dados: ConfiguracaoTenantUpdate) -> Tenant:
     tenant = await _obter_tenant(db, tenant_id)
     tenant.iban = dados.iban
