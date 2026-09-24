@@ -42,7 +42,8 @@ export class EsqueciSenhaComponent {
       next: () => { this.enviado.set(true); this.aEnviar.set(false); },
       error: (err) => {
         this.aEnviar.set(false);
-        this.erro.set(err.error?.detail || 'Não foi possível processar o pedido. Tente novamente.');
+        const detail = err.error?.detail;
+        this.erro.set(typeof detail === 'string' ? detail : 'Não foi possível processar o pedido. Tente novamente.');
       }
     });
   }

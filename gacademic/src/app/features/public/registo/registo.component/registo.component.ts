@@ -49,7 +49,10 @@ export class RegistoComponent {
             this.emailRegistado = this.registoForm.value.email_gestor ?? '';
             this.concluido.set(true);
           },
-          error: (err) => { this.erro = err.error?.detail || 'Não foi possível concluir o registo.'; }
+          error: (err) => {
+            const detail = err.error?.detail;
+            this.erro = typeof detail === 'string' ? detail : 'Não foi possível concluir o registo.';
+          }
         });
     }
   }
