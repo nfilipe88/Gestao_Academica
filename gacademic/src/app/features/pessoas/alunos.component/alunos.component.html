@@ -168,6 +168,9 @@
           </td>
           @if (isGestor$ | async) {
           <td class="py-3 px-6 text-right whitespace-nowrap">
+            <button type="button" (click)="onExportarDados(aluno.id)"
+              title="Descarrega todos os dados que a escola tem sobre este aluno (pedido de acesso/portabilidade)."
+              class="text-xs font-medium py-1.5 px-3 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer mr-1">Exportar dados</button>
             @if (alunoADesativarId === aluno.id) {
               <span class="text-xs text-slate-500 mr-2">Confirmar?</span>
               <button type="button" (click)="onAlterarEstadoAluno(aluno.id, false)"

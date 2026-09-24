@@ -191,6 +191,15 @@ export class AlunosComponent implements OnInit, OnDestroy {
     this.dispatchAlunosComFiltros(1);
   }
 
+  // Pedido de acesso/portabilidade (ver /privacidade): JSON com tudo o que a
+  // escola tem sobre o aluno. Vem por HttpClient (leva o JWT), não por <a href>.
+  onExportarDados(alunoId: string) {
+    this.http.get(`/api/v1/privacidade/exportar/aluno/${alunoId}`, { responseType: 'blob' }).subscribe({
+      next: blob => abrirOuTransferirBlob(null, blob, `dados-aluno-${alunoId}.json`),
+      error: err => alert(err.error?.detail || 'Não foi possível exportar os dados deste aluno.'),
+    });
+  }
+
   pedirConfirmacaoDesativar(alunoId: string) {
     this.alunoADesativarId = alunoId;
   }
