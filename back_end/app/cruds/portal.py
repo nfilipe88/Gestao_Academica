@@ -26,6 +26,7 @@ from app.database.models_matricula import Matricula, PedidoRematricula
 from app.database.models_pessoas import Aluno
 from app.database.models_tarefas import Tarefa, TarefaAvaliacao
 from app.database.models import Usuario
+from app.core.resultados import calcular_media_final
 from app.cruds import alunos as crud_alunos
 from app.cruds import comportamento as crud_comportamento
 from app.cruds import comunicacoes as crud_comunicacoes
@@ -599,24 +600,12 @@ async def obter_pauta_do_educando(db: AsyncSession, tenant_id, utilizador: dict,
             del periodo["_ordem_data"]
 
         medias = [p["media_periodo"] for p in periodos_ordenados if p["media_periodo"] is not None]
-        media_final = round(sum(medias) / len(medias), 2) if medias else None
-        # MEO = mesmo cálculo do MFD (média dos MT dos 3 trimestres,
-        # confirmado pelo utilizador) — devolvido como campo próprio
-        # para manter todo o cálculo de notas no backend, mesmo sendo
-        # hoje idêntico a media_final.
-        media_exame_oral = media_final
         nota_exame_nacional = nen_por_disciplina.get(entrada["disciplina_id"])
-        # M. Final: combina MEO+NEN quando há exame nacional lançado;
-        # senão cai para o MFD (fórmula inferida, não confirmada — ver
-        # "Decisões de Design" no plano desta funcionalidade).
-        if nota_exame_nacional is not None and media_exame_oral is not None:
-            # float() nos dois: RegistroNota.valor_nota chega da BD como
-            # Decimal apesar do type hint float no modelo (driver Postgres),
-            # NotaExameNacional.valor_nota também — misturar Decimal+float
-            # dá TypeError.
-            m_final = round((float(media_exame_oral) + float(nota_exame_nacional)) / 2, 2)
-        else:
-            m_final = media_final
+        # Fórmula partilhada com o fecho do ano (app/core/resultados.py): MEO = MFD
+        # (média dos MT), M. Final combina MEO+NEN quando há exame nacional
+        # lançado (fórmula inferida, não confirmada — ver "Decisões de Design").
+        media_final, m_final = calcular_media_final(medias, nota_exame_nacional)
+        media_exame_oral = media_final
 
         disciplinas.append({
             "disciplina_id": entrada["disciplina_id"], "nome_disciplina": entrada["nome_disciplina"],
@@ -628,6 +617,9 @@ async def obter_pauta_do_educando(db: AsyncSession, tenant_id, utilizador: dict,
         "disciplinas": sorted(disciplinas, key=lambda d: d["nome_disciplina"]),
         "anos_letivos_disponiveis": anos_disponiveis,
         "ano_letivo_selecionado": matricula.ano_letivo,
+        # Resultado do fecho do ano (None = ano ainda não fechado).
+        "resultado_final": matricula.resultado_final,
+        "resultado_em": matricula.resultado_em,
     }
 
 

@@ -46,6 +46,9 @@ class ConfiguracaoTenantOut(BaseModel):
     codigo_postal: str | None = None
     pais: str | None = None
     nota_minima_aprovacao: float | None = None
+    # Critérios do fecho do ano — ver app/core/resultados.py.
+    max_disciplinas_reprovadas: int = 0
+    limite_faltas_percentagem: float | None = None
     # Nota máxima da escala de notas da escola (ex.: 10 ou 20) — ver
     # Tenant.nota_maxima. Sempre presente (coluna NOT NULL).
     nota_maxima: float
@@ -86,6 +89,10 @@ class ConfiguracaoTenantUpdate(BaseModel):
     codigo_postal: str | None = None
     pais: str | None = None
     nota_minima_aprovacao: float | None = None
+    # Opcionais e "só se enviados": quem não os envia (clientes antigos) não
+    # os repõe a zero/nulo — ver cruds/configuracoes.py::atualizar_configuracao.
+    max_disciplinas_reprovadas: int | None = None
+    limite_faltas_percentagem: float | None = None
     # Obrigatório (ao contrário de nota_minima_aprovacao, que é opcional)
     # — ver Tenant.nota_maxima para o porquê.
     nota_maxima: float

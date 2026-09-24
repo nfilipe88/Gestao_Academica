@@ -320,6 +320,14 @@
           </svg>
           @if (!sidebarColapsada) { <span>Rematrícula</span> }
         </a>
+        <a routerLink="/fecho-ano" routerLinkActive="bg-slate-800 text-blue-400"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Fecho do Trimestre e do Ano">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Fecho do Ano</span> }
+        </a>
 
         <!-- Transferência de alunos: pedir é GESTOR/SECRETARIA no
              back-end (exigir_perfil em transferencias.py) — a aprovação

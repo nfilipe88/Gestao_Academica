@@ -363,6 +363,7 @@ async def listar_candidatos_rematricula(db: AsyncSession, tenant_id, ano_letivo:
             "nome_completo": nome_aluno,
             "matricula_interna": matricula_interna,
             "matricula_atual_id": matricula.id,
+            "resultado_final": matricula.resultado_final,
             "turma_atual_id": matricula.turma_id,
             "nome_turma_atual": nome_turma,
             "bloqueado_por_atraso": await tem_mensalidade_em_atraso_de_ano_anterior(db, tenant_id, matricula.aluno_id, ano_destino),

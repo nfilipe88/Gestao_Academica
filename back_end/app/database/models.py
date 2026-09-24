@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import List
-from sqlalchemy import Boolean, Date, Numeric, String, ForeignKey, DateTime, Text, Time, text
+from sqlalchemy import Boolean, Date, Integer, Numeric, String, ForeignKey, DateTime, Text, Time, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -65,6 +65,12 @@ class Tenant(Base):
     # ex.: 0-20 ou 0-10) — usada no Boletim/Indicadores para marcar
     # Aprovado/Reprovado. Sem valor definido, essa marcação não aparece.
     nota_minima_aprovacao: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
+    # Critérios do fecho do ano (app/core/resultados.py): quantas disciplinas
+    # o aluno pode ter abaixo da nota mínima e ainda ser APROVADO (0 = tem de
+    # passar a todas) e, opcionalmente, o limite de faltas (% das aulas
+    # lecionadas) a partir do qual reprova por faltas (nulo = não se aplica).
+    max_disciplinas_reprovadas: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    limite_faltas_percentagem: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
     # Nota máxima da escala de notas da escola (ex.: 10 em Portugal/
     # Brasil, 20 em Angola/MININED) — usada por
     # cruds/diario.py::lancar_notas_lote/lancar_notas_avaliacao_lote para

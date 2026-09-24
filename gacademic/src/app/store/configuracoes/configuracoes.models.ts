@@ -14,6 +14,10 @@ export interface ConfiguracaoTenant {
   codigo_postal: string | null;
   pais: string | null;
   nota_minima_aprovacao: number | null;
+  // Critérios do fecho do ano (ver back_end/app/core/resultados.py). Opcionais
+  // no tipo: clientes/estados antigos sem estes campos continuam válidos.
+  max_disciplinas_reprovadas?: number;
+  limite_faltas_percentagem?: number | null;
   // Nota máxima da escala de notas da escola (ex.: 10 ou 20) — sempre
   // presente (campo obrigatório, ver ConfiguracaoTenantUpdate no
   // back-end). Usada por Diário de Classe para validar/limitar o

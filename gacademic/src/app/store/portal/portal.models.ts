@@ -104,6 +104,8 @@ export interface Pauta {
   disciplinas: DisciplinaPauta[];
   anos_letivos_disponiveis: number[];
   ano_letivo_selecionado: number | null;
+  // Resultado do fecho do ano (null = ano ainda não fechado).
+  resultado_final?: 'APROVADO' | 'REPROVADO' | 'REPROVADO_FALTAS' | null;
 }
 
 // Formato reduzido — o extrato de faturas em si reaproveita

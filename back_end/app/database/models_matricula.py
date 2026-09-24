@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -35,6 +35,13 @@ class Matricula(Base):
     # campo; só não estava a ser persistido).
     motivo: Mapped[str | None] = mapped_column(Text, nullable=True)
     data_matricula: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+    # Resultado do fecho do ano letivo (ver app/core/resultados.py):
+    # APROVADO, REPROVADO ou REPROVADO_FALTAS. Nulo = ano ainda não fechado
+    # para este aluno. resultado_detalhe guarda o "porquê" (médias finais por
+    # disciplina, faltas) tal como estava no momento do fecho.
+    resultado_final: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    resultado_detalhe: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    resultado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         # RN03 - Prevenção de Duplicidade

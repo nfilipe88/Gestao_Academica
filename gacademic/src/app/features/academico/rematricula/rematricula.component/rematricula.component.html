@@ -60,6 +60,7 @@
               </th>
               <th class="py-3 px-4 font-medium">Aluno</th>
               <th class="py-3 px-4 font-medium">Turma atual</th>
+              <th class="py-3 px-4 font-medium">Resultado do ano</th>
               <th class="py-3 px-4 font-medium">Situação</th>
               <th class="py-3 px-4 font-medium">Turma destino</th>
             </tr>
@@ -77,6 +78,17 @@
                   <span class="block text-xs text-slate-400 font-normal">{{ candidato.matricula_interna }}</span>
                 </td>
                 <td class="py-3 px-4 text-slate-600">{{ candidato.nome_turma_atual }}</td>
+                <td class="py-3 px-4">
+                  @if (candidato.resultado_final) {
+                    <span class="text-xs font-medium py-1 px-3 rounded-full"
+                      [class.bg-emerald-100]="candidato.resultado_final === 'APROVADO'" [class.text-emerald-700]="candidato.resultado_final === 'APROVADO'"
+                      [class.bg-rose-100]="candidato.resultado_final !== 'APROVADO'" [class.text-rose-700]="candidato.resultado_final !== 'APROVADO'">
+                      {{ candidato.resultado_final === 'APROVADO' ? 'Aprovado' : candidato.resultado_final === 'REPROVADO_FALTAS' ? 'Reprovado (faltas)' : 'Reprovado' }}
+                    </span>
+                  } @else {
+                    <span class="text-xs text-slate-400">Ano por fechar</span>
+                  }
+                </td>
                 <td class="py-3 px-4">
                   @if (candidato.bloqueado_por_atraso) {
                     <span class="text-xs font-medium py-1 px-3 rounded-full bg-rose-100 text-rose-700" title="Mensalidade em atraso de ano anterior (RN05) — resolva em Financeiro antes de renovar.">

@@ -15,6 +15,8 @@ interface CandidatoRematricula {
   matricula_atual_id: string;
   turma_atual_id: string;
   nome_turma_atual: string;
+  // Resultado do fecho do ano (null = ano ainda não fechado para este aluno).
+  resultado_final?: 'APROVADO' | 'REPROVADO' | 'REPROVADO_FALTAS' | null;
   // RN05 (ver app/cruds/matriculas.py::tem_mensalidade_em_atraso_de_ano_anterior)
   // — exatamente o mesmo bloqueio que POST /matriculas vai aplicar.
   bloqueado_por_atraso: boolean;

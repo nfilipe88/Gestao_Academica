@@ -277,6 +277,20 @@
           class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
         <p class="text-xs text-slate-400 mt-1">Usada no Boletim/Indicadores para marcar Aprovado/Reprovado — deixe em branco se a escola não usa esta marcação.</p>
       </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Disciplinas em atraso permitidas</label>
+        <input type="number" min="0" step="1" formControlName="max_disciplinas_reprovadas"
+          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        <p class="text-xs text-slate-400 mt-1">No fecho do ano, quantas disciplinas abaixo da nota mínima o aluno pode ter e ainda transitar (0 = tem de passar a todas). Confirme com o regulamento da escola.</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Limite de faltas (% das aulas)</label>
+        <input type="number" min="0" max="100" step="0.01" formControlName="limite_faltas_percentagem" placeholder="Ex: 25"
+          class="w-full max-w-40 border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        <p class="text-xs text-slate-400 mt-1">Acima desta percentagem de faltas, o aluno reprova por faltas no fecho do ano. Deixe em branco se a escola não aplica este critério.</p>
+      </div>
     </div>
 
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">

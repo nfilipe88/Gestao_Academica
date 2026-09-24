@@ -417,6 +417,18 @@ async def reabrir_periodo_avaliacao(db: AsyncSession, tenant_id, periodo_id: uui
     if not periodo:
         raise HTTPException(status_code=404, detail="Período de avaliação não encontrado na sua instituição.")
 
+    # Com resultados finais já gravados (fecho do ano), reabrir um período
+    # deixaria as médias mudarem sem o resultado acompanhar — obriga a
+    # reabrir o fecho do ano primeiro (POST /fecho/ano/{ano}/reabrir).
+    ha_resultados = (await db.execute(
+        select(Matricula.id).where(Matricula.tenant_id == tenant_id, Matricula.resultado_final.is_not(None)).limit(1)
+    )).first()
+    if ha_resultados:
+        raise HTTPException(
+            status_code=400,
+            detail="Há resultados finais gravados. Reabra primeiro o fecho do ano letivo para poder alterar notas."
+        )
+
     periodo.aberto = True
     periodo.data_fecho = None
     await db.commit()

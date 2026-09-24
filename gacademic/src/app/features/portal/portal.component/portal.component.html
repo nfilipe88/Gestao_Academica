@@ -321,6 +321,14 @@
             </div>
           }
 
+          @if (pauta.resultado_final) {
+            <p class="mb-3 text-sm font-medium py-2 px-3 rounded-lg inline-block"
+              [class.bg-emerald-100]="pauta.resultado_final === 'APROVADO'" [class.text-emerald-800]="pauta.resultado_final === 'APROVADO'"
+              [class.bg-rose-100]="pauta.resultado_final !== 'APROVADO'" [class.text-rose-800]="pauta.resultado_final !== 'APROVADO'">
+              Resultado final: {{ pauta.resultado_final === 'APROVADO' ? 'Aprovado' : pauta.resultado_final === 'REPROVADO_FALTAS' ? 'Reprovado por faltas' : 'Reprovado' }}
+            </p>
+          }
+
           <app-pauta-tabela [pauta]="pauta" [colunas]="(pautaColunas$ | async) ?? []" />
 
           @if (pauta.disciplinas.length) {

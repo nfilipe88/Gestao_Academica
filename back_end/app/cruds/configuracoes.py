@@ -60,6 +60,14 @@ async def atualizar_configuracao(db: AsyncSession, tenant_id, dados: Configuraca
     tenant.codigo_postal = dados.codigo_postal
     tenant.pais = dados.pais
     tenant.nota_minima_aprovacao = dados.nota_minima_aprovacao
+    if dados.max_disciplinas_reprovadas is not None:
+        if dados.max_disciplinas_reprovadas < 0:
+            raise HTTPException(status_code=400, detail="O máximo de disciplinas em atraso não pode ser negativo.")
+        tenant.max_disciplinas_reprovadas = dados.max_disciplinas_reprovadas
+    if "limite_faltas_percentagem" in dados.model_fields_set:
+        if dados.limite_faltas_percentagem is not None and not (0 < dados.limite_faltas_percentagem <= 100):
+            raise HTTPException(status_code=400, detail="O limite de faltas tem de estar entre 0 e 100 (%).")
+        tenant.limite_faltas_percentagem = dados.limite_faltas_percentagem
     tenant.nota_maxima = dados.nota_maxima
     tenant.valor_taxa_matricula = dados.valor_taxa_matricula
     tenant.data_inicio_ano_letivo = dados.data_inicio_ano_letivo
