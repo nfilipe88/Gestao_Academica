@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.cabecalhos import CabecalhosDeSegurancaMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, calendario, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, eventos, financeiro, horarios, importacao, indicadores, lms, matriculas, notificacoes, perfil, fecho, permissoes, portal, privacidade, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
@@ -11,7 +12,7 @@ from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
 from app.core import fila_notificacoes
 from app.core.modulos import exigir_modulo
-from app.database.session import engine
+from app.database.session import engine, preaquecer_pool
 
 # Antes de qualquer outra coisa, para também apanhar erros no arranque
 # da própria app (import de routers, etc.).
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
     # worker da fila de notificações (e-mail/SMS com retries, ver
     # app/core/fila_notificacoes.py) — desliga os dois de forma limpa
     # quando a aplicação termina.
+    await preaquecer_pool()
     iniciar_scheduler()
     fila_notificacoes.iniciar_worker()
     yield
@@ -57,16 +59,7 @@ app.add_middleware(
     allow_headers=["*"], # Permite o envio do cabeçalho de Authorization (Bearer Token)
 )
 
-@app.middleware("http")
-async def cabecalhos_de_seguranca(request, call_next):
-    """Cabeçalhos defensivos em todas as respostas da API (o CSP da app vive no nginx)."""
-    resposta = await call_next(request)
-    resposta.headers.setdefault("X-Content-Type-Options", "nosniff")
-    resposta.headers.setdefault("X-Frame-Options", "DENY")
-    resposta.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    if request.url.path.startswith("/api/v1/auth"):
-        resposta.headers.setdefault("Cache-Control", "no-store")
-    return resposta
+app.add_middleware(CabecalhosDeSegurancaMiddleware)
 
 
 # ==========================================

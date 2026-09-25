@@ -4,6 +4,8 @@ from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core.auditoria import definir_ator_auditoria  # importar regista o listener before_flush (ver core/auditoria.py)
 from typing import Dict, Any, AsyncGenerator
 from sqlalchemy import text
+import asyncio
+import logging
 import os
 from dotenv import load_dotenv
 
@@ -82,6 +84,40 @@ engine_sistema = create_async_engine(
     pool_pre_ping=True, pool_recycle=DB_POOL_RECYCLE_SEGUNDOS,
 )
 AsyncSessionLocalSistema = async_sessionmaker(bind=engine_sistema, class_=AsyncSession, expire_on_commit=False)
+
+# Pré-aquecimento do pool. Abrir uma ligação nova ao Postgres (autenticação
+# SCRAM-SHA-256 feita em Python pelo asyncpg) custa ~50 ms de CPU e BLOQUEIA o
+# ciclo de eventos — medido: 9 pedidos ao Dashboard em paralelo demoravam 551 ms
+# com o pool vazio e 66 ms com o pool quente (~8x). Por isso o pool é enchido no
+# arranque (os primeiros utilizadores não pagam a fatura) e DB_POOL_SIZE deve
+# cobrir a concorrência típica: as ligações acima de pool_size (overflow) são
+# fechadas ao devolver, ou seja, cada rajada acima disso paga o custo outra vez.
+DB_POOL_PREAQUECER = int(os.getenv("DB_POOL_PREAQUECER", "10"))
+_logger = logging.getLogger("db_pool")
+
+
+async def preaquecer_pool(n: int | None = None) -> int:
+    """Abre `n` ligações em simultâneo e devolve-as ao pool. Nunca levanta erro:
+    com a base de dados em baixo o arranque continua (o /health é que acusa)."""
+    quantas = min(DB_POOL_PREAQUECER if n is None else n, DB_POOL_SIZE)
+    if quantas <= 0:
+        return 0
+
+    async def _abrir(motor):
+        ligacao = motor.connect()
+        await ligacao.start()
+        return ligacao
+
+    try:
+        ligacoes = await asyncio.gather(*[_abrir(engine) for _ in range(quantas)])
+        await asyncio.gather(*[l.close() for l in ligacoes])
+        sistema = await asyncio.gather(*[_abrir(engine_sistema) for _ in range(min(3, quantas))])
+        await asyncio.gather(*[l.close() for l in sistema])
+    except Exception as erro:
+        _logger.warning("Pré-aquecimento do pool falhou (a arrancar na mesma): %s", erro)
+        return 0
+    _logger.info("Pool da base de dados pré-aquecido: %s ligações.", quantas)
+    return quantas
 
 
 async def obter_sessao_db(

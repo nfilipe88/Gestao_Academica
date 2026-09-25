@@ -126,3 +126,31 @@ Uma rota nova é `Client` por omissão; uma página pública nova que precise de
 à lista de propósito. Em produção o servidor Angular SSR exige `allowedHosts` com o domínio real (variável
 `NG_ALLOWED_HOSTS`), senão volta ao modo cliente para todas as páginas (funciona, mas sem SSR).
 
+## 9. Desempenho: ligações à base de dados e concorrência
+
+**O que se mediu (24/09, máquina de desenvolvimento Windows, 1 processo, Postgres local).** O Dashboard
+sozinho demora ~25 ms. Nove Dashboards em paralelo demoravam ~1,7–2 s com o pool de ligações vazio e
+~0,25–0,3 s com o pool quente. A causa não era o código do Dashboard nem uma fila: **abrir uma ligação
+nova ao Postgres custa ~50 ms de CPU** (a autenticação SCRAM-SHA-256 do `asyncpg` corre em Python) e
+**bloqueia o servidor inteiro** enquanto dura. Acontece (1) no arranque, com o pool vazio, e (2) em
+qualquer rajada acima de `DB_POOL_SIZE`: as ligações de excesso (overflow) são fechadas ao devolver, por
+isso cada rajada paga o custo outra vez.
+
+**O que já está feito.** O pool é pré-aquecido no arranque (`preaquecer_pool`, `DB_POOL_PREAQUECER=10`);
+custa ~2 s no arranque do processo e evita que os primeiros utilizadores paguem a fatura.
+
+**O que fazer ao dimensionar.**
+- `DB_POOL_SIZE` ≥ concorrência típica por processo (pedidos em simultâneo), não só a média. Cada
+  processo abre até `DB_POOL_SIZE + DB_POOL_MAX_OVERFLOW` ligações: multiplique por processos/instâncias e
+  confirme que cabe em `max_connections` do Postgres (100 por omissão).
+- Em regime quente o Dashboard custa ~25 ms de CPU **por pedido e por processo** (≈ 40 Dashboards/s),
+  um pedido simples ~5–10 ms. Para mais capacidade, mais processos: `uvicorn --workers N` (N ≈ núcleos)
+  ou várias instâncias, **com `REDIS_URL` definido** (revogação de sessões e limitador em memória
+  deixam de ser partilhados).
+- Muitos processos/instâncias → considerar um pooler (PgBouncer, modo `transaction`), que mantém as
+  ligações ao Postgres sempre abertas e elimina o custo de as abrir; nesse caso, testar primeiro a
+  compatibilidade com `set_config` por sessão usado pelo RLS (`obter_sessao_db` fixa uma ligação por
+  pedido — em modo `transaction` é preciso usar `SET LOCAL` dentro da transação).
+- Em Linux com `uvicorn[standard]` (uvloop) os números por processo são bem melhores do que os desta
+  máquina Windows — repetir a medição no servidor real antes de decidir.
+
