@@ -1,6 +1,7 @@
 """Página pública de apresentação de uma escola (marketing/angariação
 de alunos) — ver app/cruds/site_publico.py."""
 import io
+from datetime import date
 
 from tests.conftest import auth_headers, criar_escola_e_gestor, sufixo_unico
 
@@ -90,6 +91,56 @@ async def test_curso_site_publico_isolado_por_tenant(client):
 
     resp = await client.put(f"/api/v1/academico/cursos/{curso_id}/site-publico", headers=auth_headers(escola_b["token"]), json={"visivel": True})
     assert resp.status_code == 404
+
+
+async def test_pagina_publica_nunca_mistura_cursos_fotos_e_eventos_de_outra_escola(client):
+    """Ponta a ponta pela rota verdadeiramente pública (sem token, sem
+    tenant_id explícito — obter_sessao_db_publica, bypassrls), com as DUAS
+    escolas a terem cursos/fotos/eventos ao mesmo tempo: a página da A não
+    pode mostrar nada da B, nem a da B nada da A."""
+    png_1x1 = bytes.fromhex(
+        "89504e470d0a1a0a0000000d4948445200000001000000010804000000b51c0c"
+        "020000000b4944415478da6364f80f00010501012718e3660000000049454e44"
+        "ae426082"
+    )
+    escolas = {}
+    for rotulo in ("a", "b"):
+        escola = await criar_escola_e_gestor(client, f"site-pub-mix-{rotulo}")
+        headers = auth_headers(escola["token"])
+        await client.put("/api/v1/configuracoes/site-publico", headers=headers, json={"ativo": True})
+
+        curso_id = (await client.post(
+            "/api/v1/academico/cursos", headers=headers, json={"nome": f"Curso Só da Escola {rotulo.upper()}"}
+        )).json()["id"]
+        await client.put(f"/api/v1/academico/cursos/{curso_id}/site-publico", headers=headers, json={"visivel": True})
+
+        await client.post(
+            "/api/v1/configuracoes/site-publico/fotos", headers=headers,
+            files={"ficheiro": (f"foto-{rotulo}.png", io.BytesIO(png_1x1), "image/png")}
+        )
+
+        await client.post("/api/v1/eventos", headers=headers, json={
+            "titulo": f"Evento Só da Escola {rotulo.upper()}", "data": str(date.today()), "publicado": True
+        })
+        escolas[rotulo] = escola
+
+    pagina_a = (await client.get(f"/api/v1/public/escola/{escolas['a']['tenant_id']}")).json()
+    pagina_b = (await client.get(f"/api/v1/public/escola/{escolas['b']['tenant_id']}")).json()
+
+    nomes_cursos_a = [c["nome"] for c in pagina_a["cursos"]]
+    nomes_cursos_b = [c["nome"] for c in pagina_b["cursos"]]
+    assert nomes_cursos_a == ["Curso Só da Escola A"]
+    assert nomes_cursos_b == ["Curso Só da Escola B"]
+
+    titulos_eventos_a = [e["titulo"] for e in pagina_a["eventos"]]
+    titulos_eventos_b = [e["titulo"] for e in pagina_b["eventos"]]
+    assert titulos_eventos_a == ["Evento Só da Escola A"]
+    assert titulos_eventos_b == ["Evento Só da Escola B"]
+
+    # Cada escola enviou 1 foto — se a galeria misturasse tenants, uma das
+    # duas teria 2 (a sua própria + a da outra escola).
+    assert len(pagina_a["fotos"]) == 1, "FALHA DE ISOLAMENTO: a galeria da escola A tem fotos a mais."
+    assert len(pagina_b["fotos"]) == 1, "FALHA DE ISOLAMENTO: a galeria da escola B tem fotos a mais."
 
 
 async def test_gestor_define_template_do_site(client):

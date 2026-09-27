@@ -158,6 +158,58 @@ async def test_documentos_isolados_por_tenant(client):
 
 
 # ==========================================
+# ISOLAMENTO MULTI-TENANT — captação pública sem sessão nenhuma
+# (obter_sessao_db_publica, bypassrls, ver app/database/session.py)
+# ==========================================
+async def test_lead_publico_nunca_aparece_no_kanban_de_outra_escola(client):
+    """O caminho mais direto de uma fuga entre escolas: um visitante submete
+    o formulário público da escola A (sem token, sem sessão nenhuma) — o
+    lead tem de aparecer só no Kanban autenticado da A, nunca no da B."""
+    escola_a = await criar_escola_e_gestor(client, "crm-lead-iso-a")
+    escola_b = await criar_escola_e_gestor(client, "crm-lead-iso-b")
+
+    resp = await client.post(f"/api/v1/public/{escola_a['tenant_id']}/leads", json={
+        "nome_responsavel": "Mãe da Escola A", "nome_aluno_candidato": "Filho da Escola A",
+    })
+    assert resp.status_code == 201, resp.text
+    lead_id = resp.json()["id"]
+
+    leads_a = (await client.get("/api/v1/crm/leads", headers=auth_headers(escola_a["token"]))).json()
+    assert any(l["id"] == lead_id for l in leads_a), "a própria escola tem de ver o lead que recebeu"
+
+    leads_b = (await client.get("/api/v1/crm/leads", headers=auth_headers(escola_b["token"]))).json()
+    assert not any(l["id"] == lead_id for l in leads_b), (
+        "FALHA DE ISOLAMENTO: a escola B vê um lead que um visitante submeteu ao formulário da escola A."
+    )
+
+
+async def test_lead_publico_recusa_curso_de_outra_escola(client):
+    """curso_interesse_id vem do cliente, sem token nenhum — tem de ser
+    validado contra a MESMA escola do path, nunca aceite às cegas."""
+    escola_a = await criar_escola_e_gestor(client, "crm-lead-curso-a")
+    escola_b = await criar_escola_e_gestor(client, "crm-lead-curso-b")
+
+    curso_b = (await client.post(
+        "/api/v1/academico/cursos", json={"nome": "Curso Só da Escola B"}, headers=auth_headers(escola_b["token"])
+    )).json()["id"]
+
+    resp = await client.post(f"/api/v1/public/{escola_a['tenant_id']}/leads", json={
+        "nome_responsavel": "Pai Curioso", "nome_aluno_candidato": "Candidato",
+        "curso_interesse_id": curso_b,
+    })
+    assert resp.status_code == 400, resp.text
+    assert "não encontrado" in resp.json()["detail"].lower()
+
+
+async def test_lead_publico_para_escola_inexistente_ou_de_outro_tenant_id_e_recusado(client):
+    import uuid
+    resp = await client.post(f"/api/v1/public/{uuid.uuid4()}/leads", json={
+        "nome_responsavel": "Ninguém", "nome_aluno_candidato": "Ninguém",
+    })
+    assert resp.status_code == 404
+
+
+# ==========================================
 # RN01 — TAXA DE MATRÍCULA NA CONVERSÃO AUTOMÁTICA
 # ==========================================
 async def test_conversao_automatica_inclui_taxa_de_matricula_padrao(client):

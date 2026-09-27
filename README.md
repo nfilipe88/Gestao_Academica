@@ -152,7 +152,11 @@ O que já está coberto (ver `back_end/tests/`):
   Mais um teste, à parte, confere no catálogo do Postgres que **todas**
   as tabelas com `tenant_id` têm RLS ativo e pelo menos uma policy —
   cobre tabelas novas automaticamente, sem depender de ninguém se
-  lembrar de escrever um teste dedicado para cada uma.
+  lembrar de escrever um teste dedicado para cada uma. Os poucos sítios
+  que correm de propósito sem RLS (bypassrls — webhook do PayPal,
+  captação pública de lead, site público de uma escola) têm cada um o
+  seu próprio teste de isolamento entre escolas, porque aí a proteção é
+  só o filtro explícito no código, não o Postgres.
 - Login, RBAC (perfil errado é recusado) e o limitador de tentativas
   de login (anti força-bruta).
 - O fluxo de negócio principal ponta a ponta: Curso → Série → Turma →
