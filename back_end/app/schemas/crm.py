@@ -4,6 +4,8 @@ from datetime import date, datetime
 from decimal import Decimal
 import uuid
 
+from app.schemas.comum import DecimalComoFloat
+
 
 class _NormalizaEmailOpcional(BaseModel):
     """
@@ -112,3 +114,101 @@ class MensagemLeadOut(BaseModel):
     criado_em: datetime
 
     model_config = {"from_attributes": True}
+
+
+class FunilEtapaOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    ordem: int
+    nome_etapa: str
+    eh_etapa_ganho: bool
+
+
+class LeadCandidatoOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    curso_interesse_id: uuid.UUID | None = None
+    nome_responsavel: str
+    email_contato: str | None = None
+    telefone: str | None = None
+    nome_aluno_candidato: str
+    data_nascimento_candidato: date | None = None
+    mensagem: str | None = None
+    origem_lead: str
+    data_entrada: datetime
+    aceitou_regulamento: bool
+
+
+class LeadDocumentoOut(BaseModel):
+    """Só metadados — nunca o conteúdo/data URI (ver
+    cruds/crm.py::obter_documento_lead_url)."""
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tipo: str
+    nome_original: str
+
+
+class LeadCandidatoKanbanOut(BaseModel):
+    """O Lead tal como embutido em cada cartão do Kanban de Oportunidades
+    (ver cruds/crm.py::listar_oportunidades) — um subconjunto diferente
+    de LeadCandidatoOut, montado à mão ali, não um from_attributes puro."""
+    id: uuid.UUID
+    nome_responsavel: str
+    email_contato: str | None = None
+    telefone: str | None = None
+    nome_aluno_candidato: str
+    data_nascimento_candidato: date | None = None
+    origem_lead: str
+    curso_interesse_id: uuid.UUID | None = None
+    data_entrada: datetime
+    aceitou_regulamento: bool
+    mensagem: str | None = None
+    documentos: list[LeadDocumentoOut]
+
+
+class OportunidadeCRMOut(BaseModel):
+    """A OportunidadeCRM "nua" (sem o Lead embutido) — devolvida por
+    POST /crm/oportunidades. O Kanban em si (GET /crm/oportunidades) usa
+    antes OportunidadeKanbanOut, com o lead lá dentro."""
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    lead_id: uuid.UUID
+    etapa_id: uuid.UUID
+    valor_estimado_anual: DecimalComoFloat | None = None
+    data_fecho_prevista: date | None = None
+    turma_interesse_id: uuid.UUID | None = None
+    aluno_gerado_id: uuid.UUID | None = None
+    responsavel_gerado_id: uuid.UUID | None = None
+    data_criacao: datetime
+    data_atualizacao: datetime
+
+
+class OportunidadeMoverOut(BaseModel):
+    """Resposta de PATCH .../oportunidades/{id}/mover — inclui a
+    OportunidadeCRM atualizada (o frontend Angular não lê isto, só
+    `mensagem`, mas os testes de integração da RN01 confirmam
+    aluno_gerado_id por aqui: ver tests/test_crm.py)."""
+    mensagem: str
+    oportunidade: OportunidadeCRMOut
+    aluno_gerado_id: uuid.UUID | None = None
+
+
+class LeadCriadoOut(BaseModel):
+    lead: LeadCandidatoOut
+    oportunidade_id: uuid.UUID
+
+
+class OportunidadeKanbanOut(BaseModel):
+    """Uma oportunidade + o seu Lead, tal como devolvida pelo quadro
+    Kanban (GET /crm/oportunidades) — ver cruds/crm.py::listar_oportunidades."""
+    id: uuid.UUID
+    etapa_id: uuid.UUID
+    valor_estimado_anual: DecimalComoFloat | None = None
+    data_fecho_prevista: date | None = None
+    turma_interesse_id: uuid.UUID | None = None
+    aluno_gerado_id: uuid.UUID | None = None
+    data_criacao: datetime
+    lead: LeadCandidatoKanbanOut

@@ -8,7 +8,8 @@ from app.database.session import obter_sessao_db, obter_sessao_db_publica
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core import fila_notificacoes
 from app.schemas.financeiro import (
-    CapturarPagamentoRequest, ContratoCreate, DespesaCreate, FaturaMarcarPago, FaturaReportarPagamento, GerarCobrancaRequest
+    CapturarPagamentoRequest, ContratoCreate, ContratoFinanceiroOut, DespesaCreate, FaturaMarcarPago,
+    FaturaReportarPagamento, GerarCobrancaRequest
 )
 from app.cruds import financeiro as crud_financeiro
 
@@ -43,7 +44,7 @@ async def listar_responsaveis_da_matricula(
 # ==========================================
 # B. CRIAR CONTRATO FINANCEIRO (E GERAR AS FATURAS)
 # ==========================================
-@router.post("/contratos", status_code=status.HTTP_201_CREATED)
+@router.post("/contratos", status_code=status.HTTP_201_CREATED, response_model=ContratoFinanceiroOut)
 async def criar_contrato(
     dados: ContratoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -55,7 +56,7 @@ async def criar_contrato(
 # ==========================================
 # C. CONSULTAR O CONTRATO DE UMA MATRÍCULA
 # ==========================================
-@router.get("/matriculas/{matricula_id}/contrato")
+@router.get("/matriculas/{matricula_id}/contrato", response_model=ContratoFinanceiroOut)
 async def obter_contrato_da_matricula(
     matricula_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),

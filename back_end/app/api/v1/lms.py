@@ -6,8 +6,9 @@ from app.database.session import obter_sessao_db
 from app.core.rate_limiter import excedeu_limite
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.lms import (
-    LMSCorrigirTentativaInput, LMSGrupoExameCreate, LMSQuestaoCreate, LMSQuestaoUpdate, LMSReatribuirVarianteInput,
-    MaterialAulaCreate, MaterialAulaUpdate, SugestaoConteudoCreate
+    LMSCorrigirTentativaInput, LMSExameOut, LMSGrupoExameCreate, LMSQuestaoCreate, LMSQuestaoOut,
+    LMSQuestaoUpdate, LMSReatribuirVarianteInput, MaterialAulaCreate, MaterialAulaOut, MaterialAulaUpdate,
+    SugestaoConteudoCreate
 )
 from app.cruds import lms as crud_lms
 
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/api/v1/lms", tags=["LMS — Materiais de Aula"])
 _PODE_INICIAR_EXAME = exigir_perfil("GESTOR", "SECRETARIA")
 
 
-@router.get("/turmas/{turma_id}/disciplinas/{disciplina_id}/materiais")
+@router.get("/turmas/{turma_id}/disciplinas/{disciplina_id}/materiais", response_model=list[MaterialAulaOut])
 async def listar_materiais(
     turma_id: uuid.UUID,
     disciplina_id: uuid.UUID,
@@ -31,7 +32,7 @@ async def listar_materiais(
     return await crud_lms.listar_materiais(db, utilizador, turma_id, disciplina_id)
 
 
-@router.post("/materiais", status_code=status.HTTP_201_CREATED)
+@router.post("/materiais", status_code=status.HTTP_201_CREATED, response_model=MaterialAulaOut)
 async def criar_material(
     dados: MaterialAulaCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -41,7 +42,7 @@ async def criar_material(
     return await crud_lms.criar_material(db, utilizador, dados)
 
 
-@router.patch("/materiais/{material_id}")
+@router.patch("/materiais/{material_id}", response_model=MaterialAulaOut)
 async def atualizar_material(
     material_id: uuid.UUID,
     dados: MaterialAulaUpdate,
@@ -79,7 +80,7 @@ async def sugerir_conteudo(
 # ==========================================
 # BANCO DE QUESTÕES
 # ==========================================
-@router.get("/disciplinas/{disciplina_id}/questoes")
+@router.get("/disciplinas/{disciplina_id}/questoes", response_model=list[LMSQuestaoOut])
 async def listar_banco_questoes(
     disciplina_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -89,7 +90,7 @@ async def listar_banco_questoes(
     return await crud_lms.listar_banco_questoes(db, utilizador, disciplina_id)
 
 
-@router.post("/questoes", status_code=status.HTTP_201_CREATED)
+@router.post("/questoes", status_code=status.HTTP_201_CREATED, response_model=LMSQuestaoOut)
 async def criar_questao(
     dados: LMSQuestaoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -99,7 +100,7 @@ async def criar_questao(
     return await crud_lms.criar_questao(db, utilizador, dados)
 
 
-@router.patch("/questoes/{questao_id}")
+@router.patch("/questoes/{questao_id}", response_model=LMSQuestaoOut)
 async def atualizar_questao(
     questao_id: uuid.UUID,
     dados: LMSQuestaoUpdate,
@@ -134,7 +135,7 @@ async def listar_grupos_exame(
     return await crud_lms.listar_grupos_exame(db, utilizador, alocacao_id)
 
 
-@router.post("/grupos-exame", status_code=status.HTTP_201_CREATED)
+@router.post("/grupos-exame", status_code=status.HTTP_201_CREATED, response_model=list[LMSExameOut])
 async def criar_grupo_exame(
     dados: LMSGrupoExameCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -205,7 +206,7 @@ async def obter_exame(
     return await crud_lms.obter_exame_com_gabarito(db, utilizador, exame_id)
 
 
-@router.patch("/exames/{exame_id}/publicar")
+@router.patch("/exames/{exame_id}/publicar", response_model=LMSExameOut)
 async def publicar_exame(
     exame_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -215,7 +216,7 @@ async def publicar_exame(
     return await crud_lms.alternar_publicacao_exame(db, utilizador, exame_id, True)
 
 
-@router.patch("/exames/{exame_id}/despublicar")
+@router.patch("/exames/{exame_id}/despublicar", response_model=LMSExameOut)
 async def despublicar_exame(
     exame_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),

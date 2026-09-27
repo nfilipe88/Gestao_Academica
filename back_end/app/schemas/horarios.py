@@ -1,6 +1,6 @@
 """Schemas Pydantic da grade horária (Horários)."""
 from pydantic import BaseModel, model_validator
-from datetime import time
+from datetime import datetime, time
 import uuid
 
 
@@ -35,3 +35,15 @@ class HorarioAulaUpdate(BaseModel):
         if self.hora_inicio is not None and self.hora_fim is not None and self.hora_fim <= self.hora_inicio:
             raise ValueError("hora_fim tem de ser depois de hora_inicio.")
         return self
+
+
+class HorarioAulaOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    alocacao_id: uuid.UUID
+    dia_semana: int
+    hora_inicio: time
+    hora_fim: time
+    sala: str | None = None
+    data_criacao: datetime

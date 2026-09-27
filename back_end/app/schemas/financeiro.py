@@ -1,8 +1,10 @@
 """Schemas Pydantic do Financeiro (Contrato, Fatura, Gateway PayPal, Despesas)."""
 from pydantic import BaseModel, model_validator
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 import uuid
+
+from app.schemas.comum import DecimalComoFloat
 
 
 class ContratoCreate(BaseModel):
@@ -63,3 +65,16 @@ class DespesaCreate(BaseModel):
         if self.valor <= 0:
             raise ValueError("valor tem de ser maior que zero.")
         return self
+
+
+class ContratoFinanceiroOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    matricula_id: uuid.UUID
+    responsavel_id: uuid.UUID
+    valor_total_anual: DecimalComoFloat
+    quantidade_parcelas: int
+    dia_vencimento_padrao: int
+    percentual_desconto_bolsa: DecimalComoFloat
+    data_criacao: datetime

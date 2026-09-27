@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
-from app.schemas.horarios import HorarioAulaCreate, HorarioAulaUpdate
+from app.schemas.horarios import HorarioAulaCreate, HorarioAulaOut, HorarioAulaUpdate
 from app.cruds import horarios as crud_horarios
 
 router = APIRouter(prefix="/api/v1/horarios", tags=["Horários"])
@@ -63,7 +63,7 @@ async def listar_aulas_por_lancar(
 # ==========================================
 # GESTÃO DA GRADE (Gestor/Secretaria)
 # ==========================================
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=HorarioAulaOut)
 async def criar_horario(
     dados: HorarioAulaCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -72,7 +72,7 @@ async def criar_horario(
     """Adiciona um slot à grade horária (RN01/RN02 — sem sobreposição de turma nem de professor)."""
     return await crud_horarios.criar_horario(db, utilizador["tenant_id"], dados)
 
-@router.patch("/{horario_id}")
+@router.patch("/{horario_id}", response_model=HorarioAulaOut)
 async def atualizar_horario(
     horario_id: uuid.UUID,
     dados: HorarioAulaUpdate,

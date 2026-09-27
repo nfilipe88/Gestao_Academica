@@ -164,6 +164,23 @@ O que já está coberto (ver `back_end/tests/`):
   descobre os schemas de entrada automaticamente a partir das próprias
   rotas — cobre endpoints novos sozinho, tal como o teste de RLS acima
   cobre tabelas novas.
+- **`response_model=` explícito nas rotas que devolvem um objeto ORM** —
+  em vez de a rota devolver o objeto do SQLAlchemy tal e qual (FastAPI
+  serializa-o pelos atributos, sem nenhum contrato declarado do que
+  deve mesmo sair), um schema `XxxOut` diz explicitamente que campos
+  vão na resposta. Cobre hoje os módulos Académico, Alunos, CRM,
+  Diário, Financeiro, Horários, Indicadores, LMS, Matrículas,
+  Notificações, Suporte e os Planos SaaS do Painel Super Admin — as
+  listas paginadas usam um envelope genérico (`PaginaOut[T]`, em
+  `app/schemas/comum.py`), e os poucos campos `Decimal` num destes
+  schemas usam `DecimalComoFloat` (mesmo ficheiro) para manter o
+  contrato JSON como número, não como texto (`"500.00"`), que é o que o
+  Pydantic v2 faz por omissão com `Decimal`. Ficaram de fora desta
+  primeira ronda as rotas cuja resposta já é um dicionário construído à
+  mão com JOINs (ex.: o quadro Kanban de Oportunidades já tem o seu
+  próprio `OportunidadeKanbanOut`, mas o mapa de Horários e o gabarito
+  de um Exame continuam sem — o risco ali é menor, porque já é código
+  explícito a escolher os campos, não serialização implícita do ORM).
 - Login, RBAC (perfil errado é recusado) e o limitador de tentativas
   de login (anti força-bruta).
 - O fluxo de negócio principal ponta a ponta: Curso → Série → Turma →

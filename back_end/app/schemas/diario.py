@@ -1,6 +1,6 @@
 """Schemas Pydantic do Diário de Classe (frequência, notas, períodos de avaliação)."""
 from pydantic import BaseModel
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 import uuid
 
@@ -119,3 +119,36 @@ class NotaAvaliacaoAluno(BaseModel):
 class NotaAvaliacaoLoteCreate(BaseModel):
     model_config = {"extra": "forbid"}
     notas: list[NotaAvaliacaoAluno]
+
+
+class PeriodoAvaliacaoOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    nome: str
+    aberto: bool
+    data_fecho: date | None = None
+    data_inicio: date | None = None
+    data_fim: date | None = None
+    data_criacao: datetime
+
+
+class AvaliacaoOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    turma_id: uuid.UUID
+    disciplina_id: uuid.UUID
+    periodo_avaliacao: str
+    titulo: str
+    tipo_avaliacao: str
+    peso: float
+    data_avaliacao: date | None = None
+    hora_inicio: time | None = None
+    hora_fim: time | None = None
+    sala: str | None = None
+    data_limite_correcao: date | None = None
+    grupo_agendamento_id: uuid.UUID | None = None
+    objetivo_aprendizagem_id: uuid.UUID | None = None
+    criado_por_usuario_id: uuid.UUID | None = None
+    data_criacao: datetime

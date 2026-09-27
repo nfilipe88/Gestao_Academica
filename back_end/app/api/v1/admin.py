@@ -8,7 +8,7 @@ from app.database.session import obter_sessao_db_admin
 from app.core.security import exigir_perfil
 from app.core import estatisticas_excel
 from app.schemas.admin import (
-    AssinaturaTenantInput, PlanoSaaSCreate, PlanoSaaSUpdate,
+    AssinaturaTenantInput, PlanoSaaSCreate, PlanoSaaSOut, PlanoSaaSUpdate,
     IsencaoLimiteAlunosUpdate, TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
 )
 from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
@@ -127,7 +127,7 @@ async def processar_validade_licencas(
 # ==========================================
 # SAAS BILLING — Planos, Assinaturas e MRR
 # ==========================================
-@router.get("/planos")
+@router.get("/planos", response_model=list[PlanoSaaSOut])
 async def listar_planos(
     db: AsyncSession = Depends(obter_sessao_db_admin),
     utilizador: dict = Depends(_PODE_ACEDER)
@@ -136,7 +136,7 @@ async def listar_planos(
     return await crud_admin.listar_planos(db)
 
 
-@router.post("/planos", status_code=201)
+@router.post("/planos", status_code=201, response_model=PlanoSaaSOut)
 async def criar_plano(
     dados: PlanoSaaSCreate,
     db: AsyncSession = Depends(obter_sessao_db_admin),
@@ -145,7 +145,7 @@ async def criar_plano(
     return await crud_admin.criar_plano(db, dados)
 
 
-@router.patch("/planos/{plano_id}")
+@router.patch("/planos/{plano_id}", response_model=PlanoSaaSOut)
 async def atualizar_plano(
     plano_id: uuid.UUID,
     dados: PlanoSaaSUpdate,

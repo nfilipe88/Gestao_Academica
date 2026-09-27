@@ -5,7 +5,7 @@ import uuid
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
-from app.schemas.matriculas import MatriculaCreate, MatriculaStatusUpdate
+from app.schemas.matriculas import MatriculaCreate, MatriculaOut, MatriculaStatusUpdate
 from app.cruds import matriculas as crud_matriculas
 
 router = APIRouter(prefix="/api/v1", tags=["Matrículas"])
@@ -17,7 +17,7 @@ _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 # ==========================================
 # A. CRIAR NOVA MATRÍCULA
 # ==========================================
-@router.post("/matriculas", status_code=status.HTTP_201_CREATED)
+@router.post("/matriculas", status_code=status.HTTP_201_CREATED, response_model=MatriculaOut)
 async def criar_matricula(
     dados: MatriculaCreate,
     db: AsyncSession = Depends(obter_sessao_db),

@@ -6,6 +6,7 @@ import uuid
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.core.validacao import validar_forca_senha
+from app.schemas.comum import DecimalComoFloat
 
 
 class TenantStatusUpdate(BaseModel):
@@ -49,8 +50,10 @@ class PlanoSaaSModuloInput(BaseModel):
     preco_adicional: Decimal = Decimal("0.00")
 
 
-class PlanoSaaSModuloOut(PlanoSaaSModuloInput):
+class PlanoSaaSModuloOut(BaseModel):
     model_config = {"from_attributes": True}
+    modulo: str
+    preco_adicional: DecimalComoFloat
 
 
 class PlanoSaaSCreate(BaseModel):
@@ -100,7 +103,7 @@ class PlanoSaaSUpdate(PlanoSaaSCreate):
 class PlanoSaaSOut(BaseModel):
     id: uuid.UUID
     nome: str
-    preco_por_aluno: Decimal
+    preco_por_aluno: DecimalComoFloat
     limite_alunos: int | None
     descricao: str | None
     dias_periodo_teste: int

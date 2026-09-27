@@ -8,7 +8,11 @@ from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.core.email import enviar_email, template_base
 from app.core import fila_notificacoes
-from app.schemas.alunos import AlunoAtivoUpdate, AlunoCreate, CriarAcessoRequest, ResponsavelCreate, VincularResponsavel
+from app.schemas.alunos import (
+    AlunoAtivoUpdate, AlunoCreate, AlunoListItemOut, AlunoOut, AlunoResponsavelOut,
+    CriarAcessoRequest, ResponsavelCreate, ResponsavelFinanceiroLegalOut, VincularResponsavel
+)
+from app.schemas.comum import PaginaOut
 from app.cruds import alunos as crud_alunos
 
 router = APIRouter(prefix="/api/v1", tags=["Alunos e Responsáveis"])
@@ -21,7 +25,7 @@ _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 # ==========================================
 # ROTAS PARA ALUNOS
 # ==========================================
-@router.post("/alunos", status_code=status.HTTP_201_CREATED)
+@router.post("/alunos", status_code=status.HTTP_201_CREATED, response_model=AlunoOut)
 async def criar_aluno(
     dados: AlunoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -41,7 +45,7 @@ async def alterar_estado_ativo_aluno(
     aluno = await crud_alunos.alterar_estado_ativo_aluno(db, utilizador["tenant_id"], aluno_id, dados.ativo, utilizador["usuario_id"])
     return {"mensagem": f'"{aluno.nome_completo}" agora está {"ativo" if aluno.ativo else "desativado"}.', "ativo": aluno.ativo}
 
-@router.get("/alunos")
+@router.get("/alunos", response_model=PaginaOut[AlunoListItemOut])
 async def listar_alunos(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
@@ -60,7 +64,7 @@ async def listar_alunos(
 # ==========================================
 # ROTAS PARA RESPONSÁVEIS
 # ==========================================
-@router.post("/responsaveis", status_code=status.HTTP_201_CREATED)
+@router.post("/responsaveis", status_code=status.HTTP_201_CREATED, response_model=ResponsavelFinanceiroLegalOut)
 async def criar_responsavel(
     dados: ResponsavelCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -69,7 +73,7 @@ async def criar_responsavel(
     """Cria um novo responsável (Pai/Mãe/Tutor) na escola do utilizador logado."""
     return await crud_alunos.criar_responsavel(db, utilizador["tenant_id"], dados)
 
-@router.get("/responsaveis")
+@router.get("/responsaveis", response_model=PaginaOut[ResponsavelFinanceiroLegalOut])
 async def listar_responsaveis(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
@@ -113,7 +117,7 @@ async def vincular_responsavel(
 
     return {"mensagem": "Responsável vinculado com sucesso", "id": vinculo.id}
 
-@router.get("/alunos/{aluno_id}/responsaveis")
+@router.get("/alunos/{aluno_id}/responsaveis", response_model=list[AlunoResponsavelOut])
 async def listar_responsaveis_do_aluno(
     aluno_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),

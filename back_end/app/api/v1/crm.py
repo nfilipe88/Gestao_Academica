@@ -7,9 +7,11 @@ from app.database.session import obter_sessao_db, obter_sessao_db_publica
 from app.core.security import obter_utilizador_atual, exigir_perfil
 from app.core import recaptcha
 from app.core.rate_limiter import excedeu_limite
+from app.schemas.comum import MensagemOut
 from app.schemas.crm import (
-    EtapaCreate, LeadPublicoCreate, LeadStaffCreate, LeadUpdate, MensagemLeadCreate, MensagemLeadOut,
-    OportunidadeCreate, OportunidadeMover, OportunidadeUpdate
+    EtapaCreate, FunilEtapaOut, LeadCandidatoOut, LeadCriadoOut, LeadPublicoCreate, LeadStaffCreate,
+    LeadUpdate, MensagemLeadCreate, MensagemLeadOut, OportunidadeCreate, OportunidadeCRMOut,
+    OportunidadeKanbanOut, OportunidadeMover, OportunidadeMoverOut, OportunidadeUpdate
 )
 from app.cruds import crm as crud_crm
 
@@ -97,14 +99,14 @@ async def remover_documento_lead(
 # ==========================================
 # B. FUNIL (Kanban)
 # ==========================================
-@router.get("/funil")
+@router.get("/funil", response_model=list[FunilEtapaOut])
 async def listar_funil(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(_PODE_GERIR)
 ):
     return await crud_crm.listar_funil(db, utilizador["tenant_id"])
 
-@router.post("/etapas", status_code=status.HTTP_201_CREATED)
+@router.post("/etapas", status_code=status.HTTP_201_CREATED, response_model=FunilEtapaOut)
 async def criar_etapa(
     dados: EtapaCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -115,14 +117,14 @@ async def criar_etapa(
 # ==========================================
 # C. LEADS
 # ==========================================
-@router.get("/leads")
+@router.get("/leads", response_model=list[LeadCandidatoOut])
 async def listar_leads(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(_PODE_GERIR)
 ):
     return await crud_crm.listar_leads(db, utilizador["tenant_id"])
 
-@router.post("/leads", status_code=status.HTTP_201_CREATED)
+@router.post("/leads", status_code=status.HTTP_201_CREATED, response_model=LeadCriadoOut)
 async def criar_lead_manual(
     dados: LeadStaffCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -132,7 +134,7 @@ async def criar_lead_manual(
     lead, oportunidade_id = await crud_crm.criar_lead_manual(db, utilizador["tenant_id"], dados)
     return {"lead": lead, "oportunidade_id": oportunidade_id}
 
-@router.patch("/leads/{lead_id}")
+@router.patch("/leads/{lead_id}", response_model=LeadCandidatoOut)
 async def atualizar_lead(
     lead_id: uuid.UUID,
     dados: LeadUpdate,
@@ -178,7 +180,7 @@ async def obter_documento_lead(
 # ==========================================
 # D. OPORTUNIDADES
 # ==========================================
-@router.get("/oportunidades")
+@router.get("/oportunidades", response_model=list[OportunidadeKanbanOut])
 async def listar_oportunidades(
     etapa_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -187,7 +189,7 @@ async def listar_oportunidades(
     """Lista as oportunidades já com os dados do Lead, para montar o quadro Kanban."""
     return await crud_crm.listar_oportunidades(db, utilizador["tenant_id"], etapa_id)
 
-@router.post("/oportunidades", status_code=status.HTTP_201_CREATED)
+@router.post("/oportunidades", status_code=status.HTTP_201_CREATED, response_model=OportunidadeCRMOut)
 async def criar_oportunidade(
     dados: OportunidadeCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -196,7 +198,7 @@ async def criar_oportunidade(
     """Cria manualmente uma oportunidade para um Lead já existente (ex: contacto presencial), na 1ª etapa do funil."""
     return await crud_crm.criar_oportunidade(db, utilizador["tenant_id"], dados)
 
-@router.patch("/oportunidades/{oportunidade_id}")
+@router.patch("/oportunidades/{oportunidade_id}", response_model=MensagemOut)
 async def atualizar_oportunidade(
     oportunidade_id: uuid.UUID,
     dados: OportunidadeUpdate,
@@ -207,7 +209,7 @@ async def atualizar_oportunidade(
     oportunidade, mensagem = await crud_crm.atualizar_oportunidade(db, utilizador["tenant_id"], oportunidade_id, dados)
     return {"mensagem": mensagem, "oportunidade": oportunidade}
 
-@router.patch("/oportunidades/{oportunidade_id}/mover")
+@router.patch("/oportunidades/{oportunidade_id}/mover", response_model=OportunidadeMoverOut)
 async def mover_oportunidade(
     oportunidade_id: uuid.UUID,
     dados: OportunidadeMover,

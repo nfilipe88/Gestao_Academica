@@ -6,8 +6,9 @@ import uuid
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.diario import (
-    AvaliacaoAgendarGeralCreate, AvaliacaoCreate, AvaliacaoUpdate, FrequenciaLoteCreate, NotaAvaliacaoLoteCreate,
-    NotaExameNacionalLoteCreate, NotaLoteCreate, PeriodoAvaliacaoCreate, PeriodoAvaliacaoJanelaUpdate
+    AvaliacaoAgendarGeralCreate, AvaliacaoCreate, AvaliacaoOut, AvaliacaoUpdate, FrequenciaLoteCreate,
+    NotaAvaliacaoLoteCreate, NotaExameNacionalLoteCreate, NotaLoteCreate, PeriodoAvaliacaoCreate,
+    PeriodoAvaliacaoJanelaUpdate, PeriodoAvaliacaoOut
 )
 from app.cruds import diario as crud_diario
 
@@ -77,7 +78,7 @@ async def consolidado_turma_disciplina(
 # ==========================================
 # E. PERÍODOS DE AVALIAÇÃO (RN03 — Janela de Lançamento)
 # ==========================================
-@router.get("/periodos")
+@router.get("/periodos", response_model=list[PeriodoAvaliacaoOut])
 async def listar_periodos_avaliacao(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
@@ -85,7 +86,7 @@ async def listar_periodos_avaliacao(
     """Lista os períodos geridos pela secretaria (abertos e trancados). Leitura aberta a qualquer funcionário da escola — o Professor precisa de ver o que está trancado."""
     return await crud_diario.listar_periodos_avaliacao(db, utilizador["tenant_id"])
 
-@router.post("/periodos", status_code=status.HTTP_201_CREATED)
+@router.post("/periodos", status_code=status.HTTP_201_CREATED, response_model=PeriodoAvaliacaoOut)
 async def criar_periodo_avaliacao(
     dados: PeriodoAvaliacaoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -138,7 +139,7 @@ async def listar_avaliacoes_agendadas(
     """Avaliações/exames com hora marcada num intervalo de datas — para o painel do mapa de Horários. Professor só vê as suas próprias."""
     return await crud_diario.listar_avaliacoes_agendadas(db, utilizador, data_inicio, data_fim)
 
-@router.get("/turmas/{turma_id}/disciplinas/{disciplina_id}/avaliacoes")
+@router.get("/turmas/{turma_id}/disciplinas/{disciplina_id}/avaliacoes", response_model=list[AvaliacaoOut])
 async def listar_avaliacoes(
     turma_id: uuid.UUID,
     disciplina_id: uuid.UUID,
@@ -149,7 +150,7 @@ async def listar_avaliacoes(
     """Lista as avaliações (provas/contínuas) de uma turma+disciplina, opcionalmente filtradas por período."""
     return await crud_diario.listar_avaliacoes(db, utilizador, turma_id, disciplina_id, periodo_avaliacao)
 
-@router.post("/turmas/{turma_id}/disciplinas/{disciplina_id}/avaliacoes", status_code=status.HTTP_201_CREATED)
+@router.post("/turmas/{turma_id}/disciplinas/{disciplina_id}/avaliacoes", status_code=status.HTTP_201_CREATED, response_model=AvaliacaoOut)
 async def criar_avaliacao(
     turma_id: uuid.UUID,
     disciplina_id: uuid.UUID,
@@ -170,7 +171,7 @@ async def agendar_avaliacao_geral(
     novas = await crud_diario.agendar_avaliacao_geral(db, utilizador, dados)
     return {"mensagem": f"Avaliação agendada em {len(novas)} turma(s)/disciplina(s).", "total": len(novas)}
 
-@router.patch("/avaliacoes/{avaliacao_id}")
+@router.patch("/avaliacoes/{avaliacao_id}", response_model=AvaliacaoOut)
 async def atualizar_avaliacao(
     avaliacao_id: uuid.UUID,
     dados: AvaliacaoUpdate,

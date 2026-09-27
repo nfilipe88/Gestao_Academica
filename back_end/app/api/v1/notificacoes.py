@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import obter_sessao_db
 from app.core.security import obter_utilizador_atual
 from app.cruds import notificacoes as crud_notificacoes
+from app.schemas.notificacoes import NotificacaoOut
 
 router = APIRouter(prefix="/api/v1/notificacoes", tags=["Notificações"])
 
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/api/v1/notificacoes", tags=["Notificações"])
 # restrição de RBAC aqui, só o filtro implícito por usuario_id/tenant_id.
 
 
-@router.get("")
+@router.get("", response_model=list[NotificacaoOut])
 async def listar_minhas_notificacoes(
     apenas_nao_lidas: bool = False,
     limite: int = 50,
@@ -36,7 +37,7 @@ async def contar_nao_lidas(
     return {"total_nao_lidas": total}
 
 
-@router.patch("/{notificacao_id}/marcar-lida")
+@router.patch("/{notificacao_id}/marcar-lida", response_model=NotificacaoOut)
 async def marcar_como_lida(
     notificacao_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),

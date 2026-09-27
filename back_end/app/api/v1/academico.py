@@ -6,8 +6,9 @@ import uuid
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.academico import (
-    CursoCreate, CursoSitePublicoUpdate, CursoUpdate, DisciplinaCreate, GradeCurricularCreate,
-    ObjetivoAprendizagemCreate, SerieAnoCreate, TurmaCreate
+    CursoCreate, CursoOut, CursoSitePublicoUpdate, CursoUpdate, DisciplinaCreate, DisciplinaOut,
+    GradeCurricularCreate, GradeCurricularOut, ObjetivoAprendizagemCreate, ObjetivoAprendizagemOut,
+    SerieAnoCreate, SerieAnoOut, TurmaCreate, TurmaOut
 )
 from app.cruds import academico as crud_academico
 
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/api/v1/academico", tags=["Módulo Académico"])
 # ==========================================
 # ROTAS PARA CURSOS
 # ==========================================
-@router.post("/cursos", status_code=status.HTTP_201_CREATED)
+@router.post("/cursos", status_code=status.HTTP_201_CREATED, response_model=CursoOut)
 async def criar_curso(
     dados: CursoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -30,7 +31,7 @@ async def criar_curso(
     """Cria um novo curso associado à escola do utilizador logado."""
     return await crud_academico.criar_curso(db, utilizador["tenant_id"], dados)
 
-@router.get("/cursos")
+@router.get("/cursos", response_model=list[CursoOut])
 async def listar_cursos(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
@@ -38,7 +39,7 @@ async def listar_cursos(
     """Lista os cursos da escola do utilizador logado."""
     return await crud_academico.listar_cursos(db, utilizador["tenant_id"])
 
-@router.put("/cursos/{curso_id}")
+@router.put("/cursos/{curso_id}", response_model=CursoOut)
 async def atualizar_curso(
     curso_id: uuid.UUID,
     dados: CursoUpdate,
@@ -48,7 +49,7 @@ async def atualizar_curso(
     """Renomeia um curso da escola do utilizador logado."""
     return await crud_academico.atualizar_curso(db, utilizador["tenant_id"], curso_id, dados)
 
-@router.put("/cursos/{curso_id}/site-publico")
+@router.put("/cursos/{curso_id}/site-publico", response_model=CursoOut)
 async def atualizar_curso_site_publico(
     curso_id: uuid.UUID,
     dados: CursoSitePublicoUpdate,
@@ -65,7 +66,7 @@ async def atualizar_curso_site_publico(
 # Camada intermédia entre Curso e Turma (ex: "10º Ano" dentro de
 # "Ensino Secundário"). Uma Turma liga-se sempre a uma Série/Ano, nunca
 # diretamente a um Curso.
-@router.post("/series", status_code=status.HTTP_201_CREATED)
+@router.post("/series", status_code=status.HTTP_201_CREATED, response_model=SerieAnoOut)
 async def criar_serie_ano(
     dados: SerieAnoCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -74,7 +75,7 @@ async def criar_serie_ano(
     """Cria uma Série/Ano associada a um curso da escola do utilizador logado."""
     return await crud_academico.criar_serie_ano(db, utilizador["tenant_id"], dados)
 
-@router.get("/series")
+@router.get("/series", response_model=list[SerieAnoOut])
 async def listar_series(
     curso_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -96,7 +97,7 @@ async def criar_turma(
     turma = await crud_academico.criar_turma(db, utilizador["tenant_id"], dados)
     return {"mensagem": "Turma criada com sucesso", "id": turma.id}
 
-@router.get("/turmas")
+@router.get("/turmas", response_model=list[TurmaOut])
 async def listar_turmas(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
@@ -107,7 +108,7 @@ async def listar_turmas(
 # ==========================================
 # ROTAS PARA DISCIPLINAS
 # ==========================================
-@router.post("/disciplinas", status_code=status.HTTP_201_CREATED)
+@router.post("/disciplinas", status_code=status.HTTP_201_CREATED, response_model=DisciplinaOut)
 async def criar_disciplina(
     dados: DisciplinaCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -116,7 +117,7 @@ async def criar_disciplina(
     """Cria uma nova disciplina (matéria) na escola do utilizador logado."""
     return await crud_academico.criar_disciplina(db, utilizador["tenant_id"], dados)
 
-@router.get("/disciplinas")
+@router.get("/disciplinas", response_model=list[DisciplinaOut])
 async def listar_disciplinas(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(exigir_perfil_staff)
@@ -137,7 +138,7 @@ async def adicionar_disciplina_a_serie(
     item = await crud_academico.adicionar_disciplina_a_serie(db, utilizador["tenant_id"], dados)
     return {"mensagem": "Disciplina adicionada à grade curricular", "id": item.id}
 
-@router.get("/grade-curricular")
+@router.get("/grade-curricular", response_model=list[GradeCurricularOut])
 async def listar_grade_curricular(
     serie_ano_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -152,7 +153,7 @@ async def listar_grade_curricular(
 # Catálogo por disciplina (ex.: "Células" em Ciências) — cada Avaliacao
 # do Diário de Classe pode apontar para um destes, para o Painel de
 # Indicadores conseguir medir a eficiência por tópico.
-@router.post("/objetivos-aprendizagem", status_code=status.HTTP_201_CREATED)
+@router.post("/objetivos-aprendizagem", status_code=status.HTTP_201_CREATED, response_model=ObjetivoAprendizagemOut)
 async def criar_objetivo_aprendizagem(
     dados: ObjetivoAprendizagemCreate,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -161,7 +162,7 @@ async def criar_objetivo_aprendizagem(
     """Cria um objetivo de aprendizagem associado a uma disciplina da escola do utilizador logado."""
     return await crud_academico.criar_objetivo_aprendizagem(db, utilizador["tenant_id"], dados)
 
-@router.get("/objetivos-aprendizagem")
+@router.get("/objetivos-aprendizagem", response_model=list[ObjetivoAprendizagemOut])
 async def listar_objetivos_aprendizagem(
     disciplina_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(obter_sessao_db),

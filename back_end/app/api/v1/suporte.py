@@ -8,7 +8,8 @@ import uuid
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil
 from app.cruds import suporte as crud_suporte
-from app.schemas.suporte import MensagemTicketCreate, TicketCreate
+from app.schemas.comum import PaginaOut
+from app.schemas.suporte import MensagemTicketCreate, TicketComMensagensOut, TicketCreate, TicketOut
 
 router = APIRouter(prefix="/api/v1/suporte", tags=["Suporte"])
 
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/api/v1/suporte", tags=["Suporte"])
 _PODE_ACEDER = exigir_perfil("GESTOR", "SECRETARIA")
 
 
-@router.get("")
+@router.get("", response_model=PaginaOut[TicketOut])
 async def listar_meus_tickets(
     page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)
@@ -40,7 +41,7 @@ async def criar_ticket(
     return {"mensagem": "Pedido enviado à equipa de suporte.", "id": ticket.id}
 
 
-@router.get("/{ticket_id}")
+@router.get("/{ticket_id}", response_model=TicketComMensagensOut)
 async def obter_ticket(
     ticket_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)

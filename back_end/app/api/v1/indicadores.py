@@ -7,6 +7,7 @@ from app.database.session import obter_sessao_db
 from app.core.rate_limiter import excedeu_limite
 from app.core.security import exigir_perfil
 from app.cruds import indicadores as crud_indicadores
+from app.schemas.indicadores import TrilhaRecuperacaoOut
 
 router = APIRouter(prefix="/api/v1/indicadores", tags=["Indicadores"])
 
@@ -67,7 +68,7 @@ async def obter_risco_evasao(
     return await crud_indicadores.obter_risco_evasao(db, utilizador["tenant_id"])
 
 
-@router.post("/risco-evasao/{matricula_id}/trilha-recuperacao")
+@router.post("/risco-evasao/{matricula_id}/trilha-recuperacao", response_model=TrilhaRecuperacaoOut)
 async def gerar_trilha_recuperacao(
     matricula_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),
@@ -80,7 +81,7 @@ async def gerar_trilha_recuperacao(
     return await crud_indicadores.gerar_trilha_recuperacao(db, utilizador["tenant_id"], matricula_id, utilizador["usuario_id"])
 
 
-@router.get("/risco-evasao/{matricula_id}/trilhas")
+@router.get("/risco-evasao/{matricula_id}/trilhas", response_model=list[TrilhaRecuperacaoOut])
 async def listar_trilhas_do_aluno(
     matricula_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),

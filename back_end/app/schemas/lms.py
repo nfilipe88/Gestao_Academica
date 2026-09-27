@@ -4,6 +4,8 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 
+from app.schemas.comum import DecimalComoFloat
+
 
 class MaterialAulaCreate(BaseModel):
     model_config = {"extra": "forbid"}
@@ -197,6 +199,66 @@ class SugestaoConteudoCreate(BaseModel):
     model_config = {"extra": "forbid"}
     turma_id: uuid.UUID
     disciplina_id: uuid.UUID
+    titulo: str
+    objetivo_aprendizagem_id: uuid.UUID | None = None
+    instrucoes: str | None = None
+
+
+# ==========================================
+# SAÍDA (response_model) — rotas sempre atrás de exigir_perfil_staff,
+# por isso resposta_correta pode ir em LMSQuestaoOut sem risco (nunca
+# chega a um Aluno; a via de resolução de exame usa outro caminho, ver
+# cruds/lms.py::obter_exame_para_resolver, que já omite isto à mão).
+# ==========================================
+class MaterialAulaOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    turma_id: uuid.UUID
+    disciplina_id: uuid.UUID
+    titulo: str
+    corpo: str
+    objetivo_aprendizagem_id: uuid.UUID | None = None
+    publicado: bool
+    criado_por_usuario_id: uuid.UUID | None = None
+    data_criacao: datetime
+    data_atualizacao: datetime
+
+
+class LMSQuestaoOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    disciplina_id: uuid.UUID
+    enunciado: str
+    tipo: str
+    opcoes: list
+    resposta_correta: str
+    valor: DecimalComoFloat
+    criado_por_usuario_id: uuid.UUID | None = None
+    data_criacao: datetime
+
+
+class LMSExameOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    alocacao_id: uuid.UUID
+    titulo: str
+    data_inicio: datetime
+    data_fim: datetime
+    duracao_minutos: int
+    baralhar_perguntas: bool
+    publicado: bool
+    grupo_id: uuid.UUID
+    letra_variante: str
+    modalidade: str
+    avaliacao_id: uuid.UUID | None = None
+    iniciado: bool
+    iniciado_em: datetime | None = None
+    iniciado_por_usuario_id: uuid.UUID | None = None
+    criado_por_usuario_id: uuid.UUID | None = None
+    data_criacao: datetime
     titulo: str
     objetivo_aprendizagem_id: uuid.UUID | None = None
     instrucoes: str | None = None
