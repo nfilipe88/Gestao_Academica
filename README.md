@@ -149,6 +149,10 @@ O que já está coberto (ver `back_end/tests/`):
 - **Isolamento RLS entre escolas** — inclui um teste que consulta a
   base de dados diretamente, sem filtro de `tenant_id` na query, para
   provar que é o próprio Postgres a bloquear, não só o código da app.
+  Mais um teste, à parte, confere no catálogo do Postgres que **todas**
+  as tabelas com `tenant_id` têm RLS ativo e pelo menos uma policy —
+  cobre tabelas novas automaticamente, sem depender de ninguém se
+  lembrar de escrever um teste dedicado para cada uma.
 - Login, RBAC (perfil errado é recusado) e o limitador de tentativas
   de login (anti força-bruta).
 - O fluxo de negócio principal ponta a ponta: Curso → Série → Turma →

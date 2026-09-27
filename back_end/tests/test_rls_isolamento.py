@@ -85,3 +85,49 @@ async def test_listagem_de_cursos_nao_mistura_escolas(client):
     nomes_b = [c["nome"] for c in resp_b.json()]
     assert "Só da B" in nomes_b
     assert "Só da A" not in nomes_b
+
+
+async def test_todas_as_tabelas_com_tenant_id_tem_rls_ativo_e_pelo_menos_uma_policy():
+    """Rede de segurança contra a MESMA lição já aprendida uma vez (RLS
+    'declarado' numa migração mas sem efeito real — ver o commit citado no
+    topo do ficheiro): os dois testes acima só provam isolamento na tabela
+    `curso`; este cobre TODAS as tabelas com tenant_id de uma vez, direto do
+    catálogo do Postgres (não confia no código Python nem em cada migração
+    se lembrar) — se uma tabela nova entrar sem RLS, ou sem nenhuma policy
+    (RLS "ligado" mas sem regra nenhuma bloqueia tudo silenciosamente, o que
+    é seguro mas quase de certeza um esquecimento), este teste falha sozinho,
+    sem ninguém ter de se lembrar de escrever um teste dedicado para ela.
+
+    Liga como o role de migrações (superuser) só para LER o catálogo —
+    nunca para tocar em dados de nenhum tenant.
+    """
+    engine = create_async_engine(os.environ["DATABASE_URL_MIGRACOES"])
+    try:
+        async with engine.connect() as conn:
+            tabelas = (await conn.execute(text("""
+                SELECT c.relname AS tabela, c.relrowsecurity AS rls_ativo,
+                       (SELECT count(*) FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = c.relname) AS n_policies
+                FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relkind = 'r'
+                  AND EXISTS (
+                      SELECT 1 FROM information_schema.columns col
+                      WHERE col.table_schema = 'public' AND col.table_name = c.relname AND col.column_name = 'tenant_id'
+                  )
+                ORDER BY c.relname
+            """))).all()
+    finally:
+        await engine.dispose()
+
+    assert tabelas, "nenhuma tabela com coluna tenant_id encontrada — teste desatualizado ou ligado à BD errada"
+
+    sem_rls = [t.tabela for t in tabelas if not t.rls_ativo]
+    assert not sem_rls, (
+        "FALHA DE ISOLAMENTO: tabela(s) com tenant_id mas SEM Row-Level Security ativo — "
+        f"acrescentar ENABLE ROW LEVEL SECURITY (ver o padrão TABELAS_RLS de qualquer migração recente): {sem_rls}"
+    )
+
+    sem_policy = [t.tabela for t in tabelas if t.n_policies == 0]
+    assert not sem_policy, (
+        "RLS ativo mas SEM NENHUMA policy definida — bloqueia tudo por omissão (não é uma fuga de "
+        f"dados), mas quase de certeza um esquecimento da CREATE POLICY: {sem_policy}"
+    )
