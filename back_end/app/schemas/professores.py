@@ -6,6 +6,7 @@ from app.core.validacao import validar_forca_senha
 
 
 class ProfessorCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     nome_completo: str
     email: EmailStr
     palavra_passe: str = Field(..., min_length=8)
@@ -15,5 +16,6 @@ class ProfessorCreate(BaseModel):
 
 
 class AlocacaoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     turma_id: uuid.UUID
     disciplina_id: uuid.UUID

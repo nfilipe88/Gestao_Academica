@@ -133,3 +133,23 @@ async def criar_escola_e_gestor(client: AsyncClient, prefixo: str = "teste") -> 
 
 def auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+# Campos só de leitura em ConfiguracaoTenantOut que não existem em
+# ConfiguracaoTenantUpdate (mudam-se por outro endpoint — ver os
+# comentários nos próprios schemas). Com extra="forbid" nesse Update,
+# reenviá-los faria PUT /configuracoes falhar com 422.
+_CAMPOS_SO_LEITURA_CONFIGURACAO = ("tem_logotipo", "termos_aceites_em", "termos_versao", "matriculas_abertas", "rematriculas_abertas")
+
+
+async def atualizar_configuracao(client: AsyncClient, headers: dict, **campos) -> dict:
+    """Lê PUT /configuracoes atual, aplica só os `campos` indicados por cima
+    e guarda — em vez de cada teste construir o corpo à mão (e arriscar
+    esquecer-se de tirar um campo só de leitura, como já aconteceu)."""
+    config = (await client.get("/api/v1/configuracoes", headers=headers)).json()
+    for chave in _CAMPOS_SO_LEITURA_CONFIGURACAO:
+        config.pop(chave, None)
+    config.update(campos)
+    resp = await client.put("/api/v1/configuracoes", headers=headers, json=config)
+    assert resp.status_code == 200, resp.text
+    return resp.json()

@@ -45,6 +45,7 @@ class SitePublicoConfigOut(BaseModel):
 
 
 class SitePublicoConfigUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     ativo: bool
     slug: str | None = None
     template: str = "classico"

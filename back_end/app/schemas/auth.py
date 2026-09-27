@@ -4,6 +4,7 @@ import uuid
 from app.core.validacao import validar_forca_senha
 
 class RegistoInicial(BaseModel):
+    model_config = {"extra": "forbid"}
     # Dados da Escola (Tenant)
     nome_fantasia: str = Field(..., example="Colégio do Futuro")
     nif: str = Field(..., example="501234567")
@@ -32,6 +33,7 @@ class TokenResponse(BaseModel):
 
 
 class RefreshTokenIn(BaseModel):
+    model_config = {"extra": "forbid"}
     # Opcional: o browser envia-o no cookie HttpOnly (ver api/v1/auth.py); clientes
     # de API continuam a poder mandá-lo no corpo.
     refresh_token: str | None = None
@@ -44,6 +46,7 @@ class RefreshTokenOut(BaseModel):
 
 
 class LogoutIn(BaseModel):
+    model_config = {"extra": "forbid"}
     # Opcional: o front-end envia sempre que o tiver, mas um logout com
     # o access token já sem refresh_token à mão (ex.: apagado à parte)
     # continua a revogar pelo menos esse token.
@@ -51,10 +54,12 @@ class LogoutIn(BaseModel):
 
 
 class EsqueciSenhaIn(BaseModel):
+    model_config = {"extra": "forbid"}
     email: EmailStr = Field(..., example="joao.silva@colegiofuturo.pt")
 
 
 class RedefinirSenhaIn(BaseModel):
+    model_config = {"extra": "forbid"}
     token: str
     nova_senha: str = Field(..., min_length=8, example="SenhaNovaSegura123!")
 
@@ -62,4 +67,5 @@ class RedefinirSenhaIn(BaseModel):
 
 
 class AtivarContaIn(BaseModel):
+    model_config = {"extra": "forbid"}
     token: str

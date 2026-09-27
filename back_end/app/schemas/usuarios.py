@@ -17,6 +17,7 @@ class UsuarioListadoOut(BaseModel):
 
 
 class SecretariaCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     nome_completo: str
     email: EmailStr
     palavra_passe: str = Field(..., min_length=8)
@@ -25,10 +26,12 @@ class SecretariaCreate(BaseModel):
 
 
 class PerfilAcessoUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     perfil_acesso: str  # GESTOR ou SECRETARIA — ver PERFIS_SEM_SUBTABELA em cruds/usuarios.py
 
 
 class AtivoUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     ativo: bool
 
 

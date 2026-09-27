@@ -8,6 +8,7 @@ TipoCalendario = Literal["PERIODO_LETIVO", "AVALIACOES", "EXAMES", "EXAMES_FINAI
 
 
 class CalendarioCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     ano_letivo: int = Field(ge=2000, le=2100)
     tipo: TipoCalendario
     nome: str = Field(min_length=2, max_length=120)
@@ -23,6 +24,7 @@ class CalendarioCreate(BaseModel):
 
 
 class CalendarioUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     tipo: TipoCalendario | None = None
     nome: str | None = Field(default=None, min_length=2, max_length=120)
     data_inicio: date | None = None

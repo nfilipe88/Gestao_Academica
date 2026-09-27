@@ -15,6 +15,7 @@ class EventoFotoOut(BaseModel):
 
 
 class EventoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     titulo: str
     data: date
     descricao: str | None = None
@@ -22,6 +23,7 @@ class EventoCreate(BaseModel):
 
 
 class EventoUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     titulo: str | None = None
     data: date | None = None
     descricao: str | None = None

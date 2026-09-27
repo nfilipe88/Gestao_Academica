@@ -5,11 +5,13 @@ from pydantic import BaseModel
 
 
 class PrecoDocumentoUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     preco: Decimal
     ativo: bool = True
 
 
 class SolicitacaoDocumentoEmissaoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     tipo_documento: str
     formato_entrega: str = "DIGITAL"
     descricao_outro: str | None = None
@@ -22,10 +24,12 @@ class CapturarPagamentoDocumentoRequest(BaseModel):
 
 
 class EntregarFisicoRequest(BaseModel):
+    model_config = {"extra": "forbid"}
     observacoes: str | None = None
 
 
 class SolicitacaoDocumentoEscolaCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     destinatario_tipo: str  # ALUNO, RESPONSAVEL, PROFESSOR
     destinatario_id: uuid.UUID  # aluno_id/responsavel_id/professor_id, conforme o tipo
     titulo: str
@@ -33,12 +37,15 @@ class SolicitacaoDocumentoEscolaCreate(BaseModel):
 
 
 class ResponderSolicitacaoEscolaRequest(BaseModel):
+    model_config = {"extra": "forbid"}
     resposta_texto: str
 
 
 class TemplateDocumentoUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     corpo_html: str
 
 
 class TemplateDocumentoPreview(BaseModel):
+    model_config = {"extra": "forbid"}
     corpo_html: str

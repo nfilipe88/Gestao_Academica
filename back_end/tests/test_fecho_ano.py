@@ -2,19 +2,14 @@
 app/core/resultados.py e app/api/v1/fecho.py."""
 from datetime import date
 
-from tests.conftest import auth_headers, criar_escola_e_gestor, sufixo_unico
+from tests.conftest import atualizar_configuracao, auth_headers, criar_escola_e_gestor, sufixo_unico
 from tests.test_estatisticas import _criar_aluno_matriculado, _criar_curso_serie_turma
 
 ANO = date.today().year
 
 
 async def _configurar(client, headers, **criterios):
-    config = (await client.get("/api/v1/configuracoes", headers=headers)).json()
-    for chave in ("tem_logotipo", "termos_aceites_em", "termos_versao"):
-        config.pop(chave, None)
-    config.update(criterios)
-    resp = await client.put("/api/v1/configuracoes", headers=headers, json=config)
-    assert resp.status_code == 200, resp.text
+    await atualizar_configuracao(client, headers, **criterios)
 
 
 async def _nota(client, headers, turma, disciplina, matricula, periodo, valor):

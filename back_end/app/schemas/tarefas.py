@@ -6,6 +6,7 @@ import uuid
 
 
 class TarefaCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     alocacao_id: uuid.UUID
     titulo: str
     descricao: str | None = None
@@ -30,4 +31,5 @@ class AvaliacaoAlunoInput(BaseModel):
 
 
 class AvaliarTarefaLote(BaseModel):
+    model_config = {"extra": "forbid"}
     avaliacoes: list[AvaliacaoAlunoInput]

@@ -85,6 +85,7 @@ class AlunoConfirmado(BaseModel):
 
 
 class ImportacaoMiniPautaConfirmar(BaseModel):
+    model_config = {"extra": "forbid"}
     curso: EntidadeRefOuNova
     serie_ano: EntidadeRefOuNova
     turma: EntidadeRefOuNova

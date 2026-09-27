@@ -157,6 +157,13 @@ O que já está coberto (ver `back_end/tests/`):
   captação pública de lead, site público de uma escola) têm cada um o
   seu próprio teste de isolamento entre escolas, porque aí a proteção é
   só o filtro explícito no código, não o Postgres.
+- **Schemas Pydantic fechados a campos extra** — todo o schema de entrada
+  da API (`dados: XxxCreate/Update` nas rotas) tem `extra="forbid"`: um
+  campo não declarado no corpo do pedido dá 422 em vez de ser ignorado em
+  silêncio (o comportamento por omissão do Pydantic v2). Um teste
+  descobre os schemas de entrada automaticamente a partir das próprias
+  rotas — cobre endpoints novos sozinho, tal como o teste de RLS acima
+  cobre tabelas novas.
 - Login, RBAC (perfil errado é recusado) e o limitador de tentativas
   de login (anti força-bruta).
 - O fluxo de negócio principal ponta a ponta: Curso → Série → Turma →

@@ -83,6 +83,7 @@ class ConfiguracaoTenantOut(BaseModel):
 
 
 class ConfiguracaoTenantUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     iban: str | None = None
     moeda: str
     telefone_contacto: str | None = None
@@ -178,11 +179,13 @@ class TipoAvaliacaoOut(BaseModel):
 
 
 class TipoAvaliacaoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     nome: str
     requer_agendamento: bool = False
 
 
 class TipoAvaliacaoUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     nome: str
     requer_agendamento: bool
     ativo: bool
@@ -190,5 +193,6 @@ class TipoAvaliacaoUpdate(BaseModel):
 
 class InscricoesUpdate(BaseModel):
     """Abrir/encerrar matrículas e/ou rematrículas — só o que vier é alterado."""
+    model_config = {"extra": "forbid"}
     matriculas_abertas: bool | None = None
     rematriculas_abertas: bool | None = None

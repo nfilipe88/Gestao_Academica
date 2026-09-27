@@ -11,7 +11,7 @@ cruds/lms.py::iniciar_grupo_exame)."""
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
-from tests.conftest import auth_headers, criar_escola_e_gestor, sufixo_unico
+from tests.conftest import atualizar_configuracao, auth_headers, criar_escola_e_gestor, sufixo_unico
 from tests.test_comportamento import _criar_professor_com_token
 from tests.test_matricula_financeiro import _preparar_turma_com_vaga
 from tests.test_rematricula import _criar_aluno_matriculado_com_portal
@@ -709,11 +709,7 @@ async def test_submissao_grava_nota_avaliacao_escalada_a_nota_maxima_customizada
     escola = await criar_escola_e_gestor(client, "lms-nota-maxima-custom")
     headers = auth_headers(escola["token"])
 
-    resp = await client.get("/api/v1/configuracoes", headers=headers)
-    config = resp.json()
-    config["nota_maxima"] = 20
-    resp = await client.put("/api/v1/configuracoes", headers=headers, json=config)
-    assert resp.status_code == 200, resp.text
+    await atualizar_configuracao(client, headers, nota_maxima=20)
 
     dados = await _preparar_grupo_iniciado(client, headers, date.today().year)
     headers_aluno = auth_headers(dados["token_aluno"])

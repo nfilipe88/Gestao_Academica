@@ -6,6 +6,7 @@ import uuid
 
 
 class ContratoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     matricula_id: uuid.UUID
     responsavel_id: uuid.UUID
     valor_total_anual: Decimal
@@ -20,6 +21,7 @@ class ContratoCreate(BaseModel):
 
 
 class FaturaMarcarPago(BaseModel):
+    model_config = {"extra": "forbid"}
     valor_pago: Decimal | None = None  # se omitido, assume o valor atualizado (com juros/multa, se houver)
     forma_pagamento: str = "MANUAL"
 
@@ -27,14 +29,17 @@ class FaturaMarcarPago(BaseModel):
 class FaturaReportarPagamento(BaseModel):
     """Auto-relato do Responsável ("já efetuei a transferência") — ver
     cruds/financeiro.py::reportar_pagamento_fatura."""
+    model_config = {"extra": "forbid"}
     referencia: str | None = None
 
 
 class GerarCobrancaRequest(BaseModel):
+    model_config = {"extra": "forbid"}
     metodo_pagamento: str = "PAYPAL"
 
 
 class CapturarPagamentoRequest(BaseModel):
+    model_config = {"extra": "forbid"}
     order_id: str
 
 
@@ -42,6 +47,7 @@ CATEGORIAS_DESPESA_VALIDAS = {"SALARIOS", "RENDA", "MATERIAL", "MANUTENCAO", "SE
 
 
 class DespesaCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     categoria: str
     descricao: str
     valor: Decimal

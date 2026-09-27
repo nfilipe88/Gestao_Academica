@@ -6,6 +6,7 @@ import uuid
 
 
 class MaterialAulaCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     turma_id: uuid.UUID
     disciplina_id: uuid.UUID
     titulo: str
@@ -15,6 +16,7 @@ class MaterialAulaCreate(BaseModel):
 
 
 class MaterialAulaUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     titulo: str
     corpo: str
     objetivo_aprendizagem_id: uuid.UUID | None = None
@@ -56,6 +58,7 @@ class _ValidaQuestao(BaseModel):
 
 
 class LMSQuestaoCreate(_ValidaQuestao):
+    model_config = {"extra": "forbid"}
     disciplina_id: uuid.UUID
     enunciado: str
     tipo: str
@@ -65,6 +68,7 @@ class LMSQuestaoCreate(_ValidaQuestao):
 
 
 class LMSQuestaoUpdate(_ValidaQuestao):
+    model_config = {"extra": "forbid"}
     enunciado: str
     tipo: str
     opcoes: list[str] = []
@@ -97,6 +101,7 @@ class LMSVarianteInput(BaseModel):
 
 
 class LMSGrupoExameCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     alocacao_id: uuid.UUID
     titulo: str
     data_inicio: datetime
@@ -130,11 +135,13 @@ class LMSGrupoExameCreate(BaseModel):
 
 
 class LMSReatribuirVarianteInput(BaseModel):
+    model_config = {"extra": "forbid"}
     matricula_id: uuid.UUID
     exame_id: uuid.UUID  # a variante de destino — tem de pertencer ao mesmo grupo
 
 
 class LMSSubmeterTentativa(BaseModel):
+    model_config = {"extra": "forbid"}
     respostas: dict[str, str]  # {questao_id (str): resposta dada}
 
 
@@ -152,6 +159,7 @@ class LMSCorrigirTentativaInput(BaseModel):
     sempre", mesmo numa tentativa já 100% corrigida automaticamente
     (ver cruds/lms.py::corrigir_tentativa). Pelo menos um dos dois tem
     de vir preenchido."""
+    model_config = {"extra": "forbid"}
     correcoes: list[LMSCorrecaoQuestaoInput] = []
     nota_obtida_override: Decimal | None = None
 
@@ -176,6 +184,7 @@ class MensagemProfVirtual(BaseModel):
 
 
 class ProfVirtualPerguntaCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     material_id: uuid.UUID
     historico: list[MensagemProfVirtual] = []
     pergunta: str
@@ -185,6 +194,7 @@ class ProfVirtualPerguntaCreate(BaseModel):
 # PROF. VIRTUAL — sugestão de conteúdo para o professor (redação do material)
 # ==========================================
 class SugestaoConteudoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     turma_id: uuid.UUID
     disciplina_id: uuid.UUID
     titulo: str

@@ -5,6 +5,7 @@ import uuid
 
 
 class ComunicadoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     tipo: str
     titulo: str
     corpo: str
@@ -24,6 +25,7 @@ class AnexoComunicacaoOut(BaseModel):
 
 
 class RespostaComunicadoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     corpo: str
 
 

@@ -19,6 +19,7 @@ class _NormalizaEmailOpcional(BaseModel):
 
 
 class LeadPublicoCreate(_NormalizaEmailOpcional):
+    model_config = {"extra": "forbid"}
     nome_responsavel: str
     email_contato: EmailStr | None = None
     telefone: str | None = None
@@ -47,6 +48,7 @@ class LeadPublicoCreate(_NormalizaEmailOpcional):
 
 class LeadStaffCreate(_NormalizaEmailOpcional):
     """Criação manual por um utilizador autenticado (ex: contacto presencial/telefónico) — já entra direto no funil, ao contrário do POST público que só cria o Lead+Oportunidade sem mais nada."""
+    model_config = {"extra": "forbid"}
     nome_responsavel: str
     email_contato: EmailStr | None = None
     telefone: str | None = None
@@ -58,6 +60,7 @@ class LeadStaffCreate(_NormalizaEmailOpcional):
 
 
 class LeadUpdate(_NormalizaEmailOpcional):
+    model_config = {"extra": "forbid"}
     nome_responsavel: str | None = None
     email_contato: EmailStr | None = None
     telefone: str | None = None
@@ -67,12 +70,14 @@ class LeadUpdate(_NormalizaEmailOpcional):
 
 
 class EtapaCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     ordem: int
     nome_etapa: str
     eh_etapa_ganho: bool = False
 
 
 class OportunidadeCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     lead_id: uuid.UUID
     valor_estimado_anual: Decimal | None = None
     data_fecho_prevista: date | None = None
@@ -83,16 +88,19 @@ class OportunidadeUpdate(BaseModel):
     """Completar a oportunidade antes (ou depois) de ganhar — em particular
     a Turma pretendida, que é o que falta à RN01 para também gerar
     Matrícula + Contrato Financeiro automaticamente."""
+    model_config = {"extra": "forbid"}
     valor_estimado_anual: Decimal | None = None
     data_fecho_prevista: date | None = None
     turma_interesse_id: uuid.UUID | None = None
 
 
 class OportunidadeMover(BaseModel):
+    model_config = {"extra": "forbid"}
     nova_etapa_id: uuid.UUID
 
 
 class MensagemLeadCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     corpo: str
 
 

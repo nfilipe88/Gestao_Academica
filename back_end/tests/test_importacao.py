@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from openpyxl import Workbook
 
-from tests.conftest import auth_headers, criar_escola_e_gestor, sufixo_unico
+from tests.conftest import atualizar_configuracao, auth_headers, criar_escola_e_gestor, sufixo_unico
 from tests.test_comportamento import _criar_professor_com_token
 
 _CONTENT_TYPE_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -98,12 +98,7 @@ async def _definir_nota_maxima(client, headers, valor: int = 20):
     para escolas já existentes, ver migração), por isso os testes que
     confirmam uma importação com notas > 10 têm de a alargar primeiro,
     tal como uma escola real faria em Configurações antes de importar."""
-    resp = await client.get("/api/v1/configuracoes", headers=headers)
-    assert resp.status_code == 200, resp.text
-    config = resp.json()
-    config["nota_maxima"] = valor
-    resp = await client.put("/api/v1/configuracoes", headers=headers, json=config)
-    assert resp.status_code == 200, resp.text
+    await atualizar_configuracao(client, headers, nota_maxima=valor)
 
 
 async def _preview(client, headers, conteudo: bytes, nome: str = "mini-pauta.xlsx"):

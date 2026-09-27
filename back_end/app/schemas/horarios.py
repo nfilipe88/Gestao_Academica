@@ -5,6 +5,7 @@ import uuid
 
 
 class HorarioAulaCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     alocacao_id: uuid.UUID
     dia_semana: int  # 1=Segunda ... 7=Domingo
     hora_inicio: time
@@ -21,6 +22,7 @@ class HorarioAulaCreate(BaseModel):
 
 
 class HorarioAulaUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     dia_semana: int | None = None
     hora_inicio: time | None = None
     hora_fim: time | None = None

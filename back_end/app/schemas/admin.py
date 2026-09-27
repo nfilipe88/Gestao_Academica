@@ -9,14 +9,17 @@ from app.core.validacao import validar_forca_senha
 
 
 class TenantStatusUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     status: str  # ATIVO, SUSPENSO
 
 
 class IsencaoLimiteAlunosUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     isento: bool
 
 
 class ValidadeLicencaUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     data_validade_licenca: date | None = None
 
 
@@ -25,6 +28,7 @@ class TenantCreateAdmin(BaseModel):
     (auto-serviço, a própria escola regista-se), esta é a via de onboarding
     gatekeeping descrita no documento original: o Super Admin decide criar
     a conta em nome da escola (ex.: veio por contacto comercial direto)."""
+    model_config = {"extra": "forbid"}
     nome_fantasia: str = Field(..., example="Colégio do Futuro")
     nif: str = Field(..., example="501234567")
     nome_gestor: str = Field(..., example="João Silva")
@@ -50,6 +54,7 @@ class PlanoSaaSModuloOut(PlanoSaaSModuloInput):
 
 
 class PlanoSaaSCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     nome: str
     preco_por_aluno: Decimal
     limite_alunos: int | None = None
@@ -88,6 +93,7 @@ class PlanoSaaSCreate(BaseModel):
 
 
 class PlanoSaaSUpdate(PlanoSaaSCreate):
+    model_config = {"extra": "forbid"}
     ativo: bool = True
 
 
@@ -105,5 +111,6 @@ class PlanoSaaSOut(BaseModel):
 
 
 class AssinaturaTenantInput(BaseModel):
+    model_config = {"extra": "forbid"}
     plano_id: uuid.UUID
     proxima_cobranca: date

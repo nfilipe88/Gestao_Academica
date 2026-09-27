@@ -12,6 +12,7 @@ class FrequenciaAluno(BaseModel):
 
 
 class FrequenciaLoteCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     data_aula: date
     quantidade_aulas: int = 1
     conteudo_programado: str | None = None
@@ -24,6 +25,7 @@ class NotaAluno(BaseModel):
 
 
 class NotaLoteCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     periodo_avaliacao: str
     tipo_avaliacao: str | None = None
     data_avaliacao: date | None = None
@@ -31,6 +33,7 @@ class NotaLoteCreate(BaseModel):
 
 
 class PeriodoAvaliacaoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     nome: str
     # Janela calendárica opcional — distinta do trancamento
     # (aberto/data_fecho, ver models_diario.py::PeriodoAvaliacao). Pode
@@ -44,6 +47,7 @@ class PeriodoAvaliacaoJanelaUpdate(BaseModel):
     período já criado — nunca mexe em aberto/data_fecho (ver PATCH
     .../trancar e .../reabrir, que continuam a ser os únicos donos
     desses dois campos)."""
+    model_config = {"extra": "forbid"}
     data_inicio: date | None = None
     data_fim: date | None = None
 
@@ -58,6 +62,7 @@ class NotaExameNacionalAluno(BaseModel):
 
 
 class NotaExameNacionalLoteCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     notas: list[NotaExameNacionalAluno]
 
 
@@ -65,6 +70,7 @@ class NotaExameNacionalLoteCreate(BaseModel):
 # AVALIAÇÕES (provas e contínuas) — ver models_diario.py::Avaliacao
 # ==========================================
 class AvaliacaoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     periodo_avaliacao: str
     titulo: str
     tipo_avaliacao: str  # nome de um TipoAvaliacaoConfig ativo do tenant
@@ -78,6 +84,7 @@ class AvaliacaoCreate(BaseModel):
 
 
 class AvaliacaoUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     titulo: str
     tipo_avaliacao: str
     peso: Decimal
@@ -92,6 +99,7 @@ class AvaliacaoUpdate(BaseModel):
 class AvaliacaoAgendarGeralCreate(BaseModel):
     """Agendamento "Geral" (toda a escola) — ver cruds/diario.py::agendar_avaliacao_geral.
     Cria uma Avaliacao por cada turma+disciplina atualmente alocada, todas com a mesma data/hora/sala."""
+    model_config = {"extra": "forbid"}
     periodo_avaliacao: str
     titulo: str
     tipo_avaliacao: str
@@ -109,4 +117,5 @@ class NotaAvaliacaoAluno(BaseModel):
 
 
 class NotaAvaliacaoLoteCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     notas: list[NotaAvaliacaoAluno]

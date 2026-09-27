@@ -27,11 +27,13 @@ class PerfilOut(BaseModel):
 
 
 class PerfilUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     nome_completo: str = Field(..., min_length=1, max_length=255)
     email: EmailStr
 
 
 class AlterarSenhaIn(BaseModel):
+    model_config = {"extra": "forbid"}
     senha_atual: str
     nova_senha: str = Field(..., min_length=8)
 

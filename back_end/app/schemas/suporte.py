@@ -14,6 +14,7 @@ class MensagemChatSuporte(BaseModel):
 
 
 class PerguntaSuporteVirtual(BaseModel):
+    model_config = {"extra": "forbid"}
     historico: list[MensagemChatSuporte] = []
     pergunta: str = Field(..., min_length=1, max_length=1000)
 
@@ -26,6 +27,7 @@ class TicketCreate(BaseModel):
     """Usado tanto pelo formulário público (/contacto, sem sessão) como
     pelo staff já autenticado — a rota autenticada ignora nome/email
     daqui e usa os do próprio utilizador (ver api/v1/suporte.py)."""
+    model_config = {"extra": "forbid"}
     nome: str = Field(..., min_length=1, max_length=255)
     email: EmailStr
     assunto: str = Field(..., min_length=1, max_length=200)
@@ -33,10 +35,12 @@ class TicketCreate(BaseModel):
 
 
 class MensagemTicketCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     corpo: str = Field(..., min_length=1, max_length=5000)
 
 
 class TicketEstadoUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     estado: str  # ABERTO, EM_ANDAMENTO, RESOLVIDO, FECHADO
 
 

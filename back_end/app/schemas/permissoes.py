@@ -19,6 +19,7 @@ class PermissaoModuloOut(BaseModel):
 
 
 class PermissaoModuloUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     pode_criar: bool
     pode_ler: bool
     pode_atualizar: bool

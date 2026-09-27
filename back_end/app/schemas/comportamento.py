@@ -5,6 +5,7 @@ import uuid
 
 
 class RegistroComportamentoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
     tipo: str  # POSITIVO, NEGATIVO
     descricao: str
     data_ocorrencia: date | None = None  # None = hoje

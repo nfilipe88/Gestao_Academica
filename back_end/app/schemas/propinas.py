@@ -22,6 +22,7 @@ class LinhaPropina(BaseModel):
 
 
 class PropinaUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
     ano_letivo: int
     valor_mensalidade: Decimal
     valor_matricula: Decimal | None = None
