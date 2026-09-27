@@ -154,3 +154,24 @@ custa ~2 s no arranque do processo e evita que os primeiros utilizadores paguem 
 - Em Linux com `uvicorn[standard]` (uvloop) os números por processo são bem melhores do que os desta
   máquina Windows — repetir a medição no servidor real antes de decidir.
 
+
+## 10. Limites nos endpoints de IA (custo real por chamada)
+
+Quatro endpoints chamam a API da Anthropic (custo real por mensagem, ver `ANTHROPIC_API_KEY` na
+secção 6). Todos têm limite — usam o mesmo limitador do login/registo (`app/core/rate_limiter.py`,
+Redis quando `REDIS_URL` está definida, memória local do processo sem ela):
+
+| Endpoint | Quem chama | Chave do limite | Limite |
+|---|---|---|---|
+| `POST /public/suporte-virtual/perguntar` | Visitante do site (sem sessão) | IP | 20 mensagens / 10 min |
+| `POST /portal/educandos/{id}/prof-virtual` | Aluno/Responsável | pessoa (`usuario_id`) | 20 perguntas / 10 min |
+| `POST /lms/materiais/sugestao-conteudo` | Professor/Secretaria/Gestor | pessoa (`usuario_id`) | 20 pedidos / 10 min |
+| `POST /indicadores/risco-evasao/{id}/trilha-recuperacao` | Gestor/Secretaria | **escola** (`tenant_id`) | 15 gerações / hora |
+
+Os dois primeiros (chat) são por pessoa: cada aluno tem a sua própria janela, não pune a escola
+inteira pelo uso de um só. A trilha de recuperação é por escola de propósito — é mais cara (gera um
+plano completo, não uma resposta curta) e várias pessoas da mesma Secretaria podem legitimamente
+gerar trilhas para alunos diferentes no mesmo dia; o que importa proteger ali é o orçamento da escola,
+não travar cada pessoa isoladamente. Todos devolvem 429 com uma mensagem em português quando o limite
+é atingido. Ajustar os números em `app/api/v1/portal.py`, `app/api/v1/lms.py` e
+`app/api/v1/indicadores.py` se o custo real por chamada (modelo usado, `PROF_VIRTUAL_MODELO`) justificar.

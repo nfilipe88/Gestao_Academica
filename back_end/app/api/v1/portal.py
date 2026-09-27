@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
+from app.core.rate_limiter import excedeu_limite
 from app.core.security import exigir_perfil
 from app.cruds import portal as crud_portal
 from app.schemas.comunicacoes import RespostaComunicadoCreate, RespostaComunicadoOut
@@ -11,6 +12,13 @@ from app.schemas.lms import LMSSubmeterTentativa, ProfVirtualPerguntaCreate
 from app.schemas.portal import PedirTransferenciaRequest
 
 router = APIRouter(prefix="/api/v1/portal", tags=["Portal do Aluno/Responsável"])
+
+# Custo real por mensagem (chamada à API da Anthropic) — mesmo raciocínio do
+# chat público (ver api/v1/publico.py::_CHAT_MAX_MENSAGENS), mas aqui a chave
+# é o usuario_id (autenticado): mais fiável do que o IP e não pune uma escola
+# inteira atrás do mesmo NAT/proxy pelo abuso de um só aluno.
+_PROF_VIRTUAL_MAX_PERGUNTAS = 20
+_PROF_VIRTUAL_JANELA_SEGUNDOS = 600
 
 # Só logins ALUNO/RESPONSAVEL usam este router — Gestor/Secretaria/
 # Professor já têm as suas próprias telas (Matrículas, Diário,
@@ -243,6 +251,9 @@ async def perguntar_prof_virtual(
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
     """Envia uma pergunta ao Prof. Virtual sobre um material de aula concreto. Devolve a resposta (chat sem persistência — o histórico viaja no pedido)."""
+    if await excedeu_limite(f"prof-virtual:{utilizador['usuario_id']}", _PROF_VIRTUAL_MAX_PERGUNTAS, _PROF_VIRTUAL_JANELA_SEGUNDOS):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail="Muitas perguntas seguidas ao Prof. Virtual — aguarde uns minutos antes de continuar.")
     resposta = await crud_portal.perguntar_prof_virtual_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, dados)
     return {"resposta": resposta}
 

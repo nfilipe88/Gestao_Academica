@@ -52,7 +52,7 @@ python scripts/verificar_env_producao.py
 |---|---|---|
 | [ ] | `REDIS_URL` | Vazio é correto **só com uma instância**. Definir assim que houver mais de uma. |
 | [ ] | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_MODE`, `PAYPAL_WEBHOOK_ID` | O PayPal **não aceita Kwanza**; para escolas em AOA a via é a transferência bancária. Se for usado (escolas em EUR/USD): credenciais **live** só com `PAYPAL_MODE=live`, e o Webhook criado na app PayPal. Vazio = a opção some/falha de forma controlada. |
-| [ ] | `ANTHROPIC_API_KEY`, `PROF_VIRTUAL_MODELO` | Só se o Prof. Virtual e o Suporte Virtual forem oferecidos no piloto. Vazio = respondem 503 ("não configurado"). Cada mensagem tem custo real (há rate limiting por IP). |
+| [ ] | `ANTHROPIC_API_KEY`, `PROF_VIRTUAL_MODELO` | Só se o Prof. Virtual e o Suporte Virtual forem oferecidos no piloto. Vazio = respondem 503 ("não configurado"). Cada mensagem tem custo real — os 4 endpoints que chamam a IA têm limite: chat público por IP, Prof. Virtual do aluno e sugestão de conteúdo do professor por pessoa (20/10 min cada), trilha de recuperação do Gestor por escola (15/hora) — ver RUNBOOK, secção 10. |
 | [ ] | `SMS_WEBHOOK_URL`, `SMS_WEBHOOK_TOKEN` | Só com um gateway SMS. Vazio = SMS só registado nos logs. |
 | [ ] | `UPLOAD_DIR` | Irrelevante com `S3_BUCKET` definido. |
 

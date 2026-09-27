@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.database.session import obter_sessao_db
+from app.core.rate_limiter import excedeu_limite
 from app.core.security import exigir_perfil, exigir_perfil_staff
 from app.schemas.lms import (
     LMSCorrigirTentativaInput, LMSGrupoExameCreate, LMSQuestaoCreate, LMSQuestaoUpdate, LMSReatribuirVarianteInput,
@@ -68,6 +69,9 @@ async def sugerir_conteudo(
     utilizador: dict = Depends(exigir_perfil_staff)
 ):
     """Pede ao Prof. Virtual um rascunho do campo Conteúdo, a partir do título — o professor revê antes de publicar."""
+    if await excedeu_limite(f"sugerir-conteudo:{utilizador['usuario_id']}", 20, 600):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail="Muitos pedidos seguidos ao Prof. Virtual — aguarde uns minutos antes de continuar.")
     sugestao = await crud_lms.sugerir_conteudo(db, utilizador, dados)
     return {"sugestao": sugestao}
 

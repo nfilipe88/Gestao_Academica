@@ -1,9 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
+from app.core.rate_limiter import excedeu_limite
 from app.core.security import exigir_perfil
 from app.cruds import indicadores as crud_indicadores
 
@@ -11,6 +12,14 @@ router = APIRouter(prefix="/api/v1/indicadores", tags=["Indicadores"])
 
 # Visão executiva da escola — só quem gere a instituição em si.
 _PODE_ACEDER = exigir_perfil("GESTOR", "SECRETARIA")
+
+# Gerar uma trilha é mais caro e mais raro do que uma mensagem de chat (plano
+# completo, não uma resposta curta) — limite por ESCOLA (tenant), não por
+# pessoa: o que importa proteger é o orçamento de IA da escola, e várias
+# pessoas da mesma Secretaria podem legitimamente gerar trilhas para alunos
+# diferentes no mesmo dia.
+_TRILHA_MAX_GERACOES = 15
+_TRILHA_JANELA_SEGUNDOS = 3600
 
 
 @router.get("")
@@ -65,6 +74,9 @@ async def gerar_trilha_recuperacao(
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
     """Pede ao Prof. Virtual (IA) um plano de recuperação para este aluno, a partir do seu perfil de risco atual. Fica gravado no histórico."""
+    if await excedeu_limite(f"trilha-recuperacao:{utilizador['tenant_id']}", _TRILHA_MAX_GERACOES, _TRILHA_JANELA_SEGUNDOS):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail="Limite de trilhas de recuperação geradas nesta hora atingido — tente novamente mais tarde.")
     return await crud_indicadores.gerar_trilha_recuperacao(db, utilizador["tenant_id"], matricula_id, utilizador["usuario_id"])
 
 
