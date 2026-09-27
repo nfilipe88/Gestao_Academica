@@ -11,6 +11,16 @@ logger = logging.getLogger("monitorizacao")
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", "development")
+# DSN do Angular — projeto Sentry separado de propósito (ver ConfigPublicaOut
+# em app/schemas/publico.py, devolvido por GET /api/v1/public/config). Nunca
+# usar SENTRY_DSN (o do backend) aqui: o Sentry aceita um DSN de cliente
+# embutido no JS de qualquer site que o tenha — nada impede outra origem de
+# o usar para enviar eventos falsos, por isso convém não ser o mesmo projeto
+# que recebe os erros reais do servidor.
+# "or None" (não só os.getenv sozinho): uma linha em branco no .env
+# ("SENTRY_DSN_FRONTEND=") dá string vazia, não None — o contrato desta
+# variável (ver ConfigPublicaOut) promete None quando desligado.
+SENTRY_DSN_FRONTEND = os.getenv("SENTRY_DSN_FRONTEND") or None
 
 
 def iniciar_sentry() -> None:

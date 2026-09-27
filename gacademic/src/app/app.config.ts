@@ -1,8 +1,11 @@
-import { ApplicationConfig } from '@angular/core';
+import { ApplicationConfig, ErrorHandler } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
 import { provideStore } from '@ngrx/store';
 import { provideEffects } from '@ngrx/effects';
+
+import { GlobalErrorHandler } from './core/error-handler';
+import { erroGlobalInterceptor } from './core/interceptors/erro-global.interceptor';
 
 // Importações dos seus ficheiros
 import { authReducer } from './store/auth/auth.reducer';
@@ -66,7 +69,12 @@ import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
-    provideHttpClient(withFetch(), withInterceptors([jwtInterceptor])),
+    // Ordem importa: erroGlobalInterceptor primeiro no array = mais externo
+    // na cadeia = só vê o erro DEPOIS de jwtInterceptor já ter tentado
+    // renovar a sessão num 401 — evita um toast desnecessário num 401 que
+    // acaba resolvido em silêncio pelo refresh.
+    provideHttpClient(withFetch(), withInterceptors([erroGlobalInterceptor, jwtInterceptor])),
+    { provide: ErrorHandler, useClass: GlobalErrorHandler },
 
     // O NgRx tem de ser providenciado aqui na raiz!
     provideStore({

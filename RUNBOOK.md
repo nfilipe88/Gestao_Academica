@@ -175,3 +175,29 @@ gerar trilhas para alunos diferentes no mesmo dia; o que importa proteger ali é
 não travar cada pessoa isoladamente. Todos devolvem 429 com uma mensagem em português quando o limite
 é atingido. Ajustar os números em `app/api/v1/portal.py`, `app/api/v1/lms.py` e
 `app/api/v1/indicadores.py` se o custo real por chamada (modelo usado, `PROF_VIRTUAL_MODELO`) justificar.
+
+## 11. Erros inesperados no frontend: toast global e Sentry
+
+**Antes:** cada `*.effects.ts` do NgRx trata a sua própria falha (`catchError` → ação `...Falhou`, guardada
+num campo `erro` do seu slice) — mas isso só ajuda se o componente daquele ecrã mostrar esse campo. Um erro
+verdadeiramente inesperado (500, servidor em baixo) podia deixar o utilizador preso num "a carregar..." sem
+pista nenhuma, e não havia forma de saber que aconteceu sem a pessoa se queixar.
+
+**Agora:**
+- `erroGlobalInterceptor` (`gacademic/src/app/core/interceptors/erro-global.interceptor.ts`) mostra um
+  toast genérico para qualquer resposta **500+ ou falha de ligação** (status 0), em qualquer pedido —
+  nunca engole o erro, o `catchError` de cada effect continua a correr como antes. De propósito não cobre
+  4xx (já têm mensagem específica, mais útil, em cada módulo), nem `/auth/refresh` ou
+  `/notificacoes/contagem` (falhas silenciosas por desenho — ver os próprios ficheiros).
+- `GlobalErrorHandler` (`core/error-handler.ts`) substitui o `ErrorHandler` do Angular: continua a fazer
+  `console.error`, e também envia ao Sentry quando configurado — cobre exceções não tratadas em qualquer
+  parte da app (bugs de template/lógica), não só respostas HTTP.
+- **Sentry do frontend** (`core/services/sentry.service.ts`) segue o mesmo padrão já usado pela chave do
+  reCAPTCHA: o DSN vem de `GET /api/v1/public/config` (nunca de um ficheiro fixado no build), servido pelo
+  backend a partir de `SENTRY_DSN_FRONTEND` (ver checklist de produção). **Projeto Sentry separado do
+  backend** (`SENTRY_DSN`) de propósito — um DSN de cliente é público por natureza (só permite ENVIAR
+  eventos), por isso convém não misturar com os erros reais do servidor num projeto pensado para receber
+  só o que o próprio backend reporta. Sem `SENTRY_DSN_FRONTEND` definida, o pacote `@sentry/angular`
+  (548 KB) nem chega a ser descarregado — importado dinamicamente, só quando há DSN.
+- Sem tracing nem session replay de propósito (`tracesSampleRate: 0`) — só captura de erros, para manter o
+  custo e a exposição de dados dos alunos/encarregados ao mínimo.

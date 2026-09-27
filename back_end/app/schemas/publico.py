@@ -14,6 +14,14 @@ class ConfigPublicaOut(BaseModel):
     RECAPTCHA_SECRET_KEY. None quando não está configurada (dev/testes),
     e o frontend simplesmente não pede token nenhum nesse caso."""
     recaptcha_site_key: str | None
+    # DSN do Sentry para o Angular (ver core/monitorizacao.py) — um DSN de
+    # cliente Sentry é feito para ser público (só permite ENVIAR eventos,
+    # nunca lê nada), por isso não é segredo como a RECAPTCHA_SECRET_KEY.
+    # Projeto Sentry separado do backend, de propósito (SENTRY_DSN_FRONTEND
+    # distinta de SENTRY_DSN) — pode ser o mesmo projeto se a equipa preferir.
+    # None = telemetria de frontend desligada (comportamento por omissão).
+    sentry_dsn_frontend: str | None
+    sentry_ambiente: str
 
 
 class PlanoSaaSPublicoOut(BaseModel):

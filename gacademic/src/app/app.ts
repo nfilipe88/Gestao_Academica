@@ -5,6 +5,8 @@ import { filter } from 'rxjs';
 import { Store } from '@ngrx/store';
 import { restoreAuth } from './store/auth/auth.actions';
 import { SuporteVirtualWidgetComponent } from './shared/components/suporte-virtual-widget/suporte-virtual-widget.component/suporte-virtual-widget.component';
+import { ToastHostComponent } from './shared/components/toast-host/toast-host.component';
+import { SentryService } from './core/services/sentry.service';
 
 // Rotas com a marca da própria escola, não da plataforma — a página
 // pública de uma escola (features/public/escola) e o widget de
@@ -22,7 +24,7 @@ const PREFIXOS_SEM_MARCA_DA_PLATAFORMA = ['/escola/', '/captar/'];
   // tanto no site público como dentro da app autenticada, sem precisar
   // de o duplicar em public-layout e em dashboard-layout (exceto nas
   // rotas com a marca da própria escola — ver mostrarWidgetSuporte).
-  imports: [RouterOutlet, SuporteVirtualWidgetComponent],
+  imports: [RouterOutlet, SuporteVirtualWidgetComponent, ToastHostComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -34,6 +36,7 @@ export class App implements OnInit {
   constructor(
     private store: Store,
     private router: Router,
+    private sentry: SentryService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) { }
 
@@ -44,6 +47,10 @@ export class App implements OnInit {
       const usuario = userStr ? JSON.parse(userStr) : null;
 
       this.store.dispatch(restoreAuth({ token, usuario }));
+      // Fogo-e-esqueço: só ativa (import dinâmico) se o servidor tiver um
+      // DSN configurado — ver core/services/sentry.service.ts. Nunca deve
+      // atrasar nem bloquear o arranque da app por si só.
+      void this.sentry.iniciar();
     }
 
     this._atualizarVisibilidadeWidget(this.router.url);

@@ -29,6 +29,17 @@ async def test_listar_planos_publicos_nao_exige_autenticacao(client):
     assert isinstance(resp.json(), list)
 
 
+async def test_config_publica_sem_dsn_frontend_devolve_none(client):
+    """.env.test deixa SENTRY_DSN_FRONTEND vazio de propósito — o Angular tem de
+    ficar com a telemetria desligada em testes, nunca a apanhar um valor real."""
+    resp = await client.get("/api/v1/public/config")
+    assert resp.status_code == 200, resp.text
+    corpo = resp.json()
+    assert corpo["sentry_dsn_frontend"] is None
+    assert corpo["sentry_ambiente"] == "development"
+    assert "recaptcha_site_key" in corpo
+
+
 async def test_planos_publicos_so_mostram_ativos_e_sem_campos_internos(client):
     admin = await _criar_super_admin(client)
     headers = {"Authorization": f"Bearer {admin['token']}"}

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db_publica
-from app.core import recaptcha
+from app.core import monitorizacao, recaptcha
 from app.core.rate_limiter import excedeu_limite
 from app.core.suporte_virtual import perguntar_suporte
 from app.cruds import admin as crud_admin
@@ -23,10 +23,17 @@ router = APIRouter(prefix="/api/v1/public", tags=["Público"])
 
 @router.get("/config", response_model=ConfigPublicaOut)
 async def obter_config_publica():
-    """Configuração pública mínima que o frontend precisa antes de
-    autenticar — hoje só a chave do reCAPTCHA v3 (ver core/recaptcha.py),
-    consultada pelos formulários sem sessão (registo de escola, leads)."""
-    return ConfigPublicaOut(recaptcha_site_key=recaptcha.RECAPTCHA_SITE_KEY)
+    """Configuração pública que o frontend precisa antes de autenticar (e,
+    no caso do Sentry, também depois — é chamado uma vez no arranque da app
+    Angular inteira, ver core/services/sentry.service.ts): a chave do
+    reCAPTCHA v3 (ver core/recaptcha.py) e o DSN público do Sentry para o
+    frontend (ver core/monitorizacao.py). Ambos None/vazios = a
+    funcionalidade correspondente fica desligada, nunca um erro."""
+    return ConfigPublicaOut(
+        recaptcha_site_key=recaptcha.RECAPTCHA_SITE_KEY,
+        sentry_dsn_frontend=monitorizacao.SENTRY_DSN_FRONTEND,
+        sentry_ambiente=monitorizacao.SENTRY_ENVIRONMENT,
+    )
 
 
 @router.get("/planos", response_model=list[PlanoSaaSPublicoOut])

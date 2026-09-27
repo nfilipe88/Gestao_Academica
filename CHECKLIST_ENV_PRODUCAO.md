@@ -39,7 +39,8 @@ python scripts/verificar_env_producao.py
 | ✔ | Variável | O que pôr | Notas |
 |---|---|---|---|
 | [ ] | `RECAPTCHA_SITE_KEY`, `RECAPTCHA_SECRET_KEY` | Chaves **v3** criadas para o **domínio de produção** (uma chave por domínio). | Sem elas o registo e os leads públicos ficam só com rate limiting. O log mostra `reCAPTCHA recusou um pedido:` quando bloqueia. |
-| [ ] | `SENTRY_DSN`, `SENTRY_ENVIRONMENT=production` | Projeto Sentry de produção. | Sem isto os erros só existem no stdout do processo. |
+| [ ] | `SENTRY_DSN`, `SENTRY_ENVIRONMENT=production` | Projeto Sentry de produção (backend). | Sem isto os erros só existem no stdout do processo. |
+| [ ] | `SENTRY_DSN_FRONTEND` | Projeto Sentry **separado** do de cima, para o Angular (ver RUNBOOK secção 11). | Sem isto, erros de JavaScript no browser dos alunos/encarregados (dispositivos e navegadores difíceis de reproduzir) só se descobrem se alguém se queixar. |
 | [ ] | `BACKUP_RETENCAO_DIAS` | 14 por omissão; ajustar conforme o espaço do bucket. | Backup diário às 03:00; verificar o primeiro na manhã seguinte (ver checklist 4). |
 | [ ] | `PG_DUMP_PATH`, `PG_RESTORE_PATH` | Só se `pg_dump`/`pg_restore` não estiverem no `PATH` do servidor. **Versão do cliente ≥ versão do servidor Postgres.** | `pg_dump --version` no servidor. |
 | [ ] | `DB_POOL_SIZE` + `DB_POOL_MAX_OVERFLOW` | 20 + 20 por omissão = 40 ligações. Têm de caber no `max_connections` do Postgres (menos as ligações de migração/backup/administração). | Só relevante se o Postgres for pequeno. |
