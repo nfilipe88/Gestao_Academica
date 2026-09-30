@@ -115,6 +115,12 @@ class LMSExame(Base):
     grupo_id: Mapped[uuid.UUID] = mapped_column(nullable=False, default=uuid.uuid4, index=True)
     letra_variante: Mapped[str] = mapped_column(String(5), nullable=False, default="A")
     modalidade: Mapped[str] = mapped_column(String(20), nullable=False, default="PRESENCIAL")  # PRESENCIAL | REMOTO — só informativo
+    # Condição de acesso, verificada só no browser do aluno (o servidor
+    # não tem como provar que a câmara/microfone estiveram ligados o
+    # exame todo — só pode confiar no que o browser reporta). Nunca
+    # grava nem guarda vídeo/áudio nenhum, ver LMSTentativaExame.
+    exigir_camera: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    exigir_microfone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # RESTRICT (não CASCADE): uma Avaliação já usada para notas de um
     # exame LMS nunca deve desaparecer silenciosamente por uma cascata
     # vinda do lado do Diário — ver cruds/diario.py::apagar_avaliacao.
@@ -169,10 +175,26 @@ class LMSTentativaExame(Base):
     interrogado linha-a-linha em SQL. Formato:
     {questao_id (str): {"pontos": "1.50", "comentario": str | None}}.
 
-    eventos_suspeitos: reservado para o proctoring básico (Page
-    Visibility API) — contagem de vezes que o aluno saiu da aba
-    durante a tentativa. Existe já aqui para não precisar de outra
-    migração quando essa funcionalidade for ligada.
+    eventos_suspeitos: contagem de vezes que o aluno saiu da aba
+    durante a tentativa (Page Visibility API) — cada evento anula a
+    tentativa de imediato (ver anulada/anulada_motivo abaixo e
+    cruds/lms.py::registar_evento_suspeito); a contagem fica só como
+    histórico do que aconteceu, a decisão de anular já não espera por
+    revisão humana.
+
+    anulada/anulada_motivo/anulada_em: motivo de fraude (saiu da
+    página, ou desligou câmara/microfone obrigatórios a meio — ver
+    cruds/lms.py::registar_violacao_dispositivo). Uma vez anulada,
+    submeter_tentativa recusa e iniciar_tentativa devolve o estado
+    anulado em vez de deixar continuar a responder — nunca há caminho
+    de volta a EM_CURSO.
+
+    amostras_foco_total/amostras_foco_positivas: deteção de foco
+    (rosto orientado para o ecrã) corrida inteiramente no browser do
+    aluno — só a contagem agregada chega aqui, nunca vídeo/imagem
+    nenhuma. foco_percentual (calculado, nunca guardado) informa aluno
+    e professor mas NUNCA anula sozinho — ao contrário de
+    eventos_suspeitos, a decisão aqui continua a ser humana.
     """
     __tablename__ = "lms_tentativa_exame"
 
@@ -186,6 +208,13 @@ class LMSTentativaExame(Base):
     nota_obtida: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
     nota_maxima: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
     eventos_suspeitos: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    anulada: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    anulada_motivo: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    anulada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    amostras_foco_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    amostras_foco_positivas: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # default True: uma tentativa sem nenhuma questão ABERTA fica
     # sempre finalizada de imediato em submeter_tentativa, exatamente

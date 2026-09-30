@@ -400,6 +400,8 @@ async def criar_grupo_exame(db: AsyncSession, utilizador: dict, dados: LMSGrupoE
             data_fim=dados.data_fim,
             duracao_minutos=dados.duracao_minutos,
             baralhar_perguntas=dados.baralhar_perguntas,
+            exigir_camera=dados.exigir_camera,
+            exigir_microfone=dados.exigir_microfone,
             publicado=False,
             grupo_id=grupo_id,
             letra_variante=letra,
@@ -627,11 +629,18 @@ async def obter_exame_com_gabarito(db: AsyncSession, utilizador: dict, exame_id:
 
 
 def _derivar_status_tentativa(tentativa: LMSTentativaExame) -> str:
-    """EM_CURSO/NAO_INICIADA continuam derivados de data_submissao;
-    SUBMETIDA passa a ter dois casos possíveis por trás (sempre 100%
-    automática, ou finalizada manualmente) — distinguidos por
-    corrigida_finalizada, que introduz o terceiro estado AGUARDA_CORRECAO
-    (submetida, mas com pelo menos uma questão ABERTA por pontuar)."""
+    """ANULADA vence sobre tudo o resto — uma vez anulada (saiu da
+    página, ou desligou câmara/microfone obrigatórios a meio, ver
+    registar_evento_suspeito/registar_violacao_dispositivo) não há
+    caminho de volta a EM_CURSO nem a SUBMETIDA, mesmo que já tivesse
+    respostas dadas. EM_CURSO/NAO_INICIADA continuam derivados de
+    data_submissao; SUBMETIDA passa a ter dois casos possíveis por trás
+    (sempre 100% automática, ou finalizada manualmente) — distinguidos
+    por corrigida_finalizada, que introduz o terceiro estado
+    AGUARDA_CORRECAO (submetida, mas com pelo menos uma questão ABERTA
+    por pontuar)."""
+    if tentativa.anulada:
+        return "ANULADA"
     if not tentativa.data_submissao:
         return "EM_CURSO"
     return "SUBMETIDA" if tentativa.corrigida_finalizada else "AGUARDA_CORRECAO"
@@ -661,6 +670,15 @@ async def listar_resultados_exame(db: AsyncSession, utilizador: dict, exame_id: 
             "nota_obtida": tentativa.nota_obtida,
             "nota_maxima": tentativa.nota_maxima,
             "eventos_suspeitos": tentativa.eventos_suspeitos,
+            "anulada": tentativa.anulada,
+            "anulada_motivo": tentativa.anulada_motivo,
+            # None (não 0%) quando ainda não há nenhuma amostra — evita
+            # mostrar "0% focado" a um professor quando na verdade o
+            # exame nem exigia câmara.
+            "foco_percentual": (
+                round(tentativa.amostras_foco_positivas / tentativa.amostras_foco_total * 100, 1)
+                if tentativa.amostras_foco_total > 0 else None
+            ),
             "data_inicio": tentativa.data_inicio,
             "data_submissao": tentativa.data_submissao,
             "corrigida_finalizada": tentativa.corrigida_finalizada,
@@ -754,7 +772,12 @@ async def listar_exames_do_aluno(db: AsyncSession, tenant_id, matricula_id: uuid
             "data_fim": exame.data_fim,
             "duracao_minutos": exame.duracao_minutos,
             "modalidade": exame.modalidade,
+            "exigir_camera": exame.exigir_camera,
+            "exigir_microfone": exame.exigir_microfone,
             "status_tentativa": status_tentativa,
+            "anulada_motivo": tentativa.anulada_motivo if tentativa else None,
+            # ANULADA nunca aparece aqui (não está em NAO_INICIADA/EM_CURSO) — uma
+            # tentativa anulada nunca pode ser retomada, ver iniciar_tentativa.
             "pode_iniciar": status_tentativa in ("NAO_INICIADA", "EM_CURSO") and dentro_da_janela,
             # Enquanto a aguardar correção, a nota está só parcialmente
             # calculada (falta pontuar as questões ABERTA) — não é
@@ -806,6 +829,16 @@ async def iniciar_tentativa(db: AsyncSession, tenant_id, matricula_id: uuid.UUID
     )).scalars().first()
 
     if tentativa:
+        if tentativa.anulada:
+            # Sem caminho de volta — nem repetir, nem continuar a
+            # responder. O frontend troca para o ecrã bloqueante assim
+            # que vir "anulada": true na resposta.
+            return {
+                "tentativa_id": tentativa.id, "titulo": exame.titulo,
+                "data_inicio_tentativa": tentativa.data_inicio, "duracao_minutos": exame.duracao_minutos,
+                "perguntas": [], "respostas_ja_dadas": {},
+                "anulada": True, "anulada_motivo": tentativa.anulada_motivo,
+            }
         if tentativa.data_submissao:
             raise HTTPException(status_code=400, detail="Já submeteu este exame — não é possível repetir.")
         # Retoma a tentativa já em curso, com a MESMA ordem gerada da primeira vez (nunca gera uma nova).
@@ -840,17 +873,31 @@ async def iniciar_tentativa(db: AsyncSession, tenant_id, matricula_id: uuid.UUID
             for qid in ordem_ids if qid in questoes
         ],
         "respostas_ja_dadas": tentativa.respostas,
+        "anulada": False,
+        "anulada_motivo": None,
     }
 
 
-async def registar_evento_suspeito(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, turma_id: uuid.UUID, exame_id: uuid.UUID) -> int:
+async def _anular_tentativa(db: AsyncSession, tentativa: LMSTentativaExame, motivo: str) -> None:
+    """Marca a tentativa como anulada por suspeita de fraude — sem
+    caminho de volta (ver _derivar_status_tentativa/submeter_tentativa/
+    iniciar_tentativa). Chamado só a partir de registar_evento_suspeito
+    e registar_violacao_dispositivo; nunca por registar_sinal_foco, que
+    é sempre só um sinal para revisão humana."""
+    tentativa.anulada = True
+    tentativa.anulada_motivo = motivo
+    tentativa.anulada_em = datetime.now(timezone.utc)
+
+
+async def registar_evento_suspeito(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, turma_id: uuid.UUID, exame_id: uuid.UUID) -> dict:
     """
-    Proctoring básico (Page Visibility API): o frontend chama isto cada
-    vez que o aluno sai da aba/janela durante uma tentativa em curso —
-    a deteção em si vive só no browser (ver features/portal), este
-    endpoint só regista a contagem para o professor rever ao corrigir
-    (ver listar_resultados_exame). Nunca bloqueia nem invalida a
-    tentativa — é só sinal, a decisão fica sempre com um humano.
+    Proctoring básico (Page Visibility API): o frontend chama isto assim
+    que deteta que o aluno saiu da aba/janela durante uma tentativa em
+    curso (a deteção em si vive só no browser, ver features/portal).
+    Ao contrário da versão anterior desta função, isto ANULA a
+    tentativa de imediato — não é mais só um sinal para revisão
+    humana, é a consequência real avisada ao aluno antes de começar o
+    exame (ver portal.component.ts).
     """
     await _obter_exame_publicado_da_turma(db, tenant_id, exame_id, turma_id, matricula_id)
 
@@ -858,15 +905,63 @@ async def registar_evento_suspeito(db: AsyncSession, tenant_id, matricula_id: uu
         select(LMSTentativaExame).where(LMSTentativaExame.exame_id == exame_id, LMSTentativaExame.matricula_id == matricula_id)
     )).scalars().first()
     if not tentativa or tentativa.data_submissao:
-        # Tentativa inexistente ou já fechada — nada a registar (o
-        # aluno pode ter mudado de aba depois de sair do exame; não é
-        # um erro que valha a pena reportar ao frontend).
-        return tentativa.eventos_suspeitos if tentativa else 0
+        # Tentativa inexistente ou já fechada (submetida ou já
+        # anulada antes) — nada a fazer (o aluno pode ter mudado de aba
+        # depois de sair do exame; não é um erro que valha a pena
+        # reportar ao frontend).
+        return {"eventos_suspeitos": tentativa.eventos_suspeitos if tentativa else 0, "anulada": tentativa.anulada if tentativa else False}
 
     tentativa.eventos_suspeitos += 1
+    if not tentativa.anulada:
+        await _anular_tentativa(db, tentativa, "Saiu da página durante o exame.")
     await db.commit()
     await db.refresh(tentativa)
-    return tentativa.eventos_suspeitos
+    return {"eventos_suspeitos": tentativa.eventos_suspeitos, "anulada": tentativa.anulada}
+
+
+async def registar_violacao_dispositivo(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, turma_id: uuid.UUID, exame_id: uuid.UUID, tipo: str) -> dict:
+    """Uma track de câmara/microfone obrigatória parou a meio do exame
+    (permissão revogada, dispositivo desligado) — o frontend só chama
+    isto para um tipo que o exame de facto exige (ver
+    LMSExame.exigir_camera/exigir_microfone); conceder a permissão só
+    no início e desligar a seguir era o desvio óbvio que isto fecha.
+    Mesmo mecanismo de anulação de registar_evento_suspeito."""
+    await _obter_exame_publicado_da_turma(db, tenant_id, exame_id, turma_id, matricula_id)
+
+    tentativa = (await db.execute(
+        select(LMSTentativaExame).where(LMSTentativaExame.exame_id == exame_id, LMSTentativaExame.matricula_id == matricula_id)
+    )).scalars().first()
+    if not tentativa or tentativa.data_submissao:
+        return {"anulada": tentativa.anulada if tentativa else False}
+
+    if not tentativa.anulada:
+        dispositivo = "Câmara" if tipo == "camera" else "Microfone"
+        await _anular_tentativa(db, tentativa, f"{dispositivo} obrigatório(a) foi desligado(a) durante o exame.")
+    await db.commit()
+    await db.refresh(tentativa)
+    return {"anulada": tentativa.anulada}
+
+
+async def registar_sinal_foco(db: AsyncSession, tenant_id, matricula_id: uuid.UUID, turma_id: uuid.UUID, exame_id: uuid.UUID, amostras_focado: int, amostras_totais: int) -> dict:
+    """Lote periódico de amostras de deteção de foco calculadas no
+    browser do aluno (ver SinalFocoInput) — soma-se sempre ao total
+    acumulado da tentativa, nunca substitui. Ao contrário dos dois
+    sinais acima, NUNCA anula a tentativa sozinho — só informa (ver
+    listar_resultados_exame::foco_percentual), a decisão continua a
+    ser humana."""
+    await _obter_exame_publicado_da_turma(db, tenant_id, exame_id, turma_id, matricula_id)
+
+    tentativa = (await db.execute(
+        select(LMSTentativaExame).where(LMSTentativaExame.exame_id == exame_id, LMSTentativaExame.matricula_id == matricula_id)
+    )).scalars().first()
+    if not tentativa or tentativa.data_submissao:
+        return {"amostras_foco_total": tentativa.amostras_foco_total if tentativa else 0, "amostras_foco_positivas": tentativa.amostras_foco_positivas if tentativa else 0}
+
+    tentativa.amostras_foco_total += amostras_totais
+    tentativa.amostras_foco_positivas += amostras_focado
+    await db.commit()
+    await db.refresh(tentativa)
+    return {"amostras_foco_total": tentativa.amostras_foco_total, "amostras_foco_positivas": tentativa.amostras_foco_positivas}
 
 
 async def _notificar_exame_corrigido(db: AsyncSession, tenant_id, exame: LMSExame, matricula_id: uuid.UUID, tentativa: LMSTentativaExame) -> None:
@@ -905,6 +1000,8 @@ async def submeter_tentativa(db: AsyncSession, tenant_id, matricula_id: uuid.UUI
     )).scalars().first()
     if not tentativa:
         raise HTTPException(status_code=400, detail="Ainda não iniciou este exame.")
+    if tentativa.anulada:
+        raise HTTPException(status_code=400, detail="Esta tentativa foi anulada — não é possível submeter.")
     if tentativa.data_submissao:
         raise HTTPException(status_code=400, detail="Já submeteu este exame.")
 

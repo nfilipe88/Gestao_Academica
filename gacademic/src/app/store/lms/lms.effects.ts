@@ -177,6 +177,7 @@ export class LmsEffects {
       switchMap(action => this.http.post('/api/v1/lms/grupos-exame', {
         alocacao_id: action.alocacao_id, titulo: action.titulo, data_inicio: action.data_inicio, data_fim: action.data_fim,
         duracao_minutos: action.duracao_minutos, baralhar_perguntas: action.baralhar_perguntas, modalidade: action.modalidade,
+        exigir_camera: action.exigir_camera, exigir_microfone: action.exigir_microfone,
         periodo_avaliacao: action.periodo_avaliacao, tipo_avaliacao: action.tipo_avaliacao, peso: action.peso,
         variantes: action.variantes
       }).pipe(

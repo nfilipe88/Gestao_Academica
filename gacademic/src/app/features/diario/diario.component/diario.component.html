@@ -818,6 +818,16 @@
                 </label>
               </div>
 
+              <!-- Verificado só no browser do aluno — nunca grava nem guarda vídeo/áudio nenhum. -->
+              <div class="flex items-center gap-4">
+                <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+                  <input type="checkbox" formControlName="exigir_camera" /> Exigir câmara ligada
+                </label>
+                <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+                  <input type="checkbox" formControlName="exigir_microfone" /> Exigir microfone ligado
+                </label>
+              </div>
+
               <!-- A prova alimenta sempre uma Avaliacao do Diário — mesmo catálogo já usado acima em "Avaliações" (o Professor só vê tipos sem agendamento). -->
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
                 <div>
@@ -954,6 +964,7 @@
                         <th class="py-1 pr-3 font-medium">Estado</th>
                         <th class="py-1 pr-3 font-medium text-right">Nota</th>
                         <th class="py-1 pr-3 font-medium text-right">Eventos suspeitos</th>
+                        <th class="py-1 pr-3 font-medium text-right">Foco</th>
                         <th class="py-1 pr-3 font-medium text-right">Ação</th>
                       </tr>
                     </thead>
@@ -963,7 +974,11 @@
                           <td class="py-1.5 pr-3 text-slate-700">{{ resultado.nome_aluno }}</td>
                           <td class="py-1.5 pr-3 text-slate-500">{{ resultado.letra_variante }}</td>
                           <td class="py-1.5 pr-3">
-                            @if (resultado.status === 'AGUARDA_CORRECAO') {
+                            @if (resultado.anulada) {
+                              <span class="text-xs font-medium text-rose-700 bg-rose-100 rounded-full px-2 py-0.5" [title]="resultado.anulada_motivo ?? ''">
+                                ⚠ Anulada
+                              </span>
+                            } @else if (resultado.status === 'AGUARDA_CORRECAO') {
                               <span class="text-xs font-medium text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">A aguardar correção</span>
                             } @else {
                               <span class="text-slate-500">{{ resultado.status === 'SUBMETIDA' ? 'Submetida' : 'Em curso' }}</span>
@@ -980,6 +995,18 @@
                             }
                           </td>
                           <td class="py-1.5 pr-3 text-right">
+                            @if (resultado.foco_percentual === null) {
+                              <span class="text-xs text-slate-400">—</span>
+                            } @else {
+                              <span class="text-xs font-medium rounded-full px-2 py-0.5"
+                                [class.bg-emerald-100]="resultado.foco_percentual >= 70" [class.text-emerald-700]="resultado.foco_percentual >= 70"
+                                [class.bg-amber-100]="resultado.foco_percentual >= 50 && resultado.foco_percentual < 70" [class.text-amber-700]="resultado.foco_percentual >= 50 && resultado.foco_percentual < 70"
+                                [class.bg-rose-100]="resultado.foco_percentual < 50" [class.text-rose-700]="resultado.foco_percentual < 50">
+                                {{ resultado.foco_percentual }}%
+                              </span>
+                            }
+                          </td>
+                          <td class="py-1.5 pr-3 text-right">
                             @if (resultado.data_submissao) {
                               <button type="button" (click)="onAbrirCorrecao(resultado.matricula_id, resultado.exame_id)"
                                 class="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
@@ -990,7 +1017,7 @@
                         </tr>
                         @if (corrigindoMatriculaId === resultado.matricula_id) {
                           <tr class="bg-slate-50">
-                            <td colspan="6" class="p-3">
+                            <td colspan="7" class="p-3">
                               <div class="space-y-3">
                                 @if (exameDetalhe$ | async; as exameDetalhe) {
                                   @for (pergunta of exameDetalhe.perguntas; track pergunta.id) {

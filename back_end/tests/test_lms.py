@@ -83,6 +83,7 @@ async def _criar_grupo_exame(
     client, headers, alocacao_id: str, variantes_questao_ids: list[list[str]], *,
     titulo: str = "Prova", dentro_da_janela: bool = True, modalidade: str = "PRESENCIAL",
     periodo_avaliacao: str = "1º Trimestre", tipo_avaliacao: str = "CONTINUA", peso: str = "100",
+    exigir_camera: bool = False, exigir_microfone: bool = False,
 ):
     agora = datetime.now(timezone.utc)
     if dentro_da_janela:
@@ -94,6 +95,7 @@ async def _criar_grupo_exame(
         "alocacao_id": alocacao_id, "titulo": titulo,
         "data_inicio": inicio.isoformat(), "data_fim": fim.isoformat(),
         "duracao_minutos": 30, "modalidade": modalidade,
+        "exigir_camera": exigir_camera, "exigir_microfone": exigir_microfone,
         "periodo_avaliacao": periodo_avaliacao, "tipo_avaliacao": tipo_avaliacao, "peso": peso,
         "variantes": [{"questao_ids": ids} for ids in variantes_questao_ids],
     })
@@ -419,7 +421,7 @@ async def test_reatribuicao_apos_tentativa_iniciada_e_bloqueada(client):
 # ==========================================
 # FLUXO DO ALUNO — iniciar, evento suspeito, submeter, resultado
 # ==========================================
-async def _preparar_grupo_iniciado(client, headers, ano_letivo, dentro_da_janela=True, num_variantes=1, tipo_avaliacao="CONTINUA"):
+async def _preparar_grupo_iniciado(client, headers, ano_letivo, dentro_da_janela=True, num_variantes=1, tipo_avaliacao="CONTINUA", exigir_camera=False, exigir_microfone=False):
     """Prepara um grupo de exame (1+ variantes) já INICIADO (publicado
     + iniciado + round-robin aplicado), com um único aluno matriculado
     (com acesso ao Portal) — substituindo a antiga _preparar_exame_publicado,
@@ -439,7 +441,8 @@ async def _preparar_grupo_iniciado(client, headers, ano_letivo, dentro_da_janela
 
     resp = await _criar_grupo_exame(
         client, headers, alocacao_id, variantes_questao_ids,
-        titulo="Exame do Aluno", dentro_da_janela=dentro_da_janela, tipo_avaliacao=tipo_avaliacao
+        titulo="Exame do Aluno", dentro_da_janela=dentro_da_janela, tipo_avaliacao=tipo_avaliacao,
+        exigir_camera=exigir_camera, exigir_microfone=exigir_microfone,
     )
     assert resp.status_code == 201, resp.text
     exames = resp.json()
@@ -636,6 +639,131 @@ async def test_evento_suspeito_incrementa_e_aparece_nos_resultados(client):
     resp = await client.get(f"/api/v1/lms/exames/{dados['exame_id']}/resultados", headers=headers)
     assert resp.status_code == 200, resp.text
     assert resp.json()[0]["eventos_suspeitos"] == 2
+
+
+async def test_evento_suspeito_anula_a_tentativa_e_bloqueia_submissao(client):
+    """Ao contrário do simples contador de antes, sair da página agora
+    anula a tentativa de imediato — sem caminho de volta (ver
+    cruds/lms.py::registar_evento_suspeito/_anular_tentativa)."""
+    escola = await criar_escola_e_gestor(client, "lms-evento-anula")
+    headers = auth_headers(escola["token"])
+    dados = await _preparar_grupo_iniciado(client, headers, date.today().year)
+    headers_aluno = auth_headers(dados["token_aluno"])
+
+    await client.post(f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/iniciar", headers=headers_aluno)
+
+    resp = await client.post(
+        f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/evento-suspeito", headers=headers_aluno
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"eventos_suspeitos": 1, "anulada": True}
+
+    # Não pode submeter uma tentativa anulada.
+    resp = await client.post(
+        f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/submeter",
+        headers=headers_aluno, json={"respostas": {dados["questao_id"]: "1"}}
+    )
+    assert resp.status_code == 400, resp.text
+    assert "anulada" in resp.json()["detail"].lower()
+
+    # Retomar mostra o estado anulado, sem perguntas nem caminho de volta.
+    resp = await client.post(f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/iniciar", headers=headers_aluno)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["anulada"] is True
+    assert resp.json()["perguntas"] == []
+
+    # Aparece corretamente na lista e nos resultados do professor.
+    resp = await client.get(f"/api/v1/portal/educandos/{dados['aluno_id']}/exames", headers=headers_aluno)
+    exame_na_lista = resp.json()[0]
+    assert exame_na_lista["status_tentativa"] == "ANULADA"
+    assert exame_na_lista["pode_iniciar"] is False
+
+    resp = await client.get(f"/api/v1/lms/exames/{dados['exame_id']}/resultados", headers=headers)
+    assert resp.json()[0]["anulada"] is True
+    assert resp.json()[0]["anulada_motivo"]
+
+
+async def test_violacao_dispositivo_anula_so_quando_exame_exige(client):
+    """A câmara obrigatória parou de transmitir a meio do exame — mesmo
+    mecanismo de anulação do evento-suspeito (ver
+    cruds/lms.py::registar_violacao_dispositivo)."""
+    escola = await criar_escola_e_gestor(client, "lms-violacao-dispositivo")
+    headers = auth_headers(escola["token"])
+    dados = await _preparar_grupo_iniciado(client, headers, date.today().year, exigir_camera=True)
+    headers_aluno = auth_headers(dados["token_aluno"])
+
+    await client.post(f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/iniciar", headers=headers_aluno)
+
+    resp = await client.post(
+        f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/violacao-dispositivo",
+        headers=headers_aluno, json={"tipo": "camera"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["anulada"] is True
+
+    resp = await client.get(f"/api/v1/lms/exames/{dados['exame_id']}/resultados", headers=headers)
+    assert resp.json()[0]["anulada_motivo"] and "Câmara" in resp.json()[0]["anulada_motivo"]
+
+
+async def test_exigir_camera_e_microfone_persistido_e_devolvido_ao_aluno(client):
+    escola = await criar_escola_e_gestor(client, "lms-exigir-camera")
+    headers = auth_headers(escola["token"])
+    dados = await _preparar_grupo_iniciado(client, headers, date.today().year, exigir_camera=True, exigir_microfone=False)
+    headers_aluno = auth_headers(dados["token_aluno"])
+
+    resp = await client.get(f"/api/v1/portal/educandos/{dados['aluno_id']}/exames", headers=headers_aluno)
+    assert resp.status_code == 200, resp.text
+    exame = resp.json()[0]
+    assert exame["exigir_camera"] is True
+    assert exame["exigir_microfone"] is False
+
+
+async def test_sinal_foco_acumula_e_nunca_anula(client):
+    escola = await criar_escola_e_gestor(client, "lms-sinal-foco")
+    headers = auth_headers(escola["token"])
+    dados = await _preparar_grupo_iniciado(client, headers, date.today().year, exigir_camera=True)
+    headers_aluno = auth_headers(dados["token_aluno"])
+
+    await client.post(f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/iniciar", headers=headers_aluno)
+
+    resp = await client.post(
+        f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/sinal-foco",
+        headers=headers_aluno, json={"amostras_focado": 8, "amostras_totais": 10}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"amostras_foco_total": 10, "amostras_foco_positivas": 8}
+
+    # Um segundo lote SOMA, nunca substitui.
+    resp = await client.post(
+        f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/sinal-foco",
+        headers=headers_aluno, json={"amostras_focado": 2, "amostras_totais": 10}
+    )
+    assert resp.json() == {"amostras_foco_total": 20, "amostras_foco_positivas": 10}
+
+    resp = await client.get(f"/api/v1/lms/exames/{dados['exame_id']}/resultados", headers=headers)
+    assert resp.json()[0]["foco_percentual"] == 50.0
+    # Nunca anula sozinho, mesmo com foco baixo.
+    assert resp.json()[0]["anulada"] is False
+
+    resp = await client.post(
+        f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/submeter",
+        headers=headers_aluno, json={"respostas": {dados["questao_id"]: "1"}}
+    )
+    assert resp.status_code == 200, resp.text  # não anulada — continua a poder submeter normalmente
+
+
+async def test_sinal_foco_invalido_e_recusado(client):
+    escola = await criar_escola_e_gestor(client, "lms-sinal-foco-invalido")
+    headers = auth_headers(escola["token"])
+    dados = await _preparar_grupo_iniciado(client, headers, date.today().year, exigir_camera=True)
+    headers_aluno = auth_headers(dados["token_aluno"])
+    await client.post(f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/iniciar", headers=headers_aluno)
+
+    resp = await client.post(
+        f"/api/v1/portal/educandos/{dados['aluno_id']}/exames/{dados['exame_id']}/sinal-foco",
+        headers=headers_aluno, json={"amostras_focado": 11, "amostras_totais": 10}
+    )
+    assert resp.status_code == 422, resp.text
 
 
 async def test_responsavel_nao_pode_iniciar_nem_submeter_exame(client):

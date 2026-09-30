@@ -192,13 +192,41 @@ export class PortalEffects {
   registarEventoSuspeito$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PortalActions.registarEventoSuspeito),
-      switchMap(action => this.http.post<{ eventos_suspeitos: number }>(
+      switchMap(action => this.http.post<{ eventos_suspeitos: number, anulada: boolean }>(
         `/api/v1/portal/educandos/${action.aluno_id}/exames/${action.exame_id}/evento-suspeito`, {}
       ).pipe(
-        map(resp => PortalActions.registarEventoSuspeitoSucesso({ eventos_suspeitos: resp.eventos_suspeitos })),
-        // Silencioso — perder um evento de proctoring não deve mostrar
-        // erro nem atrapalhar o aluno a meio do exame.
+        map(resp => PortalActions.registarEventoSuspeitoSucesso({ eventos_suspeitos: resp.eventos_suspeitos, anulada: resp.anulada })),
+        // Silencioso — perder este sinal não deve mostrar erro nem
+        // atrapalhar o aluno a meio do exame; a anulação em si (se
+        // aplicável) só é visível quando ele voltar à aba.
         catchError(() => of({ type: '[Portal] Evento Suspeito Ignorado' }))
+      ))
+    )
+  );
+
+  registarViolacaoDispositivo$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.registarViolacaoDispositivo),
+      switchMap(action => this.http.post<{ anulada: boolean }>(
+        `/api/v1/portal/educandos/${action.aluno_id}/exames/${action.exame_id}/violacao-dispositivo`, { tipo: action.tipo }
+      ).pipe(
+        map(resp => PortalActions.registarViolacaoDispositivoSucesso({ anulada: resp.anulada })),
+        catchError(() => of({ type: '[Portal] Violacao Dispositivo Ignorada' }))
+      ))
+    )
+  );
+
+  reportarSinalFoco$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(PortalActions.reportarSinalFoco),
+      switchMap(action => this.http.post<{ amostras_foco_total: number, amostras_foco_positivas: number }>(
+        `/api/v1/portal/educandos/${action.aluno_id}/exames/${action.exame_id}/sinal-foco`,
+        { amostras_focado: action.amostras_focado, amostras_totais: action.amostras_totais }
+      ).pipe(
+        map(resp => PortalActions.reportarSinalFocoSucesso(resp)),
+        // Silencioso — é só um sinal informativo, perder um lote não
+        // deve interromper o exame.
+        catchError(() => of({ type: '[Portal] Sinal Foco Ignorado' }))
       ))
     )
   );

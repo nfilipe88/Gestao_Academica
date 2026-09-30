@@ -48,6 +48,10 @@ export interface LmsGrupoExame {
   data_fim: string;
   duracao_minutos: number;
   modalidade: Modalidade;
+  // Condição de acesso verificada só no browser do aluno — nunca
+  // grava nem guarda vídeo/áudio (ver LmsResultadoAlunoExame.foco_percentual).
+  exigir_camera: boolean;
+  exigir_microfone: boolean;
   publicado: boolean;
   iniciado: boolean;
   iniciado_em: string | null;
@@ -67,6 +71,8 @@ export interface LmsExameDetalhe {
   grupo_id: string;
   letra_variante: string;
   modalidade: Modalidade;
+  exigir_camera: boolean;
+  exigir_microfone: boolean;
   iniciado: boolean;
   perguntas: LmsQuestao[];
 }
@@ -82,10 +88,15 @@ export interface LmsResultadoAlunoExame {
   nome_aluno: string;
   exame_id: string;
   // AGUARDA_CORRECAO: submetida mas com ≥1 questão ABERTA ainda por pontuar.
-  status: 'EM_CURSO' | 'SUBMETIDA' | 'AGUARDA_CORRECAO';
+  // ANULADA: suspeita de fraude — sem caminho de volta.
+  status: 'EM_CURSO' | 'SUBMETIDA' | 'AGUARDA_CORRECAO' | 'ANULADA';
   nota_obtida: number | null;
   nota_maxima: number | null;
   eventos_suspeitos: number;
+  anulada: boolean;
+  anulada_motivo: string | null;
+  // null = o exame não exigia câmara, ou ainda não há nenhuma amostra.
+  foco_percentual: number | null;
   data_inicio: string;
   data_submissao: string | null;
   corrigida_finalizada: boolean;

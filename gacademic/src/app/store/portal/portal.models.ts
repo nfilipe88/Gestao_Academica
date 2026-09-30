@@ -171,10 +171,18 @@ export interface ExameEducando {
   data_fim: string;
   duracao_minutos: number;
   modalidade: 'PRESENCIAL' | 'REMOTO';
+  // Condição de acesso verificada só no browser — sem conceder a
+  // permissão pedida, o aluno fica bloqueado de começar (ver
+  // portal.component.ts, ecrã de permissão antes de iniciarTentativaExame).
+  exigir_camera: boolean;
+  exigir_microfone: boolean;
   // AGUARDA_CORRECAO: já submetida, mas com ≥1 questão de resposta
   // aberta ainda por corrigir — nota_obtida/nota_maxima ficam a null
   // enquanto este estiver ativo (ver cruds/lms.py::listar_exames_do_aluno).
-  status_tentativa: 'NAO_INICIADA' | 'EM_CURSO' | 'SUBMETIDA' | 'AGUARDA_CORRECAO';
+  // ANULADA: suspeita de fraude (saiu da página, ou desligou
+  // câmara/microfone obrigatórios a meio) — sem caminho de volta.
+  status_tentativa: 'NAO_INICIADA' | 'EM_CURSO' | 'SUBMETIDA' | 'AGUARDA_CORRECAO' | 'ANULADA';
+  anulada_motivo: string | null;
   pode_iniciar: boolean;
   nota_obtida: number | null;
   nota_maxima: number | null;
@@ -196,6 +204,11 @@ export interface TentativaIniciada {
   duracao_minutos: number;
   perguntas: PerguntaTentativa[];
   respostas_ja_dadas: Record<string, string>;
+  // true quando o back-end recusa retomar uma tentativa já anulada —
+  // perguntas/respostas_ja_dadas vêm vazias nesse caso (ver
+  // cruds/lms.py::iniciar_tentativa).
+  anulada: boolean;
+  anulada_motivo: string | null;
 }
 
 export interface PerguntaResultado {

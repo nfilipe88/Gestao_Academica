@@ -1,5 +1,5 @@
 """Schemas Pydantic do LMS (materiais de aula, banco de questões, exames) e do Prof. Virtual."""
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 from decimal import Decimal
 import uuid
@@ -111,6 +111,12 @@ class LMSGrupoExameCreate(BaseModel):
     duracao_minutos: int
     baralhar_perguntas: bool = True
     modalidade: str = "PRESENCIAL"
+    # Condição de acesso ao exame, verificada só no browser do aluno —
+    # sem conceder a permissão pedida, o aluno fica bloqueado de
+    # começar (ver cruds/lms.py::iniciar_tentativa). Nunca grava nem
+    # guarda vídeo/áudio nenhum.
+    exigir_camera: bool = False
+    exigir_microfone: bool = False
     # Cria a Avaliacao que recebe as notas — reaproveita o catálogo já
     # existente do Diário (ver cruds/diario.py::criar_avaliacao).
     periodo_avaliacao: str
@@ -145,6 +151,31 @@ class LMSReatribuirVarianteInput(BaseModel):
 class LMSSubmeterTentativa(BaseModel):
     model_config = {"extra": "forbid"}
     respostas: dict[str, str]  # {questao_id (str): resposta dada}
+
+
+class SinalFocoInput(BaseModel):
+    """Lote periódico de amostras de deteção de foco, calculadas
+    inteiramente no browser do aluno (rosto orientado para o ecrã ou
+    não) — nunca inclui vídeo/imagem nenhuma, só as contagens já
+    agregadas do intervalo reportado. Ver
+    cruds/lms.py::registar_sinal_foco."""
+    model_config = {"extra": "forbid"}
+    amostras_focado: int = Field(..., ge=0)
+    amostras_totais: int = Field(..., ge=1)
+
+    @model_validator(mode="after")
+    def _validar(self):
+        if self.amostras_focado > self.amostras_totais:
+            raise ValueError("amostras_focado não pode ser maior que amostras_totais.")
+        return self
+
+
+class ViolacaoDispositivoInput(BaseModel):
+    """Uma track de câmara/microfone obrigatória parou a meio do exame
+    (permissão revogada, dispositivo desligado) — ver
+    cruds/lms.py::registar_violacao_dispositivo."""
+    model_config = {"extra": "forbid"}
+    tipo: str = Field(..., pattern="^(camera|microfone)$")
 
 
 class LMSCorrecaoQuestaoInput(BaseModel):
@@ -254,11 +285,10 @@ class LMSExameOut(BaseModel):
     letra_variante: str
     modalidade: str
     avaliacao_id: uuid.UUID | None = None
+    exigir_camera: bool
+    exigir_microfone: bool
     iniciado: bool
     iniciado_em: datetime | None = None
     iniciado_por_usuario_id: uuid.UUID | None = None
     criado_por_usuario_id: uuid.UUID | None = None
     data_criacao: datetime
-    titulo: str
-    objetivo_aprendizagem_id: uuid.UUID | None = None
-    instrucoes: str | None = None

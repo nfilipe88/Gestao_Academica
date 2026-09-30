@@ -1,5 +1,6 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, HostListener, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, OnDestroy, OnInit, PLATFORM_ID, signal, ViewChild } from '@angular/core';
+import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -18,7 +19,7 @@ import {
   carregarFinanceiroDoEducando, carregarHorarioDoEducando, carregarMaterialDoEducando, carregarMateriaisDoEducando,
   carregarMeusEducandos, carregarPautaDoEducando, carregarResultadoExame, carregarTarefasDoEducando,
   iniciarTentativaExame, limparMaterialAberto, limparTentativaExame, perguntarProfVirtual, registarEventoSuspeito,
-  responderComunicado, responderComunicadoSucesso, submeterTentativaExame
+  registarViolacaoDispositivo, reportarSinalFoco, responderComunicado, responderComunicadoSucesso, submeterTentativaExame
 } from '../../../store/portal/portal.actions';
 import {
   selectAProcessarPerguntaProfVirtual, selectASubmeterTentativa, selectBoletimDoEducando,
@@ -27,7 +28,7 @@ import {
   selectMaterialAberto, selectMateriaisDoEducando, selectMeusEducandos, selectPautaDoEducando, selectPortalError,
   selectResultadoExame, selectTarefasDoEducando, selectTentativaAtual
 } from '../../../store/portal/portal.selector';
-import { EducandoResumo, HorarioAulaPortal } from '../../../store/portal/portal.models';
+import { EducandoResumo, ExameEducando, HorarioAulaPortal } from '../../../store/portal/portal.models';
 import { PautaTabelaComponent } from '../pauta-tabela/pauta-tabela.component';
 import { FotoPerfilAluno } from '../../../store/alunos/alunos.models';
 import * as DocumentosActions from '../../../store/documentos/documentos.actions';
@@ -54,7 +55,7 @@ const DIAS_DA_SEMANA = [
   templateUrl: './portal.component.html',
   styleUrl: './portal.component.css',
 })
-export class PortalComponent implements OnInit {
+export class PortalComponent implements OnInit, OnDestroy {
   private store = inject(Store);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -167,9 +168,39 @@ export class PortalComponent implements OnInit {
   // Exames online (LMS) — qual exame está a ser feito agora (mostra o
   // formulário de perguntas em vez da lista) e as respostas dadas até
   // ao momento; qual exame tem o resultado aberto (depois de submetido).
-  exameEmCursoId: string | null = null;
+  // signal() — precisa de ser escrito também dentro do callback
+  // assíncrono de getUserMedia (ver pedirPermissaoEComecar), não só em
+  // cliques síncronos.
+  exameEmCursoId = signal<string | null>(null);
   respostasTentativa: Record<string, string> = {};
   exameResultadoAbertoId: string | null = null;
+
+  // Ecrã de permissão de câmara/microfone — só existe entre clicar
+  // "Começar"/"Continuar" num exame que exige câmara e/ou microfone e
+  // conseguir mesmo o stream (ou desistir). signal() porque é escrito
+  // dentro do callback assíncrono de getUserMedia, não de um clique
+  // síncrono — numa app zoneless isso não re-renderiza sozinho sem ser
+  // um signal (mesmo cuidado já documentado acima em mostrarFormularioTransferencia).
+  exameASerIniciado = signal<ExameEducando | null>(null);
+  aPedirPermissaoCamera = signal(false);
+  erroPermissaoCamera = signal<string | null>(null);
+  // Controla só a presença do <video> de auto-visualização no template
+  // (precisa de ser signal — é ligado dentro do callback assíncrono de
+  // getUserMedia, não de um clique síncrono; ver nota acima sobre
+  // zoneless). O MediaStream em si fica num campo simples, nunca lido
+  // reativamente.
+  streamCameraAtivo = signal(false);
+  @ViewChild('videoAutoVisualizacao') videoAutoVisualizacaoRef?: ElementRef<HTMLVideoElement>;
+  private streamCameraExame: MediaStream | null = null;
+
+  // Deteção de foco (Fatia 3) — indicador ao vivo, puramente local
+  // (nunca fica reativo à espera do back-end); os detalhes do ciclo em
+  // si (FaceLandmarker, intervalos) vivem nos campos privados abaixo.
+  focoAoVivo = signal<boolean | null>(null);
+  private faceLandmarker: FaceLandmarker | null = null;
+  private cicloDeteccaoFoco: ReturnType<typeof setInterval> | null = null;
+  private cicloEnvioFoco: ReturnType<typeof setInterval> | null = null;
+  private amostrasFocoAcumuladas = { focado: 0, totais: 0 };
 
   // Formulário "Novo pedido de documento" — o valor de novoDocumentoTipo
   // é reposto (ver ngOnInit) assim que precosDocumento$ chega, para
@@ -207,6 +238,14 @@ export class PortalComponent implements OnInit {
       if (precos.length && !precos.some(p => p.tipo_documento === this.novoDocumentoTipo)) {
         this.novoDocumentoTipo = precos[0].tipo_documento;
       }
+    });
+
+    // Assim que uma tentativa é marcada anulada (saiu da página,
+    // câmara/microfone desligado a meio) — pára logo a câmara e o
+    // ciclo de deteção de foco, em vez de ficarem ligados até o aluno
+    // clicar "Voltar à lista" à mão.
+    this.tentativaAtual$.subscribe(tentativa => {
+      if (tentativa?.anulada) this.pararStreamCamera();
     });
 
     // Separador ativo acompanha o query param ?tab= — agora que os
@@ -344,7 +383,7 @@ export class PortalComponent implements OnInit {
     this.store.dispatch(carregarExamesDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarEstatisticasDoEducando({ aluno_id: alunoId }));
     this.store.dispatch(carregarComunicadosDoEducando({ aluno_id: alunoId }));
-    this.exameEmCursoId = null;
+    this.exameEmCursoId.set(null);
     this.exameResultadoAbertoId = null;
     this.store.dispatch(limparTentativaExame());
     this.carregarFotosPerfil(alunoId);
@@ -417,11 +456,163 @@ export class PortalComponent implements OnInit {
 
   // --- Exames online (LMS) ---
 
-  onIniciarExame(exameId: string) {
+  onIniciarExame(exame: ExameEducando) {
     if (!this.educandoSelecionadoId) return;
-    this.exameEmCursoId = exameId;
+    if (!exame.exigir_camera && !exame.exigir_microfone) {
+      this.comecarTentativa(exame.id);
+      return;
+    }
+    // Exige câmara/microfone — pede a permissão ANTES de sequer
+    // contactar o back-end; só ao conceder é que o exame começa mesmo
+    // (ver docstring de LMSExame.exigir_camera).
+    this.exameASerIniciado.set(exame);
+    this.erroPermissaoCamera.set(null);
+    this.pedirPermissaoEComecar(exame);
+  }
+
+  private async pedirPermissaoEComecar(exame: ExameEducando) {
+    this.aPedirPermissaoCamera.set(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: exame.exigir_camera, audio: exame.exigir_microfone
+      });
+      this.streamCameraExame = stream;
+      this.streamCameraAtivo.set(true);
+      // Se uma track obrigatória parar a meio (permissão revogada,
+      // dispositivo desligado fisicamente) — ver onTrackObrigatoriaParou.
+      for (const track of stream.getVideoTracks()) {
+        track.addEventListener('ended', () => this.onTrackObrigatoriaParou('camera'));
+      }
+      for (const track of stream.getAudioTracks()) {
+        track.addEventListener('ended', () => this.onTrackObrigatoriaParou('microfone'));
+      }
+      this.exameASerIniciado.set(null);
+      this.aPedirPermissaoCamera.set(false);
+      this.comecarTentativa(exame.id);
+      // Aguarda o próximo ciclo de render para o <video> de
+      // auto-visualização existir no DOM (só aparece depois de
+      // exameEmCursoId ficar preenchido em comecarTentativa).
+      queueMicrotask(() => {
+        this.ligarAutoVisualizacao();
+        // Só faz sentido detetar foco quando há vídeo para analisar —
+        // um exame que só exige microfone não tem imagem nenhuma.
+        if (exame.exigir_camera) this.iniciarCicloDeDeteccaoDeFoco(exame.id);
+      });
+    } catch {
+      this.aPedirPermissaoCamera.set(false);
+      const partes = [
+        exame.exigir_camera ? 'câmara' : null,
+        exame.exigir_microfone ? 'microfone' : null,
+      ].filter(Boolean).join(' e ');
+      this.erroPermissaoCamera.set(
+        `Este exame exige ${partes} ativo(a). Conceda a permissão no browser para continuar.`
+      );
+    }
+  }
+
+  private ligarAutoVisualizacao() {
+    if (this.videoAutoVisualizacaoRef && this.streamCameraExame) {
+      this.videoAutoVisualizacaoRef.nativeElement.srcObject = this.streamCameraExame;
+    }
+  }
+
+  onCancelarPermissaoCamera() {
+    this.exameASerIniciado.set(null);
+    this.erroPermissaoCamera.set(null);
+    this.pararStreamCamera();
+  }
+
+  onTentarPermissaoCameraOutraVez() {
+    const exame = this.exameASerIniciado();
+    if (exame) {
+      this.erroPermissaoCamera.set(null);
+      this.pedirPermissaoEComecar(exame);
+    }
+  }
+
+  private comecarTentativa(exameId: string) {
+    if (!this.educandoSelecionadoId) return;
+    this.exameEmCursoId.set(exameId);
     this.respostasTentativa = {};
     this.store.dispatch(iniciarTentativaExame({ aluno_id: this.educandoSelecionadoId, exame_id: exameId }));
+  }
+
+  private pararStreamCamera() {
+    this.streamCameraExame?.getTracks().forEach(track => track.stop());
+    this.streamCameraExame = null;
+    this.streamCameraAtivo.set(false);
+    this.pararCicloDeDeteccaoDeFoco();
+  }
+
+  // ------------------------------------------------------------------
+  // Deteção de foco (rosto orientado para o ecrã) — corre inteiramente
+  // no browser (WASM, @mediapipe/tasks-vision), nunca envia vídeo/
+  // imagem nenhuma para o servidor: só as contagens já agregadas (ver
+  // reportarSinalFoco). "Focado" aqui é deliberadamente simples —
+  // apenas se um rosto foi reconhecido no enquadramento — em vez de
+  // rastreio fino do ângulo da cabeça, que precisaria de calibração
+  // real contra câmaras a sério para não ficar cheio de falsos
+  // positivos/negativos. Continua a apanhar o sinal que mais importa
+  // na prática: o aluno saiu do enquadramento ou virou-se demasiado.
+  // ------------------------------------------------------------------
+  private async obterFaceLandmarker(): Promise<FaceLandmarker | null> {
+    if (this.faceLandmarker) return this.faceLandmarker;
+    try {
+      const fileset = await FilesetResolver.forVisionTasks('/assets/mediapipe-wasm');
+      this.faceLandmarker = await FaceLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: '/assets/face_landmarker.task', delegate: 'GPU' },
+        runningMode: 'VIDEO',
+        numFaces: 1,
+      });
+      return this.faceLandmarker;
+    } catch {
+      // Sem WebGPU/WebGL, modelo a falhar a carregar, etc. — a deteção
+      // de foco é só um extra informativo, nunca pode impedir o aluno
+      // de fazer o exame por causa disto.
+      return null;
+    }
+  }
+
+  private async iniciarCicloDeDeteccaoDeFoco(exameId: string) {
+    const landmarker = await this.obterFaceLandmarker();
+    const video = this.videoAutoVisualizacaoRef?.nativeElement;
+    if (!landmarker || !video) return;
+
+    this.amostrasFocoAcumuladas = { focado: 0, totais: 0 };
+    this.cicloDeteccaoFoco = setInterval(() => {
+      if (video.readyState < 2) return; // ainda sem frame nenhum pronto
+      const resultado = landmarker.detectForVideo(video, performance.now());
+      const focado = resultado.faceLandmarks.length > 0;
+      this.amostrasFocoAcumuladas.totais++;
+      if (focado) this.amostrasFocoAcumuladas.focado++;
+      this.focoAoVivo.set(focado);
+    }, 1000);
+
+    // Lote enviado periodicamente (não amostra a amostra) — mesmo
+    // espírito de "custo real por chamada" já aplicado a outros sinais.
+    this.cicloEnvioFoco = setInterval(() => this.enviarLoteDeFoco(exameId), 15_000);
+  }
+
+  private enviarLoteDeFoco(exameId: string) {
+    const { focado, totais } = this.amostrasFocoAcumuladas;
+    if (totais === 0 || !this.educandoSelecionadoId) return;
+    this.amostrasFocoAcumuladas = { focado: 0, totais: 0 };
+    this.store.dispatch(reportarSinalFoco({
+      aluno_id: this.educandoSelecionadoId, exame_id: exameId, amostras_focado: focado, amostras_totais: totais
+    }));
+  }
+
+  private pararCicloDeDeteccaoDeFoco() {
+    if (this.cicloDeteccaoFoco !== null) clearInterval(this.cicloDeteccaoFoco);
+    if (this.cicloEnvioFoco !== null) clearInterval(this.cicloEnvioFoco);
+    this.cicloDeteccaoFoco = null;
+    this.cicloEnvioFoco = null;
+    this.focoAoVivo.set(null);
+  }
+
+  ngOnDestroy() {
+    this.pararStreamCamera();
+    this.faceLandmarker?.close();
   }
 
   onResponder(questaoId: string, valor: string) {
@@ -429,30 +620,79 @@ export class PortalComponent implements OnInit {
   }
 
   onSubmeterExame() {
-    if (!this.educandoSelecionadoId || !this.exameEmCursoId) return;
-    this.store.dispatch(submeterTentativaExame({
-      aluno_id: this.educandoSelecionadoId, exame_id: this.exameEmCursoId, respostas: this.respostasTentativa
-    }));
-    this.exameEmCursoId = null;
+    const exameId = this.exameEmCursoId();
+    if (!this.educandoSelecionadoId || !exameId) return;
+    const alunoId = this.educandoSelecionadoId;
+    this.store.dispatch(submeterTentativaExame({ aluno_id: alunoId, exame_id: exameId, respostas: this.respostasTentativa }));
+    this.encerrarSessaoDeExame();
+    this.store.dispatch(carregarExamesDoEducando({ aluno_id: alunoId }));
   }
 
   onSairDoExame() {
-    this.exameEmCursoId = null;
-    this.respostasTentativa = {};
+    this.encerrarSessaoDeExame();
     this.store.dispatch(limparTentativaExame());
+    // Sem isto, a lista mostrava "Começar" para um exame já anulado até
+    // a próxima recarga da página inteira — a store da lista só é
+    // preenchida na entrada no separador, nunca ao sair de um exame.
+    if (this.educandoSelecionadoId) {
+      this.store.dispatch(carregarExamesDoEducando({ aluno_id: this.educandoSelecionadoId }));
+    }
   }
 
-  // Proctoring básico: enquanto o aluno está a meio de uma tentativa
-  // (exameEmCursoId definido), sair da aba/janela conta como evento
-  // suspeito — nunca bloqueia o exame, só fica registado para o
-  // professor rever ao corrigir (ver LMSResultadoAlunoExame). Não
-  // dispara ao trocar de aba fora de um exame nem quando volta a
-  // ficar visível (só na saída, para não contar o mesmo evento 2x).
+  // Chamado ao sair da vista do exame por qualquer via (submeter,
+  // "Sair", ou tentativa anulada) — pára a câmara/microfone e o ciclo
+  // de deteção de foco, quando existirem.
+  private encerrarSessaoDeExame() {
+    const exameId = this.exameEmCursoId();
+    // Envia o que sobrou por enviar antes de parar o ciclo — sem isto,
+    // o último lote (até 15s de amostras) perdia-se sempre que o
+    // aluno submetia/saía antes do próximo envio periódico.
+    if (exameId) this.enviarLoteDeFoco(exameId);
+    this.exameEmCursoId.set(null);
+    this.respostasTentativa = {};
+    this.pararStreamCamera();
+  }
+
+  // Proctoring: enquanto o aluno está a meio de uma tentativa
+  // (exameEmCursoId definido), sair da aba/janela ANULA a tentativa —
+  // ver aviso mostrado antes de começar o exame. Não dispara ao trocar
+  // de aba fora de um exame nem quando volta a ficar visível (só na
+  // saída, para não contar o mesmo evento 2x).
+  //
+  // Dispara dois pedidos em paralelo, de propósito: o normal (via
+  // NgRx/HttpClient, cobre o caso comum de trocar de aba) e um `fetch`
+  // com `keepalive: true` (sobrevive ao browser a fechar a aba/janela
+  // no mesmo instante, o que cancelaria um pedido normal a meio) — o
+  // back-end é seguro a receber os dois (o segundo é um no-op).
   @HostListener('document:visibilitychange')
   onVisibilidadeMudou() {
-    if (document.hidden && this.exameEmCursoId && this.educandoSelecionadoId) {
-      this.store.dispatch(registarEventoSuspeito({ aluno_id: this.educandoSelecionadoId, exame_id: this.exameEmCursoId }));
+    const exame_id = this.exameEmCursoId();
+    if (document.hidden && exame_id && this.educandoSelecionadoId) {
+      const aluno_id = this.educandoSelecionadoId;
+      this.store.dispatch(registarEventoSuspeito({ aluno_id, exame_id }));
+      this.enviarSinalDeSaidaComKeepalive(`/api/v1/portal/educandos/${aluno_id}/exames/${exame_id}/evento-suspeito`);
     }
+  }
+
+  // Câmara/microfone obrigatório(a) parou de transmitir a meio do exame
+  // (permissão revogada, dispositivo desligado).
+  private onTrackObrigatoriaParou(tipo: 'camera' | 'microfone') {
+    const exame_id = this.exameEmCursoId();
+    if (!exame_id || !this.educandoSelecionadoId) return;
+    const aluno_id = this.educandoSelecionadoId;
+    this.store.dispatch(registarViolacaoDispositivo({ aluno_id, exame_id, tipo }));
+    this.enviarSinalDeSaidaComKeepalive(`/api/v1/portal/educandos/${aluno_id}/exames/${exame_id}/violacao-dispositivo`, { tipo });
+  }
+
+  private enviarSinalDeSaidaComKeepalive(url: string, corpo: Record<string, unknown> = {}) {
+    const token = localStorage.getItem('saas_access_token');
+    if (!token) return;
+    fetch(url, {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(corpo),
+    }).catch(() => { /* melhor esforço — o pedido normal via NgRx já cobre o caso comum */ });
   }
 
   onVerResultadoExame(exameId: string) {

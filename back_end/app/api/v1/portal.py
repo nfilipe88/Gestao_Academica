@@ -8,7 +8,7 @@ from app.core.rate_limiter import excedeu_limite
 from app.core.security import exigir_perfil
 from app.cruds import portal as crud_portal
 from app.schemas.comunicacoes import RespostaComunicadoCreate, RespostaComunicadoOut
-from app.schemas.lms import LMSSubmeterTentativa, ProfVirtualPerguntaCreate
+from app.schemas.lms import LMSSubmeterTentativa, ProfVirtualPerguntaCreate, SinalFocoInput, ViolacaoDispositivoInput
 from app.schemas.portal import PedirTransferenciaRequest
 
 router = APIRouter(prefix="/api/v1/portal", tags=["Portal do Aluno/Responsável"])
@@ -286,9 +286,34 @@ async def registar_evento_suspeito_exame(
     db: AsyncSession = Depends(obter_sessao_db),
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
-    """Proctoring básico: o frontend chama isto quando deteta que o aluno saiu da aba durante a tentativa (Page Visibility API). Nunca bloqueia o exame — só regista para o professor rever."""
-    total = await crud_portal.registar_evento_suspeito_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, exame_id)
-    return {"eventos_suspeitos": total}
+    """O frontend chama isto assim que deteta que o aluno saiu da aba durante a tentativa (Page Visibility API) — anula a tentativa de imediato por suspeita de fraude."""
+    return await crud_portal.registar_evento_suspeito_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, exame_id)
+
+
+@router.post("/educandos/{aluno_id}/exames/{exame_id}/violacao-dispositivo")
+async def registar_violacao_dispositivo_exame(
+    aluno_id: uuid.UUID,
+    exame_id: uuid.UUID,
+    dados: ViolacaoDispositivoInput,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """A câmara ou o microfone obrigatório(a) deste exame parou de transmitir a meio da tentativa — anula por suspeita de fraude, mesmo mecanismo do evento-suspeito."""
+    return await crud_portal.registar_violacao_dispositivo_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, exame_id, dados.tipo)
+
+
+@router.post("/educandos/{aluno_id}/exames/{exame_id}/sinal-foco")
+async def registar_sinal_foco_exame(
+    aluno_id: uuid.UUID,
+    exame_id: uuid.UUID,
+    dados: SinalFocoInput,
+    db: AsyncSession = Depends(obter_sessao_db),
+    utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Lote periódico de amostras de deteção de foco (rosto orientado para o ecrã), calculadas inteiramente no browser do aluno — nunca inclui vídeo/imagem. Nunca anula sozinho, só informa (ver listar_resultados_exame)."""
+    return await crud_portal.registar_sinal_foco_do_educando(
+        db, utilizador["tenant_id"], utilizador, aluno_id, exame_id, dados.amostras_focado, dados.amostras_totais
+    )
 
 
 @router.post("/educandos/{aluno_id}/exames/{exame_id}/submeter")

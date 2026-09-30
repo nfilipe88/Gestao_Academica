@@ -477,20 +477,71 @@
     @if (aba === 'exames') {
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
 
-        @if (exameEmCursoId && (tentativaAtual$ | async); as tentativa) {
+        @if (exameASerIniciado(); as exameGate) {
+          <!-- Ecrã de permissão de câmara/microfone — antes de sequer contactar o back-end. -->
+          <div class="max-w-md mx-auto text-center space-y-4 py-8">
+            <h3 class="text-lg font-semibold text-slate-800">{{ exameGate.titulo }}</h3>
+            <p class="text-sm text-slate-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+              Este exame exige
+              <strong>{{ exameGate.exigir_camera && exameGate.exigir_microfone ? 'câmara e microfone ativos' : (exameGate.exigir_camera ? 'a câmara ativa' : 'o microfone ativo') }}</strong>
+              durante toda a prova, só para verificação ao vivo — nada é gravado nem guardado.
+            </p>
+            @if (aPedirPermissaoCamera()) {
+              <p class="text-sm text-slate-500">A pedir permissão ao browser…</p>
+            } @else if (erroPermissaoCamera(); as erro) {
+              <p class="text-sm text-rose-600">{{ erro }}</p>
+              <div class="flex items-center justify-center gap-3">
+                <button type="button" (click)="onTentarPermissaoCameraOutraVez()"
+                  class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg cursor-pointer">
+                  Tentar outra vez
+                </button>
+                <button type="button" (click)="onCancelarPermissaoCamera()"
+                  class="text-sm text-slate-500 hover:text-slate-700 font-medium cursor-pointer">
+                  Cancelar
+                </button>
+              </div>
+            }
+          </div>
+        } @else if (exameEmCursoId() && (tentativaAtual$ | async); as tentativa) {
           <!-- A fazer o exame -->
           <div class="space-y-4">
             <div class="flex items-start justify-between gap-2">
               <div>
                 <h3 class="text-lg font-semibold text-slate-800">{{ tentativa.titulo }}</h3>
-                <p class="text-xs text-slate-500">Duração: {{ tentativa.duracao_minutos }} min · responde a todas as perguntas e submete quando terminares.</p>
+                @if (!tentativa.anulada) {
+                  <p class="text-xs text-slate-500">Duração: {{ tentativa.duracao_minutos }} min · responde a todas as perguntas e submete quando terminares.</p>
+                }
               </div>
               <button type="button" (click)="onSairDoExame()"
-                class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer shrink-0">← Sair sem submeter</button>
+                class="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer shrink-0">← Voltar à lista</button>
             </div>
 
+            <!-- Auto-visualização — mostra ao aluno que a câmara está mesmo ligada; nunca é gravado nem enviado para lado nenhum. -->
+            @if (streamCameraAtivo() && !tentativa.anulada) {
+              <div class="flex items-center gap-3">
+                <video #videoAutoVisualizacao autoplay muted playsinline
+                  class="w-28 h-20 rounded-lg border border-slate-300 object-cover bg-slate-900"></video>
+                @if (focoAoVivo() !== null) {
+                  <span class="text-xs font-medium py-1 px-2.5 rounded-full"
+                    [class.bg-emerald-100]="focoAoVivo()" [class.text-emerald-700]="focoAoVivo()"
+                    [class.bg-amber-100]="!focoAoVivo()" [class.text-amber-700]="!focoAoVivo()">
+                    {{ focoAoVivo() ? '● Foco OK' : '● Está a olhar para o ecrã?' }}
+                  </span>
+                }
+              </div>
+            }
+
+            @if (tentativa.anulada) {
+              <!-- Anulada por suspeita de fraude — sem caminho de volta, nenhuma interação possível. -->
+              <div class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-4 py-4">
+                <p class="font-semibold mb-1">⚠ Esta prova foi anulada por suspeita de fraude.</p>
+                <p>{{ tentativa.anulada_motivo ?? 'Foi detetada uma violação das regras deste exame.' }}</p>
+                <p class="mt-2 text-xs text-rose-600">Se acha que isto foi um engano, contacte a Secretaria da sua escola.</p>
+              </div>
+            } @else {
+
             <p class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              ⚠ Este exame é monitorizado — sair desta aba fica registado e visível ao professor.
+              ⚠ Este exame é monitorizado — se sair desta página, a prova será anulada por suspeita de fraude.
               @if (((eventosSuspeitosTentativa$ | async) ?? 0) > 0) {
                 <span class="font-medium">{{ eventosSuspeitosTentativa$ | async }} evento(s) já registado(s) nesta tentativa.</span>
               }
@@ -538,6 +589,7 @@
               class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
               {{ (aSubmeterTentativa$ | async) ? 'A submeter…' : 'Submeter Exame' }}
             </button>
+            }
           </div>
         } @else {
           <!-- Lista de exames -->
@@ -567,13 +619,22 @@
                       <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-amber-100 text-amber-700">
                         Submetido — a aguardar correção do professor
                       </span>
+                    } @else if (exame.status_tentativa === 'ANULADA') {
+                      <span class="text-xs font-medium py-0.5 px-2 rounded-full bg-rose-100 text-rose-700" [title]="exame.anulada_motivo ?? ''">
+                        Anulada — suspeita de fraude
+                      </span>
                     } @else if ((usuario$ | async)?.perfil_acesso !== 'ALUNO') {
                       <span class="text-xs text-slate-400">Só o aluno pode realizar o exame.</span>
                     } @else if (exame.pode_iniciar) {
-                      <button type="button" (click)="onIniciarExame(exame.id)"
+                      <button type="button" (click)="onIniciarExame(exame)"
                         class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer">
                         {{ exame.status_tentativa === 'EM_CURSO' ? 'Continuar' : 'Começar' }}
                       </button>
+                      @if (exame.exigir_camera || exame.exigir_microfone) {
+                        <span class="text-[10px] text-slate-400 block mt-0.5">
+                          Exige {{ exame.exigir_camera && exame.exigir_microfone ? 'câmara e microfone' : (exame.exigir_camera ? 'câmara' : 'microfone') }}
+                        </span>
+                      }
                     } @else {
                       <span class="text-xs text-slate-400">Fora da janela do exame.</span>
                     }

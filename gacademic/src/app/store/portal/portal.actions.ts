@@ -142,14 +142,39 @@ export const limparTentativaExame = createAction('[Portal] Limpar Tentativa Exam
 
 // Proctoring básico: disparado pelo listener da Page Visibility API
 // (ver PortalComponent) sempre que o aluno sai da aba durante uma
-// tentativa em curso. Nunca bloqueia o exame — só regista.
+// tentativa em curso. Anula a tentativa de imediato — ver "anulada"
+// na resposta, que o reducer usa para trocar para o ecrã bloqueante.
 export const registarEventoSuspeito = createAction(
   '[Portal] Registar Evento Suspeito',
   props<{ aluno_id: string, exame_id: string }>()
 );
 export const registarEventoSuspeitoSucesso = createAction(
   '[Portal] Registar Evento Suspeito Sucesso',
-  props<{ eventos_suspeitos: number }>()
+  props<{ eventos_suspeitos: number, anulada: boolean }>()
+);
+
+// Câmara/microfone obrigatório(a) parou de transmitir a meio do exame
+// (permissão revogada, dispositivo desligado) — mesmo mecanismo de
+// anulação do evento-suspeito.
+export const registarViolacaoDispositivo = createAction(
+  '[Portal] Registar Violacao Dispositivo',
+  props<{ aluno_id: string, exame_id: string, tipo: 'camera' | 'microfone' }>()
+);
+export const registarViolacaoDispositivoSucesso = createAction(
+  '[Portal] Registar Violacao Dispositivo Sucesso',
+  props<{ anulada: boolean }>()
+);
+
+// Lote periódico de deteção de foco (rosto orientado para o ecrã),
+// calculado inteiramente no browser do aluno — nunca inclui
+// vídeo/imagem, só as contagens já agregadas. Nunca anula sozinho.
+export const reportarSinalFoco = createAction(
+  '[Portal] Reportar Sinal Foco',
+  props<{ aluno_id: string, exame_id: string, amostras_focado: number, amostras_totais: number }>()
+);
+export const reportarSinalFocoSucesso = createAction(
+  '[Portal] Reportar Sinal Foco Sucesso',
+  props<{ amostras_foco_total: number, amostras_foco_positivas: number }>()
 );
 
 // ==========================================

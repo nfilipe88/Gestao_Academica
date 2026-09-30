@@ -79,7 +79,23 @@ export const portalReducer = createReducer(
   on(PortalActions.carregarResultadoExame, (state) => ({ ...state, erro: null, resultadoExame: null })),
   on(PortalActions.carregarResultadoExameSucesso, (state, { resultado }) => ({ ...state, resultadoExame: resultado })),
   on(PortalActions.limparTentativaExame, (state) => ({ ...state, tentativaAtual: null, resultadoExame: null, eventosSuspeitosTentativa: 0 })),
-  on(PortalActions.registarEventoSuspeitoSucesso, (state, { eventos_suspeitos }) => ({ ...state, eventosSuspeitosTentativa: eventos_suspeitos })),
+  // anulada nunca volta a false a partir daqui — só se marca a
+  // tentativa em curso como anulada quando o back-end confirmar (nunca
+  // fingir localmente antes disso, o browser podia estar enganado
+  // sobre document.hidden).
+  on(PortalActions.registarEventoSuspeitoSucesso, (state, { eventos_suspeitos, anulada }) => ({
+    ...state,
+    eventosSuspeitosTentativa: eventos_suspeitos,
+    tentativaAtual: state.tentativaAtual && anulada
+      ? { ...state.tentativaAtual, anulada: true, anulada_motivo: 'Saiu da página durante o exame.' }
+      : state.tentativaAtual
+  })),
+  on(PortalActions.registarViolacaoDispositivoSucesso, (state, { anulada }) => ({
+    ...state,
+    tentativaAtual: state.tentativaAtual && anulada
+      ? { ...state.tentativaAtual, anulada: true, anulada_motivo: 'Câmara/microfone obrigatório foi desligado durante o exame.' }
+      : state.tentativaAtual
+  })),
   on(PortalActions.perguntarProfVirtual, (state, { pergunta }) => ({
     ...state,
     conversaProfVirtual: [...state.conversaProfVirtual, { papel: 'aluno' as const, texto: pergunta }],

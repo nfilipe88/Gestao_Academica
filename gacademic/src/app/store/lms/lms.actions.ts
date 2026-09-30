@@ -110,6 +110,7 @@ export const criarGrupoExame = createAction(
   props<{
     alocacao_id: string, titulo: string, data_inicio: string, data_fim: string,
     duracao_minutos: number, baralhar_perguntas: boolean, modalidade: Modalidade,
+    exigir_camera: boolean, exigir_microfone: boolean,
     periodo_avaliacao: string, tipo_avaliacao: string, peso: number,
     variantes: { letra_variante: string | null, questao_ids: string[] }[]
   }>()

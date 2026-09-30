@@ -200,6 +200,8 @@ export class DiarioComponent implements OnInit, OnDestroy {
     duracao_minutos: [30, [Validators.required, Validators.min(1)]],
     baralhar_perguntas: [true],
     modalidade: ['PRESENCIAL' as Modalidade, Validators.required],
+    exigir_camera: [false],
+    exigir_microfone: [false],
     periodo_avaliacao: ['', Validators.required],
     tipo_avaliacao: ['', Validators.required],
     peso: [100, [Validators.required, Validators.min(0.01)]]
@@ -788,7 +790,8 @@ export class DiarioComponent implements OnInit, OnDestroy {
     this.mostrarFormularioExame = !this.mostrarFormularioExame;
     this.exameForm.reset({
       titulo: '', data_inicio: '', data_fim: '', duracao_minutos: 30, baralhar_perguntas: true,
-      modalidade: 'PRESENCIAL', periodo_avaliacao: '', tipo_avaliacao: '', peso: 100
+      modalidade: 'PRESENCIAL', exigir_camera: false, exigir_microfone: false,
+      periodo_avaliacao: '', tipo_avaliacao: '', peso: 100
     });
     this.variantesExame = [{ letra: 'A', questoes: new Set() }];
   }
@@ -816,7 +819,10 @@ export class DiarioComponent implements OnInit, OnDestroy {
 
   onSubmitExame() {
     if (!this.alocacaoSelecionadaId || !this.podeSubmeterExame()) return;
-    const { titulo, data_inicio, data_fim, duracao_minutos, baralhar_perguntas, modalidade, periodo_avaliacao, tipo_avaliacao, peso } = this.exameForm.value;
+    const {
+      titulo, data_inicio, data_fim, duracao_minutos, baralhar_perguntas, modalidade,
+      exigir_camera, exigir_microfone, periodo_avaliacao, tipo_avaliacao, peso
+    } = this.exameForm.value;
     this.store.dispatch(criarGrupoExame({
       alocacao_id: this.alocacaoSelecionadaId,
       titulo: titulo!,
@@ -825,6 +831,8 @@ export class DiarioComponent implements OnInit, OnDestroy {
       duracao_minutos: duracao_minutos!,
       baralhar_perguntas: baralhar_perguntas ?? true,
       modalidade: modalidade as Modalidade,
+      exigir_camera: exigir_camera ?? false,
+      exigir_microfone: exigir_microfone ?? false,
       periodo_avaliacao: periodo_avaliacao!,
       tipo_avaliacao: tipo_avaliacao!,
       peso: peso!,

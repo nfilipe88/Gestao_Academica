@@ -792,11 +792,25 @@ async def submeter_tentativa_do_educando(db: AsyncSession, tenant_id, utilizador
     return await crud_lms.submeter_tentativa(db, tenant_id, matricula.id, matricula.turma_id, exame_id, dados)
 
 
-async def registar_evento_suspeito_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, exame_id: uuid.UUID) -> int:
-    """Proctoring básico: o aluno saiu da aba durante a tentativa (ver core/utils Page Visibility no frontend)."""
+async def registar_evento_suspeito_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, exame_id: uuid.UUID) -> dict:
+    """Proctoring básico: o aluno saiu da aba durante a tentativa (ver core/utils Page Visibility no frontend) — anula a tentativa."""
     _garantir_e_aluno(utilizador)
     matricula = await _obter_matricula_ativa_do_educando(db, tenant_id, utilizador, aluno_id)
     return await crud_lms.registar_evento_suspeito(db, tenant_id, matricula.id, matricula.turma_id, exame_id)
+
+
+async def registar_violacao_dispositivo_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, exame_id: uuid.UUID, tipo: str) -> dict:
+    """Câmara/microfone obrigatório(a) foi desligado(a) a meio do exame — anula a tentativa."""
+    _garantir_e_aluno(utilizador)
+    matricula = await _obter_matricula_ativa_do_educando(db, tenant_id, utilizador, aluno_id)
+    return await crud_lms.registar_violacao_dispositivo(db, tenant_id, matricula.id, matricula.turma_id, exame_id, tipo)
+
+
+async def registar_sinal_foco_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, exame_id: uuid.UUID, amostras_focado: int, amostras_totais: int) -> dict:
+    """Lote periódico de deteção de foco calculada no browser do aluno — nunca anula sozinho, só informa."""
+    _garantir_e_aluno(utilizador)
+    matricula = await _obter_matricula_ativa_do_educando(db, tenant_id, utilizador, aluno_id)
+    return await crud_lms.registar_sinal_foco(db, tenant_id, matricula.id, matricula.turma_id, exame_id, amostras_focado, amostras_totais)
 
 
 async def obter_resultado_tentativa_do_educando(db: AsyncSession, tenant_id, utilizador: dict, aluno_id: uuid.UUID, exame_id: uuid.UUID) -> dict:
