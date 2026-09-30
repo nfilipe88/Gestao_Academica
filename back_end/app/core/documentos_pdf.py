@@ -58,8 +58,11 @@ _ENVELOPE = Template("""
   table.notas { width: 100%; border-collapse: collapse; margin: 16px 0; }
   table.notas th, table.notas td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 10pt; text-align: left; }
   table.notas th { background: #f1f5f9; }
-  .assinatura { margin-top: 60px; text-align: center; }
-  .assinatura .linha { border-top: 1px solid #1e293b; width: 280px; margin: 0 auto 6px auto; }
+  table.assinaturas { width: 100%; margin-top: 60px; border-collapse: collapse; }
+  table.assinaturas td.bloco-assinante { text-align: center; padding: 0 18px; }
+  table.assinaturas img.assinatura-imagem { max-height: 50px; max-width: 200px; margin-bottom: 4px; }
+  table.assinaturas .linha { border-top: 1px solid #1e293b; width: 220px; margin: 0 auto 6px auto; }
+  table.assinaturas p { margin: 0; }
   .rodape { position: fixed; bottom: -1.5cm; left: 0; right: 0; text-align: center; font-size: 8pt; color: #94a3b8; }
 </style>
 </head>
@@ -78,10 +81,18 @@ _ENVELOPE = Template("""
     {{ corpo_html | safe }}
   </div>
 
-  <div class="assinatura">
-    <div class="linha"></div>
-    <p>{{ escola_nome }}</p>
-  </div>
+  <table class="assinaturas"><tr>
+    {% for assinante in assinantes %}
+    <td class="bloco-assinante">
+      {% if assinante.data_uri %}<img class="assinatura-imagem" src="{{ assinante.data_uri }}"><br>{% endif %}
+      <div class="linha"></div>
+      <p>{{ assinante.nome }}</p>
+      <p>{{ assinante.cargo }}</p>
+    </td>
+    {% else %}
+    <td class="bloco-assinante"><div class="linha"></div></td>
+    {% endfor %}
+  </tr></table>
 
   <div class="rodape">Documento emitido eletronicamente em {{ data_emissao }} — SaaS Gestão Académica</div>
 </body>
@@ -227,7 +238,10 @@ def gerar_pdf_documento(
 ) -> bytes:
     """
     escola: {"nome": ..., "razao_social": ..., "nif": ..., "morada": ..., "contacto": ...,
-             "logo_data_uri": data:image/...;base64,... ou None (ver app/core/storage.py::obter_logo_data_uri)}
+             "logo_data_uri": data:image/...;base64,... ou None (ver app/core/storage.py::obter_logo_data_uri),
+             "assinantes": list[{"nome", "cargo", "data_uri"}] (de app/core/assinaturas.py::
+             obter_assinantes_documento — lista vazia = nenhum assinante configurado para este
+             tipo de documento, o envelope mostra só uma linha em branco)}
     contexto: dados específicos do tipo de documento (ver cada _corpo_*).
     corpo_html_personalizado: se o tenant tiver um layout próprio ativo
     para este tipo_documento (ver cruds/documentos.py), substitui o
@@ -240,6 +254,14 @@ def gerar_pdf_documento(
     tem de ver o erro real para poder corrigir o template, por isso a
     exceção é propagada em vez de escondida atrás de um fallback.
     """
+    # Disponível também dentro do corpo personalizável do tenant (Jinja2
+    # completo, ver renderizar_corpo_personalizado) — assim um Gestor com
+    # layout próprio consegue posicionar os assinantes onde quiser no seu
+    # HTML (`{% for assinante in assinantes %}`), em vez de ficar só com o
+    # bloco fixo do envelope abaixo. setdefault: nunca sobrepõe um
+    # `assinantes` que o próprio contexto já tivesse por outra razão.
+    contexto.setdefault("assinantes", escola.get("assinantes", []))
+
     corpo_html = None
     if corpo_html_personalizado:
         try:
@@ -265,6 +287,7 @@ def gerar_pdf_documento(
         escola_morada=escola.get("morada") or "",
         escola_contacto=escola.get("contacto") or "",
         escola_logo_data_uri=escola.get("logo_data_uri"),
+        assinantes=escola.get("assinantes", []),
         titulo_documento=_TITULOS.get(tipo_documento, "Documento Escolar"),
         corpo_html=corpo_html,
         data_emissao=hoje.strftime("%d/%m/%Y") if isinstance(hoje, date) else str(hoje),

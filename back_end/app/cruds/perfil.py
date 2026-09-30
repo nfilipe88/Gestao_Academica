@@ -17,12 +17,19 @@ operação pré-tenant.
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Usuario, Tenant
+from app.core import storage
+from app.database.models import Usuario, Tenant, AssinaturaUsuario
 from app.core.security import verificar_senha, gerar_hash_senha
 from app.schemas.perfil import PerfilUpdate, AlterarSenhaIn
+
+# Assinatura pessoal: mesmos limites já usados para a fotografia de
+# perfil do aluno (app/cruds/alunos.py) — é o mesmo tipo de imagem
+# pequena (retrato/traço), não um documento em alta resolução.
+_TIPOS_ASSINATURA_ACEITES = {"image/png", "image/jpeg", "image/webp"}
+_TAMANHO_MAXIMO_ASSINATURA = 5 * 1024 * 1024  # 5 MB
 
 
 async def obter_perfil(db: AsyncSession, tenant_id, usuario_id: uuid.UUID) -> dict:
@@ -34,6 +41,12 @@ async def obter_perfil(db: AsyncSession, tenant_id, usuario_id: uuid.UUID) -> di
 
     tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
 
+    assinatura_ativa = (await db.execute(
+        select(AssinaturaUsuario.id).where(
+            AssinaturaUsuario.usuario_id == usuario_id, AssinaturaUsuario.tenant_id == tenant_id, AssinaturaUsuario.ativa.is_(True)
+        )
+    )).scalars().first()
+
     return {
         "id": usuario.id,
         "nome_completo": usuario.nome_completo,
@@ -42,6 +55,7 @@ async def obter_perfil(db: AsyncSession, tenant_id, usuario_id: uuid.UUID) -> di
         "tenant_id": usuario.tenant_id,
         "nome_instituicao": tenant.nome_fantasia if tenant else "",
         "data_criacao": usuario.data_criacao,
+        "tem_assinatura_pessoal": assinatura_ativa is not None,
     }
 
 
@@ -78,3 +92,55 @@ async def alterar_senha(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, dado
 
     usuario.senha_hash = gerar_hash_senha(dados.nova_senha)
     await db.commit()
+
+
+# ==========================================
+# ASSINATURA PESSOAL (para documentos PDF emitidos pelo próprio — ver
+# app/core/assinaturas.py) — mesmo padrão versionado de FotoPerfilAluno:
+# nunca apaga a anterior, arquiva-a (ativa=False) e insere uma nova
+# linha. Sem restrição de perfil de propósito (ver app/api/v1/perfil.py)
+# — um ALUNO/RESPONSAVEL a enviar uma é inofensivo, nunca é lida em
+# nenhum PDF; o filtro real é visual, no frontend.
+# ==========================================
+async def enviar_assinatura_pessoal(
+    db: AsyncSession, tenant_id, usuario_id: uuid.UUID, nome_original: str, content_type: str, conteudo: bytes
+) -> None:
+    if content_type not in _TIPOS_ASSINATURA_ACEITES:
+        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG ou WebP.")
+    if len(conteudo) > _TAMANHO_MAXIMO_ASSINATURA:
+        raise HTTPException(status_code=400, detail="A assinatura não pode passar de 5 MB.")
+
+    await db.execute(
+        update(AssinaturaUsuario)
+        .where(AssinaturaUsuario.tenant_id == tenant_id, AssinaturaUsuario.usuario_id == usuario_id, AssinaturaUsuario.ativa.is_(True))
+        .values(ativa=False)
+    )
+
+    chave = storage.gerar_chave(tenant_id, "assinatura_pessoal", nome_original)
+    await storage.guardar_ficheiro(chave, conteudo, content_type)
+
+    db.add(AssinaturaUsuario(tenant_id=tenant_id, usuario_id=usuario_id, chave_storage=chave, ativa=True))
+    await db.commit()
+
+
+async def remover_assinatura_pessoal(db: AsyncSession, tenant_id, usuario_id: uuid.UUID) -> None:
+    await db.execute(
+        update(AssinaturaUsuario)
+        .where(AssinaturaUsuario.tenant_id == tenant_id, AssinaturaUsuario.usuario_id == usuario_id, AssinaturaUsuario.ativa.is_(True))
+        .values(ativa=False)
+    )
+    await db.commit()
+
+
+async def obter_assinatura_pessoal_url(db: AsyncSession, tenant_id, usuario_id: uuid.UUID) -> str:
+    assinatura = (await db.execute(
+        select(AssinaturaUsuario).where(
+            AssinaturaUsuario.tenant_id == tenant_id, AssinaturaUsuario.usuario_id == usuario_id, AssinaturaUsuario.ativa.is_(True)
+        )
+    )).scalars().first()
+    if not assinatura:
+        raise HTTPException(status_code=404, detail="Ainda não tem assinatura pessoal configurada.")
+    url = await storage.obter_data_uri(assinatura.chave_storage)
+    if not url:
+        raise HTTPException(status_code=404, detail="Ficheiro da assinatura já não está disponível.")
+    return url

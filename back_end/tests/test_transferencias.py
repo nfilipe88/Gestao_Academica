@@ -97,6 +97,48 @@ async def test_transferencia_concluida_pela_escola_destino(client):
     ), f"a Secretaria da escola B devia ter sido notificada; recebeu: {notificacoes}"
 
 
+async def test_historico_escolar_automatico_usa_os_assinantes_da_origem(client):
+    """Regressão de wiring (app/core/assinaturas.py): o Histórico Escolar
+    automático usa sempre os assinantes configurados para HISTORICO_ESCOLAR
+    na escola de ORIGEM — nunca os da escola de destino, mesmo quando o
+    destino também tem os seus próprios configurados (ver
+    test_transferencia_concluida_pela_escola_destino para o fluxo base
+    e a verificação de teor do bloco de assinatura,
+    tests/test_documentos_pdf_assinatura.py)."""
+    escola_a = await criar_escola_e_gestor(client, "transf-assinante-origem")
+    escola_b = await criar_escola_e_gestor(client, "transf-assinante-destino")
+    headers_a = auth_headers(escola_a["token"])
+    headers_b = auth_headers(escola_b["token"])
+    # Ambas as escolas configuram um assinante para HISTORICO_ESCOLAR —
+    # prova que a geração automática nunca olha para o do destino.
+    resp = await client.post("/api/v1/configuracoes/assinantes-documentos", headers=headers_a, json={
+        "tipo_documento": "HISTORICO_ESCOLAR", "usuario_id": escola_a["usuario_id"], "cargo": "Diretora", "ordem": 0,
+    })
+    assert resp.status_code == 201, resp.text
+    resp = await client.post("/api/v1/configuracoes/assinantes-documentos", headers=headers_b, json={
+        "tipo_documento": "HISTORICO_ESCOLAR", "usuario_id": escola_b["usuario_id"], "cargo": "Diretor", "ordem": 0,
+    })
+    assert resp.status_code == 201, resp.text
+    aluno_id, _ = await _matricular_aluno_ativo(client, headers_a, "Aluno Transferido Com Assinatura")
+
+    resp = await client.post("/api/v1/transferencias", headers=headers_a, json={
+        "aluno_id": aluno_id, "nif_destino": escola_b["nif"], "motivo": "Mudança de área"
+    })
+    solicitacao_id = resp.json()["id"]
+    resp = await client.patch(f"/api/v1/transferencias/{solicitacao_id}/aprovar", headers=headers_b)
+    assert resp.status_code == 200, resp.text
+    aluno_novo_id = resp.json()["aluno_novo_id"]
+
+    resp = await client.get(f"/api/v1/alunos/{aluno_novo_id}/documentos", headers=headers_b)
+    assert resp.status_code == 200, resp.text
+    documentos = resp.json()
+    assert len(documentos) == 1
+    assert "Histórico Escolar" in documentos[0]["descricao"]
+    resp = await client.get(f"/api/v1/alunos/{aluno_novo_id}/documentos/{documentos[0]['id']}/url", headers=headers_b)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["url"].startswith("data:application/pdf;base64,")
+
+
 async def test_apenas_a_escola_de_destino_decide(client):
     """Nem a escola de origem, nem uma terceira escola qualquer, nem o
     Super Admin conseguem aprovar/rejeitar — só a de destino."""

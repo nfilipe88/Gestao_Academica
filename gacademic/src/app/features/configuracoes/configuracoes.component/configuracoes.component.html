@@ -46,6 +46,72 @@
   </div>
 
   <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+    <h3 class="text-sm font-semibold text-slate-800">Assinantes de Documentos</h3>
+    <p class="text-xs text-slate-400 -mt-2">Substitui a assinatura física em Certificados, Declarações, Histórico Escolar, Boletim e Recibos — escolha quem assina cada tipo (pode ser mais do que uma pessoa, ex.: Diretor Geral e Diretor Pedagógico). A imagem da assinatura vem de "O Meu Perfil" de cada pessoa.</p>
+
+    @if (erroAssinantes()) {
+      <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">{{ erroAssinantes() }}</div>
+    }
+
+    <div class="space-y-3">
+      @for (tipo of tiposDocumentoAssinavel; track tipo.chave) {
+        <div class="border border-slate-200 rounded-lg p-3">
+          <p class="text-sm font-medium text-slate-700 mb-2">{{ tipo.nome }}</p>
+          @if (assinantesPorTipo(tipo.chave).length === 0) {
+            <p class="text-xs text-slate-400">Nenhum assinante atribuído.</p>
+          } @else {
+            <ul class="space-y-1">
+              @for (assinante of assinantesPorTipo(tipo.chave); track assinante.id) {
+                <li class="flex items-center justify-between gap-2 text-sm">
+                  <span class="text-slate-700">{{ assinante.nome_usuario }} <span class="text-slate-400">— {{ assinante.cargo }}</span></span>
+                  <button type="button" (click)="onRemoverAssinante(assinante.id)" class="text-xs font-medium text-rose-600 hover:text-rose-700 cursor-pointer shrink-0">Remover</button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    </div>
+
+    <form [formGroup]="novoAssinanteForm" (ngSubmit)="onAdicionarAssinante()" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end border-t border-slate-100 pt-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-assinante-tipo">Tipo de documento</label>
+        <select formControlName="tipo_documento" id="f-assinante-tipo"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          @for (tipo of tiposDocumentoAssinavel; track tipo.chave) {
+            <option [value]="tipo.chave">{{ tipo.nome }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-assinante-usuario">Pessoa</label>
+        <select formControlName="usuario_id" id="f-assinante-usuario"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          <option value="" disabled>Escolha...</option>
+          @for (staff of staffDisponivel(); track staff.id) {
+            <option [value]="staff.id">{{ staff.nome_completo }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-assinante-cargo">Cargo</label>
+        <input type="text" formControlName="cargo" placeholder="Ex: Diretora Geral" id="f-assinante-cargo"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1" for="f-assinante-ordem">Ordem</label>
+        <input type="number" formControlName="ordem" id="f-assinante-ordem"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+      <button type="submit" [disabled]="novoAssinanteForm.invalid"
+        class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+        Adicionar assinante
+      </button>
+    </form>
+    <p class="text-xs text-slate-400 -mt-1">Ordem decide a posição da esquerda para a direita quando há mais de um assinante no mesmo tipo de documento.</p>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
     <div class="flex items-start justify-between gap-4 flex-wrap">
       <div>
         <h3 class="text-sm font-semibold text-slate-800">Site Público</h3>

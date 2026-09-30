@@ -23,6 +23,27 @@
         <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">{{ perfil.perfil_acesso }}</span>
       </div>
     </div>
+
+    @if (podeTerAssinaturaPessoal(perfil.perfil_acesso)) {
+      <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+        <h3 class="text-sm font-semibold text-slate-800">A Minha Assinatura</h3>
+        <p class="text-xs text-slate-400 -mt-2">Usada nos documentos PDF que gerar (Certificados, Declarações, Histórico Escolar, Boletim, Recibos) em vez da assinatura física — carregue uma imagem ou desenhe diretamente (funciona também no telemóvel). Sem uma própria, esses documentos usam a assinatura oficial da escola.</p>
+
+        <div class="flex items-start gap-4 flex-wrap">
+          @if (assinaturaPessoalPreviewUrl()) {
+            <img [src]="assinaturaPessoalPreviewUrl()" alt="A sua assinatura" class="h-16 w-auto max-w-56 object-contain border border-slate-200 rounded-lg p-2 bg-white" />
+          } @else {
+            <div class="h-16 w-40 flex items-center justify-center border border-dashed border-slate-300 rounded-lg text-slate-300 text-xs text-center px-1">Sem assinatura</div>
+          }
+          <div class="flex-1 min-w-52">
+            <app-captura-assinatura [aEnviar]="assinaturaPessoalAEnviar()" (ficheiroPronto)="onAssinaturaPessoalPronta($event)" />
+            @if (assinaturaPessoalPreviewUrl()) {
+              <button type="button" (click)="onRemoverAssinaturaPessoal()" class="text-sm font-medium text-rose-600 hover:text-rose-700 cursor-pointer w-fit mt-2">Remover</button>
+            }
+          </div>
+        </div>
+      </div>
+    }
   }
 
   <form [formGroup]="dadosForm" (ngSubmit)="onGuardarDados()" class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">

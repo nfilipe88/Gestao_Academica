@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import Tenant, Usuario
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
-from app.core import documentos_pdf, storage
+from app.core import assinaturas, documentos_pdf, storage
 from app.core.limites_plano import garantir_vaga_para_alunos
 from app.core.paginacao import paginar_linhas
 from app.cruds import alunos as crud_alunos
@@ -322,6 +322,12 @@ async def aprovar_e_migrar(db: AsyncSession, solicitacao_id: uuid.UUID, tenant_d
             "contacto": " · ".join(filter(None, [tenant_origem.telefone_contacto, tenant_origem.email_contacto])) if tenant_origem else None,
             "logo_data_uri": await storage.obter_logo_data_uri(tenant_origem),
         }
+        # Sempre os assinantes configurados para HISTORICO_ESCOLAR na
+        # escola de ORIGEM — nunca os da escola de destino nem uma
+        # assinatura pessoal de quem aprovou a transferência (não há ali
+        # um "utilizador a emitir o documento" no sentido normal, é um
+        # efeito automático da aprovação — ver app/core/assinaturas.py).
+        escola_origem["assinantes"] = await assinaturas.obter_assinantes_documento(db, tenant_origem.id, "HISTORICO_ESCOLAR")
         contexto = await crud_documentos.construir_contexto_historico_escolar(db, solicitacao.tenant_id, aluno)
         template_personalizado = await crud_documentos.obter_template_personalizado_ativo(db, solicitacao.tenant_id, "HISTORICO_ESCOLAR")
         pdf_bytes = documentos_pdf.gerar_pdf_documento(

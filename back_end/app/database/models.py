@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import List
-from sqlalchemy import Boolean, Date, Integer, Numeric, String, ForeignKey, DateTime, Text, Time, text
+from sqlalchemy import Boolean, Date, Integer, Numeric, String, ForeignKey, DateTime, Text, Time, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -194,3 +194,45 @@ class Usuario(Base):
 
     # Relacionamento
     tenant: Mapped["Tenant"] = relationship(back_populates="usuarios")
+
+
+class AssinaturaUsuario(Base):
+    """Assinatura pessoal de um utilizador (staff), para uso em documentos
+    PDF emitidos por si (ver app/core/assinaturas.py) — mesmo padrão
+    versionado de FotoPerfilAluno (models_pessoas.py): nunca apaga a
+    anterior, arquiva-a (ativa=False) e insere uma nova linha. Ao
+    contrário de FotoPerfilAluno, aqui usuario_id é o DONO do registo
+    (não só "quem enviou"), por isso a FK é CASCADE — sem o utilizador,
+    a assinatura não faz sentido nenhum."""
+    __tablename__ = "assinatura_usuario"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), nullable=False, index=True)
+    chave_storage: Mapped[str] = mapped_column(String(500), nullable=False)
+    ativa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
+    enviada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class AssinanteDocumento(Base):
+    """Quem assina cada TIPO de documento formal — decisão administrativa da
+    escola (Configurações > Assinantes de Documentos), distinta de
+    AssinaturaUsuario acima: aquela é a FONTE da imagem (self-service, cada
+    um a sua), esta é a CAMADA DE ATRIBUIÇÃO (o Gestor decide quem assina
+    o quê). Ver app/core/assinaturas.py::obter_assinantes_documento — nunca
+    depende de quem gerou o PDF, só do tipo de documento. cargo é texto
+    livre (ex. "Diretor Geral", "Diretor Pedagógico" — a mesma escola pode
+    ter os dois, cada um assinando tipos de documento diferentes ou o
+    mesmo). ordem decide a posição da esquerda para a direita quando há
+    mais de um assinante no mesmo tipo de documento."""
+    __tablename__ = "assinante_documento"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "tipo_documento", "usuario_id", name="uq_assinante_documento_tenant_tipo_usuario"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    tipo_documento: Mapped[str] = mapped_column(String(30), nullable=False)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), nullable=False, index=True)
+    cargo: Mapped[str] = mapped_column(String(255), nullable=False)
+    ordem: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))

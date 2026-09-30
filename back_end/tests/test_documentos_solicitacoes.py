@@ -192,3 +192,46 @@ async def test_secretaria_marca_pedido_de_documento_como_pago_e_o_pdf_sai(client
     # Já pago: confirmar outra vez é recusado (não duplica a data/notificação).
     resp = await client.patch(f"/api/v1/documentos/solicitacoes/{solicitacao_id}/marcar-pago", headers=headers)
     assert resp.status_code == 400
+
+
+async def test_pdf_com_assinante_configurado_continua_a_sair(client):
+    """Regressão de wiring (app/core/assinaturas.py): a escola atribuiu um
+    assinante (com assinatura pessoal própria enviada) ao tipo DECLARACAO
+    — o documento tem de continuar a sair normalmente, tanto para o staff
+    como para o Responsável via Portal (nunca a assinatura pessoal de
+    quem descarrega, só a de quem foi administrativamente designado). Ver
+    test_secretaria_marca_pedido_de_documento_como_pago_e_o_pdf_sai para o
+    fluxo base sem assinante nenhum configurado."""
+    import io
+    escola = await criar_escola_e_gestor(client, "doc-pdf-assinante")
+    headers = auth_headers(escola["token"])
+    dados = await _criar_aluno_matriculado_com_portal(client, headers, date.today().year)
+    await _ativar_preco(client, headers, "DECLARACAO")
+
+    resp = await client.post(
+        "/api/v1/perfil/assinatura", headers=headers,
+        files={"ficheiro": ("gestor.png", io.BytesIO(b"\x89PNG\r\n\x1a\n" + b"fake"), "image/png")}
+    )
+    assert resp.status_code == 201, resp.text
+    resp = await client.post("/api/v1/configuracoes/assinantes-documentos", headers=headers, json={
+        "tipo_documento": "DECLARACAO", "usuario_id": escola["usuario_id"], "cargo": "Diretora", "ordem": 0,
+    })
+    assert resp.status_code == 201, resp.text
+
+    resp = await client.post("/api/v1/auth/login", data={"username": dados["email_responsavel"], "password": dados["senha"]})
+    headers_responsavel = auth_headers(resp.json()["access_token"])
+    resp = await client.post("/api/v1/documentos/solicitacoes", headers=headers_responsavel, json={
+        "tipo_documento": "DECLARACAO", "formato_entrega": "DIGITAL"})
+    solicitacao_id = resp.json()["id"]
+    resp = await client.patch(f"/api/v1/documentos/solicitacoes/{solicitacao_id}/marcar-pago", headers=headers)
+    assert resp.status_code == 200, resp.text
+
+    # A própria Secretaria (staff) a gerar o PDF.
+    resp = await client.get(f"/api/v1/documentos/solicitacoes/{solicitacao_id}/pdf", headers=headers)
+    assert resp.status_code == 200 and resp.content[:4] == b"%PDF", resp.text[:200]
+
+    # O Responsável a descarregar o mesmo documento via Portal — vê
+    # exatamente o mesmo assinante configurado (a atribuição é do tipo de
+    # documento, nunca de quem descarrega).
+    resp = await client.get(f"/api/v1/documentos/solicitacoes/{solicitacao_id}/pdf", headers=headers_responsavel)
+    assert resp.status_code == 200 and resp.content[:4] == b"%PDF", resp.text[:200]

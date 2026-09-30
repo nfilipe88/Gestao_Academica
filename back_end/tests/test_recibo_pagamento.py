@@ -121,6 +121,31 @@ async def test_recibo_emitido_ao_marcar_pago_com_numeracao_sequencial(client):
     assert resp.status_code == 400
 
 
+async def test_recibo_pdf_com_assinante_configurado_continua_a_sair(client):
+    """Regressão de wiring (app/core/assinaturas.py): com a escola tendo
+    atribuído um assinante ao tipo RECIBO (decisão administrativa, ver
+    app/cruds/assinantes_documento.py), o recibo tem de continuar a sair
+    normalmente, só a imagem embutida muda."""
+    escola = await criar_escola_e_gestor(client, "recibo-assinante")
+    headers = auth_headers(escola["token"])
+    await client.put("/api/v1/configuracoes", json={"moeda": "AOA", "nota_maxima": 10}, headers=headers)
+    resp = await client.post("/api/v1/configuracoes/assinantes-documentos", headers=headers, json={
+        "tipo_documento": "RECIBO", "usuario_id": escola["usuario_id"], "cargo": "Tesoureira", "ordem": 0,
+    })
+    assert resp.status_code == 201, resp.text
+
+    faturas = await _preparar_contrato_com_2_parcelas(client, headers, date.today().year)
+    fatura_id = faturas[0]["id"]
+    resp = await client.patch(
+        f"/api/v1/financeiro/faturas/{fatura_id}/marcar-pago", json={"forma_pagamento": "MULTICAIXA"}, headers=headers
+    )
+    assert resp.status_code == 200, resp.text
+
+    resp = await client.get(f"/api/v1/financeiro/faturas/{fatura_id}/recibo", headers=headers)
+    assert resp.status_code == 200
+    assert resp.content[:4] == b"%PDF"
+
+
 async def test_reportar_pagamento_fatura_transferencia(client):
     """Auto-relato ("já efetuei a transferência") — aditivo: não marca a
     fatura como paga, só regista o relato para a Secretaria confirmar

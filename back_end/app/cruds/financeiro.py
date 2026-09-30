@@ -25,7 +25,7 @@ from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFina
 from app.database.models_matricula import Matricula
 from app.database.models_financeiro import ContadorRecibo, ContratoFinanceiro, Despesa, FaturaMensalidade, Recibo, TransacaoGateway
 from app.core.email import enviar_email, template_base
-from app.core import documentos_pdf, paypal, storage
+from app.core import assinaturas, documentos_pdf, paypal, storage
 from app.core.paginacao import paginar
 from app.schemas.financeiro import (
     CapturarPagamentoRequest, ContratoCreate, DespesaCreate, FaturaMarcarPago, FaturaReportarPagamento, GerarCobrancaRequest
@@ -210,6 +210,7 @@ async def gerar_pdf_recibo(db: AsyncSession, tenant_id, fatura_id: uuid.UUID, ut
         "contacto": tenant.telefone_contacto if tenant else None,
         "logo_data_uri": await storage.obter_logo_data_uri(tenant),
     }
+    escola["assinantes"] = await assinaturas.obter_assinantes_documento(db, tenant_id, "RECIBO")
     return documentos_pdf.gerar_pdf_documento("RECIBO", escola, contexto)
 
 

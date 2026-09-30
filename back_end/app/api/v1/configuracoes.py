@@ -5,8 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff, obter_utilizador_atual
+from app.cruds import assinantes_documento as crud_assinantes
 from app.cruds import configuracoes as crud_configuracoes
 from app.cruds import site_publico as crud_site_publico
+from app.schemas.assinantes_documento import AssinanteDocumentoCreate, AssinanteDocumentoOut, AssinanteDocumentoUpdate
 from app.schemas.configuracoes import (
     ConfiguracaoTenantOut, ConfiguracaoTenantUpdate, InscricoesUpdate, TipoAvaliacaoCreate, TipoAvaliacaoOut, TipoAvaliacaoUpdate
 )
@@ -88,6 +90,44 @@ async def remover_logotipo(
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
 ):
     return await crud_configuracoes.remover_logotipo(db, utilizador["tenant_id"])
+
+
+# ==========================================
+# ASSINANTES DE DOCUMENTOS (quem assina cada tipo de documento formal —
+# decisão administrativa do Gestor, ver app/core/assinaturas.py e
+# app/cruds/assinantes_documento.py). Administração interna — ao
+# contrário do logótipo, nunca é vista pelo Portal diretamente, por isso
+# GESTOR only mesmo na leitura (mesmo critério de app/api/v1/usuarios.py).
+# ==========================================
+@router.get("/assinantes-documentos", response_model=list[AssinanteDocumentoOut])
+async def listar_assinantes_documentos(
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    return await crud_assinantes.listar_assinantes(db, utilizador["tenant_id"])
+
+
+@router.post("/assinantes-documentos", response_model=AssinanteDocumentoOut, status_code=status.HTTP_201_CREATED)
+async def adicionar_assinante_documento(
+    dados: AssinanteDocumentoCreate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    return await crud_assinantes.adicionar_assinante(db, utilizador["tenant_id"], dados)
+
+
+@router.put("/assinantes-documentos/{assinante_id}", response_model=AssinanteDocumentoOut)
+async def atualizar_assinante_documento(
+    assinante_id: uuid.UUID, dados: AssinanteDocumentoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    return await crud_assinantes.atualizar_assinante(db, utilizador["tenant_id"], assinante_id, dados)
+
+
+@router.delete("/assinantes-documentos/{assinante_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remover_assinante_documento(
+    assinante_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_EDITAR)
+):
+    await crud_assinantes.remover_assinante(db, utilizador["tenant_id"], assinante_id)
 
 
 # ==========================================

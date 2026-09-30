@@ -1,0 +1,35 @@
+<div class="space-y-3">
+  <div class="flex gap-2 text-sm font-medium">
+    <button type="button" (click)="onEscolherUpload()"
+      class="px-3 py-1.5 rounded-lg border cursor-pointer"
+      [class.bg-blue-50]="modo === 'upload'" [class.border-blue-300]="modo === 'upload'" [class.text-blue-700]="modo === 'upload'"
+      [class.border-slate-200]="modo !== 'upload'" [class.text-slate-500]="modo !== 'upload'">
+      Carregar imagem
+    </button>
+    <button type="button" (click)="onEscolherDesenhar()"
+      class="px-3 py-1.5 rounded-lg border cursor-pointer"
+      [class.bg-blue-50]="modo === 'desenhar'" [class.border-blue-300]="modo === 'desenhar'" [class.text-blue-700]="modo === 'desenhar'"
+      [class.border-slate-200]="modo !== 'desenhar'" [class.text-slate-500]="modo !== 'desenhar'">
+      Desenhar
+    </button>
+  </div>
+
+  @if (modo === 'upload') {
+    <label class="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer w-fit block">
+      {{ aEnviar ? 'A enviar...' : 'Escolher ficheiro' }}
+      <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" [disabled]="aEnviar" (change)="onSelecionarFicheiro($event)" />
+    </label>
+  } @else {
+    <div class="space-y-2">
+      <canvas #canvasAssinatura class="w-full h-40 border border-dashed border-slate-300 rounded-lg bg-white touch-none"></canvas>
+      <p class="text-xs text-slate-400">Desenhe com o dedo (telemóvel/tablet) ou o rato.</p>
+      <div class="flex gap-3">
+        <button type="button" (click)="onLimparCanvas()" class="text-sm font-medium text-slate-500 hover:text-slate-700 cursor-pointer">Limpar</button>
+        <button type="button" (click)="onUsarDesenho()" [disabled]="!canvasTemTraco || aEnviar"
+          class="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer disabled:text-slate-300 disabled:cursor-not-allowed">
+          {{ aEnviar ? 'A enviar...' : 'Usar esta assinatura' }}
+        </button>
+      </div>
+    </div>
+  }
+</div>

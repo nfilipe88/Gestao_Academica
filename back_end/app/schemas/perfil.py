@@ -23,6 +23,9 @@ class PerfilOut(BaseModel):
     tenant_id: uuid.UUID
     nome_instituicao: str
     data_criacao: datetime
+    # Só diz SE há assinatura pessoal ativa — a imagem sai por GET
+    # /perfil/assinatura (ver app/api/v1/perfil.py), nunca embutida aqui.
+    tem_assinatura_pessoal: bool = False
     model_config = {"from_attributes": True}
 
 

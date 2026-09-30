@@ -139,7 +139,9 @@ def auth_headers(token: str) -> dict:
 # ConfiguracaoTenantUpdate (mudam-se por outro endpoint — ver os
 # comentários nos próprios schemas). Com extra="forbid" nesse Update,
 # reenviá-los faria PUT /configuracoes falhar com 422.
-_CAMPOS_SO_LEITURA_CONFIGURACAO = ("tem_logotipo", "termos_aceites_em", "termos_versao", "matriculas_abertas", "rematriculas_abertas")
+_CAMPOS_SO_LEITURA_CONFIGURACAO = (
+    "tem_logotipo", "termos_aceites_em", "termos_versao", "matriculas_abertas", "rematriculas_abertas"
+)
 
 
 async def atualizar_configuracao(client: AsyncClient, headers: dict, **campos) -> dict:

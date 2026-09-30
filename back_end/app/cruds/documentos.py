@@ -22,7 +22,7 @@ from app.database.models_documentos import (
 )
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, Professor, ResponsavelFinanceiroLegal
-from app.core import documentos_pdf, paypal, storage
+from app.core import assinaturas, documentos_pdf, paypal, storage
 from app.core.paginacao import paginar, paginar_linhas
 from app.cruds import alunos as crud_alunos
 from app.cruds import notificacoes as crud_notificacoes
@@ -187,7 +187,16 @@ async def guardar_template(db: AsyncSession, tenant_id, usuario_id, tipo_documen
     # (nesse ponto o gerador já teria feito fallback silencioso, ver
     # documentos_pdf.gerar_pdf_documento).
     try:
-        documentos_pdf.renderizar_corpo_personalizado(dados.corpo_html, _CONTEXTOS_AMOSTRA[tipo_documento])
+        # Cópia + setdefault (nunca muta a constante de módulo partilhada):
+        # "assinantes" é sempre injetado na emissão real por
+        # gerar_pdf_documento (ver documentos_pdf.py), mas esta validação
+        # chama renderizar_corpo_personalizado diretamente, sem passar por
+        # ali — sem isto, um template com `{% for assinante in assinantes %}`
+        # falhava a validar mesmo sendo válido (Jinja2 levanta UndefinedError
+        # ao iterar uma variável em falta).
+        contexto_amostra = dict(_CONTEXTOS_AMOSTRA[tipo_documento])
+        contexto_amostra.setdefault("assinantes", [])
+        documentos_pdf.renderizar_corpo_personalizado(dados.corpo_html, contexto_amostra)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Layout inválido: {exc}")
 
@@ -238,8 +247,14 @@ async def pre_visualizar_template(db: AsyncSession, tenant_id, tipo_documento: s
             return documentos_pdf.gerar_pdf_cartao_acesso(
                 _ESCOLA_AMOSTRA, amostra, corpo_html_personalizado=dados.corpo_html, exigir_personalizado=True
             )
+        # Assinantes REAIS já configurados pela escola (não fictícios) — o
+        # Gestor vê os nomes verdadeiros ao desenhar o layout. Cópia de
+        # _ESCOLA_AMOSTRA, nunca mutar a constante de módulo partilhada
+        # entre pedidos concorrentes.
+        escola_amostra = dict(_ESCOLA_AMOSTRA)
+        escola_amostra["assinantes"] = await assinaturas.obter_assinantes_documento(db, tenant_id, tipo_documento)
         return documentos_pdf.gerar_pdf_documento(
-            tipo_documento, _ESCOLA_AMOSTRA, _CONTEXTOS_AMOSTRA[tipo_documento],
+            tipo_documento, escola_amostra, _CONTEXTOS_AMOSTRA[tipo_documento],
             corpo_html_personalizado=dados.corpo_html, exigir_personalizado=True
         )
     except Exception as exc:
@@ -561,6 +576,7 @@ async def gerar_pdf_solicitacao(db: AsyncSession, tenant_id, solicitacao_id: uui
         raise HTTPException(status_code=400, detail="O documento só pode ser gerado depois de confirmado o pagamento.")
 
     escola, contexto = await _construir_contexto_pdf(db, tenant_id, solicitacao)
+    escola["assinantes"] = await assinaturas.obter_assinantes_documento(db, tenant_id, solicitacao.tipo_documento)
 
     template_personalizado = await obter_template_personalizado_ativo(db, tenant_id, solicitacao.tipo_documento)
     pdf_bytes = documentos_pdf.gerar_pdf_documento(

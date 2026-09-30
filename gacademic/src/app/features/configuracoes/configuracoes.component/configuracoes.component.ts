@@ -16,6 +16,36 @@ interface SitePublicoFoto {
   url: string;
 }
 
+// Ver app/schemas/assinantes_documento.py::AssinanteDocumentoOut.
+interface AssinanteDocumento {
+  id: string;
+  tipo_documento: string;
+  usuario_id: string;
+  nome_usuario: string;
+  cargo: string;
+  ordem: number;
+}
+
+// Subconjunto de GET /api/v1/usuarios usado só para popular o <select> de
+// staff elegível a assinante (ver app/cruds/usuarios.py::listar_usuarios).
+interface StaffOpcao {
+  id: string;
+  nome_completo: string;
+  perfil_acesso: string;
+}
+
+// Os 5 tipos de documento que passam pelo bloco de assinatura do
+// envelope comum — ver TIPOS_DOCUMENTO_ASSINAVEL em
+// back_end/app/schemas/assinantes_documento.py (a mesma lista, tem de
+// ficar sincronizada).
+export const TIPOS_DOCUMENTO_ASSINAVEL = [
+  { chave: 'CERTIFICADO', nome: 'Certificado' },
+  { chave: 'DECLARACAO', nome: 'Declaração' },
+  { chave: 'HISTORICO_ESCOLAR', nome: 'Histórico Escolar' },
+  { chave: 'BOLETIM', nome: 'Boletim de Notas' },
+  { chave: 'RECIBO', nome: 'Recibo de Pagamento' },
+] as const;
+
 interface SitePublicoConfig {
   ativo: boolean;
   slug: string | null;
@@ -150,6 +180,8 @@ export class ConfiguracoesComponent implements OnInit {
     this.store.dispatch(ConfiguracoesActions.carregarConfiguracao());
     this.store.dispatch(ConfiguracoesActions.carregarTiposAvaliacao());
     this._carregarSitePublico();
+    this._carregarAssinantesDocumentos();
+    this._carregarStaffDisponivel();
 
     // Regra geral do Ano Letivo: início num ano, fim no seguinte (ex.:
     // set/2026 a jun/2027) — o campo "Ano Letivo" é a junção "YYYY/YYYY"
@@ -277,6 +309,65 @@ export class ConfiguracoesComponent implements OnInit {
         this._limparPreviewLogotipo();
         this.store.dispatch(ConfiguracoesActions.carregarConfiguracao());
       },
+    });
+  }
+
+  // ==========================================
+  // ASSINANTES DE DOCUMENTOS (quem assina cada tipo de documento formal
+  // — decisão administrativa, ver app/core/assinaturas.py) — mesmo
+  // raciocínio de estado do logótipo/site-público acima: HttpClient
+  // direto, sem NgRx, pequeno de mais para um slice próprio.
+  // ==========================================
+  assinantesDocumentos = signal<AssinanteDocumento[]>([]);
+  staffDisponivel = signal<StaffOpcao[]>([]);
+  erroAssinantes = signal<string | null>(null);
+  readonly tiposDocumentoAssinavel = TIPOS_DOCUMENTO_ASSINAVEL;
+
+  novoAssinanteForm = this.fb.group({
+    tipo_documento: ['CERTIFICADO', Validators.required],
+    usuario_id: ['', Validators.required],
+    cargo: ['', Validators.required],
+    ordem: [0],
+  });
+
+  private _carregarAssinantesDocumentos() {
+    this.http.get<AssinanteDocumento[]>('/api/v1/configuracoes/assinantes-documentos').subscribe({
+      next: (lista) => this.assinantesDocumentos.set(lista),
+    });
+  }
+
+  private _carregarStaffDisponivel() {
+    // page_size=100: o maior tamanho de página aceite pelo back-end (ver
+    // Query(..., le=100) em app/api/v1/usuarios.py) — uma escola com mais
+    // de 100 funcionários só veria os primeiros 100 no <select>, aceite
+    // como limitação conhecida para já.
+    this.http.get<{ items: StaffOpcao[] }>('/api/v1/usuarios?page=1&page_size=100').subscribe({
+      next: (resp) => this.staffDisponivel.set(resp.items),
+    });
+  }
+
+  assinantesPorTipo(tipo: string): AssinanteDocumento[] {
+    return this.assinantesDocumentos().filter(a => a.tipo_documento === tipo);
+  }
+
+  onAdicionarAssinante() {
+    if (this.novoAssinanteForm.invalid) return;
+    const v = this.novoAssinanteForm.value;
+    this.erroAssinantes.set(null);
+    this.http.post<AssinanteDocumento>('/api/v1/configuracoes/assinantes-documentos', {
+      tipo_documento: v.tipo_documento, usuario_id: v.usuario_id, cargo: v.cargo, ordem: Number(v.ordem || 0),
+    }).subscribe({
+      next: () => {
+        this._carregarAssinantesDocumentos();
+        this.novoAssinanteForm.patchValue({ usuario_id: '', cargo: '', ordem: 0 });
+      },
+      error: (err) => this.erroAssinantes.set(err.error?.detail || 'Não foi possível adicionar o assinante.'),
+    });
+  }
+
+  onRemoverAssinante(id: string) {
+    this.http.delete(`/api/v1/configuracoes/assinantes-documentos/${id}`).subscribe({
+      next: () => this._carregarAssinantesDocumentos(),
     });
   }
 
