@@ -31,16 +31,45 @@ Uso:
 """
 import argparse
 import asyncio
+import os
 import random
 import statistics
 import string
+import sys
 import time
+from pathlib import Path
 
 import httpx
+from dotenv import load_dotenv
+
+# Só para _ativar_email_na_bd (o registo em si é sempre por HTTP, contra
+# --base-url) — carrega .env.test e recusa continuar se DATABASE_URL não
+# for claramente de teste, para nunca ativar contas por engano numa BD
+# real só porque alguém apontou --base-url para produção.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+load_dotenv(Path(__file__).resolve().parent.parent / ".env.test", override=True)
+if "test" not in os.environ.get("DATABASE_URL", "").rsplit("/", 1)[-1]:
+    raise SystemExit(
+        "DATABASE_URL de .env.test não aponta para uma base de dados de teste — "
+        "a recusar correr (este script ativa contas diretamente na BD)."
+    )
 
 
 def _sufixo(tamanho: int = 8) -> str:
     return "".join(random.choices(string.digits, k=tamanho))
+
+
+async def _ativar_email_na_bd(email: str) -> None:
+    """Sem SMTP configurado (o caso normal em teste), o Gestor nasce com
+    email_verificado=False e o login fica bloqueado — mesmo atalho de
+    scripts/ensaio_geral.py e tests/conftest.py, direto na base de dados
+    de teste (o próprio DATABASE_URL_SISTEMA já usado por este processo)."""
+    from sqlalchemy import update
+    from app.database.models import Usuario
+    from app.database.session import AsyncSessionLocalSistema
+    async with AsyncSessionLocalSistema() as db:
+        await db.execute(update(Usuario).where(Usuario.email == email).values(email_verificado=True))
+        await db.commit()
 
 
 async def _preparar_escola(client: httpx.AsyncClient) -> dict:
@@ -55,6 +84,7 @@ async def _preparar_escola(client: httpx.AsyncClient) -> dict:
         "nome_gestor": "Gestor Teste de Carga", "aceitou_termos": True, "email_gestor": email, "palavra_passe": senha,
     })
     resp.raise_for_status()
+    await _ativar_email_na_bd(email)
     resp = await client.post("/api/v1/auth/login", data={"username": email, "password": senha})
     resp.raise_for_status()
     return resp.json()

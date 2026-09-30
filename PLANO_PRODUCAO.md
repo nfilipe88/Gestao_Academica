@@ -219,3 +219,77 @@ calendário:
 **Riscos aceites para o piloto (documentados, não bloqueiam):** instância única sem alta disponibilidade; pagamentos por transferência com conciliação manual; sem 2FA no Super Admin; concorrência do Dashboard investigada (24/09): a lentidão vinha de abrir ligações novas à BD (~50 ms de CPU cada, autenticação SCRAM em Python, bloqueiam o servidor) — o pool passou a ser pré-aquecido no arranque; em regime quente um Dashboard custa ~25 ms de CPU por pedido, por isso a escala faz-se com mais processos (`--workers`) e `DB_POOL_SIZE` ajustado, ver RUNBOOK secção 9; a BD de desenvolvimento tem ~45 escolas de teste antigas e na "Escola Professor Teste" o responsável/contrato de teste do Carlos Neto (Dia 10) ficaram por apagar de propósito (retenção); só na BD de desenvolvimento.
 
 **Abertura controlada:** uma escola de cada vez, com o Super Admin a criar a escola (não auto-registo), a atribuir plano/licença e a acompanhar o primeiro dia; só passar à seguinte depois de 1-2 dias sem incidentes. Critérios para a fase de 50 escolas: ver a secção anterior.
+
+---
+
+## Adenda — pedido de abrir as 10 escolas em simultâneo, não em escalada (2026-09-27)
+
+A equipa decidiu abrir as 10 escolas da fase de teste todas ao mesmo tempo, não uma de cada vez
+como este plano recomendava. Esta adenda reavalia o que isso muda — e o que não muda.
+
+### O que NÃO muda: os mesmos 6 bloqueadores da secção anterior
+
+Nenhum é sobre "1 escola" vs "10 escolas" — são sobre a plataforma ter uma identidade de produção
+a sério (SMTP, segredos, storage fora do servidor, backup confirmado, política revista, contactos
+no runbook). Continuam todos por preencher (nenhuma caixa de `CHECKLIST_ENV_PRODUCAO.md` está
+marcada). **São a mesma condição para abrir 1 escola ou 10** — não há atalho técnico que os torne
+desnecessários por serem 10 de uma vez.
+
+### O que mudou desde 23-24/09 (o código já não é o fator limitante)
+
+Duas avaliações anteriores (esta e uma auditoria independente a 24/09, `RELATORIO_AVALIACAO_PRODUCAO.md`)
+apontavam lacunas que **já foram fechadas**, a maioria no próprio dia 24/09: fecho de ano letivo e
+resultado final do aluno (`62c9750`), calendário letivo e abrir/encerrar matrículas (`3e77f64`),
+refresh token deixou de viver em `localStorage` — agora cookie HttpOnly (`d0d58eb`), testes de
+frontend passaram de 2 para 42 casos com uma passagem real de acessibilidade (`4e700e2`), e a causa
+raiz da lentidão do Dashboard sob concorrência foi encontrada e corrigida — não era o código do
+ecrã, era o custo de abrir ligações novas ao Postgres a frio (`de080a7`). Mais uma sessão de
+segurança em 27/09 (isolamento multi-tenant reforçado com um teste que cobre automaticamente
+qualquer tabela nova com `tenant_id`, `response_model=` explícito em toda a API, `extra="forbid"`
+em todos os schemas de entrada).
+
+### Evidência nova, medida hoje (27/09), contra o volume exato de 10 escolas
+
+Populei a base de dados de teste com **exatamente** o volume-alvo — `teste_fumo_volume.py` corre
+com `--escolas 10` por omissão — e medi tudo contra o código atual (`5094888`):
+
+- **Semeadura:** 10 escolas, 1800 alunos, 21 600 faturas, 86 400 notas, sem nenhum erro.
+- **Ensaio geral (27/27 passos)** do fluxo completo que cada uma das 10 escolas vai percorrer no
+  primeiro dia — registo → ativação → configuração → matrícula → contrato/faturas → notas/faltas →
+  pagamento reportado e confirmado → recibo → documento → comunicado — passou sem nenhuma falha.
+- **Tempos de resposta com as 10 escolas já povoadas:** tudo abaixo de 260 ms, exceto o Relatório de
+  Indicadores em PDF (748 ms) — o mais pesado, ainda bem abaixo do limite de 1,5 s. 30 pedidos de
+  Dashboard em paralelo, das 10 escolas, terminam em 2,25 s no total, 0 erros (antes do pool
+  pré-aquecido, 9 pedidos de 3 escolas já levavam 1,1 s — a relação melhorou, não piorou, com 3× mais
+  escolas e mais do triplo de pedidos).
+- **Teste de carga isolado (concorrência pura, fora do volume de dados):** 800 pedidos autenticados
+  com concorrência 100 → **100% de sucesso, 0 falhas**, p50 521 ms, p95 1,18 s, p99 1,38 s — numa
+  máquina de desenvolvimento Windows, sem PgBouncer, sem afinação nenhuma além do pool já
+  pré-aquecido. Um servidor Linux de produção com `uvloop` deve sair melhor, não pior (ver RUNBOOK
+  secção 9).
+  (De caminho, corrigido `scripts/teste_carga.py`: faltava ativar a conta do Gestor de teste — sem
+  SMTP configurado, como é o caso aqui, o login ficava sempre a 403 e o script nunca tinha corrido
+  até ao fim. Corrigido com o mesmo atalho já usado em `ensaio_geral.py`/`tests/conftest.py`.)
+
+### O que específicamente pesa mais ao abrir 10 de uma vez em vez de escalado
+
+A recomendação de "uma de cada vez" nunca foi sobre a plataforma aguentar a carga — é sobre **raio
+de explosão**: se algo estiver mal (uma regra de negócio que não bate certo com o regulamento de uma
+escola real, um caso extremo do fecho de trimestre), abrir em escalada significa descobrir isso com
+1 escola nos dados, não com 10. Abrir as 10 juntas troca essa rede de segurança por velocidade. Duas
+mitigações que continuam a valer a pena mesmo assim, e que não estão na secção de bloqueadores por
+serem "fortemente recomendado" em vez de bloqueador:
+- **Sentry do backend ativo** (`SENTRY_DSN`), não só o do frontend — já está todo implementado no
+  código (`app/core/monitorizacao.py`), só falta a variável de ambiente. Com 10 escolas em
+  simultâneo, ninguém vai reparar num erro a olhar para o stdout do processo.
+  `SENTRY_DSN_FRONTEND` (separado, ver comentário no código) cobre o lado dos alunos/encarregados.
+- **Backup e restauro confirmados ANTES da abertura**, não depois — com 10 escolas reais desde o dia
+  1, uma falha de restauro afeta todas de uma vez, não uma.
+
+### Veredicto desta adenda
+
+**Sem alteração ao veredicto de fundo**: continua GO condicional aos mesmos 6 bloqueadores, agora com
+mais evidência de que, tecnicamente, aguentam as 10 escolas em simultâneo sem degradação. A única
+mudança real é operacional, não técnica — vale a pena ter o Sentry do backend ativo e o backup já
+confirmado antes de abrir a primeira das 10, precisamente porque não há a rede de segurança de as
+ver chegar uma de cada vez.
