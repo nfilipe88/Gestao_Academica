@@ -10,7 +10,7 @@ from app.database.models_suporte import ESTADOS_TICKET, TicketMensagem, TicketSu
 from app.schemas.suporte import MensagemTicketCreate, TicketCreate
 from app.core.paginacao import DEFAULT_PAGE_SIZE, paginar, paginar_linhas
 from app.core import fila_notificacoes
-from app.core.email import enviar_email, template_base
+from app.core.email import enviar_email, escapar, template_base
 
 
 async def _criar_ticket(db: AsyncSession, tenant_id: uuid.UUID | None, autor_nome: str, autor_email: str, dados: TicketCreate) -> TicketSuporte:
@@ -136,7 +136,7 @@ async def responder_ticket_admin(db: AsyncSession, ticket_id: uuid.UUID, dados: 
     if ticket.tenant_id is None:
         corpo_html = template_base(
             f"Resposta ao seu pedido: {ticket.assunto}",
-            f"<p>{dados.corpo}</p><p style='margin-top:16px;color:#64748b;font-size:13px;'>Pode responder diretamente a este e-mail para continuar a conversa.</p>"
+            f"<p>{escapar(dados.corpo).replace(chr(10), '<br>')}</p><p style='margin-top:16px;color:#64748b;font-size:13px;'>Pode responder diretamente a este e-mail para continuar a conversa.</p>"
         )
         await fila_notificacoes.agendar_email(
             enviar_email, destinatario=ticket.autor_email, assunto=f"Re: {ticket.assunto}", corpo_html=corpo_html

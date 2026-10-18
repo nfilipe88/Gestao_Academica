@@ -1,3 +1,4 @@
+import html
 import logging
 import os
 from email.message import EmailMessage
@@ -75,8 +76,23 @@ async def enviar_email(
         return False
 
 
+def escapar(valor) -> str:
+    """Escapa um valor vindo de utilizadores (nomes, títulos, mensagens)
+    antes de entrar no HTML de um e-mail — sem isto, quem escreve esse
+    texto (ex.: um registo de escola sem login, um comunicado) consegue
+    meter links/HTML arbitrários num e-mail enviado pelo remetente
+    legítimo da plataforma (phishing). `titulo` em template_base já é
+    escapado aqui dentro; tudo o que for interpolado em `corpo_html`
+    tem de passar por isto na chamada."""
+    return "" if valor is None else html.escape(str(valor))
+
+
 def template_base(titulo: str, corpo_html: str) -> str:
-    """Envelope HTML simples e consistente para os e-mails transacionais."""
+    """Envelope HTML simples e consistente para os e-mails transacionais.
+    `titulo` é texto simples (escapado aqui); `corpo_html` é HTML já
+    montado por quem chama — valores de utilizadores lá dentro têm de vir
+    passados por escapar()."""
+    titulo = escapar(titulo)
     return f"""
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1e293b;">
       <h2 style="color: #2563eb; margin-bottom: 8px;">{titulo}</h2>

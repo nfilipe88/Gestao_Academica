@@ -129,7 +129,9 @@ export class PortalEffects {
       ofType(PortalActions.perguntarProfVirtual),
       switchMap(action => this.http.post<{ resposta: string }>(
         `/api/v1/portal/educandos/${action.aluno_id}/prof-virtual`,
-        { material_id: action.material_id, historico: action.historico, pergunta: action.pergunta }
+        // Só o fim da conversa — o servidor usa as últimas mensagens e
+        // recusa históricos enormes (custo da IA).
+        { material_id: action.material_id, historico: action.historico.slice(-20), pergunta: action.pergunta }
       ).pipe(
         map(resp => PortalActions.perguntarProfVirtualSucesso({ resposta: resp.resposta })),
         catchError(err => of(PortalActions.perguntarProfVirtualFalhou({

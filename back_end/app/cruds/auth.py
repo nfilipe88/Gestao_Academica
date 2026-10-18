@@ -31,7 +31,7 @@ from app.database.models import Usuario, Tenant
 from app.database.models_diario import TipoAvaliacaoConfig
 from app.database.models_usuarios import ContaAtivacaoToken, LoginHistorico, PasswordResetToken, RefreshToken
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso, REFRESH_TOKEN_EXPIRE_DIAS
-from app.core.email import enviar_email, template_base
+from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes, revogacao
 from app.core.privacidade import VERSAO_TERMOS
 from app.schemas.auth import RegistoInicial
@@ -193,8 +193,8 @@ async def _registar_login_e_alertar(db, usuario: Usuario, ip: str | None, user_a
                 corpo_html=template_base(
                     "Novo login detetado",
                     f"""
-                    <p>Olá {usuario.nome_completo},</p>
-                    <p>Detetámos um login na sua conta a partir de um endereço IP que nunca tinha usado antes: <strong>{ip}</strong>.</p>
+                    <p>Olá {escapar(usuario.nome_completo)},</p>
+                    <p>Detetámos um login na sua conta a partir de um endereço IP que nunca tinha usado antes: <strong>{escapar(ip)}</strong>.</p>
                     <p>Se foi você, pode ignorar este e-mail. Se não reconhece este acesso, mude a sua palavra-passe
                     imediatamente (link "Esqueceu-se da palavra-passe?" no ecrã de login) e contacte a direção da escola.</p>
                     """
@@ -386,7 +386,7 @@ async def solicitar_redefinicao_senha(email: str) -> None:
             corpo_html=template_base(
                 "Pedido de redefinição de palavra-passe",
                 f"""
-                <p>Olá {usuario.nome_completo},</p>
+                <p>Olá {escapar(usuario.nome_completo)},</p>
                 <p>Recebemos um pedido para redefinir a palavra-passe da sua conta.
                 Clique no link abaixo para escolher uma nova palavra-passe — o link
                 expira em {RESET_TOKEN_EXPIRE_MINUTES} minutos:</p>
@@ -436,7 +436,7 @@ async def redefinir_senha(token: str, nova_senha: str) -> None:
             corpo_html=template_base(
                 "Palavra-passe alterada",
                 f"""
-                <p>Olá {usuario.nome_completo},</p>
+                <p>Olá {escapar(usuario.nome_completo)},</p>
                 <p>A palavra-passe da sua conta foi alterada com sucesso através do
                 link de recuperação.</p>
                 <p>Se não foi você, contacte a direção da sua escola imediatamente.</p>

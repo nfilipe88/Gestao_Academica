@@ -32,6 +32,9 @@ MODELO = os.getenv("SUPORTE_VIRTUAL_MODELO", "claude-sonnet-5")
 
 _cliente: AsyncAnthropic | None = AsyncAnthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
+# Mensagens anteriores enviadas à IA por pergunta (6 trocas visitante/assistente).
+_MAX_MENSAGENS_ENVIADAS = 12
+
 
 def _construir_prompt_sistema(resumo_planos: str) -> str:
     return f"""És o assistente de suporte virtual do site do "SaaS Académico", uma plataforma de gestão escolar multi-instituição (Angola). Falas com visitantes do site (ainda sem conta) e com staff de escolas já clientes (Gestor, Secretaria, Professor).
@@ -64,9 +67,17 @@ async def perguntar_suporte(
             detail="O suporte virtual ainda não está configurado neste servidor — falta a chave da API de IA."
         )
 
+    # Só as últimas trocas seguem para a IA — o custo de cada pedido fica
+    # limitado mesmo que o visitante tenha uma conversa longa (ou envie um
+    # histórico inventado). A primeira mensagem enviada tem de ser do
+    # visitante, por isso descarta-se uma resposta do assistente que tenha
+    # ficado à cabeça depois do corte.
+    recentes = historico[-_MAX_MENSAGENS_ENVIADAS:]
+    while recentes and recentes[0].papel != "visitante":
+        recentes = recentes[1:]
     mensagens = [
         {"role": "user" if m.papel == "visitante" else "assistant", "content": m.texto}
-        for m in historico
+        for m in recentes
     ]
     mensagens.append({"role": "user", "content": pergunta})
 

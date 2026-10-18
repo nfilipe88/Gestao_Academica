@@ -360,10 +360,10 @@ async def processar_validade_licencas(db: AsyncSession, agendar_email) -> dict:
             await db.rollback()
             continue
 
-        from app.core.email import enviar_email, template_base
+        from app.core.email import enviar_email, escapar, template_base
         for email in emails:
             if email:
-                await agendar_email(enviar_email, destinatario=email, assunto=titulo, corpo_html=template_base(titulo, f"<p>{mensagem}</p>"))
+                await agendar_email(enviar_email, destinatario=email, assunto=titulo, corpo_html=template_base(titulo, f"<p>{escapar(mensagem)}</p>"))
 
     return resumo
 

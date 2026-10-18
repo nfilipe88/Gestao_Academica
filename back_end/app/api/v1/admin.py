@@ -13,7 +13,7 @@ from app.schemas.admin import (
 )
 from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
 from app.schemas.financeiro import DespesaCreate
-from app.core.email import enviar_email, template_base
+from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes
 from app.cruds import admin as crud_admin
 from app.cruds import usuarios as crud_usuarios
@@ -57,9 +57,9 @@ async def criar_tenant(
         corpo_html=template_base(
             "Escola criada com sucesso!",
             f"""
-            <p>Olá {dados.nome_gestor},</p>
-            <p>A instituição <strong>{dados.nome_fantasia}</strong> foi criada na plataforma de Gestão Académica.</p>
-            <p>Já pode iniciar sessão com o e-mail <strong>{dados.email_gestor}</strong> para começar a configurar cursos, turmas e alunos.</p>
+            <p>Olá {escapar(dados.nome_gestor)},</p>
+            <p>A instituição <strong>{escapar(dados.nome_fantasia)}</strong> foi criada na plataforma de Gestão Académica.</p>
+            <p>Já pode iniciar sessão com o e-mail <strong>{escapar(dados.email_gestor)}</strong> para começar a configurar cursos, turmas e alunos.</p>
             """
         )
     )

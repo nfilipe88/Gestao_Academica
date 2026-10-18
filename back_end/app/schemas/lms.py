@@ -2,6 +2,7 @@
 from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 import uuid
 
 from app.schemas.comum import DecimalComoFloat
@@ -211,16 +212,21 @@ class LMSCorrigirTentativaInput(BaseModel):
 # ==========================================
 # PROF. VIRTUAL — chat sem persistência em BD (ver app/core/prof_virtual.py)
 # ==========================================
+# Cada pergunta é uma chamada paga à API de IA — tetos folgados para
+# nunca rejeitar uma conversa real, mas que impedem um pedido de mandar
+# centenas de milhares de tokens (o servidor só usa as últimas
+# mensagens, ver core/prof_virtual.py). Mesmo critério do Suporte Virtual.
 class MensagemProfVirtual(BaseModel):
-    papel: str  # "aluno" | "assistente"
-    texto: str
+    model_config = {"extra": "forbid"}
+    papel: Literal["aluno", "assistente"]
+    texto: str = Field(..., max_length=4000)
 
 
 class ProfVirtualPerguntaCreate(BaseModel):
     model_config = {"extra": "forbid"}
     material_id: uuid.UUID
-    historico: list[MensagemProfVirtual] = []
-    pergunta: str
+    historico: list[MensagemProfVirtual] = Field(default_factory=list, max_length=100)
+    pergunta: str = Field(..., min_length=1, max_length=2000)
 
 
 # ==========================================

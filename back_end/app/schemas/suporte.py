@@ -1,6 +1,8 @@
 """Schemas do Suporte Virtual (chat de IA) e do sistema de tickets — ver
 app/core/suporte_virtual.py e app/cruds/suporte.py."""
 from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
 import uuid
 
@@ -8,14 +10,23 @@ import uuid
 # Suporte Virtual (chat de IA, sem BD)
 # ==========================================
 
+# Endpoint público e cada pedido é pago (API de IA) — sem estes tetos,
+# um único pedido podia mandar centenas de milhares de tokens de
+# "histórico" inventado. Folgados para nunca rejeitar uma conversa real
+# (o servidor só usa as últimas mensagens, ver core/suporte_virtual.py).
+_MAX_MENSAGENS_HISTORICO = 100
+_MAX_CARACTERES_MENSAGEM = 4000
+
+
 class MensagemChatSuporte(BaseModel):
-    papel: str  # "visitante" | "assistente"
-    texto: str
+    model_config = {"extra": "forbid"}
+    papel: Literal["visitante", "assistente"]
+    texto: str = Field(..., max_length=_MAX_CARACTERES_MENSAGEM)
 
 
 class PerguntaSuporteVirtual(BaseModel):
     model_config = {"extra": "forbid"}
-    historico: list[MensagemChatSuporte] = []
+    historico: list[MensagemChatSuporte] = Field(default_factory=list, max_length=_MAX_MENSAGENS_HISTORICO)
     pergunta: str = Field(..., min_length=1, max_length=1000)
 
 

@@ -45,7 +45,7 @@
       </div>
 
       <form (ngSubmit)="onEnviarPergunta()" class="flex gap-2 p-3 border-t border-slate-100 shrink-0">
-        <input type="text" [(ngModel)]="perguntaAtual" name="perguntaAtual" placeholder="Escreva a sua pergunta…"
+        <input type="text" [(ngModel)]="perguntaAtual" name="perguntaAtual" placeholder="Escreva a sua pergunta…" maxlength="1000"
           [disabled]="aProcessar()"
           class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-50" />
         <button type="submit" [disabled]="!perguntaAtual.trim() || aProcessar()"

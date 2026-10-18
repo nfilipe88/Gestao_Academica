@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
-from app.core.email import enviar_email, template_base
+from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes
 from app.schemas.comunicacoes import AnexoComunicacaoOut, ComunicadoCreate, RespostaComunicadoOut
 from app.cruds import comunicacoes as crud_comunicacoes
@@ -31,7 +31,10 @@ async def criar_comunicado(
     novo_comunicado, emails = await crud_comunicacoes.criar_comunicado(db, utilizador, dados)
 
     rotulo_tipo = "Convocatória" if dados.tipo == "CONVOCATORIA" else "Comunicado"
-    corpo_html_email = dados.corpo.replace("\n", "<br>")
+    # Escapado antes de converter as quebras de linha — o corpo é texto
+    # simples escrito por staff (incluindo Professores); sem isto podia
+    # levar links/HTML arbitrários num e-mail enviado em nome da escola.
+    corpo_html_email = escapar(dados.corpo).replace("\n", "<br>")
     for email in emails:
         await fila_notificacoes.agendar_email(
             enviar_email,

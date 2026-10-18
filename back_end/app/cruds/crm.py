@@ -17,7 +17,7 @@ from app.schemas.matriculas import MatriculaCreate
 from app.schemas.financeiro import ContratoCreate
 from app.core import storage
 from app.core.limites_plano import garantir_vaga_para_alunos
-from app.core.email import enviar_email, template_base
+from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes
 from app.cruds import matriculas as matriculas_crud
 from app.cruds import financeiro as financeiro_crud
@@ -628,7 +628,7 @@ async def responder_lead(db: AsyncSession, tenant_id, utilizador: dict, lead_id:
     await db.commit()
     await db.refresh(resposta)
 
-    corpo_html = dados.corpo.replace("\n", "<br>")
+    corpo_html = escapar(dados.corpo).replace("\n", "<br>")
     await fila_notificacoes.agendar_email(
         enviar_email,
         destinatario=lead.email_contato,

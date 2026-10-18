@@ -52,8 +52,10 @@ export class SuporteVirtualWidgetComponent {
     this.aProcessar.set(true);
     this.erro.set(null);
 
+    // O servidor só usa as últimas mensagens e recusa históricos enormes
+    // (custo da IA) — enviar só o fim da conversa nunca esbarra nesse teto.
     this.http.post<{ resposta: string }>('/api/v1/public/suporte-virtual/perguntar', {
-      historico, pergunta
+      historico: historico.slice(-20), pergunta
     }).subscribe({
       next: (resp) => {
         this.mensagens.update(msgs => [...msgs, { papel: 'assistente', texto: resp.resposta }]);

@@ -4,7 +4,7 @@ import uuid
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
-from app.core.email import enviar_email, template_base
+from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes
 from app.schemas.professores import AlocacaoCreate, ProfessorCreate
 from app.cruds import professores as crud_professores
@@ -34,9 +34,9 @@ async def criar_professor(
         corpo_html=template_base(
             "Bem-vindo(a) à equipa docente!",
             f"""
-            <p>Olá {dados.nome_completo},</p>
+            <p>Olá {escapar(dados.nome_completo)},</p>
             <p>Foi criada uma conta de Professor para si na plataforma de Gestão Académica.</p>
-            <p>Já pode iniciar sessão com o e-mail <strong>{dados.email}</strong> e a
+            <p>Já pode iniciar sessão com o e-mail <strong>{escapar(dados.email)}</strong> e a
             palavra-passe definida no momento do registo.</p>
             """
         )

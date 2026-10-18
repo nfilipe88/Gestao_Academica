@@ -95,6 +95,13 @@ services:
       S3_SECRET_KEY: minio_dev_apenas
       CORS_ALLOWED_ORIGINS: http://localhost
       FRONTEND_URL: http://localhost
+      # Os pedidos chegam todos via nginx (outro container) — sem isto o
+      # uvicorn só confia em 127.0.0.1, ignora o X-Forwarded-For, e toda a
+      # gente parece ter o IP do nginx: os limites de tentativas (login,
+      # registo, chat) ficam globais em vez de por visitante. Gama das
+      # redes internas do Docker; nunca "*" (deixaria qualquer cliente
+      # falsificar o próprio IP no cabeçalho).
+      FORWARDED_ALLOW_IPS: "172.16.0.0/12"
     ports:
       - "8000:8000"
     healthcheck:

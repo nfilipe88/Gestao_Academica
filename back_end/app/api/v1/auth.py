@@ -8,7 +8,7 @@ from app.schemas.auth import (
     AtivarContaIn, EsqueciSenhaIn, LogoutIn, RedefinirSenhaIn, RefreshTokenIn, RefreshTokenOut, RegistoInicial,
     TokenResponse
 )
-from app.core.email import enviar_email, template_base
+from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes
 from app.core import recaptcha
 from app.core.rate_limiter import excedeu_limite
@@ -99,8 +99,8 @@ async def registo_inicial_escola(dados: RegistoInicial, request: Request):
         corpo_html=template_base(
             "Confirme a sua conta para começar",
             f"""
-            <p>Olá {dados.nome_gestor},</p>
-            <p>A instituição <strong>{dados.nome_fantasia}</strong> foi criada com sucesso
+            <p>Olá {escapar(dados.nome_gestor)},</p>
+            <p>A instituição <strong>{escapar(dados.nome_fantasia)}</strong> foi criada com sucesso
             na plataforma de Gestão Académica.</p>
             <p>Falta só um passo: confirme o seu e-mail para poder iniciar sessão —
             clique no link abaixo:</p>

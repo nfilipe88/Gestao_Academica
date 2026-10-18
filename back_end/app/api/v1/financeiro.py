@@ -36,9 +36,12 @@ _PODE_GERIR = exigir_perfil("GESTOR", "SECRETARIA")
 async def listar_responsaveis_da_matricula(
     matricula_id: uuid.UUID,
     db: AsyncSession = Depends(obter_sessao_db),
-    utilizador: dict = Depends(obter_utilizador_atual)
+    utilizador: dict = Depends(_PODE_GERIR)
 ):
-    """Lista os responsáveis do aluno associado a esta matrícula, para escolher quem paga."""
+    """Lista os responsáveis do aluno associado a esta matrícula, para
+    escolher quem paga no formulário de novo contrato — mesma permissão
+    de POST /contratos. Nunca aberto a ALUNO/RESPONSAVEL: devolveria os
+    nomes/e-mails dos encarregados de qualquer outra família da escola."""
     return await crud_financeiro.listar_responsaveis_da_matricula(db, utilizador["tenant_id"], matricula_id)
 
 # ==========================================

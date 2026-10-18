@@ -24,7 +24,7 @@ from app.database.models import Tenant, Usuario
 from app.database.models_pessoas import Aluno, AlunoResponsavel, ResponsavelFinanceiroLegal
 from app.database.models_matricula import Matricula
 from app.database.models_financeiro import ContadorRecibo, ContratoFinanceiro, Despesa, FaturaMensalidade, Recibo, TransacaoGateway
-from app.core.email import enviar_email, template_base
+from app.core.email import enviar_email, escapar, template_base
 from app.core import assinaturas, documentos_pdf, paypal, storage
 from app.core.paginacao import paginar
 from app.schemas.financeiro import (
@@ -965,7 +965,7 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                     assunto=f"{nome_encargo_capitalizado} de {nome_aluno} vence em breve",
                     corpo_html=template_base(
                         f"A sua {nome_encargo} vence em breve",
-                        f"A {nome_encargo}{referencia_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, "
+                        f"A {nome_encargo}{referencia_parcela} de {escapar(nome_aluno)}, no valor de {fatura.valor_original} {moeda}, "
                         f"vence em {fatura.data_vencimento.strftime('%d/%m/%Y')}."
                     )
                 )
@@ -989,7 +989,7 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                     assunto=f"{nome_encargo_capitalizado} de {nome_aluno} vence hoje",
                     corpo_html=template_base(
                         f"A sua {nome_encargo} vence hoje",
-                        f"A {nome_encargo}{referencia_parcela} de {nome_aluno}, no valor de {fatura.valor_original} {moeda}, vence hoje."
+                        f"A {nome_encargo}{referencia_parcela} de {escapar(nome_aluno)}, no valor de {fatura.valor_original} {moeda}, vence hoje."
                     )
                 )
             if agendar_sms and telefone_responsavel:
@@ -1016,7 +1016,7 @@ async def processar_regua_cobranca_do_tenant(db: AsyncSession, tenant_id, agenda
                     assunto=f"{nome_encargo_capitalizado} de {nome_aluno} em atraso",
                     corpo_html=template_base(
                         f"A sua {nome_encargo} está em atraso",
-                        f"A {nome_encargo}{referencia_parcela} de {nome_aluno} está em atraso há 5 dias. "
+                        f"A {nome_encargo}{referencia_parcela} de {escapar(nome_aluno)} está em atraso há 5 dias. "
                         f"Valor atualizado (com juros e multa): {situacao['valor_atualizado']} {moeda}.{aviso_rematricula}"
                     )
                 )

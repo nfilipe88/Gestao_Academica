@@ -6,7 +6,7 @@ import uuid
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
-from app.core.email import enviar_email, template_base
+from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes
 from app.schemas.alunos import (
     AlunoAtivoUpdate, AlunoCreate, AlunoListItemOut, AlunoOut, AlunoResponsavelOut,
@@ -106,9 +106,9 @@ async def vincular_responsavel(
             corpo_html=template_base(
                 "Novo vínculo registado",
                 f"""
-                <p>Olá {responsavel.nome_completo},</p>
-                <p>Foi registado(a) como <strong>{dados.tipo_parentesco}</strong> de
-                <strong>{aluno.nome_completo}</strong> (matrícula {aluno.matricula_interna})
+                <p>Olá {escapar(responsavel.nome_completo)},</p>
+                <p>Foi registado(a) como <strong>{escapar(dados.tipo_parentesco)}</strong> de
+                <strong>{escapar(aluno.nome_completo)}</strong> (matrícula {escapar(aluno.matricula_interna)})
                 na plataforma de Gestão Académica.</p>
                 {"<p>Ficou também identificado(a) como <strong>responsável financeiro</strong> deste aluno.</p>" if dados.responsavel_financeiro else ""}
                 """

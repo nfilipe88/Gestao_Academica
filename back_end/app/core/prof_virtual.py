@@ -48,6 +48,9 @@ MODELO = os.getenv("PROF_VIRTUAL_MODELO", "claude-sonnet-5")
 
 _cliente: AsyncAnthropic | None = AsyncAnthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
+# Mensagens anteriores enviadas à IA por pergunta (6 trocas aluno/assistente).
+_MAX_MENSAGENS_ENVIADAS = 12
+
 
 def _construir_prompt_sistema(titulo_material: str, corpo_material: str, nome_objetivo: str | None) -> str:
     contexto_objetivo = f'\nEsta aula está catalogada sob o objetivo de aprendizagem "{nome_objetivo}".' if nome_objetivo else ""
@@ -82,9 +85,15 @@ async def perguntar_prof_virtual(
             detail="O Prof. Virtual ainda não está configurado nesta instituição — falta a chave da API de IA no servidor."
         )
 
+    # Só as últimas trocas seguem para a IA (custo por pedido limitado,
+    # mesmo critério de core/suporte_virtual.py); a primeira mensagem
+    # enviada tem de ser do aluno.
+    recentes = historico[-_MAX_MENSAGENS_ENVIADAS:]
+    while recentes and recentes[0].papel != "aluno":
+        recentes = recentes[1:]
     mensagens = [
         {"role": "user" if m.papel == "aluno" else "assistant", "content": m.texto}
-        for m in historico
+        for m in recentes
     ]
     mensagens.append({"role": "user", "content": pergunta})
 
