@@ -38,7 +38,7 @@ Depois de criada, no painel Super Admin:
 
 1. `GET /api/v1/health` responde 200 (confirma processo **e** ligação à base de dados).
 2. **Backup de ontem existe**: o job corre às 03:00. Listar no bucket `_backups/` (deve haver um
-   `academic_db_AAAAMMDD_HHMMSS.dump` recente) ou correr `python scripts/backup_manual.py` se
+   `academic_db_AAAAMMDD_HHMMSS.dump.enc` recente — sem `.enc` significa que saiu sem cifra) ou correr `python scripts/backup_manual.py` se
    houver dúvidas. Sem `S3_BUCKET` o backup fica no mesmo disco — **não conta**.
 3. Logs do back-end sem `Falha ao executar o backup diário` nem `exception` repetidas. Não há
    ficheiro de log próprio: é o stdout/stderr do processo (ou `docker compose logs backend`).
@@ -74,7 +74,9 @@ Procedimento testado (2026-09-20). Detalhes e comandos em `README.md`, secção 
 Resumo:
 
 1. **Ensaiar sempre primeiro** numa base nova, sem tocar na real:
-   `python scripts/restaurar_db.py --chave _backups/<ficheiro>.dump --bd-destino academic_db_drill --criar-bd`
+   `python scripts/restaurar_db.py --chave _backups/<ficheiro>.dump.enc --bd-destino academic_db_drill --criar-bd --chave-privada <backup_privada.pem>`
+   (a chave privada e a frase-passe estão fora do servidor — ver README; com bucket de backups
+   próprio, correr com credenciais de leitura desse bucket em `BACKUP_S3_*`).
 2. Comparar contagens de tabelas/linhas com o esperado.
 3. Só num desastre real: parar o back-end, restaurar por cima com `--confirmar-alvo-existente`
    (o script recusa isto por omissão), voltar a arrancar o back-end e correr `alembic upgrade head`.

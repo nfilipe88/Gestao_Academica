@@ -56,6 +56,14 @@ def main() -> None:
     ep = _v(env, "S3_ENDPOINT_URL")
     bloqueadores.append(("S3 não aponta para localhost (MinIO de desenvolvimento)", "localhost" not in ep and "127.0.0.1" not in ep, ""))
 
+    bloqueadores.append(("Backups cifrados (BACKUP_CHAVE_PUBLICA)", bool(_v(env, "BACKUP_CHAVE_PUBLICA")), "gerar com scripts/gerar_chaves_backup.py"))
+    backup_s3 = all(_v(env, k) for k in ("BACKUP_S3_BUCKET", "BACKUP_S3_ACCESS_KEY", "BACKUP_S3_SECRET_KEY"))
+    separado = (
+        backup_s3 and _v(env, "BACKUP_S3_BUCKET") != _v(env, "S3_BUCKET")
+        and _v(env, "BACKUP_S3_ACCESS_KEY") != _v(env, "S3_ACCESS_KEY")
+    )
+    bloqueadores.append(("Backups num bucket próprio, com credenciais diferentes das da app", separado, "BACKUP_S3_BUCKET/ACCESS_KEY/SECRET_KEY"))
+
     front = _v(env, "FRONTEND_URL")
     bloqueadores.append(("FRONTEND_URL é https e não é localhost", front.startswith("https://") and "localhost" not in front, ""))
     cors = _v(env, "CORS_ALLOWED_ORIGINS")

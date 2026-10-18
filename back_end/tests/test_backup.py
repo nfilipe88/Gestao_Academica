@@ -5,7 +5,11 @@ biblioteca de mock instalada neste projeto, nem faz sentido exigir um
 Postgres/S3 reais só para testar a orquestração)."""
 from datetime import datetime, timedelta, timezone
 
-from app.core import backup
+import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+from app.core import backup, cifra_backup
 
 
 def test_dsn_para_pg_dump_remove_sufixo_asyncpg(monkeypatch):
@@ -80,3 +84,126 @@ async def test_aplicar_retencao_apaga_so_os_backups_antigos(monkeypatch):
 
     assert total == 1
     assert apagadas == [chave_antiga]
+
+
+# ==========================================
+# Cifra dos backups (auditoria de segurança, bloco 4)
+# ==========================================
+@pytest.fixture(scope="module")
+def par_de_chaves():
+    privada = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+    return privada, privada.public_key()
+
+
+def _pem_publico(chave_publica) -> str:
+    return chave_publica.public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode()
+
+
+def test_cifra_e_decifra_em_varios_blocos(par_de_chaves, monkeypatch):
+    privada, publica = par_de_chaves
+    monkeypatch.setattr(cifra_backup, "_TAMANHO_BLOCO", 1000)
+    dump = bytes(range(256)) * 20  # 5120 bytes → 6 blocos
+
+    cifrado = cifra_backup.cifrar(dump, publica)
+
+    assert cifrado.startswith(cifra_backup.MAGIC)
+    assert dump[:200] not in cifrado
+    assert cifra_backup.decifrar(cifrado, privada) == dump
+
+
+def test_backup_vazio_tambem_e_cifrado(par_de_chaves):
+    privada, publica = par_de_chaves
+    assert cifra_backup.decifrar(cifra_backup.cifrar(b"", publica), privada) == b""
+
+
+@pytest.mark.parametrize("estragar", [
+    lambda dados: dados[:-1] + bytes([dados[-1] ^ 1]),   # um bit alterado
+    lambda dados: dados[:-50],                            # truncado
+    lambda dados: b"PGDMP" + dados[5:],                   # cabeçalho trocado
+])
+def test_backup_alterado_ou_truncado_e_recusado(par_de_chaves, estragar):
+    privada, publica = par_de_chaves
+    cifrado = cifra_backup.cifrar(b"dados da base" * 100, publica)
+    with pytest.raises(cifra_backup.BackupInvalido):
+        cifra_backup.decifrar(estragar(cifrado), privada)
+
+
+def test_bloco_final_removido_e_detetado(par_de_chaves, monkeypatch):
+    """Cortar o ficheiro exatamente no fim de um bloco não pode passar por
+    um backup completo mais pequeno."""
+    privada, publica = par_de_chaves
+    monkeypatch.setattr(cifra_backup, "_TAMANHO_BLOCO", 100)
+    cifrado = cifra_backup.cifrar(b"x" * 250, publica)  # blocos de 100, 100, 50
+    ultimo_bloco = 4 + 50 + 16  # tamanho + dados + tag GCM
+    with pytest.raises(cifra_backup.BackupInvalido):
+        cifra_backup.decifrar(cifrado[:-ultimo_bloco], privada)
+
+
+def test_chave_privada_errada_e_recusada(par_de_chaves):
+    _, publica = par_de_chaves
+    outra = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+    with pytest.raises(cifra_backup.BackupInvalido):
+        cifra_backup.decifrar(cifra_backup.cifrar(b"segredo", publica), outra)
+
+
+def test_chave_publica_fraca_e_recusada():
+    fraca = rsa.generate_private_key(public_exponent=65537, key_size=2048).public_key()
+    with pytest.raises(ValueError):
+        cifra_backup.carregar_chave_publica(_pem_publico(fraca))
+
+
+def test_par_gerado_pelo_script_funciona_com_frase_passe(tmp_path):
+    pem_privado, pem_publico = cifra_backup.gerar_par_de_chaves("frase-passe-de-teste")
+    assert b"ENCRYPTED" in pem_privado
+    (tmp_path / "privada.pem").write_bytes(pem_privado)
+    (tmp_path / "publica.pem").write_bytes(pem_publico)
+
+    publica = cifra_backup.carregar_chave_publica(str(tmp_path / "publica.pem"))
+    privada = cifra_backup.carregar_chave_privada(str(tmp_path / "privada.pem"), "frase-passe-de-teste")
+    assert cifra_backup.decifrar(cifra_backup.cifrar(b"ok", publica), privada) == b"ok"
+    with pytest.raises(ValueError):
+        cifra_backup.carregar_chave_privada(str(tmp_path / "privada.pem"), "frase-errada")
+
+
+async def test_backup_diario_sai_cifrado_com_a_chave_publica(par_de_chaves, monkeypatch):
+    privada, publica = par_de_chaves
+    guardados = {}
+
+    async def _dump_falso():
+        return b"PGDMP conteudo real do dump"
+
+    async def _guardar_falso(chave, conteudo, content_type):
+        guardados[chave] = conteudo
+
+    async def _retencao_falsa():
+        return 0
+
+    monkeypatch.setattr(backup, "BACKUP_CHAVE_PUBLICA", _pem_publico(publica))
+    monkeypatch.setattr(backup, "_correr_pg_dump", _dump_falso)
+    monkeypatch.setattr(backup.storage, "guardar_ficheiro", _guardar_falso)
+    monkeypatch.setattr(backup, "_aplicar_retencao", _retencao_falsa)
+
+    resultado = await backup.executar_backup_diario()
+
+    assert resultado["cifrado"] is True and resultado["chave"].endswith(".dump.enc")
+    conteudo = guardados[resultado["chave"]]
+    assert b"PGDMP" not in conteudo
+    assert cifra_backup.decifrar(conteudo, privada) == b"PGDMP conteudo real do dump"
+
+
+async def test_com_bucket_proprio_a_app_nunca_apaga_backups(monkeypatch):
+    """Com BACKUP_S3_BUCKET, a retenção é da regra de ciclo de vida do
+    bucket — as credenciais do servidor podem ser só de escrita."""
+    async def _nao_devia_listar(prefixo):
+        raise AssertionError("não devia listar o bucket")
+
+    monkeypatch.setattr(backup, "_s3_backups", object())
+    monkeypatch.setattr(backup.storage, "listar_ficheiros", _nao_devia_listar)
+    assert await backup._aplicar_retencao() == 0
+
+
+def test_retencao_reconhece_backups_cifrados():
+    quando = datetime(2026, 9, 20, 3, 0, 0, tzinfo=timezone.utc)
+    assert backup._REGEX_NOME.search(backup._chave_do_backup(quando, cifrado=True))

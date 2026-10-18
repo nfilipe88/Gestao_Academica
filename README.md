@@ -231,6 +231,30 @@ porque um backup que vive no mesmo servidor que protege não sobrevive
 `BACKUP_RETENCAO_DIAS` (14 dias por omissão) — backups mais antigos são
 apagados automaticamente a seguir a cada backup novo.
 
+**Em produção, os backups são cifrados e vão para um bucket próprio**
+(`back_end/app/core/cifra_backup.py`):
+
+- **Cifra com um par de chaves.** O servidor só tem a chave *pública*
+  (`BACKUP_CHAVE_PUBLICA`): cifra, mas não consegue ler backups. A chave
+  *privada*, protegida por frase-passe, fica fora do servidor e só é
+  precisa para restaurar. Quem comprometer o servidor ou o bucket leva
+  ficheiros ilegíveis. Gerar o par uma vez:
+
+  ```bash
+  python scripts/gerar_chaves_backup.py --pasta <pasta fora do servidor>
+  ```
+
+  **Perder a chave privada ou a frase-passe = perder todos os backups.**
+  Guardar as duas em pelo menos dois sítios.
+- **Bucket próprio** (`BACKUP_S3_BUCKET`/`BACKUP_S3_ACCESS_KEY`/`BACKUP_S3_SECRET_KEY`),
+  separado do dos ficheiros da aplicação, com credenciais de preferência
+  só de escrita. Com bucket próprio a app não apaga backups: a retenção
+  passa a ser uma regra de ciclo de vida do bucket.
+
+Sem `BACKUP_CHAVE_PUBLICA`, os backups ficam em claro (aviso no arranque
+— aceitável só em desenvolvimento; `scripts/verificar_env_producao.py`
+trata-o como bloqueador).
+
 `pg_dump`/`pg_restore` não vêm no `PATH` por omissão numa instalação
 Windows do Postgres — apontar `PG_DUMP_PATH`/`PG_RESTORE_PATH` no `.env`
 para o executável completo se for esse o caso (ver `.env.example`).
@@ -253,6 +277,13 @@ python scripts/restaurar_db.py --chave _backups/academic_db_20260920_073646.dump
     --bd-destino academic_db_drill --criar-bd
 ```
 
+Backups cifrados (`.dump.enc`) precisam da chave privada — a frase-passe
+é pedida sem eco no ecrã:
+
+```bash
+python scripts/restaurar_db.py --chave _backups/academic_db_20261018_175518.dump.enc     --bd-destino academic_db_drill --criar-bd --chave-privada <caminho>/backup_privada.pem
+```
+
 Restauro real (disaster recovery, por cima de uma base já existente):
 
 ```bash
@@ -266,6 +297,9 @@ python scripts/restaurar_db.py --chave _backups/<...>.dump \
 idêntica à origem → base de ensaio removida. Um backup nunca restaurado
 não é um backup, é uma promessa — por isso este passo faz parte do
 próprio trabalho de implementar a funcionalidade, não fica para depois.
+Repetido com cifra (2026-10-18): backup real cifrado (79 tabelas, 4558
+linhas) → decifrado com a chave privada e restaurado numa base nova →
+tabelas, linhas e as 74 políticas de RLS idênticas à origem.
 
 ---
 

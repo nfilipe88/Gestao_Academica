@@ -20,6 +20,10 @@ app/core/storage.py, cujo aviso já existente (log no arranque) sobre
 S3_BUCKET não configurado se aplica aqui com ainda mais peso: sem S3
 real, os backups ficam tão vulneráveis quanto a base de dados que
 supostamente protegem.
+
+Em produção, cada backup sai cifrado com a chave pública de backup
+(ver app/core/cifra_backup.py) para um bucket próprio (BACKUP_S3_*),
+separado do da aplicação.
 """
 import asyncio
 import logging
@@ -27,9 +31,40 @@ import os
 import re
 from datetime import datetime, timezone
 
-from app.core import storage
+from app.core import cifra_backup, storage
 
 logger = logging.getLogger("backup")
+
+# Cifra (ver app/core/cifra_backup.py): caminho para o ficheiro .pem da
+# chave pública, ou o próprio PEM numa só linha. Sem ela, os
+# backups ficam em claro — só aceitável em desenvolvimento
+# (scripts/verificar_env_producao.py trata-o como bloqueador).
+BACKUP_CHAVE_PUBLICA = os.getenv("BACKUP_CHAVE_PUBLICA")
+
+# Bucket próprio para os backups, com credenciais próprias — separado do
+# dos ficheiros da aplicação (S3_*): quem obtiver as credenciais da app
+# não lê nem apaga os backups. Recomendado: credenciais só de escrita
+# (PutObject) e a retenção feita por uma regra de ciclo de vida do
+# próprio bucket — por isso, com bucket próprio, a app nunca lista nem
+# apaga backups (ver _aplicar_retencao). Sem BACKUP_S3_BUCKET, cai para o
+# storage da aplicação (desenvolvimento).
+BACKUP_S3_BUCKET = os.getenv("BACKUP_S3_BUCKET")
+BACKUP_S3_ENDPOINT_URL = os.getenv("BACKUP_S3_ENDPOINT_URL") or os.getenv("S3_ENDPOINT_URL") or None
+BACKUP_S3_REGION = os.getenv("BACKUP_S3_REGION") or os.getenv("S3_REGION", "us-east-1")
+
+_s3_backups = None
+if BACKUP_S3_BUCKET:
+    import boto3
+    _s3_backups = boto3.client(
+        "s3", endpoint_url=BACKUP_S3_ENDPOINT_URL, region_name=BACKUP_S3_REGION,
+        aws_access_key_id=os.getenv("BACKUP_S3_ACCESS_KEY"), aws_secret_access_key=os.getenv("BACKUP_S3_SECRET_KEY"),
+    )
+
+if not BACKUP_CHAVE_PUBLICA:
+    logger.warning(
+        "BACKUP_CHAVE_PUBLICA não definida — os backups da base de dados ficam SEM cifra. "
+        "Só aceitável em desenvolvimento; ver scripts/gerar_chaves_backup.py."
+    )
 
 # Só precisa de apontar para o executável quando pg_dump não está no
 # PATH — normal numa instalação Windows do Postgres (ver .env.example);
@@ -42,7 +77,7 @@ PG_DUMP_PATH = os.getenv("PG_DUMP_PATH", "pg_dump")
 BACKUP_RETENCAO_DIAS = int(os.getenv("BACKUP_RETENCAO_DIAS", "14"))
 
 _PREFIXO_CHAVE = "_backups/"
-_REGEX_NOME = re.compile(r"academic_db_(\d{8})_(\d{6})\.dump$")
+_REGEX_NOME = re.compile(r"academic_db_(\d{8})_(\d{6})\.dump(\.enc)?$")
 
 
 def _dsn_para_pg_dump() -> str:
@@ -67,8 +102,32 @@ async def _correr_pg_dump() -> bytes:
     return stdout
 
 
-def _chave_do_backup(quando: datetime) -> str:
-    return f"{_PREFIXO_CHAVE}academic_db_{quando.strftime('%Y%m%d_%H%M%S')}.dump"
+def _chave_do_backup(quando: datetime, cifrado: bool = False) -> str:
+    return f"{_PREFIXO_CHAVE}academic_db_{quando.strftime('%Y%m%d_%H%M%S')}.dump" + (".enc" if cifrado else "")
+
+
+async def guardar_backup(chave: str, conteudo: bytes) -> None:
+    if _s3_backups is None:
+        await storage.guardar_ficheiro(chave, conteudo, "application/octet-stream")
+        return
+    await asyncio.to_thread(
+        _s3_backups.put_object, Bucket=BACKUP_S3_BUCKET, Key=chave, Body=conteudo, ContentType="application/octet-stream"
+    )
+
+
+async def obter_backup(chave: str) -> bytes | None:
+    """Usado por scripts/restaurar_db.py — com bucket próprio, quem
+    restaura corre o script com credenciais de LEITURA desse bucket (as
+    do servidor podem ser só de escrita)."""
+    if _s3_backups is None:
+        return await storage.obter_ficheiro(chave)
+
+    def _ler():
+        try:
+            return _s3_backups.get_object(Bucket=BACKUP_S3_BUCKET, Key=chave)["Body"].read()
+        except _s3_backups.exceptions.NoSuchKey:
+            return None
+    return await asyncio.to_thread(_ler)
 
 
 async def _aplicar_retencao() -> int:
@@ -77,6 +136,10 @@ async def _aplicar_retencao() -> int:
     ficheiro colocado à mão na mesma pasta) são ignoradas em vez de
     apagadas — mais vale nunca apagar algo por engano do que ser
     demasiado agressivo na limpeza."""
+    if _s3_backups is not None:
+        # Bucket próprio: a retenção é da regra de ciclo de vida do bucket
+        # (as credenciais do servidor podem nem ter permissão para apagar).
+        return 0
     chaves = await storage.listar_ficheiros(_PREFIXO_CHAVE)
     limite = datetime.now(timezone.utc).timestamp() - BACKUP_RETENCAO_DIAS * 86400
     apagados = 0
@@ -96,11 +159,15 @@ async def executar_backup_diario() -> dict:
     scripts/backup_manual.py para testar/forçar manualmente."""
     inicio = datetime.now(timezone.utc)
     conteudo = await _correr_pg_dump()
-    chave = _chave_do_backup(inicio)
-    await storage.guardar_ficheiro(chave, conteudo, "application/octet-stream")
+    cifrado = bool(BACKUP_CHAVE_PUBLICA)
+    if cifrado:
+        chave_publica = cifra_backup.carregar_chave_publica(BACKUP_CHAVE_PUBLICA)
+        conteudo = await asyncio.to_thread(cifra_backup.cifrar, conteudo, chave_publica)
+    chave = _chave_do_backup(inicio, cifrado)
+    await guardar_backup(chave, conteudo)
     apagados = await _aplicar_retencao()
     logger.info(
-        "Backup concluído: %s (%d bytes). %d backup(s) antigo(s) removido(s) pela retenção.",
-        chave, len(conteudo), apagados
+        "Backup concluído: %s (%d bytes, %s). %d backup(s) antigo(s) removido(s) pela retenção.",
+        chave, len(conteudo), "cifrado" if cifrado else "SEM CIFRA", apagados
     )
-    return {"chave": chave, "tamanho_bytes": len(conteudo), "apagados_pela_retencao": apagados}
+    return {"chave": chave, "tamanho_bytes": len(conteudo), "cifrado": cifrado, "apagados_pela_retencao": apagados}

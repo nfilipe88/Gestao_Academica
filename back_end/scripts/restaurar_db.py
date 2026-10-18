@@ -14,9 +14,16 @@ Uso (ensaio/simulação — cria uma base nova, nunca toca nas reais):
 Uso (restauro a sério, disaster recovery, por cima de uma base já existente):
     python scripts/restaurar_db.py --chave _backups/academic_db_20260920_140000.dump ^
         --bd-destino academic_db --confirmar-alvo-existente
+
+Backups cifrados (.dump.enc — ver app/core/cifra_backup.py) precisam da
+chave privada, que nunca está no servidor: --chave-privada <ficheiro .pem>
+(a frase-passe é pedida sem eco, ou lida de BACKUP_FRASE_PASSE). Com um
+bucket de backups próprio (BACKUP_S3_*), correr com credenciais de
+LEITURA desse bucket.
 """
 import argparse
 import asyncio
+import getpass
 import os
 import subprocess
 import sys
@@ -29,7 +36,7 @@ import asyncpg
 from dotenv import load_dotenv
 load_dotenv()
 
-from app.core import storage
+from app.core import backup, cifra_backup
 
 PG_RESTORE_PATH = os.getenv("PG_RESTORE_PATH", "pg_restore")
 
@@ -72,6 +79,7 @@ async def main():
         "--confirmar-alvo-existente", action="store_true",
         help="Necessário para restaurar por cima de academic_db/academic_db_test — nunca por omissão"
     )
+    parser.add_argument("--chave-privada", help="Ficheiro .pem da chave privada de backup (obrigatório para .dump.enc)")
     args = parser.parse_args()
 
     if args.bd_destino in _BASES_PROTEGIDAS and not args.confirmar_alvo_existente:
@@ -81,12 +89,23 @@ async def main():
         )
 
     print(f"A descarregar '{args.chave}' do storage...")
-    conteudo = await storage.obter_ficheiro(args.chave)
+    conteudo = await backup.obter_backup(args.chave)
     if conteudo is None:
         raise SystemExit(f"Backup '{args.chave}' não encontrado no storage.")
 
+    if conteudo.startswith(cifra_backup.MAGIC):
+        if not args.chave_privada:
+            raise SystemExit("Este backup está cifrado — indique a chave privada com --chave-privada.")
+        frase = os.getenv("BACKUP_FRASE_PASSE") or getpass.getpass("Frase-passe da chave privada: ")
+        chave_privada = cifra_backup.carregar_chave_privada(args.chave_privada, frase)
+        try:
+            conteudo = cifra_backup.decifrar(conteudo, chave_privada)
+        except cifra_backup.BackupInvalido as erro:
+            raise SystemExit(str(erro))
+        print("Backup decifrado e verificado (íntegro).")
+
     with tempfile.TemporaryDirectory() as pasta_temp:
-        caminho_temp = Path(pasta_temp) / Path(args.chave).name
+        caminho_temp = Path(pasta_temp) / Path(args.chave).name.removesuffix(".enc")
         caminho_temp.write_bytes(conteudo)
         print(f"Backup descarregado ({len(conteudo)} bytes).")
 
