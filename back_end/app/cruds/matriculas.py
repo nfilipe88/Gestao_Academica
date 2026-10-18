@@ -11,7 +11,7 @@ from app.database.models_pessoas import Aluno
 from app.database.models_matricula import Matricula, MatriculaDocumento, PedidoRematricula
 from app.database.models_financeiro import ContratoFinanceiro, FaturaMensalidade
 from app.schemas.matriculas import MatriculaCreate, MatriculaStatusUpdate
-from app.core import storage
+from app.core import storage, validacao_ficheiros
 from app.cruds.admin import esta_bloqueado_parcialmente
 
 ESTADOS_VALIDOS = {"ATIVO", "TRANSFERIDO", "TRANCADO", "EVADIDO", "CICLO_CONCLUIDO", "EM_TRANSFERENCIA"}
@@ -239,8 +239,7 @@ async def adicionar_documento_matricula(
     db: AsyncSession, tenant_id, matricula_id: uuid.UUID, descricao: str | None,
     nome_original: str, content_type: str, conteudo: bytes
 ) -> list[dict]:
-    if content_type not in _TIPOS_FICHEIRO_ACEITES:
-        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG, GIF, WebP ou PDF.")
+    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "PNG, JPEG, GIF, WebP ou PDF", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_DOCUMENTO:
         raise HTTPException(status_code=400, detail="Cada documento não pode passar de 8 MB.")
 
@@ -249,7 +248,7 @@ async def adicionar_documento_matricula(
     if total_atual >= _MAX_DOCUMENTOS_POR_MATRICULA:
         raise HTTPException(status_code=400, detail=f"Já tem o máximo de {_MAX_DOCUMENTOS_POR_MATRICULA} documentos anexados a esta matrícula.")
 
-    chave = storage.gerar_chave(tenant_id, "matricula", nome_original)
+    chave = storage.gerar_chave(tenant_id, "matricula", nome_original, content_type)
     await storage.guardar_ficheiro(chave, conteudo, content_type)
 
     db.add(MatriculaDocumento(

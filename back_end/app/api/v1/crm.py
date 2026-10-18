@@ -90,9 +90,13 @@ async def remover_documento_lead(
     tenant_id: uuid.UUID,
     lead_id: uuid.UUID,
     documento_id: uuid.UUID,
+    request: Request,
     db: AsyncSession = Depends(obter_sessao_db_publica)
 ):
     """Remove um documento anexado por engano — passo 3 do assistente de matrícula."""
+    ip_cliente = request.client.host if request.client else "desconhecido"
+    if await excedeu_limite(f"lead-documento:{ip_cliente}", _DOCUMENTOS_MAX_PEDIDOS, _DOCUMENTOS_JANELA_SEGUNDOS):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Muitos pedidos seguidos — aguarde uns minutos.")
     documentos = await crud_crm.remover_documento_lead(db, tenant_id, lead_id, documento_id)
     return {"documentos": documentos}
 

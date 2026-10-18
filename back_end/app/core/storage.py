@@ -67,11 +67,20 @@ def _sanitizar_nome(nome: str) -> str:
     return nome_limpo[-100:]  # nunca deixa o nome original inflacionar a chave indefinidamente
 
 
-def gerar_chave(tenant_id, categoria: str, nome_original: str) -> str:
+def gerar_chave(tenant_id, categoria: str, nome_original: str, content_type: str | None = None) -> str:
     """Chave única prefixada por tenant/categoria — o mesmo isolamento
     por tenant_id usado em toda a BD, aqui aplicado ao "caminho" do
-    ficheiro no bucket/disco."""
-    return f"{tenant_id}/{categoria}/{uuid.uuid4()}_{_sanitizar_nome(nome_original)}"
+    ficheiro no bucket/disco.
+
+    Com `content_type` (o tipo REAL, de validacao_ficheiros.validar_upload),
+    a extensão da chave passa a ser a desse tipo, não a que veio no nome
+    do ficheiro — há leituras que decidem o tipo pela extensão (ver
+    obter_data_uri abaixo)."""
+    nome = _sanitizar_nome(nome_original)
+    extensao = EXTENSAO_POR_TIPO.get(content_type or "")
+    if extensao:
+        nome = f"{Path(nome).stem or 'ficheiro'}{extensao}"
+    return f"{tenant_id}/{categoria}/{uuid.uuid4()}_{nome}"
 
 
 def _caminho_local(chave: str) -> Path:
@@ -169,6 +178,18 @@ _EXTENSOES_IMAGEM = {
 # silenciosamente (nunca apanhado antes por faltar um teste que
 # efetivamente subisse e voltasse a ver um PDF, só PNGs de amostra).
 _EXTENSOES_DOCUMENTO = {**_EXTENSOES_IMAGEM, ".pdf": "application/pdf"}
+
+# Extensão canónica de cada tipo aceite em uploads (ver gerar_chave).
+EXTENSAO_POR_TIPO = {
+    "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp",
+    "application/pdf": ".pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "application/vnd.oasis.opendocument.text": ".odt",
+    "application/vnd.oasis.opendocument.spreadsheet": ".ods",
+    "application/msword": ".doc", "application/vnd.ms-excel": ".xls", "application/vnd.ms-powerpoint": ".ppt",
+}
 
 
 async def obter_data_uri(chave: str | None) -> str | None:

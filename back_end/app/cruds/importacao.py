@@ -24,7 +24,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import storage, validacao_ficheiros
 from app.core.limites_plano import garantir_vaga_para_alunos
 from app.database.models_academico import Curso, Disciplina, GradeCurricular, SerieAno, Turma
 from app.database.models_diario import Avaliacao, PeriodoAvaliacao, TipoAvaliacaoConfig
@@ -270,10 +270,11 @@ def _parsear_mini_pauta(conteudo: bytes) -> dict:
 async def pre_visualizar_mini_pauta(
     db: AsyncSession, tenant_id, nome_ficheiro: str, content_type: str, conteudo: bytes
 ) -> PreviewMiniPautaResposta:
-    if content_type not in _TIPOS_FICHEIRO_ACEITES:
-        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Envie um ficheiro .xlsx.")
     if len(conteudo) > _TAMANHO_MAXIMO_MINI_PAUTA:
         raise HTTPException(status_code=400, detail="O ficheiro não pode passar de 5 MB.")
+    # Também recusa um .xlsx cujo conteúdo expande para dezenas de MB
+    # ("zip bomb") antes de o openpyxl o tentar abrir.
+    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "um ficheiro .xlsx", nome_ficheiro)
 
     dados = _parsear_mini_pauta(conteudo)
 
@@ -307,7 +308,7 @@ async def pre_visualizar_mini_pauta(
         ))
 
     # Só o ficheiro em si — nenhuma linha na BD ainda (ver docstring do módulo).
-    chave = storage.gerar_chave(tenant_id, "importacao", nome_ficheiro)
+    chave = storage.gerar_chave(tenant_id, "importacao", nome_ficheiro, content_type)
     await storage.guardar_ficheiro(chave, conteudo, content_type)
 
     trimestres_resposta = [

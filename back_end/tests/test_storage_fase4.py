@@ -80,7 +80,7 @@ async def test_comunicado_anexo_upload_download_e_isolamento_entre_escolas(clien
     assert resp.status_code == 201, resp.text
     comunicado_id = resp.json()["id"]
 
-    conteudo_anexo = b"conteudo-do-pdf-de-teste-da-circular"
+    conteudo_anexo = b"%PDF-1.4 conteudo-do-pdf-de-teste-da-circular"
     resp = await client.put(
         f"/api/v1/comunicados/{comunicado_id}/anexo", headers=headers_a,
         files={"ficheiro": ("circular.pdf", conteudo_anexo, "application/pdf")}

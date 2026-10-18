@@ -45,6 +45,13 @@ class TicketCreate(BaseModel):
     mensagem: str = Field(..., min_length=1, max_length=5000)
 
 
+class TicketPublicoCreate(TicketCreate):
+    """Formulário de Contacto do site público (sem sessão) — com o token
+    do reCAPTCHA v3, tal como o registo de escola e a captação de leads
+    (ver app/core/recaptcha.py)."""
+    recaptcha_token: str | None = Field(None, max_length=4000)
+
+
 class MensagemTicketCreate(BaseModel):
     model_config = {"extra": "forbid"}
     corpo: str = Field(..., min_length=1, max_length=5000)

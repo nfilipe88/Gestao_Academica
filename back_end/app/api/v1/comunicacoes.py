@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil, exigir_perfil_staff
+from app.core import validacao_ficheiros
 from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes
 from app.schemas.comunicacoes import AnexoComunicacaoOut, ComunicadoCreate, RespostaComunicadoOut
@@ -97,7 +98,5 @@ async def descarregar_anexo(
     utilizador: dict = Depends(exigir_perfil_staff)
 ):
     conteudo, content_type, nome_original = await crud_comunicacoes.obter_anexo_conteudo(db, utilizador["tenant_id"], comunicado_id)
-    return Response(
-        content=conteudo, media_type=content_type,
-        headers={"Content-Disposition": f'inline; filename="{nome_original}"'}
-    )
+    media_type, cabecalhos = validacao_ficheiros.cabecalhos_download(nome_original, content_type)
+    return Response(content=conteudo, media_type=media_type, headers=cabecalhos)

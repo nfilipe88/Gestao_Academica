@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { RecaptchaService } from '../../../../core/services/recaptcha.service';
 
 @Component({
   selector: 'app-contacto.component',
@@ -12,6 +13,7 @@ import { RouterLink } from '@angular/router';
 export class ContactoComponent {
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
+  private recaptcha = inject(RecaptchaService);
 
   enviado = signal(false);
   aEnviar = signal(false);
@@ -24,11 +26,12 @@ export class ContactoComponent {
     mensagem: ['', Validators.required],
   });
 
-  onSubmit() {
+  async onSubmit() {
     if (this.contactoForm.invalid || this.aEnviar()) return;
     this.aEnviar.set(true);
     this.erro.set(null);
-    this.http.post('/api/v1/public/tickets', this.contactoForm.getRawValue()).subscribe({
+    const recaptcha_token = await this.recaptcha.obterToken('contacto');
+    this.http.post('/api/v1/public/tickets', { ...this.contactoForm.getRawValue(), recaptcha_token }).subscribe({
       next: () => { this.aEnviar.set(false); this.enviado.set(true); },
       error: (err) => {
         this.aEnviar.set(false);

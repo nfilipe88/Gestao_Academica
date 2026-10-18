@@ -19,10 +19,19 @@
  * disponível, caem para uma alternativa que quase nunca é bloqueada.
  */
 
+// Os únicos tipos que se abrem numa aba: um URL blob: tem a MESMA origem
+// da app, por isso um ficheiro HTML/SVG aberto assim correria como página
+// da plataforma (com acesso à sessão). Tudo o resto é sempre transferido.
+const TIPOS_SEGUROS_EM_ABA = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+
 /** Blob (ex.: PDF) — cai para download forçado via <a> sintético, que não é bloqueado por pop-up blockers (não abre janela nova). */
 export function abrirOuTransferirBlob(aba: Window | null, blob: Blob, nomeFicheiro: string): void {
   const url = URL.createObjectURL(blob);
-  if (aba && !aba.closed) {
+  const podeAbrirEmAba = TIPOS_SEGUROS_EM_ABA.has(blob.type.split(';')[0].trim().toLowerCase());
+  if (!podeAbrirEmAba && aba && !aba.closed) {
+    aba.close();
+  }
+  if (podeAbrirEmAba && aba && !aba.closed) {
     aba.location.href = url;
     return;
   }

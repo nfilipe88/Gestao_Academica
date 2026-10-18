@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import obter_sessao_db
 from app.core.rate_limiter import excedeu_limite
 from app.core.security import exigir_perfil
+from app.core import validacao_ficheiros
 from app.cruds import portal as crud_portal
 from app.schemas.comunicacoes import RespostaComunicadoCreate, RespostaComunicadoOut
 from app.schemas.lms import LMSSubmeterTentativa, ProfVirtualPerguntaCreate, SinalFocoInput, ViolacaoDispositivoInput
@@ -194,10 +195,8 @@ async def obter_anexo_comunicado_do_educando(
     utilizador: dict = Depends(_PODE_ACEDER)
 ):
     conteudo, content_type, nome_original = await crud_portal.obter_anexo_comunicado_do_educando(db, utilizador["tenant_id"], utilizador, aluno_id, comunicado_id)
-    return Response(
-        content=conteudo, media_type=content_type,
-        headers={"Content-Disposition": f'inline; filename="{nome_original}"'}
-    )
+    media_type, cabecalhos = validacao_ficheiros.cabecalhos_download(nome_original, content_type)
+    return Response(content=conteudo, media_type=media_type, headers=cabecalhos)
 
 
 @router.post("/educandos/{aluno_id}/comunicados/{comunicado_id}/respostas", response_model=RespostaComunicadoOut, status_code=status.HTTP_201_CREATED)

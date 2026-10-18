@@ -24,12 +24,33 @@ def gerar_hash_senha(senha: str) -> str:
     """Gera um hash seguro para gravar novos utilizadores."""
     return pwd_context.hash(senha)
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-if not SECRET_KEY:
-    raise RuntimeError(
-        "JWT_SECRET_KEY não encontrada. Crie um ficheiro .env na raiz do back_end "
-        "com base no .env.example."
-    )
+_COMO_GERAR_CHAVE = 'Gere uma com: python -c "import secrets; print(secrets.token_urlsafe(64))"'
+
+# Valores que já foram públicos (estão no git) — quem os usar em
+# produção deixa qualquer pessoa forjar tokens de qualquer utilizador.
+_CHAVES_CONHECIDAS = {
+    "defina-aqui-uma-chave-secreta-longa-e-aleatoria",
+    "chave-secreta-so-para-docker-compose-local-trocar-em-producao",
+}
+
+
+def validar_chave_jwt(chave: str | None) -> str:
+    """Recusa arrancar com uma chave de assinatura dos tokens fraca: quem
+    a adivinhar (ou a ler do git) consegue emitir tokens válidos para
+    qualquer utilizador de qualquer escola, sem password nenhuma."""
+    if not chave:
+        raise RuntimeError(
+            "JWT_SECRET_KEY não encontrada. Crie um ficheiro .env na raiz do back_end "
+            f"com base no .env.example. {_COMO_GERAR_CHAVE}"
+        )
+    if chave in _CHAVES_CONHECIDAS:
+        raise RuntimeError(f"JWT_SECRET_KEY é o valor de exemplo publicado no repositório. {_COMO_GERAR_CHAVE}")
+    if len(chave.encode()) < 32 or len(set(chave)) < 10:
+        raise RuntimeError(f"JWT_SECRET_KEY demasiado fraca (mínimo 32 caracteres, variados). {_COMO_GERAR_CHAVE}")
+    return chave
+
+
+SECRET_KEY = validar_chave_jwt(os.getenv("JWT_SECRET_KEY"))
 ALGORITHM = "HS256"
 # Curto de propósito (era 24h) — reduz a janela de risco se um token
 # for roubado (ex.: XSS, já que o front-end guarda o token em

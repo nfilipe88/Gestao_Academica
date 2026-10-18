@@ -87,7 +87,11 @@ services:
       DATABASE_URL: postgresql+asyncpg://app_tenant:app_tenant_docker@postgres:5432/academic_db
       DATABASE_URL_SISTEMA: postgresql+asyncpg://app_sistema:app_sistema_docker@postgres:5432/academic_db
       DATABASE_URL_MIGRACOES: postgresql+asyncpg://postgres:postgres_dev_apenas@postgres:5432/academic_db
-      JWT_SECRET_KEY: chave-secreta-so-para-docker-compose-local-trocar-em-producao
+      # Sem valor fixo de propósito: o back-end recusa arrancar com uma chave
+      # que já esteve no git (ver app/core/security.py::validar_chave_jwt).
+      # Definir num .env ao lado deste ficheiro, gerada com:
+      #   python -c "import secrets; print(secrets.token_urlsafe(64))"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Defina JWT_SECRET_KEY num .env ao lado do docker-compose.yml}
       REDIS_URL: redis://redis:6379/0
       S3_BUCKET: gestao-academica
       S3_ENDPOINT_URL: http://minio:9000

@@ -19,7 +19,7 @@ from app.database.models_comunicacoes import AnexoComunicacao, Comunicado, Respo
 from app.database.models_diario import ProfessorTurmaDisciplina
 from app.schemas.comunicacoes import ComunicadoCreate, RespostaComunicadoCreate
 from app.cruds import notificacoes as crud_notificacoes
-from app.core import storage
+from app.core import storage, validacao_ficheiros
 from app.core.paginacao import paginar_linhas
 
 TIPOS_VALIDOS = {"COMUNICADO", "CONVOCATORIA"}
@@ -30,6 +30,7 @@ DESTINATARIOS_VALIDOS = {"TURMA", "ALUNO", "ESCOLA"}
 # logótipo), generoso o suficiente para um documento de algumas
 # páginas sem abrir a porta a ficheiros enormes.
 _TAMANHO_MAXIMO_ANEXO = 5 * 1024 * 1024  # 5 MB
+_TIPOS_ANEXO_ACEITES = validacao_ficheiros.IMAGENS | {validacao_ficheiros.PDF} | validacao_ficheiros.DOCUMENTOS_OFFICE
 
 
 async def _validar_autoria_professor(
@@ -448,6 +449,13 @@ async def adicionar_anexo(db: AsyncSession, tenant_id, comunicado_id: uuid.UUID,
     cruds/configuracoes.py::atualizar_logotipo)."""
     if len(conteudo) > _TAMANHO_MAXIMO_ANEXO:
         raise HTTPException(status_code=400, detail="O anexo não pode passar de 5 MB.")
+    # Lista fechada e verificada pelo conteúdo: antes aceitava qualquer
+    # ficheiro com o tipo declarado pelo browser e servia-o de volta
+    # "inline" — um .html anexado corria como página da plataforma no
+    # browser do encarregado que o abrisse (roubo de sessão).
+    content_type = validacao_ficheiros.validar_upload(
+        conteudo, _TIPOS_ANEXO_ACEITES, "PDF, imagem (PNG, JPEG, GIF, WebP) ou documento Office (Word, Excel, PowerPoint, OpenDocument)", nome_original
+    )
 
     await _obter_comunicado(db, tenant_id, comunicado_id)
 
@@ -455,7 +463,7 @@ async def adicionar_anexo(db: AsyncSession, tenant_id, comunicado_id: uuid.UUID,
         select(AnexoComunicacao).where(AnexoComunicacao.comunicado_id == comunicado_id, AnexoComunicacao.tenant_id == tenant_id)
     )).scalars().first()
 
-    chave = storage.gerar_chave(tenant_id, "comunicado", nome_original)
+    chave = storage.gerar_chave(tenant_id, "comunicado", nome_original, content_type)
     await storage.guardar_ficheiro(chave, conteudo, content_type)
 
     if anexo_existente:

@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import storage, validacao_ficheiros
 from app.database.models import Tenant
 from app.database.models_academico import Curso
 from app.database.models_site_publico import SitePublicoFoto
@@ -107,8 +107,7 @@ async def atualizar_config(db: AsyncSession, tenant_id, dados: SitePublicoConfig
 
 
 async def adicionar_foto(db: AsyncSession, tenant_id, nome_original: str, content_type: str, conteudo: bytes) -> dict:
-    if content_type not in _TIPOS_FOTO_ACEITES:
-        raise HTTPException(status_code=400, detail=f"Formato de imagem não aceite ({content_type}). Use PNG, JPEG, GIF ou WebP.")
+    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FOTO_ACEITES, "PNG, JPEG, GIF ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_FOTO:
         raise HTTPException(status_code=400, detail="Cada foto não pode passar de 4 MB.")
 
@@ -117,7 +116,7 @@ async def adicionar_foto(db: AsyncSession, tenant_id, nome_original: str, conten
     if total_atual >= _MAX_FOTOS:
         raise HTTPException(status_code=400, detail=f"Já tem o máximo de {_MAX_FOTOS} fotos — apague uma antes de adicionar outra.")
 
-    chave = storage.gerar_chave(tenant_id, "site-publico", nome_original)
+    chave = storage.gerar_chave(tenant_id, "site-publico", nome_original, content_type)
     await storage.guardar_ficheiro(chave, conteudo, content_type)
 
     db.add(SitePublicoFoto(tenant_id=tenant_id, chave_storage=chave, ordem=total_atual))

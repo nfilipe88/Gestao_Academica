@@ -16,7 +16,7 @@ from app.database.models_academico import Turma
 from app.database.models_documentos import TemplateDocumentoPersonalizado
 from app.database.models_matricula import Matricula
 from app.database.models_pessoas import Aluno, AlunoDocumento, AlunoResponsavel, FotoPerfilAluno, ResponsavelFinanceiroLegal
-from app.core import documentos_pdf, storage
+from app.core import documentos_pdf, storage, validacao_ficheiros
 from app.core.limites_plano import garantir_vaga_para_alunos
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import paginar
@@ -342,8 +342,7 @@ async def adicionar_documento_aluno(
     db: AsyncSession, tenant_id, aluno_id: uuid.UUID, descricao: str | None,
     nome_original: str, content_type: str, conteudo: bytes
 ) -> list[dict]:
-    if content_type not in _TIPOS_FICHEIRO_ACEITES:
-        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG, GIF, WebP ou PDF.")
+    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "PNG, JPEG, GIF, WebP ou PDF", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_DOCUMENTO:
         raise HTTPException(status_code=400, detail="Cada documento não pode passar de 8 MB.")
 
@@ -352,7 +351,7 @@ async def adicionar_documento_aluno(
     if total_atual >= _MAX_DOCUMENTOS_POR_ALUNO:
         raise HTTPException(status_code=400, detail=f"Já tem o máximo de {_MAX_DOCUMENTOS_POR_ALUNO} documentos anexados a este aluno.")
 
-    chave = storage.gerar_chave(tenant_id, "aluno", nome_original)
+    chave = storage.gerar_chave(tenant_id, "aluno", nome_original, content_type)
     await storage.guardar_ficheiro(chave, conteudo, content_type)
 
     db.add(AlunoDocumento(
@@ -435,8 +434,7 @@ async def enviar_foto_perfil(
     db: AsyncSession, tenant_id, aluno_id: uuid.UUID, usuario_id,
     nome_original: str, content_type: str, conteudo: bytes
 ) -> list[dict]:
-    if content_type not in _TIPOS_FOTO_ACEITES:
-        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG ou WebP.")
+    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FOTO_ACEITES, "PNG, JPEG ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_FOTO:
         raise HTTPException(status_code=400, detail="A fotografia não pode passar de 5 MB.")
 
@@ -451,7 +449,7 @@ async def enviar_foto_perfil(
         .values(ativa=False)
     )
 
-    chave = storage.gerar_chave(tenant_id, "aluno", nome_original)
+    chave = storage.gerar_chave(tenant_id, "aluno", nome_original, content_type)
     await storage.guardar_ficheiro(chave, conteudo, content_type)
 
     db.add(FotoPerfilAluno(

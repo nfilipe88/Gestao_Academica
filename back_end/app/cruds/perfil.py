@@ -20,7 +20,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import fila_notificacoes, revogacao, storage
+from app.core import fila_notificacoes, revogacao, storage, validacao_ficheiros
 from app.core.email import enviar_email, escapar, template_base
 from app.cruds import auth as crud_auth
 from app.database.models import Usuario, Tenant, AssinaturaUsuario
@@ -165,8 +165,7 @@ async def alterar_senha(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, dado
 async def enviar_assinatura_pessoal(
     db: AsyncSession, tenant_id, usuario_id: uuid.UUID, nome_original: str, content_type: str, conteudo: bytes
 ) -> None:
-    if content_type not in _TIPOS_ASSINATURA_ACEITES:
-        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG ou WebP.")
+    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_ASSINATURA_ACEITES, "PNG, JPEG ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_ASSINATURA:
         raise HTTPException(status_code=400, detail="A assinatura não pode passar de 5 MB.")
 
@@ -176,7 +175,7 @@ async def enviar_assinatura_pessoal(
         .values(ativa=False)
     )
 
-    chave = storage.gerar_chave(tenant_id, "assinatura_pessoal", nome_original)
+    chave = storage.gerar_chave(tenant_id, "assinatura_pessoal", nome_original, content_type)
     await storage.guardar_ficheiro(chave, conteudo, content_type)
 
     db.add(AssinaturaUsuario(tenant_id=tenant_id, usuario_id=usuario_id, chave_storage=chave, ativa=True))

@@ -16,7 +16,7 @@ from app.cruds import site_publico as crud_site_publico
 from app.cruds import suporte as crud_suporte
 from app.schemas.publico import ConfigPublicaOut, PlanoSaaSPublicoOut
 from app.schemas.site_publico import SitePublicoOut
-from app.schemas.suporte import PerguntaSuporteVirtual, TicketCreate
+from app.schemas.suporte import PerguntaSuporteVirtual, TicketPublicoCreate
 
 router = APIRouter(prefix="/api/v1/public", tags=["Público"])
 
@@ -85,9 +85,20 @@ async def perguntar_suporte_virtual(
     return {"resposta": resposta}
 
 
+# Formulário sem sessão: sem limite, um script enchia a fila de tickets
+# do Super Admin de lixo (o mesmo raciocínio dos leads em api/v1/crm.py).
+_TICKET_MAX_PEDIDOS = 5
+_TICKET_JANELA_SEGUNDOS = 3600
+
+
 @router.post("/tickets", status_code=status.HTTP_201_CREATED)
-async def criar_ticket_publico(dados: TicketCreate, db: AsyncSession = Depends(obter_sessao_db_publica)):
+async def criar_ticket_publico(dados: TicketPublicoCreate, request: Request, db: AsyncSession = Depends(obter_sessao_db_publica)):
     """Formulário de Contacto do site público, sem sessão."""
+    ip_cliente = request.client.host if request.client else "desconhecido"
+    if await excedeu_limite(f"ticket-publico:{ip_cliente}", _TICKET_MAX_PEDIDOS, _TICKET_JANELA_SEGUNDOS):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Demasiados pedidos. Tente novamente dentro de 1 hora.")
+    if not await recaptcha.token_e_valido(dados.recaptcha_token, ip_cliente):
+        raise HTTPException(status_code=400, detail="Verificação de segurança falhou. Recarregue a página e tente novamente.")
     ticket = await crud_suporte.criar_ticket_publico(db, dados)
     return {"mensagem": "Recebemos o seu pedido — vamos responder por e-mail em breve.", "id": ticket.id}
 

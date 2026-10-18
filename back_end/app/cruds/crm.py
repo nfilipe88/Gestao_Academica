@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from app.database.models import Tenant, Usuario
 from app.database.models_academico import Curso, Turma
@@ -15,7 +16,7 @@ from app.schemas.crm import (
 )
 from app.schemas.matriculas import MatriculaCreate
 from app.schemas.financeiro import ContratoCreate
-from app.core import storage
+from app.core import storage, validacao_ficheiros
 from app.core.limites_plano import garantir_vaga_para_alunos
 from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes
@@ -260,6 +261,15 @@ async def criar_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, dados: Lead
 # ==========================================
 # A2. DOCUMENTOS DA CANDIDATURA (assistente de matrícula) — sem autenticação
 # ==========================================
+# O id da candidatura é a única "credencial" do assistente público de
+# matrícula (sem sessão) para anexar/remover documentos — só vale
+# enquanto a família está a preencher o assistente. Sem este prazo,
+# quem tivesse o id (histórico do browser, um link partilhado) podia
+# apagar ou trocar os documentos para sempre, mesmo depois de a
+# Secretaria os ter analisado e matriculado o aluno.
+_JANELA_DOCUMENTOS_LEAD = timedelta(hours=24)
+
+
 async def _obter_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, lead_id: uuid.UUID) -> LeadCandidato:
     await db.execute(text("SELECT set_config('app.current_tenant_id', :t, true)"), {"t": str(tenant_id)})
     lead = (await db.execute(
@@ -267,6 +277,11 @@ async def _obter_lead_publico(db: AsyncSession, tenant_id: uuid.UUID, lead_id: u
     )).scalars().first()
     if not lead:
         raise HTTPException(status_code=404, detail="Candidatura não encontrada.")
+    if lead.data_entrada and datetime.now(timezone.utc) - lead.data_entrada > _JANELA_DOCUMENTOS_LEAD:
+        raise HTTPException(
+            status_code=403,
+            detail="O prazo para alterar os documentos desta candidatura terminou. Contacte a secretaria da escola."
+        )
     return lead
 
 
@@ -283,8 +298,7 @@ async def adicionar_documento_lead(
 ) -> list[dict]:
     if tipo not in TIPOS_DOCUMENTO_VALIDOS:
         raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO_VALIDOS))}.")
-    if content_type not in _TIPOS_FICHEIRO_ACEITES:
-        raise HTTPException(status_code=400, detail=f"Formato não aceite ({content_type}). Use PNG, JPEG, GIF, WebP ou PDF.")
+    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "PNG, JPEG, GIF, WebP ou PDF", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_DOCUMENTO:
         raise HTTPException(status_code=400, detail="Cada documento não pode passar de 8 MB.")
 
@@ -293,7 +307,7 @@ async def adicionar_documento_lead(
     if total_atual >= _MAX_DOCUMENTOS_POR_LEAD:
         raise HTTPException(status_code=400, detail=f"Já tem o máximo de {_MAX_DOCUMENTOS_POR_LEAD} documentos anexados.")
 
-    chave = storage.gerar_chave(tenant_id, "candidatura", nome_original)
+    chave = storage.gerar_chave(tenant_id, "candidatura", nome_original, content_type)
     await storage.guardar_ficheiro(chave, conteudo, content_type)
 
     db.add(LeadDocumento(tenant_id=tenant_id, lead_id=lead_id, tipo=tipo, nome_original=nome_original, chave_storage=chave))

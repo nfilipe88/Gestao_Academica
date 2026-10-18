@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import storage, validacao_ficheiros
 from app.database.models import Tenant
 from app.database.models_eventos import Evento, EventoFoto
 from app.schemas.eventos import EventoCreate, EventoUpdate
@@ -95,15 +95,14 @@ async def adicionar_foto_evento(db: AsyncSession, tenant_id, evento_id: uuid.UUI
     contagem aqui — de propósito: um evento pode ter tantas fotos
     quantas fizerem sentido para contar a história desse dia, sem o
     limite de 8 pensado para a galeria genérica da página."""
-    if content_type not in _TIPOS_FOTO_ACEITES:
-        raise HTTPException(status_code=400, detail=f"Formato de imagem não aceite ({content_type}). Use PNG, JPEG, GIF ou WebP.")
+    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FOTO_ACEITES, "PNG, JPEG, GIF ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_FOTO:
         raise HTTPException(status_code=400, detail="Cada foto não pode passar de 4 MB.")
 
     await _obter_evento(db, tenant_id, evento_id)
     total_atual = len(await _listar_fotos(db, tenant_id, evento_id))
 
-    chave = storage.gerar_chave(tenant_id, "eventos", nome_original)
+    chave = storage.gerar_chave(tenant_id, "eventos", nome_original, content_type)
     await storage.guardar_ficheiro(chave, conteudo, content_type)
 
     db.add(EventoFoto(tenant_id=tenant_id, evento_id=evento_id, chave_storage=chave, ordem=total_atual))

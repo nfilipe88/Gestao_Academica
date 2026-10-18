@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import storage, validacao_ficheiros
 from app.core.privacidade import VERSAO_TERMOS
 from app.database.models import Tenant
 from app.database.models_diario import Avaliacao, TipoAvaliacaoConfig
@@ -99,17 +99,13 @@ async def atualizar_configuracao(db: AsyncSession, tenant_id, dados: Configuraca
 # LOGÓTIPO DA ESCOLA
 # ==========================================
 async def atualizar_logotipo(db: AsyncSession, tenant_id, nome_original: str, content_type: str, conteudo: bytes) -> Tenant:
-    if content_type not in _TIPOS_LOGOTIPO_ACEITES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Formato de imagem não aceite ({content_type}). Use PNG, JPEG, GIF ou WebP."
-        )
+    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_LOGOTIPO_ACEITES, "PNG, JPEG, GIF ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_LOGOTIPO:
         raise HTTPException(status_code=400, detail="O logótipo não pode passar de 2 MB.")
 
     tenant = await _obter_tenant(db, tenant_id)
     chave_antiga = tenant.logotipo_chave
-    nova_chave = storage.gerar_chave(tenant_id, "logotipo", nome_original)
+    nova_chave = storage.gerar_chave(tenant_id, "logotipo", nome_original, content_type)
     await storage.guardar_ficheiro(nova_chave, conteudo, content_type)
 
     tenant.logotipo_chave = nova_chave
