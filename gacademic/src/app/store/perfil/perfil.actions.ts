@@ -9,7 +9,8 @@ export const carregarPerfilSucesso = createAction(
 
 export const atualizarPerfil = createAction(
   '[Perfil] Atualizar Perfil',
-  props<{ nome_completo: string; email: string }>()
+  // senha_atual só é exigida pelo back-end quando o email muda.
+  props<{ nome_completo: string; email: string; senha_atual?: string }>()
 );
 
 export const alterarSenha = createAction(

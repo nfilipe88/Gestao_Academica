@@ -33,11 +33,24 @@ class PerfilUpdate(BaseModel):
     model_config = {"extra": "forbid"}
     nome_completo: str = Field(..., min_length=1, max_length=255)
     email: EmailStr
+    # Obrigatória só quando o email muda (ver cruds/perfil.py::atualizar_perfil):
+    # o email é o identificador de login e o destino da recuperação de
+    # palavra-passe — quem tivesse só uma sessão aberta (computador
+    # partilhado, token roubado) não pode desviá-lo para si.
+    senha_atual: str | None = Field(None, max_length=128)
 
 
 class AlterarSenhaIn(BaseModel):
     model_config = {"extra": "forbid"}
-    senha_atual: str
-    nova_senha: str = Field(..., min_length=8)
+    senha_atual: str = Field(..., max_length=128)
+    nova_senha: str = Field(..., min_length=8, max_length=128)
 
     _validar_nova_senha = field_validator("nova_senha")(validar_forca_senha)
+
+
+class AlterarSenhaOut(BaseModel):
+    mensagem: str
+    # Todas as sessões anteriores são terminadas ao mudar a palavra-passe,
+    # incluindo a atual — este é o token novo com que ela continua.
+    access_token: str
+    token_type: str = "bearer"

@@ -38,3 +38,12 @@ export const restoreAuth = createAction(
   '[Auth Init] Restaurar Sessão do LocalStorage',
   props<{ token: string | null, usuario: UsuarioLogado | null }>()
 );
+
+// Access token novo para a sessão já iniciada (refresh automático no
+// jwtInterceptor, ou a sessão reemitida ao mudar a palavra-passe no
+// Perfil, que termina todas as anteriores) — sem isto, o token antigo
+// continuava na Store e cada pedido seguinte voltava a dar 401.
+export const tokenRenovado = createAction(
+  '[Auth] Token Renovado',
+  props<{ token: string }>()
+);

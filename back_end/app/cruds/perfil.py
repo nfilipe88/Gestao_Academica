@@ -20,9 +20,12 @@ from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import fila_notificacoes, revogacao, storage
+from app.core.email import enviar_email, escapar, template_base
+from app.cruds import auth as crud_auth
 from app.database.models import Usuario, Tenant, AssinaturaUsuario
-from app.core.security import verificar_senha, gerar_hash_senha
+from app.database.models_usuarios import RefreshToken
+from app.core.security import criar_token_acesso, verificar_senha, gerar_hash_senha
 from app.schemas.perfil import PerfilUpdate, AlterarSenhaIn
 
 # Assinatura pessoal: mesmos limites já usados para a fotografia de
@@ -66,21 +69,51 @@ async def atualizar_perfil(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, d
     if not usuario:
         raise HTTPException(status_code=404, detail="Utilizador não encontrado.")
 
+    email_anterior = None
     if dados.email != usuario.email:
+        # O email é o login e o destino da recuperação de palavra-passe:
+        # mudá-lo exige provar que se sabe a palavra-passe, não só ter
+        # uma sessão aberta (ver PerfilUpdate.senha_atual).
+        if not dados.senha_atual or not verificar_senha(dados.senha_atual, usuario.senha_hash):
+            raise HTTPException(status_code=400, detail="Para alterar o email, confirme a sua palavra-passe atual.")
         email_existente = (await db.execute(
             select(Usuario).where(Usuario.email == dados.email, Usuario.id != usuario_id)
         )).scalars().first()
         if email_existente:
             raise HTTPException(status_code=400, detail="Este email já está em uso por outra conta.")
+        email_anterior = usuario.email
         usuario.email = dados.email
 
     usuario.nome_completo = dados.nome_completo
     await db.commit()
 
+    if email_anterior:
+        # Aviso para o endereço ANTIGO — o único que o verdadeiro dono
+        # ainda controla se a mudança não foi feita por ele.
+        await fila_notificacoes.agendar_email(
+            enviar_email, destinatario=email_anterior,
+            assunto="O email da sua conta foi alterado",
+            corpo_html=template_base(
+                "Email da conta alterado",
+                f"""
+                <p>Olá {escapar(usuario.nome_completo)},</p>
+                <p>O email de acesso da sua conta foi alterado para <strong>{escapar(usuario.email)}</strong>.
+                A partir de agora, o login e a recuperação de palavra-passe usam esse endereço.</p>
+                <p>Se não foi você a fazer esta alteração, contacte imediatamente a direção da escola.</p>
+                """
+            )
+        )
+
     return await obter_perfil(db, tenant_id, usuario_id)
 
 
-async def alterar_senha(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, dados: AlterarSenhaIn) -> None:
+async def alterar_senha(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, dados: AlterarSenhaIn) -> dict:
+    """Muda a palavra-passe e termina TODAS as sessões abertas (access
+    tokens já emitidos e refresh tokens), em todos os dispositivos —
+    mesmo critério de cruds/auth.py::redefinir_senha: quem muda a
+    palavra-passe muitas vezes fá-lo por desconfiar que alguém a sabe,
+    e essa pessoa não pode continuar com uma sessão aberta. A sessão de
+    quem fez o pedido continua com um par de tokens novo, devolvido aqui."""
     usuario = (await db.execute(
         select(Usuario).where(Usuario.id == usuario_id, Usuario.tenant_id == tenant_id)
     )).scalars().first()
@@ -91,7 +124,34 @@ async def alterar_senha(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, dado
         raise HTTPException(status_code=400, detail="A palavra-passe atual está incorreta.")
 
     usuario.senha_hash = gerar_hash_senha(dados.nova_senha)
+    await db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.usuario_id == usuario.id, RefreshToken.revogado.is_(False))
+        .values(revogado=True)
+    )
     await db.commit()
+    await revogacao.revogar_usuario(usuario.id)
+
+    access_token = criar_token_acesso(dados={
+        "sub": str(usuario.id), "tenant_id": str(usuario.tenant_id), "perfil_acesso": usuario.perfil_acesso
+    })
+    refresh_token = await crud_auth._criar_refresh_token(db, usuario.tenant_id, usuario.id)
+    await db.commit()
+
+    await fila_notificacoes.agendar_email(
+        enviar_email, destinatario=usuario.email,
+        assunto="A sua palavra-passe foi alterada",
+        corpo_html=template_base(
+            "Palavra-passe alterada",
+            f"""
+            <p>Olá {escapar(usuario.nome_completo)},</p>
+            <p>A palavra-passe da sua conta foi alterada e todas as outras sessões abertas foram terminadas.</p>
+            <p>Se não foi você a fazer esta alteração, use o link "Esqueceu-se da palavra-passe?"
+            no ecrã de login e contacte imediatamente a direção da escola.</p>
+            """
+        )
+    )
+    return {"access_token": access_token, "refresh_token": refresh_token}
 
 
 # ==========================================

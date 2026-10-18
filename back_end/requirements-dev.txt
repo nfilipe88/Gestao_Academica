@@ -3,12 +3,14 @@
 # localmente/CI com: pip install -r requirements.txt -r requirements-dev.txt
 -r requirements.txt
 
-pytest==8.4.2
-pytest-asyncio==1.2.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
 httpx==0.28.1
-black==26.1.0
+black==26.10.1
 mypy==1.19.1
 flake8==7.3.0
 isort==7.0.0
 pylint==4.0.4
 pre_commit==4.5.1
+# Dependência do pre_commit, fixada na versão corrigida (pip-audit).
+virtualenv==21.14.11

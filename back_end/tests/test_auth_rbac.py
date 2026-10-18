@@ -44,13 +44,18 @@ def _rotas_admin() -> list[tuple[str, str]]:
     desatualizada a cada rota nova (ex.: as de Estatísticas/Despesas
     cross-tenant acrescentadas depois deste teste já existir), isto
     continua a cobrir 100% das rotas de admin.py para sempre, incluindo
-    as que ainda não foram escritas."""
+    as que ainda não foram escritas.
+
+    Lê o esquema OpenAPI em vez de percorrer app.routes: a partir do
+    FastAPI 0.14x os routers incluídos ficam em app.routes como um único
+    objeto por router (não achatados em APIRoute), e o OpenAPI é a forma
+    pública e estável de listar todas as rotas (nenhuma rota do projeto
+    usa include_in_schema=False)."""
     rotas = []
-    for rota in app.routes:
-        caminho = getattr(rota, "path", "")
+    for caminho, operacoes in app.openapi()["paths"].items():
         if not caminho.startswith("/api/v1/admin"):
             continue
-        for metodo in sorted(getattr(rota, "methods", set()) - {"HEAD", "OPTIONS"}):
+        for metodo in sorted(m.upper() for m in operacoes if m in {"get", "post", "put", "patch", "delete"}):
             rotas.append((metodo, caminho))
     return rotas
 

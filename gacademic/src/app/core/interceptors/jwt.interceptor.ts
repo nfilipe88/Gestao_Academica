@@ -3,7 +3,7 @@ import { inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { selectToken } from '../../store/auth/auth.selectors';
-import { sessaoExpirada } from '../../store/auth/auth.actions';
+import { sessaoExpirada, tokenRenovado } from '../../store/auth/auth.actions';
 import { switchMap } from 'rxjs/internal/operators/switchMap';
 import { catchError, Observable, of, shareReplay, take, throwError } from 'rxjs';
 
@@ -78,6 +78,7 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
                 store.dispatch(sessaoExpirada());
                 return throwError(() => erro);
               }
+              store.dispatch(tokenRenovado({ token: novoToken }));
               return next(req.clone({ setHeaders: { Authorization: `Bearer ${novoToken}` } }));
             })
           );

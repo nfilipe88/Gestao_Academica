@@ -11,9 +11,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
+from app.api.v1.auth import definir_cookie_refresh
 from app.core.security import obter_utilizador_atual
 from app.cruds import perfil as crud_perfil
-from app.schemas.perfil import PerfilUpdate, AlterarSenhaIn
+from app.schemas.perfil import PerfilUpdate, AlterarSenhaIn, AlterarSenhaOut
 
 router = APIRouter(prefix="/api/v1/perfil", tags=["Perfil"])
 
@@ -33,13 +34,20 @@ async def atualizar_perfil(
     return await crud_perfil.atualizar_perfil(db, utilizador["tenant_id"], utilizador["usuario_id"], dados)
 
 
-@router.post("/alterar-senha")
+@router.post("/alterar-senha", response_model=AlterarSenhaOut)
 async def alterar_senha(
-    dados: AlterarSenhaIn,
+    dados: AlterarSenhaIn, response: Response,
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(obter_utilizador_atual)
 ):
-    await crud_perfil.alterar_senha(db, utilizador["tenant_id"], utilizador["usuario_id"], dados)
-    return {"mensagem": "Palavra-passe alterada com sucesso."}
+    """Termina todas as sessões (incluindo esta) e devolve um access
+    token novo; o refresh token novo segue no mesmo cookie HttpOnly do
+    login (ver app/api/v1/auth.py)."""
+    sessao = await crud_perfil.alterar_senha(db, utilizador["tenant_id"], utilizador["usuario_id"], dados)
+    definir_cookie_refresh(response, sessao["refresh_token"])
+    return {
+        "mensagem": "Palavra-passe alterada com sucesso. As sessões abertas noutros dispositivos foram terminadas.",
+        "access_token": sessao["access_token"],
+    }
 
 
 # ==========================================

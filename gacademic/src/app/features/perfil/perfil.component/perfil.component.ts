@@ -38,7 +38,12 @@ export class PerfilComponent implements OnInit, OnDestroy {
   dadosForm = this.fb.group({
     nome_completo: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
+    // Só pedida (e enviada) quando o email muda — ver emailAlterado.
+    senha_atual: [''],
   });
+
+  // Email tal como está gravado — para saber se o formulário o mudou.
+  private emailGravado = '';
 
   senhaForm = this.fb.group({
     senha_atual: ['', Validators.required],
@@ -55,9 +60,11 @@ export class PerfilComponent implements OnInit, OnDestroy {
     // padrão já usado em Configurações.
     this.perfil$.subscribe(perfil => {
       if (perfil) {
+        this.emailGravado = perfil.email;
         this.dadosForm.patchValue({
           nome_completo: perfil.nome_completo,
           email: perfil.email,
+          senha_atual: '',
         }, { emitEvent: false });
 
         if (perfil.tem_assinatura_pessoal !== this.assinaturaPessoalCarregada) {
@@ -116,10 +123,21 @@ export class PerfilComponent implements OnInit, OnDestroy {
     });
   }
 
+  // O email é o login e o destino da recuperação de palavra-passe — o
+  // back-end exige a palavra-passe atual para o mudar (ver
+  // app/cruds/perfil.py::atualizar_perfil).
+  get emailAlterado(): boolean {
+    return (this.dadosForm.value.email ?? '').trim() !== this.emailGravado;
+  }
+
   onGuardarDados() {
     if (this.dadosForm.invalid) return;
     const v = this.dadosForm.value;
-    this.store.dispatch(PerfilActions.atualizarPerfil({ nome_completo: v.nome_completo!, email: v.email! }));
+    if (this.emailAlterado && !v.senha_atual) return;
+    this.store.dispatch(PerfilActions.atualizarPerfil({
+      nome_completo: v.nome_completo!, email: v.email!,
+      ...(this.emailAlterado ? { senha_atual: v.senha_atual! } : {}),
+    }));
   }
 
   get senhasDiferentes(): boolean {

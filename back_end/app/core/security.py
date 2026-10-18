@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError
 from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 import uuid
@@ -52,7 +53,12 @@ def criar_token_acesso(dados: Dict[str, Any]) -> str:
     copia_dados = dados.copy()
     agora = datetime.now(timezone.utc)
     expiracao = agora + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    copia_dados.update({"exp": expiracao, "iat": agora, "jti": str(uuid.uuid4())})
+    # "iat" é gravado em segundos inteiros (norma JWT); "emitido_em" é o
+    # mesmo instante com fração de segundo — sem isto, um token emitido
+    # logo a seguir a uma revogação, no MESMO segundo (ex.: a sessão
+    # atual reemitida depois de mudar a palavra-passe, ver
+    # cruds/perfil.py::alterar_senha), seria considerado anterior a ela.
+    copia_dados.update({"exp": expiracao, "iat": agora, "emitido_em": agora.timestamp(), "jti": str(uuid.uuid4())})
     return jwt.encode(copia_dados, SECRET_KEY, algorithm=ALGORITHM)
 
 async def obter_utilizador_atual(token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
@@ -71,7 +77,7 @@ async def obter_utilizador_atual(token: str = Depends(oauth2_scheme)) -> Dict[st
         usuario_id: str = payload.get("sub")
         perfil: str = payload.get("perfil_acesso")
         jti: str | None = payload.get("jti")
-        iat: float | None = payload.get("iat")
+        iat: float | None = payload.get("emitido_em", payload.get("iat"))
 
         if tenant_id is None or usuario_id is None:
             raise credenciais_exception
@@ -85,7 +91,7 @@ async def obter_utilizador_atual(token: str = Depends(oauth2_scheme)) -> Dict[st
             "perfil_acesso": perfil,
             "jti": jti,
         }
-    except JWTError:
+    except InvalidTokenError:
         raise credenciais_exception
 
 

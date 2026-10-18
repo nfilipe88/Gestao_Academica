@@ -65,7 +65,16 @@
       </div>
     </div>
 
-    <button type="submit" [disabled]="dadosForm.invalid"
+    @if (emailAlterado) {
+      <div class="md:w-1/2">
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-perfil-senha-email">Palavra-passe atual (para confirmar a mudança de e-mail)</label>
+        <input type="password" formControlName="senha_atual" autocomplete="current-password"
+          class="w-full border border-slate-300 rounded-lg px-4 py-2 text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-perfil-senha-email" />
+        <p class="text-xs text-slate-500 mt-1">Vamos avisar o endereço antigo desta alteração.</p>
+      </div>
+    }
+
+    <button type="submit" [disabled]="dadosForm.invalid || (emailAlterado && !dadosForm.value.senha_atual)"
       class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
       Guardar Dados
     </button>

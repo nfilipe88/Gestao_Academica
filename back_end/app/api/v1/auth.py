@@ -49,7 +49,7 @@ def _cookie_secure() -> bool:
     return os.getenv("AUTH_COOKIE_SECURE", "true").lower() != "false"
 
 
-def _definir_cookie_refresh(response: Response, refresh_token: str) -> None:
+def definir_cookie_refresh(response: Response, refresh_token: str) -> None:
     response.set_cookie(
         COOKIE_REFRESH, refresh_token, max_age=REFRESH_TOKEN_EXPIRE_DIAS * 86400, path=_COOKIE_CAMINHO,
         httponly=True, secure=_cookie_secure(), samesite="strict",
@@ -128,7 +128,7 @@ async def login(request: Request, response: Response, form_data: OAuth2PasswordR
     await _verificar_limite_login(f"{ip_cliente}:{form_data.username}")
 
     sessao = await crud_auth.autenticar(form_data.username, form_data.password, ip=ip_cliente, user_agent=request.headers.get("user-agent"))
-    _definir_cookie_refresh(response, sessao["refresh_token"])
+    definir_cookie_refresh(response, sessao["refresh_token"])
     return sessao
 
 
@@ -151,7 +151,7 @@ async def refresh(request: Request, response: Response, dados: RefreshTokenIn | 
         recusa = JSONResponse(status_code=erro.status_code, content={"detail": erro.detail})
         _limpar_cookie_refresh(recusa)
         return recusa
-    _definir_cookie_refresh(response, novo["refresh_token"])
+    definir_cookie_refresh(response, novo["refresh_token"])
     return novo
 
 

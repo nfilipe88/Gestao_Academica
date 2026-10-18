@@ -54,5 +54,9 @@ export const authReducer = createReducer(
     token,
     usuario,
     isAuthenticated: !!token
+  })),
+  on(AuthActions.tokenRenovado, (state, { token }) => ({
+    ...state,
+    token
   }))
 );
