@@ -1,0 +1,156 @@
+# Receita de PRODUÇÃO: um servidor Linux (VPS) com Docker. Guia passo a
+# passo em LEIA-ME.md, nesta mesma pasta.
+#
+# Diferenças em relação ao docker-compose.yml da raiz (desenvolvimento):
+#  - Nenhuma password fixa: tudo vem do .env desta pasta (ver .env.exemplo);
+#    falta uma variável obrigatória → o compose recusa arrancar.
+#  - Só o nginx publica portas (80/443). Postgres, Redis, back-end e
+#    front-end ficam só na rede interna — nada acessível da Internet.
+#  - HTTPS com certificado Let's Encrypt (renovado sozinho pelo serviço
+#    certbot), HTTP redireciona para HTTPS, HSTS ligado.
+#  - Redis com password; Postgres com as roles do RLS criadas com passwords
+#    próprias (postgres-init/).
+#  - Sem MinIO: ficheiros (S3_*) e backups (BACKUP_S3_*) vão para storage
+#    S3 EXTERNO ao servidor — perder o servidor não pode levar também os
+#    ficheiros e as cópias de segurança.
+
+name: gestao-academica
+
+x-logs: &logs
+  logging:
+    driver: json-file
+    options:
+      max-size: "20m"
+      max-file: "5"
+
+x-seguranca: &seguranca
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  postgres:
+    image: postgres:17
+    <<: [*logs, *seguranca]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: academic_db
+      APP_TENANT_DB_PASSWORD: ${APP_TENANT_DB_PASSWORD:?Defina APP_TENANT_DB_PASSWORD no .env}
+      APP_SISTEMA_DB_PASSWORD: ${APP_SISTEMA_DB_PASSWORD:?Defina APP_SISTEMA_DB_PASSWORD no .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    networks: [interna]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d academic_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    <<: [*logs, *seguranca]
+    # appendonly: a fila de notificações (e-mails com retries) sobrevive a
+    # um reinício do Redis.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Defina REDIS_PASSWORD no .env}", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks: [interna]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  backend:
+    build: ../../back_end
+    <<: [*logs, *seguranca]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Todas as variáveis da aplicação (SMTP, JWT, S3, backups, reCAPTCHA,
+    # Sentry, PayPal, ...) vêm do .env; as de baixo são montadas aqui a
+    # partir das passwords desse mesmo .env.
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app_tenant:${APP_TENANT_DB_PASSWORD}@postgres:5432/academic_db
+      DATABASE_URL_SISTEMA: postgresql+asyncpg://app_sistema:${APP_SISTEMA_DB_PASSWORD}@postgres:5432/academic_db
+      DATABASE_URL_MIGRACOES: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@postgres:5432/academic_db
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      FRONTEND_URL: https://${DOMINIO:?Defina DOMINIO no .env}
+      CORS_ALLOWED_ORIGINS: https://${DOMINIO}
+      AUTH_COOKIE_SECURE: "true"
+      SENTRY_ENVIRONMENT: production
+      # Só o nginx (IP fixo abaixo) pode dizer qual é o IP real do visitante.
+      FORWARDED_ALLOW_IPS: 172.30.250.10
+      BACKUP_CHAVE_PUBLICA: /run/segredos/backup_publica.pem
+      PG_DUMP_PATH: pg_dump
+      PG_RESTORE_PATH: pg_restore
+    volumes:
+      - ./segredos/backup_publica.pem:/run/segredos/backup_publica.pem:ro
+    # Vários processos (N ≈ núcleos do servidor) — os jobs diários têm lock
+    # no Redis, só um processo os corre. Ver RUNBOOK.md secção 9 para
+    # DB_POOL_SIZE: (POOL + OVERFLOW) × processos tem de caber nas 100
+    # ligações do Postgres.
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-2}"]
+    networks: [interna]
+
+  frontend:
+    build: ../../gacademic
+    <<: [*logs, *seguranca]
+    depends_on:
+      - backend
+    environment:
+      NG_ALLOWED_HOSTS: ${DOMINIO},localhost:4000
+    networks: [interna]
+
+  nginx:
+    image: nginx:1.27-alpine
+    <<: [*logs, *seguranca]
+    depends_on:
+      - backend
+      - frontend
+    environment:
+      DOMINIO: ${DOMINIO}
+    volumes:
+      # O nginx substitui ${DOMINIO} no modelo ao arrancar (envsubst da imagem oficial).
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    # Recarrega a configuração a cada 12 h para apanhar o certificado renovado.
+    # Arranca pelo /docker-entrypoint.sh da imagem com "nginx" como 1.º
+    # argumento: só assim ele gera a configuração a partir do modelo.
+    command: ["/bin/sh", "-c", "(while :; do sleep 12h; nginx -s reload; done) & exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
+    networks:
+      interna:
+        ipv4_address: 172.30.250.10
+
+  certbot:
+    image: certbot/certbot:v2.11.0
+    <<: [*logs, *seguranca]
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    # Tenta renovar 2× por dia; o Let's Encrypt só renova quando faltam < 30 dias.
+    entrypoint: ["/bin/sh", "-c", "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"]
+    networks: [interna]
+
+networks:
+  interna:
+    ipam:
+      config:
+        - subnet: 172.30.250.0/24
+
+volumes:
+  postgres_data:
+  redis_data:
+  certbot_conf:
+  certbot_www:

@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "desenvolvimento",
+      "credentials": [{ "accessKey": "minio_admin", "secretKey": "minio_dev_apenas" }],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

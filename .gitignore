@@ -196,6 +196,8 @@ activemq-data/
 .env
 .env.test
 .envrc
+# Chaves de produção (deploy/producao/LEIA-ME.md) — nunca no git.
+deploy/producao/segredos/
 .venv
 env/
 

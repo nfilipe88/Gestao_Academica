@@ -1,0 +1,4 @@
+# Scripts de shell correm dentro de containers Linux (ex.:
+# deploy/producao/postgres-init/) — com fins de linha CRLF (checkout em
+# Windows com core.autocrlf=true) o bash falha. Sempre LF.
+*.sh text eol=lf

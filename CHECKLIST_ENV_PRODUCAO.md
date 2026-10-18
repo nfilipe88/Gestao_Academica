@@ -22,6 +22,11 @@ python scripts/verificar_env_producao.py
       (ver `RUNBOOK.md`, secção 4).
 - [ ] Permissões do ficheiro restritas ao utilizador que corre o serviço (`chmod 600 .env` em Linux).
 
+> Instalação no servidor (Docker, HTTPS, roles da BD, chaves dos backups): ver
+> [`deploy/producao/LEIA-ME.md`](deploy/producao/LEIA-ME.md). Lá, as variáveis abaixo vão para
+> `deploy/producao/.env`; o verificador corre dentro do container com
+> `docker compose exec backend python scripts/verificar_env_producao.py --ambiente`.
+
 ## 1. Bloqueadores — sem isto NÃO se abre a primeira escola
 
 | ✔ | Variável | O que pôr | Como confirmar |

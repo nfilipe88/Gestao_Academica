@@ -58,7 +58,7 @@ back-end corre sem `--reload`, por isso alterar código ou `.env` só tem efeito
 | Uma escola não consegue entrar | Estado "Desativada" (suspensão manual ou licença expirada) — Painel Super Admin → **Ativar** / renovar validade. Nada é apagado ao desativar. |
 | "Limite de N aluno(s) do plano atingido" | Comportamento esperado. Desativar alunos que saíram, mudar de plano, ou **Isentar** (Super Admin). |
 | Utilizador diz que "o token é inválido" logo depois de a escola ser reativada | Tokens emitidos no mesmo segundo da desativação são revogados; pedir para voltar a iniciar sessão. |
-| Uploads (logótipo, anexos) falham | MinIO/S3 em baixo ou credenciais erradas (`S3_*`). Ver `docker ps` / consola MinIO em `:9001`. |
+| Uploads (logótipo, anexos) falham | S3 em baixo ou credenciais erradas (`S3_*`). Ver `docker compose ps` e os registos do `backend`. |
 | Formulários públicos devolvem 429 | Rate limiting a funcionar (registo 5/h, leads 10/h por IP). Esperar, ou investigar abuso. |
 | Formulários públicos devolvem 400 "Verificação de segurança falhou" | reCAPTCHA recusou o pedido (score < 0.5). O log tem `reCAPTCHA recusou um pedido:` com o motivo. |
 | Um pedido de documento fica em "pendente de pagamento" | Pagamento por transferência: a Secretaria confirma em Documentos → **Marcar paga** (o PayPal só serve moedas que aceita; Kwanza não). Depois o PDF fica disponível ao Responsável. |

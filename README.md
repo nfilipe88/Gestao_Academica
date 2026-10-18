@@ -35,10 +35,13 @@ API com caminhos relativos, o nginx encaminha `/api/*` para o back-end
 e o resto para o front-end, por isso não há CORS nenhum a negociar
 neste caminho).
 
-Não é uma receita de produção tal e qual (passwords fixas no
-`docker-compose.yml`, sem TLS) — ver `docker-compose.yml` e
-`deploy/nginx.conf` para os detalhes, e a secção de variáveis de
-ambiente abaixo para o que muda num deploy real.
+Não é uma receita de produção (passwords fixas no `docker-compose.yml`,
+sem TLS). **Para produção, usar `deploy/producao/`** — guia passo a
+passo em [`deploy/producao/LEIA-ME.md`](deploy/producao/LEIA-ME.md):
+HTTPS com Let's Encrypt, nenhuma password no repositório, só as portas
+80/443 abertas, ficheiros e backups cifrados em S3 externo. A receita
+inclui um ensaio local completo (sem domínio nem S3) para experimentar
+antes do servidor real.
 
 ---
 
@@ -92,27 +95,18 @@ detalhes de cada um.
 **Storage de ficheiros (`S3_BUCKET`) — sem isto, cai para disco local**,
 só correto para UMA instância (cada instância teria o seu próprio
 disco, e um redeploy apaga tudo) — ver `app/core/storage.py`. Para
-correr localmente sem depender de uma conta AWS, um MinIO isolado (sem
-subir o `docker-compose.yml` inteiro) resolve:
+correr localmente sem depender de uma conta S3, basta o serviço de
+storage do `docker-compose.yml` (SeaweedFS, S3-compatível — as imagens
+do MinIO deixaram de estar disponíveis publicamente), sem subir o resto:
 
 ```bash
-docker run -d --name gacademic-minio \
-  -e MINIO_ROOT_USER=minio_admin -e MINIO_ROOT_PASSWORD=minio_dev_apenas \
-  -p 9000:9000 -p 9001:9001 -v gacademic_minio_data:/data \
-  quay.io/minio/minio:latest server /data --console-address ":9001"
-
-# criar o bucket uma única vez:
-docker run --rm --network host --entrypoint /bin/sh quay.io/minio/mc:latest -c \
-  "mc alias set local http://localhost:9000 minio_admin minio_dev_apenas && mc mb -p local/gestao-academica"
+JWT_SECRET_KEY=x docker compose up -d s3 s3-setup   # cria o bucket "gestao-academica"
 ```
 
 Depois, em `.env`: `S3_BUCKET=gestao-academica`, `S3_ENDPOINT_URL=http://localhost:9000`,
-`S3_ACCESS_KEY=minio_admin`, `S3_SECRET_KEY=minio_dev_apenas` (mesmas
-credenciais já usadas pelo `docker-compose.yml`). Consola web do MinIO
-em `http://localhost:9001`. Em produção, isto é antes um bucket AWS
-S3/equivalente gerido — a imagem oficial `minio/minio` no Docker Hub
-pode levar a "pull access denied" por limite de pulls anónimos; `quay.io/minio/minio`
-é o mesmo projeto, espelhado, sem esse limite.
+`S3_ACCESS_KEY=minio_admin`, `S3_SECRET_KEY=minio_dev_apenas` (credenciais
+de desenvolvimento em `deploy/s3-desenvolvimento.json`). Em produção, isto
+é antes um bucket S3 gerido, fora do servidor — ver `deploy/producao/`.
 
 ### Front-end
 

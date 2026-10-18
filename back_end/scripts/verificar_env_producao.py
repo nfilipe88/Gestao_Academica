@@ -5,6 +5,10 @@ Uso (no servidor, na pasta back_end):
     python scripts/verificar_env_producao.py            # lê ./.env
     python scripts/verificar_env_producao.py --env-file /caminho/.env
 
+Com docker compose (deploy/producao), as variáveis já estão no ambiente do
+container — verificar as que a app realmente recebe:
+    docker compose exec backend python scripts/verificar_env_producao.py --ambiente
+
 Sai com código 1 se algum bloqueador falhar (útil para um passo de deploy).
 Não liga à base de dados nem ao storage — só olha para o ficheiro/ambiente.
 """
@@ -29,10 +33,14 @@ def _sec_fraco(valor: str) -> bool:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--env-file", default=".env")
+    p.add_argument("--ambiente", action="store_true", help="Verificar as variáveis de ambiente do processo (ex.: dentro do container)")
     args = p.parse_args()
-    if not os.path.isfile(args.env_file):
-        raise SystemExit(f"{args.env_file} não existe.")
-    env = {**dotenv_values(args.env_file)}
+    if args.ambiente:
+        env = dict(os.environ)
+    else:
+        if not os.path.isfile(args.env_file):
+            raise SystemExit(f"{args.env_file} não existe.")
+        env = {**dotenv_values(args.env_file)}
 
     bloqueadores: list[tuple[str, bool, str]] = []
     avisos: list[tuple[str, bool, str]] = []

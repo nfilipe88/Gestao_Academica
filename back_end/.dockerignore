@@ -5,5 +5,8 @@ __pycache__/
 .env
 .env.test
 tests/
-scripts/
+uploads/
 .git/
+# Dados de demonstração com palavra-passe conhecida — só para desenvolvimento,
+# nunca na imagem que vai para produção.
+seed.py

@@ -15,8 +15,13 @@ WORKDIR /app
 # libpq-dev/gcc só para o caso de alguma dependência precisar de
 # compilar (a maioria já vem em wheel pré-compilado) — mantém a imagem
 # final ainda assim pequena por não instalar mais do que isto.
+#
+# postgresql-client: pg_dump/pg_restore do backup diário (app/core/backup.py)
+# — sem isto, o job das 03:00 falhava sempre dentro do container. A
+# versão do cliente tem de ser >= à do servidor (postgres:17 nos
+# docker-compose); confirmar com `pg_dump --version` se o servidor mudar.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libpq-dev gcc \
+        libpq-dev gcc postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

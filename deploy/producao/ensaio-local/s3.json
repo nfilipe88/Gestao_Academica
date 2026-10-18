@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "aplicacao",
+      "credentials": [{ "accessKey": "ensaio_aplicacao", "secretKey": "ensaio_aplicacao_password_local" }],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    },
+    {
+      "name": "backups_escrita",
+      "credentials": [{ "accessKey": "ensaio_backups", "secretKey": "ensaio_backups_password_local" }],
+      "actions": ["Write:backups"]
+    }
+  ]
+}
