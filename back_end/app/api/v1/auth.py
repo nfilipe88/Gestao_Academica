@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.schemas.auth import (
-    AtivarContaIn, EsqueciSenhaIn, LogoutIn, RedefinirSenhaIn, RefreshTokenIn, RefreshTokenOut, RegistoInicial,
-    TokenResponse
+    AtivarContaIn, DesafioDoisFatoresOut, EsqueciSenhaIn, LoginDoisFatoresIn, LogoutIn, RedefinirSenhaIn,
+    ReenviarCodigoIn, RefreshTokenIn, RefreshTokenOut, RegistoInicial, TokenResponse
 )
 from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes
@@ -120,16 +120,48 @@ async def ativar_conta(dados: AtivarContaIn):
     return {"mensagem": "Conta ativada com sucesso. Já pode iniciar sessão."}
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse | DesafioDoisFatoresOut)
 async def login(request: Request, response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
     """Valida a hash da palavra-passe com o passlib e gera o access token
-    (curto) + refresh token (mais duradouro, ver TokenResponse)."""
+    (curto) + refresh token (mais duradouro, ver TokenResponse). Com a
+    verificação em dois passos ligada, devolve só o desafio (sem tokens)
+    — ver POST /login/dois-fatores."""
     ip_cliente = request.client.host if request.client else "desconhecido"
     await _verificar_limite_login(f"{ip_cliente}:{form_data.username}")
 
     sessao = await crud_auth.autenticar(form_data.username, form_data.password, ip=ip_cliente, user_agent=request.headers.get("user-agent"))
+    if "refresh_token" in sessao:
+        definir_cookie_refresh(response, sessao["refresh_token"])
+    return sessao
+
+
+# Segundo passo do login: além do limite de 5 tentativas por código (ver
+# cruds/dois_fatores.py), um limite por IP impede espalhar a adivinhação
+# por muitos desafios pedidos em paralelo.
+_DOIS_FATORES_MAX_TENTATIVAS = 10
+_DOIS_FATORES_JANELA_SEGUNDOS = 600
+
+
+@router.post("/login/dois-fatores", response_model=TokenResponse)
+async def login_dois_fatores(dados: LoginDoisFatoresIn, request: Request, response: Response):
+    """Conclui o login com o código enviado por e-mail."""
+    ip_cliente = request.client.host if request.client else "desconhecido"
+    if await excedeu_limite(f"dois-fatores:{ip_cliente}", _DOIS_FATORES_MAX_TENTATIVAS, _DOIS_FATORES_JANELA_SEGUNDOS):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Demasiadas tentativas. Aguarde alguns minutos.")
+    sessao = await crud_auth.concluir_login_dois_fatores(
+        dados.desafio, dados.codigo, ip=ip_cliente, user_agent=request.headers.get("user-agent")
+    )
     definir_cookie_refresh(response, sessao["refresh_token"])
     return sessao
+
+
+@router.post("/login/dois-fatores/reenviar")
+async def reenviar_codigo_login(dados: ReenviarCodigoIn, request: Request):
+    ip_cliente = request.client.host if request.client else "desconhecido"
+    if await excedeu_limite(f"dois-fatores-reenvio:{ip_cliente}", _DOIS_FATORES_MAX_TENTATIVAS, _DOIS_FATORES_JANELA_SEGUNDOS):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Demasiados pedidos. Aguarde alguns minutos.")
+    await crud_auth.reenviar_codigo_login(dados.desafio)
+    return {"mensagem": "Enviámos um novo código para o seu e-mail."}
 
 
 @router.post("/refresh", response_model=RefreshTokenOut)

@@ -12,4 +12,6 @@ export interface Perfil {
   // /perfil/assinatura (ver perfil.component.ts), usada em documentos
   // PDF emitidos pelo próprio quando é staff (ver app/core/assinaturas.py).
   tem_assinatura_pessoal: boolean;
+  // Verificação em dois passos (código por e-mail no login) — opcional.
+  dois_fatores_ativo: boolean;
 }

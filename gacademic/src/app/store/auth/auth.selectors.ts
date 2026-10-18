@@ -13,6 +13,11 @@ export const selectAuthError = createSelector(
   (state) => state.erro
 );
 
+export const selectDoisFatores = createSelector(
+  selectAuthState,
+  (state) => state.doisFatores
+);
+
 export const selectUsuario = createSelector(
   selectAuthState,
   (state) => state.usuario

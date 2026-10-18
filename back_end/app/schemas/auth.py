@@ -32,6 +32,25 @@ class TokenResponse(BaseModel):
     utilizador: dict
 
 
+class DesafioDoisFatoresOut(BaseModel):
+    """Resposta do login quando a conta tem a verificação em dois passos
+    ligada: nenhum token, só o desafio para o segundo passo."""
+    requer_dois_fatores: bool = True
+    desafio: str
+    email_mascarado: str
+
+
+class LoginDoisFatoresIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    desafio: str = Field(..., min_length=10, max_length=100)
+    codigo: str = Field(..., pattern=r"^\s*\d{6}\s*$")
+
+
+class ReenviarCodigoIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    desafio: str = Field(..., min_length=10, max_length=100)
+
+
 class RefreshTokenIn(BaseModel):
     model_config = {"extra": "forbid"}
     # Opcional: o browser envia-o no cookie HttpOnly (ver api/v1/auth.py); clientes

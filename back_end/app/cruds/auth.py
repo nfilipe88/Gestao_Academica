@@ -34,6 +34,7 @@ from app.core.security import verificar_senha, gerar_hash_senha, criar_token_ace
 from app.core.email import enviar_email, escapar, template_base
 from app.core import fila_notificacoes, revogacao
 from app.core.privacidade import VERSAO_TERMOS
+from app.cruds import dois_fatores
 from app.schemas.auth import RegistoInicial
 
 # Janela de validade do link de recuperação de senha — curta de
@@ -204,12 +205,74 @@ async def _registar_login_e_alertar(db, usuario: Usuario, ip: str | None, user_a
         logging.getLogger("auth").exception("Falha ao registar/alertar sobre login de %s — não impede o login.", usuario.email)
 
 
+async def _verificar_pode_entrar(db, usuario: Usuario) -> None:
+    """Conta ativada, não suspensa, escola ativa — verificado na
+    palavra-passe e de novo ao concluir a verificação em dois passos
+    (pode ter mudado nos minutos entre os dois)."""
+    # Conta por ativar (link de e-mail enviado no registo — ver
+    # registar_escola/ativar_conta acima): distinto de `ativo`
+    # abaixo, que é uma suspensão administrativa. Só o registo
+    # self-service de uma escola nova exige isto — contas criadas
+    # por um Gestor já autenticado nascem com email_verificado=True.
+    if not usuario.email_verificado:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A sua conta ainda não foi ativada — verifique o seu e-mail para o link de ativação."
+        )
+
+    # Suspensão individual (RBAC — Núcleo Multi-Tenant): distinta da
+    # suspensão da escola inteira abaixo. Ver
+    # cruds/usuarios.py::alterar_estado_ativo.
+    if not usuario.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="O seu acesso foi suspenso. Contacte a direção da escola."
+        )
+
+    # Bloqueio por Inadimplência do SaaS (Nível 2)
+    tenant = await db.execute(select(Tenant).where(Tenant.id == usuario.tenant_id))
+    tenant_status = tenant.scalars().first().status
+    if tenant_status != "ATIVO":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="O acesso da sua instituição encontra-se suspenso. Contacte o suporte."
+        )
+
+
+async def _emitir_sessao(db, usuario: Usuario, ip: str | None, user_agent: str | None) -> dict:
+    dados_token = {
+        "sub": str(usuario.id),
+        "tenant_id": str(usuario.tenant_id),
+        "perfil_acesso": usuario.perfil_acesso
+    }
+    token_jwt = criar_token_acesso(dados=dados_token)
+    refresh_token = await _criar_refresh_token(db, usuario.tenant_id, usuario.id)
+    await _registar_login_e_alertar(db, usuario, ip, user_agent)
+    await db.commit()
+
+    return {
+        "access_token": token_jwt,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "utilizador": {
+            "id": str(usuario.id),
+            "nome_completo": usuario.nome_completo,
+            "perfil_acesso": usuario.perfil_acesso,
+            "tenant_id": str(usuario.tenant_id)
+        }
+    }
+
+
 async def autenticar(email: str, palavra_passe: str, ip: str | None = None, user_agent: str | None = None) -> dict:
     """
     Valida a hash da palavra-passe com o passlib, confirma que a escola
     (Tenant) não está suspensa, e gera o access token (JWT, curto) + o
     refresh token (na BD, revogável, mais duradouro — ver
     app/core/security.py e a docstring de RefreshToken).
+
+    Com a verificação em dois passos ligada (Usuario.dois_fatores_ativo),
+    NÃO emite tokens: envia um código por e-mail e devolve só o desafio
+    — a sessão só nasce em concluir_login_dois_fatores.
     """
     async with AsyncSessionLocalSistema() as db:
         resultado = await db.execute(select(Usuario).where(Usuario.email == email))
@@ -222,56 +285,34 @@ async def autenticar(email: str, palavra_passe: str, ip: str | None = None, user
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Conta por ativar (link de e-mail enviado no registo — ver
-        # registar_escola/ativar_conta acima): distinto de `ativo`
-        # abaixo, que é uma suspensão administrativa. Só o registo
-        # self-service de uma escola nova exige isto — contas criadas
-        # por um Gestor já autenticado nascem com email_verificado=True.
-        if not usuario.email_verificado:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="A sua conta ainda não foi ativada — verifique o seu e-mail para o link de ativação."
-            )
+        await _verificar_pode_entrar(db, usuario)
 
-        # Suspensão individual (RBAC — Núcleo Multi-Tenant): distinta da
-        # suspensão da escola inteira abaixo. Ver
-        # cruds/usuarios.py::alterar_estado_ativo.
-        if not usuario.ativo:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="O seu acesso foi suspenso. Contacte a direção da escola."
-            )
-
-        # Bloqueio por Inadimplência do SaaS (Nível 2)
-        tenant = await db.execute(select(Tenant).where(Tenant.id == usuario.tenant_id))
-        tenant_status = tenant.scalars().first().status
-        if tenant_status != "ATIVO":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="O acesso da sua instituição encontra-se suspenso. Contacte o suporte."
-            )
-
-        dados_token = {
-            "sub": str(usuario.id),
-            "tenant_id": str(usuario.tenant_id),
-            "perfil_acesso": usuario.perfil_acesso
-        }
-        token_jwt = criar_token_acesso(dados=dados_token)
-        refresh_token = await _criar_refresh_token(db, usuario.tenant_id, usuario.id)
-        await _registar_login_e_alertar(db, usuario, ip, user_agent)
-        await db.commit()
-
-        return {
-            "access_token": token_jwt,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-            "utilizador": {
-                "id": str(usuario.id),
-                "nome_completo": usuario.nome_completo,
-                "perfil_acesso": usuario.perfil_acesso,
-                "tenant_id": str(usuario.tenant_id)
+        if usuario.dois_fatores_ativo:
+            desafio = await dois_fatores.criar_desafio(db, usuario, dois_fatores.LOGIN)
+            return {
+                "requer_dois_fatores": True,
+                "desafio": desafio,
+                "email_mascarado": dois_fatores.mascarar_email(usuario.email),
             }
-        }
+
+        return await _emitir_sessao(db, usuario, ip, user_agent)
+
+
+async def concluir_login_dois_fatores(desafio: str, codigo: str, ip: str | None = None, user_agent: str | None = None) -> dict:
+    """Segundo passo do login: código certo → mesma sessão que um login
+    sem verificação em dois passos (ver autenticar)."""
+    async with AsyncSessionLocalSistema() as db:
+        usuario_id = await dois_fatores.validar_codigo(db, desafio, codigo, dois_fatores.LOGIN)
+        usuario = (await db.execute(select(Usuario).where(Usuario.id == usuario_id))).scalars().first()
+        if not usuario:
+            raise HTTPException(status_code=400, detail="Este código expirou ou já não é válido. Peça um novo código.")
+        await _verificar_pode_entrar(db, usuario)
+        return await _emitir_sessao(db, usuario, ip, user_agent)
+
+
+async def reenviar_codigo_login(desafio: str) -> None:
+    async with AsyncSessionLocalSistema() as db:
+        await dois_fatores.reenviar_codigo(db, desafio, dois_fatores.LOGIN)
 
 
 async def renovar_access_token(refresh_token_bruto: str) -> dict:

@@ -14,7 +14,9 @@ from app.database.session import obter_sessao_db
 from app.api.v1.auth import definir_cookie_refresh
 from app.core.security import obter_utilizador_atual
 from app.cruds import perfil as crud_perfil
-from app.schemas.perfil import PerfilUpdate, AlterarSenhaIn, AlterarSenhaOut
+from app.schemas.perfil import (
+    AlterarSenhaIn, AlterarSenhaOut, AtivarDoisFatoresOut, ConfirmarDoisFatoresIn, ConfirmarSenhaIn, PerfilOut, PerfilUpdate
+)
 
 router = APIRouter(prefix="/api/v1/perfil", tags=["Perfil"])
 
@@ -48,6 +50,37 @@ async def alterar_senha(
         "mensagem": "Palavra-passe alterada com sucesso. As sessões abertas noutros dispositivos foram terminadas.",
         "access_token": sessao["access_token"],
     }
+
+
+# ==========================================
+# VERIFICAÇÃO EM DOIS PASSOS (código por e-mail no login)
+# ==========================================
+@router.post("/dois-fatores/ativar", response_model=AtivarDoisFatoresOut)
+async def iniciar_ativacao_dois_fatores(
+    dados: ConfirmarSenhaIn,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Passo 1: palavra-passe certa → código enviado para o e-mail da conta."""
+    return await crud_perfil.iniciar_ativacao_dois_fatores(db, utilizador["tenant_id"], utilizador["usuario_id"], dados.senha_atual)
+
+
+@router.post("/dois-fatores/confirmar", response_model=PerfilOut)
+async def confirmar_ativacao_dois_fatores(
+    dados: ConfirmarDoisFatoresIn,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(obter_utilizador_atual)
+):
+    """Passo 2: código certo → verificação em dois passos ligada."""
+    return await crud_perfil.confirmar_ativacao_dois_fatores(
+        db, utilizador["tenant_id"], utilizador["usuario_id"], dados.desafio, dados.codigo
+    )
+
+
+@router.post("/dois-fatores/desativar", response_model=PerfilOut)
+async def desativar_dois_fatores(
+    dados: ConfirmarSenhaIn,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(obter_utilizador_atual)
+):
+    return await crud_perfil.desativar_dois_fatores(db, utilizador["tenant_id"], utilizador["usuario_id"], dados.senha_atual)
 
 
 # ==========================================

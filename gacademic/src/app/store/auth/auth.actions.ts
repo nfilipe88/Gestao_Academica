@@ -47,3 +47,21 @@ export const tokenRenovado = createAction(
   '[Auth] Token Renovado',
   props<{ token: string }>()
 );
+
+// Verificação em dois passos (código por e-mail): a palavra-passe estava
+// certa mas a conta tem a verificação ligada — o login só termina com o
+// código (POST /api/v1/auth/login/dois-fatores).
+export const loginRequerDoisFatores = createAction(
+  '[Auth API] Login Requer Dois Fatores',
+  props<{ desafio: string; emailMascarado: string }>()
+);
+export const confirmarCodigoDoisFatores = createAction(
+  '[Auth Página] Confirmar Código Dois Fatores',
+  props<{ codigo: string }>()
+);
+export const reenviarCodigoDoisFatores = createAction('[Auth Página] Reenviar Código Dois Fatores');
+export const codigoDoisFatoresReenviado = createAction(
+  '[Auth API] Código Dois Fatores Reenviado',
+  props<{ mensagem: string }>()
+);
+export const cancelarDoisFatores = createAction('[Auth Página] Cancelar Dois Fatores');

@@ -2,11 +2,19 @@ import { createReducer, on } from '@ngrx/store';
 import * as AuthActions from './auth.actions';
 import { UsuarioLogado } from './auth.actions';
 
+export interface DoisFatoresPendente {
+  desafio: string;
+  emailMascarado: string;
+  aviso: string | null;
+}
+
 export interface AuthState {
   token: string | null;
   usuario: UsuarioLogado | null;
   isAuthenticated: boolean;
   erro: string | null;
+  // Segundo passo do login em curso (verificação em dois passos por e-mail).
+  doisFatores: DoisFatoresPendente | null;
 }
 
 // Estado inicial agora é limpo (seguro para o Node.js / SSR)
@@ -14,7 +22,8 @@ export const initialState: AuthState = {
   token: null,
   usuario: null,
   isAuthenticated: false,
-  erro: null
+  erro: null,
+  doisFatores: null
 };
 
 export const authReducer = createReducer(
@@ -28,7 +37,27 @@ export const authReducer = createReducer(
     token,
     usuario,
     isAuthenticated: true,
-    erro: null
+    erro: null,
+    doisFatores: null
+  })),
+  on(AuthActions.loginRequerDoisFatores, (state, { desafio, emailMascarado }) => ({
+    ...state,
+    erro: null,
+    doisFatores: { desafio, emailMascarado, aviso: null }
+  })),
+  on(AuthActions.confirmarCodigoDoisFatores, AuthActions.reenviarCodigoDoisFatores, (state) => ({
+    ...state,
+    erro: null,
+    doisFatores: state.doisFatores ? { ...state.doisFatores, aviso: null } : null
+  })),
+  on(AuthActions.codigoDoisFatoresReenviado, (state, { mensagem }) => ({
+    ...state,
+    doisFatores: state.doisFatores ? { ...state.doisFatores, aviso: mensagem } : null
+  })),
+  on(AuthActions.cancelarDoisFatores, (state) => ({
+    ...state,
+    erro: null,
+    doisFatores: null
   })),
   on(AuthActions.loginFalhou, (state, { erro }) => ({
     ...state,

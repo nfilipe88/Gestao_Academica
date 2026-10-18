@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import fila_notificacoes, revogacao, storage, validacao_ficheiros
 from app.core.email import enviar_email, escapar, template_base
-from app.cruds import auth as crud_auth
+from app.cruds import auth as crud_auth, dois_fatores
 from app.database.models import Usuario, Tenant, AssinaturaUsuario
 from app.database.models_usuarios import RefreshToken
 from app.core.security import criar_token_acesso, verificar_senha, gerar_hash_senha
@@ -59,6 +59,7 @@ async def obter_perfil(db: AsyncSession, tenant_id, usuario_id: uuid.UUID) -> di
         "nome_instituicao": tenant.nome_fantasia if tenant else "",
         "data_criacao": usuario.data_criacao,
         "tem_assinatura_pessoal": assinatura_ativa is not None,
+        "dois_fatores_ativo": usuario.dois_fatores_ativo,
     }
 
 
@@ -152,6 +153,73 @@ async def alterar_senha(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, dado
         )
     )
     return {"access_token": access_token, "refresh_token": refresh_token}
+
+
+# ==========================================
+# VERIFICAÇÃO EM DOIS PASSOS (código por e-mail no login — ver
+# cruds/dois_fatores.py). Opcional: cada pessoa liga-a para si.
+# ==========================================
+async def _obter_usuario_com_senha(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, senha_atual: str) -> Usuario:
+    usuario = (await db.execute(
+        select(Usuario).where(Usuario.id == usuario_id, Usuario.tenant_id == tenant_id)
+    )).scalars().first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Utilizador não encontrado.")
+    if not verificar_senha(senha_atual, usuario.senha_hash):
+        raise HTTPException(status_code=400, detail="A palavra-passe atual está incorreta.")
+    return usuario
+
+
+async def iniciar_ativacao_dois_fatores(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, senha_atual: str) -> dict:
+    """Envia um código para o e-mail da conta: só fica ligada depois de
+    confirmar que esse e-mail recebe mesmo os códigos — senão a pessoa
+    ficava trancada fora da própria conta no login seguinte."""
+    usuario = await _obter_usuario_com_senha(db, tenant_id, usuario_id, senha_atual)
+    if usuario.dois_fatores_ativo:
+        raise HTTPException(status_code=400, detail="A verificação em dois passos já está ativa.")
+    desafio = await dois_fatores.criar_desafio(db, usuario, dois_fatores.ATIVAR)
+    return {"desafio": desafio, "email_mascarado": dois_fatores.mascarar_email(usuario.email)}
+
+
+async def confirmar_ativacao_dois_fatores(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, desafio: str, codigo: str) -> dict:
+    dono = await dois_fatores.validar_codigo(db, desafio, codigo, dois_fatores.ATIVAR)
+    if dono != usuario_id:
+        raise HTTPException(status_code=400, detail="Este código expirou ou já não é válido. Peça um novo código.")
+    usuario = (await db.execute(
+        select(Usuario).where(Usuario.id == usuario_id, Usuario.tenant_id == tenant_id)
+    )).scalars().first()
+    usuario.dois_fatores_ativo = True
+    await db.commit()
+    await _avisar_mudanca_dois_fatores(usuario, ativada=True)
+    return await obter_perfil(db, tenant_id, usuario_id)
+
+
+async def desativar_dois_fatores(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, senha_atual: str) -> dict:
+    usuario = await _obter_usuario_com_senha(db, tenant_id, usuario_id, senha_atual)
+    if usuario.dois_fatores_ativo:
+        usuario.dois_fatores_ativo = False
+        await db.commit()
+        await _avisar_mudanca_dois_fatores(usuario, ativada=False)
+    return await obter_perfil(db, tenant_id, usuario_id)
+
+
+async def _avisar_mudanca_dois_fatores(usuario: Usuario, ativada: bool) -> None:
+    estado = "ativada" if ativada else "desativada"
+    await fila_notificacoes.agendar_email(
+        enviar_email, destinatario=usuario.email,
+        assunto=f"Verificação em dois passos {estado}",
+        corpo_html=template_base(
+            f"Verificação em dois passos {estado}",
+            f"""
+            <p>Olá {escapar(usuario.nome_completo)},</p>
+            <p>A verificação em dois passos da sua conta foi <strong>{estado}</strong>.
+            {"A partir de agora, cada início de sessão pede também um código enviado para este e-mail." if ativada else
+             "A partir de agora, o início de sessão volta a pedir só a palavra-passe."}</p>
+            <p>Se não foi você a fazer esta alteração, mude a sua palavra-passe imediatamente
+            e contacte a direção da escola.</p>
+            """
+        )
+    )
 
 
 # ==========================================

@@ -5,7 +5,9 @@ import { Actions, createEffect, ofType, ROOT_EFFECTS_INIT } from '@ngrx/effects'
 import { HttpClient, HttpParams } from '@angular/common/http';
 import * as AuthActions from './auth.actions';
 import { UsuarioLogado } from './auth.actions';
-import { catchError, map, switchMap, tap, of } from 'rxjs';
+import { catchError, map, switchMap, tap, of, withLatestFrom } from 'rxjs';
+import { Store } from '@ngrx/store';
+import { selectDoisFatores } from './auth.selectors';
 import {
   CHAVE_SESSAO_FINANCEIRO_ALUNO, CHAVE_SESSAO_FINANCEIRO_MATRICULA, CHAVE_SESSAO_PORTAL_EDUCANDO, guardarSessao
 } from '../../core/utils/armazenamento-sessao';
@@ -24,6 +26,7 @@ export class AuthEffects {
   private http = inject(HttpClient);
   private platformId = inject(PLATFORM_ID);
   private router = inject(Router);
+  private store = inject(Store);
 
   // Ao arrancar a app (só no browser), repõe a sessão gravada no
   // localStorage no estado do NgRx. Sem isto, um F5 faz o store voltar a
@@ -59,15 +62,43 @@ export class AuthEffects {
         return this.http.post<any>('/api/v1/auth/login', body.toString(), {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         }).pipe(
-          map(res => AuthActions.loginSuccess({
-            token: res.access_token,
-            usuario: res.utilizador
-          })),
+          map(res => res.requer_dois_fatores
+            ? AuthActions.loginRequerDoisFatores({ desafio: res.desafio, emailMascarado: res.email_mascarado })
+            : AuthActions.loginSuccess({
+              token: res.access_token,
+              usuario: res.utilizador
+            })),
           catchError(err => of(AuthActions.loginFalhou({ 
             erro: err.error?.detail || 'Erro na autenticação.' 
           })))
         );
       })
+    )
+  );
+
+  confirmarCodigoDoisFatores$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AuthActions.confirmarCodigoDoisFatores),
+      withLatestFrom(this.store.select(selectDoisFatores)),
+      switchMap(([action, doisFatores]) =>
+        this.http.post<any>('/api/v1/auth/login/dois-fatores', { desafio: doisFatores?.desafio, codigo: action.codigo }).pipe(
+          map(res => AuthActions.loginSuccess({ token: res.access_token, usuario: res.utilizador })),
+          catchError(err => of(AuthActions.loginFalhou({ erro: err.error?.detail || 'Código inválido.' })))
+        )
+      )
+    )
+  );
+
+  reenviarCodigoDoisFatores$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(AuthActions.reenviarCodigoDoisFatores),
+      withLatestFrom(this.store.select(selectDoisFatores)),
+      switchMap(([, doisFatores]) =>
+        this.http.post<{ mensagem: string }>('/api/v1/auth/login/dois-fatores/reenviar', { desafio: doisFatores?.desafio }).pipe(
+          map(res => AuthActions.codigoDoisFatoresReenviado({ mensagem: res.mensagem })),
+          catchError(err => of(AuthActions.loginFalhou({ erro: err.error?.detail || 'Não foi possível reenviar o código.' })))
+        )
+      )
     )
   );
 

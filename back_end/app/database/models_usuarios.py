@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database.models import Base
 
@@ -134,3 +134,35 @@ class LoginHistorico(Base):
     ip: Mapped[str] = mapped_column(String(45), nullable=False)  # IPv6 até 45 chars
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
     data_login: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class DesafioDoisFatores(Base):
+    """
+    Código de verificação em dois passos enviado por e-mail (ver
+    cruds/dois_fatores.py). Dois usos (`finalidade`): LOGIN — a palavra-
+    passe já foi validada, falta o código para emitir os tokens; ATIVAR —
+    confirmar que o e-mail recebe mesmo os códigos antes de ligar a
+    verificação (sem isto, ligá-la com um e-mail que não recebe nada
+    trancava a pessoa fora da conta).
+
+    O cliente só conhece o `desafio` (token aleatório, aqui só o hash
+    sha256 — mesmo princípio de PasswordResetToken); o código de 6
+    dígitos só existe no e-mail, aqui fica o seu HMAC. `tentativas` e
+    `reenvios` limitam a adivinhação: 6 dígitos = 1 milhão de hipóteses,
+    só 5 tentativas por desafio.
+    """
+    __tablename__ = "desafio_dois_fatores"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    finalidade: Mapped[str] = mapped_column(String(20), nullable=False)  # LOGIN, ATIVAR
+    desafio_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    codigo_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    tentativas: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    reenvios: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    usado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))

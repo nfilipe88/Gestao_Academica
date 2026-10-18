@@ -26,6 +26,7 @@ class PerfilOut(BaseModel):
     # Só diz SE há assinatura pessoal ativa — a imagem sai por GET
     # /perfil/assinatura (ver app/api/v1/perfil.py), nunca embutida aqui.
     tem_assinatura_pessoal: bool = False
+    dois_fatores_ativo: bool = False
     model_config = {"from_attributes": True}
 
 
@@ -54,3 +55,21 @@ class AlterarSenhaOut(BaseModel):
     # incluindo a atual — este é o token novo com que ela continua.
     access_token: str
     token_type: str = "bearer"
+
+
+class ConfirmarSenhaIn(BaseModel):
+    """Ligar/desligar a verificação em dois passos exige a palavra-passe
+    atual — mesma razão da mudança de e-mail (ver PerfilUpdate)."""
+    model_config = {"extra": "forbid"}
+    senha_atual: str = Field(..., max_length=128)
+
+
+class AtivarDoisFatoresOut(BaseModel):
+    desafio: str
+    email_mascarado: str
+
+
+class ConfirmarDoisFatoresIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    desafio: str = Field(..., min_length=10, max_length=100)
+    codigo: str = Field(..., pattern=r"^\s*\d{6}\s*$")

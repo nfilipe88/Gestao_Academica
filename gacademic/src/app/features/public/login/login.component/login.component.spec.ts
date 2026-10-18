@@ -4,7 +4,9 @@ import { provideRouter } from '@angular/router';
 import { provideStore, Store } from '@ngrx/store';
 import { LoginComponent } from './login.component';
 import { authReducer } from '../../../../store/auth/auth.reducer';
-import { loginFalhou, iniciarLogin } from '../../../../store/auth/auth.actions';
+import {
+  cancelarDoisFatores, confirmarCodigoDoisFatores, iniciarLogin, loginFalhou, loginRequerDoisFatores
+} from '../../../../store/auth/auth.actions';
 import { instalarLocalStorageFalso } from '../../../../testing/ajudas';
 
 describe('LoginComponent', () => {
@@ -47,5 +49,24 @@ describe('LoginComponent', () => {
     expect(raiz().querySelectorAll('label[for]').length).toBe(2);
     expect((raiz().querySelector('input[type="password"]') as HTMLInputElement).autocomplete).toBe('current-password');
     expect((raiz().querySelector('input[type="email"]') as HTMLInputElement).autocomplete).toBe('username');
+  });
+  it('com a verificação em dois passos, troca o formulário pelo pedido do código', () => {
+    const store = TestBed.inject(Store);
+    store.dispatch(loginRequerDoisFatores({ desafio: 'desafio-de-teste', emailMascarado: 'g****r@escola.pt' }));
+    fixture.detectChanges();
+    expect(raiz().querySelector('input[type="password"]')).toBeNull();
+    expect(raiz().textContent).toContain('g****r@escola.pt');
+    const codigo = raiz().querySelector('#f-login-codigo') as HTMLInputElement;
+    expect(codigo.autocomplete).toBe('one-time-code');
+
+    const despachar = vi.spyOn(store, 'dispatch');
+    fixture.componentInstance.codigoForm.setValue({ codigo: ' 123456 ' });
+    fixture.componentInstance.onConfirmarCodigo();
+    expect(despachar).toHaveBeenCalledWith(confirmarCodigoDoisFatores({ codigo: '123456' }));
+
+    fixture.componentInstance.onCancelarDoisFatores();
+    expect(despachar).toHaveBeenCalledWith(cancelarDoisFatores());
+    fixture.detectChanges();
+    expect(raiz().querySelector('input[type="password"]')).toBeTruthy();
   });
 });

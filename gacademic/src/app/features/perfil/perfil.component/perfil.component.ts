@@ -5,6 +5,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import * as PerfilActions from '../../../store/perfil/perfil.actions';
 import { selectPerfil, selectPerfilErro, selectPerfilMensagem } from '../../../store/perfil/perfil.selector';
+import { Perfil } from '../../../store/perfil/perfil.models';
 import { CapturaAssinaturaComponent } from '../../../shared/components/captura-assinatura/captura-assinatura.component/captura-assinatura.component';
 
 // Perfis que efetivamente assinam documentos (ver app/core/assinaturas.py)
@@ -35,6 +36,19 @@ export class PerfilComponent implements OnInit, OnDestroy {
   assinaturaPessoalAEnviar = signal(false);
   private assinaturaPessoalCarregada = false;
 
+  // Verificação em dois passos (código por e-mail no login). Mesmo
+  // padrão HttpClient + signal() da assinatura pessoal acima.
+  doisFatoresAtivo = signal(false);
+  doisFatoresPasso = signal<'parado' | 'senha' | 'codigo'>('parado');
+  doisFatoresEmail = signal('');
+  doisFatoresErro = signal<string | null>(null);
+  doisFatoresAEnviar = signal(false);
+  private doisFatoresDesafio = '';
+  doisFatoresForm = this.fb.group({
+    senha_atual: [''],
+    codigo: [''],
+  });
+
   dadosForm = this.fb.group({
     nome_completo: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
@@ -61,6 +75,7 @@ export class PerfilComponent implements OnInit, OnDestroy {
     this.perfil$.subscribe(perfil => {
       if (perfil) {
         this.emailGravado = perfil.email;
+        this.doisFatoresAtivo.set(perfil.dois_fatores_ativo);
         this.dadosForm.patchValue({
           nome_completo: perfil.nome_completo,
           email: perfil.email,
@@ -138,6 +153,72 @@ export class PerfilComponent implements OnInit, OnDestroy {
       nome_completo: v.nome_completo!, email: v.email!,
       ...(this.emailAlterado ? { senha_atual: v.senha_atual! } : {}),
     }));
+  }
+
+  onIniciarDoisFatores() {
+    this.doisFatoresErro.set(null);
+    this.doisFatoresForm.reset();
+    this.doisFatoresPasso.set('senha');
+  }
+
+  onCancelarDoisFatores() {
+    this.doisFatoresErro.set(null);
+    this.doisFatoresForm.reset();
+    this.doisFatoresPasso.set('parado');
+  }
+
+  // Ligar: palavra-passe → código enviado por e-mail → confirmar o código.
+  // Desligar: só a palavra-passe.
+  onConfirmarSenhaDoisFatores() {
+    const senha_atual = this.doisFatoresForm.value.senha_atual;
+    if (!senha_atual) return;
+    this.doisFatoresErro.set(null);
+    this.doisFatoresAEnviar.set(true);
+    if (this.doisFatoresAtivo()) {
+      this.http.post<Perfil>('/api/v1/perfil/dois-fatores/desativar', { senha_atual }).subscribe({
+        next: (perfil) => this._concluirDoisFatores(perfil, 'Verificação em dois passos desativada.'),
+        error: (err) => this._falhaDoisFatores(err),
+      });
+      return;
+    }
+    this.http.post<{ desafio: string; email_mascarado: string }>('/api/v1/perfil/dois-fatores/ativar', { senha_atual }).subscribe({
+      next: (res) => {
+        this.doisFatoresAEnviar.set(false);
+        this.doisFatoresDesafio = res.desafio;
+        this.doisFatoresEmail.set(res.email_mascarado);
+        this.doisFatoresForm.reset();
+        this.doisFatoresPasso.set('codigo');
+      },
+      error: (err) => this._falhaDoisFatores(err),
+    });
+  }
+
+  onConfirmarCodigoDoisFatores() {
+    const codigo = (this.doisFatoresForm.value.codigo ?? '').trim();
+    if (!/^\d{6}$/.test(codigo)) {
+      this.doisFatoresErro.set('O código tem 6 dígitos.');
+      return;
+    }
+    this.doisFatoresErro.set(null);
+    this.doisFatoresAEnviar.set(true);
+    this.http.post<Perfil>('/api/v1/perfil/dois-fatores/confirmar', { desafio: this.doisFatoresDesafio, codigo }).subscribe({
+      next: (perfil) => this._concluirDoisFatores(perfil, 'Verificação em dois passos ativada.'),
+      error: (err) => this._falhaDoisFatores(err),
+    });
+  }
+
+  private _concluirDoisFatores(perfil: Perfil, mensagem: string) {
+    this.doisFatoresAEnviar.set(false);
+    this.doisFatoresPasso.set('parado');
+    this.doisFatoresForm.reset();
+    this.store.dispatch(PerfilActions.carregarPerfilSucesso({ perfil }));
+    this.store.dispatch(PerfilActions.perfilOperacaoSucesso({ mensagem }));
+  }
+
+  private _falhaDoisFatores(err: { error?: { detail?: unknown } }) {
+    this.doisFatoresAEnviar.set(false);
+    const detail = err.error?.detail;
+    this.doisFatoresErro.set(typeof detail === 'string' ? detail : 'Não foi possível concluir. Tente novamente.');
   }
 
   get senhasDiferentes(): boolean {

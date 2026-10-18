@@ -190,6 +190,11 @@ class Usuario(Base):
     # (Secretaria, Professor, acessos de Aluno/Responsável) continuam a
     # poder entrar de imediato, como sempre puderam.
     email_verificado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
+    # Verificação em dois passos por e-mail (opcional, ligada pelo próprio
+    # no Perfil): com isto ligado, o login só emite tokens depois de a
+    # pessoa introduzir o código enviado para o e-mail — ver
+    # models_usuarios.py::DesafioDoisFatores e cruds/dois_fatores.py.
+    dois_fatores_ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     # Relacionamento
