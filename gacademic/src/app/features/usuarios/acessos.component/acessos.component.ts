@@ -46,6 +46,7 @@ export class AcessosComponent implements OnInit {
   // Linha com o <select> de perfil aberto — evita mudar sem confirmar.
   usuarioAEditarPerfilId: string | null = null;
   usuarioASuspenderId: string | null = null;
+  usuarioADesativarDoisFatoresId: string | null = null;
 
   ngOnInit() {
     this.store.dispatch(UsuariosActions.carregarUsuarios({}));
@@ -98,6 +99,19 @@ export class AcessosComponent implements OnInit {
     this.usuarioASuspenderId = null;
   }
 
+  onPedirDesativarDoisFatores(usuarioId: string) {
+    this.usuarioADesativarDoisFatoresId = usuarioId;
+  }
+
+  onCancelarDesativarDoisFatores() {
+    this.usuarioADesativarDoisFatoresId = null;
+  }
+
+  onConfirmarDesativarDoisFatores(usuarioId: string) {
+    this.store.dispatch(UsuariosActions.desativarDoisFatores({ usuario_id: usuarioId }));
+    this.usuarioADesativarDoisFatoresId = null;
+  }
+
   // Perfil sem tabela satélite (Gestor/Secretaria) -> pode ser mudado
   // por aqui; Professor tem alocações/Diário associados (ver docstring
   // do crud) e mantém o fluxo próprio em Professores.
@@ -124,6 +138,7 @@ export class AcessosComponent implements OnInit {
       MUDANCA_PERFIL: 'Mudança de perfil',
       SUSPENSAO: 'Acesso suspenso',
       REATIVACAO: 'Acesso reativado',
+      DESATIVACAO_2FA: 'Verificação em dois passos desativada',
     };
     return labels[acao] ?? acao;
   }

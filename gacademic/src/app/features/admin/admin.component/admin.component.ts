@@ -56,6 +56,7 @@ export class AdminComponent implements OnInit {
   });
   usuarioAEditarPerfilId: string | null = null;
   usuarioASuspenderId: string | null = null;
+  usuarioADesativarDoisFatoresId: string | null = null;
 
   // Qual tenant está a pedir confirmação inline ("Confirmar"/"Cancelar"
   // em vez do botão normal) — mesmo padrão dos restantes módulos, sem
@@ -312,6 +313,22 @@ export class AdminComponent implements OnInit {
     if (!this.usuariosDoTenantId) return;
     this.store.dispatch(UsuariosActions.alterarAtivo({ tenant_id: this.usuariosDoTenantId, usuario_id: usuarioId, ativo }));
     this.usuarioASuspenderId = null;
+  }
+
+  // Ex.: o único Gestor de uma escola perdeu o acesso ao e-mail e não
+  // recebe o código do login — só o Super Admin o consegue desbloquear.
+  onPedirDesativarDoisFatores(usuarioId: string) {
+    this.usuarioADesativarDoisFatoresId = usuarioId;
+  }
+
+  onCancelarDesativarDoisFatores() {
+    this.usuarioADesativarDoisFatoresId = null;
+  }
+
+  onConfirmarDesativarDoisFatores(usuarioId: string) {
+    if (!this.usuariosDoTenantId) return;
+    this.store.dispatch(UsuariosActions.desativarDoisFatores({ tenant_id: this.usuariosDoTenantId, usuario_id: usuarioId }));
+    this.usuarioADesativarDoisFatoresId = null;
   }
 
   podeMudarPerfil(usuario: UsuarioStaff): boolean {

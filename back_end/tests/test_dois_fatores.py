@@ -10,6 +10,7 @@ from app.database.models import Usuario
 from app.database.models_usuarios import DesafioDoisFatores
 from app.database.session import AsyncSessionLocalSistema
 from tests.conftest import auth_headers, criar_escola_e_gestor
+from tests.test_planos_por_aluno_modulo import _criar_super_admin
 
 
 def _capturar_emails(monkeypatch) -> list[dict]:
@@ -198,3 +199,81 @@ async def test_codigo_de_ativacao_nao_serve_para_entrar(client, monkeypatch):
         "desafio": desafio_ativacao, "codigo": _ultimo_codigo(enviados),
     })
     assert resp.status_code == 400
+
+
+# ==========================================
+# Quem gere os acessos desliga a de outra pessoa (perdeu o e-mail)
+# ==========================================
+async def _secretaria_com_dois_fatores(client, escola, enviados) -> dict:
+    headers_gestor = auth_headers(escola["token"])
+    email = f"sec.2fa.{escola['nif']}@teste.pt"
+    resp = await client.post("/api/v1/usuarios/secretaria", headers=headers_gestor, json={
+        "nome_completo": "Secretaria 2FA", "email": email, "palavra_passe": "SenhaTeste123!",
+    })
+    assert resp.status_code == 201, resp.text
+    secretaria = {"id": resp.json()["id"], "email": email, "senha": "SenhaTeste123!"}
+    secretaria["token"] = (await _login(client, secretaria)).json()["access_token"]
+    await _ativar(client, secretaria, enviados)
+    return secretaria
+
+
+async def test_gestor_desativa_a_verificacao_de_outra_pessoa(client, monkeypatch):
+    enviados = _capturar_emails(monkeypatch)
+    escola = await criar_escola_e_gestor(client, "2fa-gestor-reset")
+    headers_gestor = auth_headers(escola["token"])
+    secretaria = await _secretaria_com_dois_fatores(client, escola, enviados)
+
+    lista = (await client.get("/api/v1/usuarios", headers=headers_gestor)).json()["items"]
+    assert next(u for u in lista if u["id"] == secretaria["id"])["dois_fatores_ativo"] is True
+
+    resp = await client.post(f"/api/v1/usuarios/{secretaria['id']}/dois-fatores/desativar", headers=headers_gestor)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["dois_fatores_ativo"] is False
+
+    # Volta a entrar só com a palavra-passe, foi avisada, e fica na auditoria.
+    resp = await _login(client, secretaria)
+    assert resp.status_code == 200 and "access_token" in resp.json()
+    assert any(e["destinatario"] == secretaria["email"] and "pela direção" in e["assunto"] for e in enviados)
+    auditoria = (await client.get("/api/v1/usuarios/auditoria", headers=headers_gestor)).json()["items"]
+    assert any(r["acao"] == "DESATIVACAO_2FA" and r["usuario_alvo_id"] == secretaria["id"] for r in auditoria)
+
+
+async def test_gestor_nao_desativa_a_propria_por_aqui(client, monkeypatch):
+    enviados = _capturar_emails(monkeypatch)
+    escola = await criar_escola_e_gestor(client, "2fa-gestor-proprio")
+    await _ativar(client, escola, enviados)
+    resp = await client.post(
+        f"/api/v1/usuarios/{escola['usuario_id']}/dois-fatores/desativar", headers=auth_headers(escola["token"])
+    )
+    assert resp.status_code == 400
+    assert (await client.get("/api/v1/perfil", headers=auth_headers(escola["token"]))).json()["dois_fatores_ativo"] is True
+
+
+async def test_so_o_gestor_da_propria_escola_pode_desativar(client, monkeypatch):
+    enviados = _capturar_emails(monkeypatch)
+    escola = await criar_escola_e_gestor(client, "2fa-reset-rbac")
+    secretaria = await _secretaria_com_dois_fatores(client, escola, enviados)
+    url = f"/api/v1/usuarios/{escola['usuario_id']}/dois-fatores/desativar"
+
+    # A Secretaria não gere acessos.
+    assert (await client.post(url, headers=auth_headers(secretaria["token"]))).status_code == 403
+    # O Gestor de outra escola não encontra ninguém desta.
+    outra = await criar_escola_e_gestor(client, "2fa-reset-outra")
+    resp = await client.post(f"/api/v1/usuarios/{secretaria['id']}/dois-fatores/desativar", headers=auth_headers(outra["token"]))
+    assert resp.status_code == 404
+
+
+async def test_super_admin_desativa_a_de_um_gestor_de_qualquer_escola(client, monkeypatch):
+    """Escola com um único Gestor que perdeu o e-mail: só o Super Admin o desbloqueia."""
+    enviados = _capturar_emails(monkeypatch)
+    escola = await criar_escola_e_gestor(client, "2fa-superadmin")
+    await _ativar(client, escola, enviados)
+    super_admin = await _criar_super_admin(client)
+
+    resp = await client.post(
+        f"/api/v1/admin/tenants/{escola['tenant_id']}/usuarios/{escola['usuario_id']}/dois-fatores/desativar",
+        headers=auth_headers(super_admin["access_token"]),
+    )
+    assert resp.status_code == 200, resp.text
+    resp = await _login(client, escola)
+    assert resp.status_code == 200 and "access_token" in resp.json()

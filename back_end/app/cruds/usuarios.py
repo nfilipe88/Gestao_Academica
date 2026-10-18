@@ -21,14 +21,15 @@ outros módulos:
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Usuario
-from app.database.models_usuarios import UsuarioAuditoria
+from app.database.models_usuarios import DesafioDoisFatores, UsuarioAuditoria
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import DEFAULT_PAGE_SIZE, paginar, paginar_linhas
-from app.core import revogacao
+from app.core import fila_notificacoes, revogacao
+from app.core.email import enviar_email, escapar, template_base
 from app.schemas.usuarios import PerfilAcessoUpdate, SecretariaCreate
 
 # Perfis de staff "puros" — sem tabela satélite (Professor/Aluno/Responsavel
@@ -86,6 +87,7 @@ async def listar_usuarios(db: AsyncSession, tenant_id, page: int, page_size: int
             "email": u.email,
             "perfil_acesso": u.perfil_acesso,
             "ativo": u.ativo,
+            "dois_fatores_ativo": u.dois_fatores_ativo,
             "data_criacao": u.data_criacao,
         }
         for u in pagina["items"]
@@ -173,6 +175,52 @@ async def alterar_estado_ativo(db: AsyncSession, tenant_id, usuario_id: uuid.UUI
         # ACCESS_TOKEN_EXPIRE_MINUTES) — a suspensão só bloqueava LOGINS
         # novos, não sessões já abertas.
         await revogacao.revogar_usuario(usuario.id)
+    return usuario
+
+
+async def desativar_dois_fatores(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, autor_id: uuid.UUID | None) -> Usuario:
+    """Desliga a verificação em dois passos de OUTRA pessoa — para quem
+    deixou de ter acesso ao e-mail e ficou sem conseguir entrar. Nunca na
+    própria conta: aí é no Perfil, que pede a palavra-passe (sem isso,
+    uma sessão roubada desligava a proteção da própria conta). Fica na
+    auditoria e a pessoa é avisada por e-mail."""
+    usuario = await _obter_usuario_no_tenant(db, tenant_id, usuario_id)
+    if autor_id is not None and usuario.id == autor_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Para desativar a sua própria verificação em dois passos, use O Meu Perfil (pede a palavra-passe)."
+        )
+    if not usuario.dois_fatores_ativo:
+        return usuario  # idempotente
+
+    usuario.dois_fatores_ativo = False
+    # Códigos ainda pendentes deixam de servir.
+    await db.execute(
+        update(DesafioDoisFatores)
+        .where(DesafioDoisFatores.usuario_id == usuario.id, DesafioDoisFatores.usado.is_(False))
+        .values(usado=True)
+    )
+    await _registar_auditoria(
+        db, tenant_id, usuario.id, autor_id, acao="DESATIVACAO_2FA",
+        detalhe=f'Perfil no momento da ação: {usuario.perfil_acesso}.'
+    )
+    await db.commit()
+    await db.refresh(usuario)
+
+    await fila_notificacoes.agendar_email(
+        enviar_email, destinatario=usuario.email,
+        assunto="Verificação em dois passos desativada pela direção",
+        corpo_html=template_base(
+            "Verificação em dois passos desativada",
+            f"""
+            <p>Olá {escapar(usuario.nome_completo)},</p>
+            <p>A verificação em dois passos da sua conta foi <strong>desativada</strong> por quem gere os
+            acessos da sua instituição. A partir de agora, o início de sessão pede só a palavra-passe.</p>
+            <p>Pode voltar a ativá-la em O Meu Perfil. Se não pediu esta alteração, mude a sua
+            palavra-passe e contacte a direção da escola.</p>
+            """
+        )
+    )
     return usuario
 
 

@@ -31,6 +31,13 @@ export const alterarAtivo = createAction(
   props<{ tenant_id?: string, usuario_id: string, ativo: boolean }>()
 );
 
+// Para quem perdeu o acesso ao e-mail e não consegue receber o código do
+// login — nunca a própria conta (essa é no Perfil, pede a palavra-passe).
+export const desativarDoisFatores = createAction(
+  '[Usuarios] Desativar Dois Fatores',
+  props<{ tenant_id?: string, usuario_id: string }>()
+);
+
 export const carregarAuditoria = createAction(
   '[Usuarios] Carregar Auditoria',
   props<{ tenant_id?: string, page?: number, page_size?: number }>()

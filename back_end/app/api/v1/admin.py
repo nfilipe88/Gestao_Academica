@@ -250,6 +250,17 @@ async def alterar_estado_ativo_no_tenant(
     return {"mensagem": f'"{alterado.nome_completo}" agora está {"ativo" if alterado.ativo else "suspenso"}.', "ativo": alterado.ativo}
 
 
+@router.post("/tenants/{tenant_id}/usuarios/{usuario_id}/dois-fatores/desativar")
+async def desativar_dois_fatores_no_tenant(
+    tenant_id: uuid.UUID, usuario_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+):
+    """Desliga a verificação em dois passos de um utilizador de qualquer escola
+    (ex.: o único Gestor de uma escola perdeu o acesso ao e-mail)."""
+    alterado = await crud_usuarios.desativar_dois_fatores(db, tenant_id, usuario_id, utilizador["usuario_id"])
+    return {"mensagem": f'Verificação em dois passos de "{alterado.nome_completo}" desativada.', "dois_fatores_ativo": alterado.dois_fatores_ativo}
+
+
 @router.get("/tenants/{tenant_id}/usuarios/auditoria")
 async def listar_auditoria_do_tenant(
     tenant_id: uuid.UUID,

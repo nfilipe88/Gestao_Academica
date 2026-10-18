@@ -85,6 +85,23 @@ export class UsuariosEffects {
     )
   );
 
+  desativarDoisFatores$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(UsuariosActions.desativarDoisFatores),
+      switchMap(action => this.http.post<{ mensagem: string }>(
+        `${baseUrl(action.tenant_id)}/${action.usuario_id}/dois-fatores/desativar`, {}
+      ).pipe(
+        switchMap(resp => [
+          UsuariosActions.carregarUsuarios({ tenant_id: action.tenant_id }),
+          UsuariosActions.usuariosOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(UsuariosActions.usuariosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível desativar a verificação em dois passos.'
+        })))
+      ))
+    )
+  );
+
   carregarAuditoria$ = createEffect(() =>
     this.actions$.pipe(
       ofType(UsuariosActions.carregarAuditoria),

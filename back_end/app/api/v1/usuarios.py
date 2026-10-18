@@ -59,6 +59,16 @@ async def alterar_estado_ativo(
     return {"mensagem": f'"{alterado.nome_completo}" agora está {"ativo" if alterado.ativo else "suspenso"}.', "ativo": alterado.ativo}
 
 
+@router.post("/{usuario_id}/dois-fatores/desativar")
+async def desativar_dois_fatores(
+    usuario_id: uuid.UUID,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Desliga a verificação em dois passos de alguém que perdeu o acesso ao e-mail (nunca a própria — essa é no Perfil)."""
+    alterado = await crud_usuarios.desativar_dois_fatores(db, utilizador["tenant_id"], usuario_id, utilizador["usuario_id"])
+    return {"mensagem": f'Verificação em dois passos de "{alterado.nome_completo}" desativada.', "dois_fatores_ativo": alterado.dois_fatores_ativo}
+
+
 @router.get("/auditoria")
 async def listar_auditoria(
     page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),

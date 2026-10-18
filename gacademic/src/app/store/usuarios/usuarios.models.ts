@@ -8,6 +8,8 @@ export interface UsuarioStaff {
   email: string;
   perfil_acesso: PerfilStaff;
   ativo: boolean;
+  // Verificação em dois passos (código por e-mail no login).
+  dois_fatores_ativo: boolean;
   data_criacao: string;
 }
 
@@ -20,7 +22,7 @@ export interface UsuarioAuditoriaRegisto {
   usuario_alvo_id: string;
   nome_alvo: string;
   nome_autor: string | null;
-  acao: 'CRIACAO_SECRETARIA' | 'MUDANCA_PERFIL' | 'SUSPENSAO' | 'REATIVACAO';
+  acao: 'CRIACAO_SECRETARIA' | 'MUDANCA_PERFIL' | 'SUSPENSAO' | 'REATIVACAO' | 'DESATIVACAO_2FA';
   perfil_anterior: string | null;
   perfil_novo: string | null;
   detalhe: string | null;

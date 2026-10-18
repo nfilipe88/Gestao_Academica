@@ -12,6 +12,7 @@ class UsuarioListadoOut(BaseModel):
     email: str
     perfil_acesso: str
     ativo: bool
+    dois_fatores_ativo: bool = False
     data_criacao: datetime
     model_config = {"from_attributes": True}
 
