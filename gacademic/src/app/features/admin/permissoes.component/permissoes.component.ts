@@ -1,5 +1,6 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { map } from 'rxjs';
@@ -95,12 +96,35 @@ export class PermissoesComponent implements OnInit {
     this.store.dispatch(carregarPermissoes());
   }
 
+  // Super Admin edita o mapa base (todas as escolas); o Gestor vê e restringe
+  // o que vale na escola dele — ver back_end/app/core/mapa_permissoes.py.
+  eSuperAdminSinal = toSignal(this.store.select(selectIsSuperAdmin), { initialValue: false });
+
+  valor(celula: PermissaoModulo, op: keyof OperacoesCrud): boolean {
+    if (this.eSuperAdminSinal()) return celula[op];
+    const daEscola = celula[`escola_${op}` as keyof PermissaoModulo];
+    return typeof daEscola === 'boolean' ? daEscola : celula[op];
+  }
+
+  // Porque é que uma operação não se pode mudar (null = pode).
+  bloqueio(celula: PermissaoModulo, op: keyof OperacoesCrud): string | null {
+    if (celula.perfil === 'super_admin') return 'A equipa da plataforma não é restringida pelo mapa.';
+    if (celula.protegidas?.includes(op) && this.valor(celula, op)) return 'Protegida: o Gestor nunca perde esta permissão.';
+    if (this.eSuperAdminSinal()) {
+      if (!celula[`codigo_${op}` as keyof PermissaoModulo] && !celula[op]) return 'O código não permite isto a este perfil — o mapa só restringe.';
+      return null;
+    }
+    if (celula.informativo) return 'Linha só informativa — não há páginas associadas a restringir.';
+    if (!celula[op]) return 'O mapa base da plataforma não dá isto a este perfil — a escola só pode restringir.';
+    return null;
+  }
+
   // Quantas operações estão ativas nesta célula — usado só para pintar
   // o resumo visual (verde/âmbar/cinzento) no gatilho do dropdown; o
   // popover é que manda no que está realmente marcado.
   contarOperacoes(celula: PermissaoModulo | undefined): number {
     if (!celula) return 0;
-    return OPERACOES.filter(op => celula[op.chave]).length;
+    return OPERACOES.filter(op => this.valor(celula, op.chave)).length;
   }
 
   classeResumo(celula: PermissaoModulo | undefined): string {
@@ -112,7 +136,7 @@ export class PermissoesComponent implements OnInit {
 
   resumoTexto(celula: PermissaoModulo | undefined): string {
     if (!celula) return '—';
-    const letras = OPERACOES.filter(op => celula[op.chave]).map(op => op.letra);
+    const letras = OPERACOES.filter(op => this.valor(celula, op.chave)).map(op => op.letra);
     return letras.length ? letras.join('') : '—';
   }
 
@@ -123,12 +147,12 @@ export class PermissoesComponent implements OnInit {
   onAlterarOperacao(celula: PermissaoModulo, chave: keyof OperacoesCrud, event: Event) {
     const marcado = (event.target as HTMLInputElement).checked;
     const operacoes: OperacoesCrud = {
-      pode_criar: celula.pode_criar,
-      pode_ler: celula.pode_ler,
-      pode_atualizar: celula.pode_atualizar,
-      pode_apagar: celula.pode_apagar,
+      pode_criar: this.valor(celula, 'pode_criar'),
+      pode_ler: this.valor(celula, 'pode_ler'),
+      pode_atualizar: this.valor(celula, 'pode_atualizar'),
+      pode_apagar: this.valor(celula, 'pode_apagar'),
       [chave]: marcado,
     };
-    this.store.dispatch(atualizarPermissao({ id: celula.id, operacoes }));
+    this.store.dispatch(atualizarPermissao({ id: celula.id, operacoes, escola: !this.eSuperAdminSinal() }));
   }
 }

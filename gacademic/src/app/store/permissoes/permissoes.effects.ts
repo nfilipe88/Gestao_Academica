@@ -25,7 +25,10 @@ export class PermissoesEffects {
   atualizarPermissao$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PermissoesActions.atualizarPermissao),
-      switchMap(action => this.http.patch<PermissaoModulo>(`/api/v1/permissoes/${action.id}`, action.operacoes).pipe(
+      switchMap(action => (action.escola
+        ? this.http.put<PermissaoModulo>(`/api/v1/permissoes/${action.id}/escola`, action.operacoes)
+        : this.http.patch<PermissaoModulo>(`/api/v1/permissoes/${action.id}`, action.operacoes)
+      ).pipe(
         map(permissao => PermissoesActions.atualizarPermissaoSucesso({ permissao })),
         catchError(err => of(PermissoesActions.permissoesOperacaoFalhou({
           erro: err.error?.detail || 'Não foi possível atualizar esta célula do mapa.'

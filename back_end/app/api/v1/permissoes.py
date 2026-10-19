@@ -21,16 +21,35 @@ _PODE_ACEDER = exigir_perfil("SUPER_ADMIN", "GESTOR")
 async def listar_permissoes(
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)
 ):
-    return await crud_permissoes.listar_permissoes(db)
+    """Super Admin: o mapa base. Gestor: o mapa base + o que vale na escola dele."""
+    tenant_id = utilizador["tenant_id"] if utilizador["perfil_acesso"] == "GESTOR" else None
+    return await crud_permissoes.listar_permissoes(db, tenant_id)
+
+
+# Desde que o mapa decide o acesso: o mapa base é de todas as escolas (só o
+# Super Admin); cada Gestor só restringe a própria escola.
+_SO_SUPER_ADMIN_BASE = exigir_perfil("SUPER_ADMIN")
+_SO_GESTOR = exigir_perfil("GESTOR")
 
 
 @router.patch("/{permissao_id}", response_model=PermissaoModuloOut)
 async def atualizar_permissao(
     permissao_id: uuid.UUID,
     dados: PermissaoModuloUpdate,
-    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_SO_SUPER_ADMIN_BASE)
 ):
+    """Mapa base — vale para TODAS as escolas, por isso só o Super Admin."""
     return await crud_permissoes.atualizar_permissao(db, permissao_id, dados)
+
+
+@router.put("/{permissao_id}/escola", response_model=PermissaoModuloOut)
+async def restringir_na_escola(
+    permissao_id: uuid.UUID,
+    dados: PermissaoModuloUpdate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_SO_GESTOR)
+):
+    """Restrição da própria escola (Gestor) — só pode tirar ao mapa base."""
+    return await crud_permissoes.restringir_na_escola(db, utilizador["tenant_id"], permissao_id, dados)
 
 
 

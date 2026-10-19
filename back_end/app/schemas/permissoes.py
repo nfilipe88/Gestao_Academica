@@ -13,6 +13,21 @@ class PermissaoModuloOut(BaseModel):
     pode_ler: bool
     pode_atualizar: bool
     pode_apagar: bool
+    # Teto do código: o que as rotas deste módulo deixam este perfil fazer —
+    # o mapa só restringe, nunca dá acima disto (ver core/mapa_permissoes.py).
+    codigo_pode_criar: bool = True
+    codigo_pode_ler: bool = True
+    codigo_pode_atualizar: bool = True
+    codigo_pode_apagar: bool = True
+    # Linha sem rotas associadas (ex.: Visão Geral) — só descreve, não decide nada.
+    informativo: bool = False
+    # Operações que nunca se podem tirar (ex.: o Gestor nas Configurações).
+    protegidas: list[str] = []
+    # Só na vista do Gestor: o que vale na escola dele (mapa base E restrições da escola).
+    escola_pode_criar: bool | None = None
+    escola_pode_ler: bool | None = None
+    escola_pode_atualizar: bool | None = None
+    escola_pode_apagar: bool | None = None
 
     class Config:
         from_attributes = True

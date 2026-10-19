@@ -2,7 +2,11 @@
 
   <div>
     <h2 class="text-2xl font-bold text-slate-800">Mapa de Permissões</h2>
-    <p class="text-slate-500 text-sm">O que cada perfil pode fazer, módulo a módulo. Editável pelo Super Admin e pelo Gestor: abra o dropdown de cada célula e marque as operações CRUD — a alteração fica guardada assim que marca ou desmarca.</p>
+    @if (eSuperAdminSinal()) {
+      <p class="text-slate-500 text-sm">O que cada perfil pode fazer, módulo a módulo — e o que a plataforma deixa fazer de facto: cada pedido passa por este mapa. Está a editar o <strong class="text-slate-700">mapa base de todas as escolas</strong>; cada Gestor pode depois restringir mais na sua. O mapa só tira permissões: as operações a cinzento o código nunca dá a esse perfil.</p>
+    } @else {
+      <p class="text-slate-500 text-sm">O que cada perfil pode fazer na <strong class="text-slate-700">sua escola</strong>, módulo a módulo — cada pedido passa por este mapa. Pode retirar operações a um perfil (ex.: a Secretaria deixar de apagar no Financeiro); as operações a cinzento a plataforma não dá a esse perfil e não se podem acrescentar aqui.</p>
+    }
   </div>
 
   @if (erro$ | async; as erro) {
@@ -114,10 +118,13 @@
                       </button>
                       <div popoverConteudo class="w-36 py-1">
                         @for (op of operacoes; track op.chave) {
-                          <label class="flex items-center gap-2 text-xs text-slate-700 py-1.5 px-3 hover:bg-slate-50 cursor-pointer">
-                            <input type="checkbox" [checked]="celula[op.chave]"
+                          <label class="flex items-center gap-2 text-xs py-1.5 px-3"
+                            [class]="bloqueio(celula, op.chave) ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-50 cursor-pointer'"
+                            [attr.title]="bloqueio(celula, op.chave)">
+                            <input type="checkbox" [checked]="valor(celula, op.chave)"
+                              [disabled]="!!bloqueio(celula, op.chave)"
                               (change)="onAlterarOperacao(celula, op.chave, $event)"
-                              class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                              class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50" />
                             <span class="w-3.5 text-slate-400 font-semibold">{{ op.letra }}</span>
                             {{ op.label }}
                           </label>
@@ -152,7 +159,9 @@
     <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
       <h3 class="text-sm font-semibold text-slate-800 mb-3">Como isto é garantido</h3>
       <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
-        <li>Cada pedido ao back-end passa por uma verificação de perfil antes de tocar em qualquer dado — este mapa é a documentação dessa regra, não quem a aplica; editar uma célula aqui não muda o que a API aceita.</li>
+        <li>Cada pedido ao back-end passa por duas verificações antes de tocar em qualquer dado: a regra de perfil escrita no código e este mapa. Só passa se as duas deixarem — por isso o mapa só pode tirar permissões, nunca dar além do código.</li>
+        <li>Desmarcar uma operação aqui tem efeito imediato (até 30 segundos): quem tentar recebe "sem permissão" e a tentativa fica nos Eventos de Segurança.</li>
+        <li>O Gestor nunca perde Ler/Atualizar nas Configurações, para não ficar trancado fora da própria escola. A equipa da plataforma (Super Admin e Suporte) não é restringida pelo mapa.</li>
         <li>Dados de escrita ficam ainda mais restritos: mesmo com "Total", uma ação só é aceite se o registo pertencer à mesma instituição de quem pede.</li>
         <li>O isolamento entre escolas (multi-tenant) é reforçado a dois níveis — no código da aplicação e diretamente na base de dados.</li>
       </ul>
@@ -160,9 +169,8 @@
     <div class="bg-white p-5 rounded-xl shadow-xs border border-slate-200">
       <h3 class="text-sm font-semibold text-slate-800 mb-3">A caminho</h3>
       <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
-        <li>Estes seis perfis são atualmente fixos e partilhados por todas as escolas da plataforma — este mapa é, por isso, único para a plataforma toda, não por escola.</li>
-        <li>Perfis personalizados por escola — por exemplo, uma "Tesouraria" com acesso só ao Financeiro — estão planeados para uma fase futura.</li>
-        <li>Quando existirem, este mapa passará a refletir também os perfis que cada escola criar, não só os seis fixos.</li>
+        <li>O mapa base é da plataforma (Super Admin); cada escola pode restringir mais na sua, sem afetar as outras.</li>
+        <li>Perfis personalizados por escola — por exemplo, uma "Tesouraria" com acesso só ao Financeiro — vêm a seguir: cada um parte da Secretaria ou do Professor e só pode ter menos, nunca mais.</li>
       </ul>
     </div>
   </div>

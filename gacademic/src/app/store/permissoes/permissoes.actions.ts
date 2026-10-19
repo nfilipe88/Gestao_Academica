@@ -10,9 +10,11 @@ export const carregarPermissoesSucesso = createAction(
 // Disparado pela combobox de operações CRUD de cada célula — sem botão
 // "Guardar" à parte: ao selecionar, atualiza logo (ver
 // permissoes.component.ts::onAlterarOperacoes).
+// escola = true: restrição da própria escola (Gestor, PUT .../escola);
+// false: mapa base de todas as escolas (Super Admin, PATCH).
 export const atualizarPermissao = createAction(
   '[Permissoes] Atualizar Permissao',
-  props<{ id: string; operacoes: OperacoesCrud }>()
+  props<{ id: string; operacoes: OperacoesCrud; escola: boolean }>()
 );
 export const atualizarPermissaoSucesso = createAction(
   '[Permissoes] Atualizar Permissao Sucesso',

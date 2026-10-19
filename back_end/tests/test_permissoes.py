@@ -13,19 +13,19 @@ async def test_mapa_inclui_comportamento_com_niveis_esperados(client):
     assert resp.status_code == 200, resp.text
     linhas = {(l["modulo"], l["perfil"]): l for l in resp.json()}
 
-    # Gestor/Secretaria: TOTAL. Professor: ler+atualizar (lançar um
-    # incidente), sem criar/apagar ao nível grosseiro do mapa — o mapa
-    # não representa a nuance extra de "só remove os seus próprios
-    # registos" (ver cruds/comportamento.py). Aluno/Responsável: só
-    # leitura (é o que aparece no Dashboard do Portal).
+    # Desde que o mapa decide o acesso, ficou alinhado com o que as rotas
+    # realmente permitem (ver test_mapa_permissoes.py): o Professor regista e
+    # remove incidentes (só os seus — essa nuance continua no código, ver
+    # cruds/comportamento.py); nenhuma rota /comportamento edita; a família
+    # vê o comportamento pelo Portal, não por estas rotas.
     gestor = linhas[("Comportamento", "gestor")]
-    assert (gestor["pode_criar"], gestor["pode_ler"], gestor["pode_atualizar"], gestor["pode_apagar"]) == (True, True, True, True)
+    assert (gestor["pode_criar"], gestor["pode_ler"], gestor["pode_atualizar"], gestor["pode_apagar"]) == (True, True, False, True)
 
     professor = linhas[("Comportamento", "professor")]
-    assert (professor["pode_criar"], professor["pode_ler"], professor["pode_atualizar"], professor["pode_apagar"]) == (False, True, True, False)
+    assert (professor["pode_criar"], professor["pode_ler"], professor["pode_atualizar"], professor["pode_apagar"]) == (True, True, False, True)
 
     aluno_responsavel = linhas[("Comportamento", "aluno_responsavel")]
-    assert (aluno_responsavel["pode_criar"], aluno_responsavel["pode_ler"], aluno_responsavel["pode_atualizar"], aluno_responsavel["pode_apagar"]) == (False, True, False, False)
+    assert (aluno_responsavel["pode_criar"], aluno_responsavel["pode_ler"], aluno_responsavel["pode_atualizar"], aluno_responsavel["pode_apagar"]) == (False, False, False, False)
 
     # Fica logo a seguir a "Diário de Classe" na ordem de exibição.
     assert linhas[("Comportamento", "gestor")]["ordem"] == linhas[("Diário de Classe", "gestor")]["ordem"] + 1
@@ -58,35 +58,36 @@ async def test_secretaria_nao_acede_ao_mapa_de_permissoes(client):
 
 
 async def test_atualizar_permissao_persiste_a_alteracao(client):
-    """PATCH /permissoes/{id} — editar uma célula fica guardado (a UI
-    edita direto, sem passo de "guardar"). É uma tabela GLOBAL (sem
-    tenant_id) e os testes correm contra uma base persistente sem reset
-    automático entre execuções (ver docstring de tests/conftest.py) —
-    por isso este teste parte do valor que encontrar (não assume um
-    default fixo) e restaura-o no fim, em vez de deixar a mutação
-    contaminar outros testes deste ficheiro ou execuções futuras."""
-    escola = await criar_escola_e_gestor(client, "permissoes-patch")
-    headers = auth_headers(escola["token"])
+    """PATCH /permissoes/{id} — editar uma célula do mapa base fica guardado
+    (a UI edita direto, sem passo de "guardar"). Desde que o mapa decide o
+    acesso, o mapa base é de todas as escolas: só o Super Admin o edita (o
+    Gestor restringe a própria escola por PUT /permissoes/{id}/escola — ver
+    test_mapa_permissoes.py). Tabela GLOBAL e BD persistente: parte do valor
+    que encontrar e repõe-no no fim."""
+    from tests.test_planos_por_aluno_modulo import _criar_super_admin
+    headers = auth_headers((await _criar_super_admin(client))["access_token"])
 
     resp = await client.get("/api/v1/permissoes", headers=headers)
     assert resp.status_code == 200, resp.text
-    linha = next(l for l in resp.json() if l["modulo"] == "Comportamento" and l["perfil"] == "aluno_responsavel")
-    valor_original = linha["pode_atualizar"]
+    linha = next(l for l in resp.json() if l["modulo"] == "Horários" and l["perfil"] == "secretaria")
+    assert linha["pode_ler"] is True
 
     try:
         resp = await client.patch(f"/api/v1/permissoes/{linha['id']}", headers=headers, json={
-            "pode_criar": linha["pode_criar"], "pode_ler": linha["pode_ler"],
-            "pode_atualizar": not valor_original, "pode_apagar": linha["pode_apagar"]
+            "pode_criar": linha["pode_criar"], "pode_ler": False,
+            "pode_atualizar": linha["pode_atualizar"], "pode_apagar": linha["pode_apagar"]
         })
         assert resp.status_code == 200, resp.text
-        assert resp.json()["pode_atualizar"] is (not valor_original)
+        assert resp.json()["pode_ler"] is False
 
         resp = await client.get("/api/v1/permissoes", headers=headers)
         linha_atualizada = next(l for l in resp.json() if l["id"] == linha["id"])
-        assert linha_atualizada["pode_atualizar"] is (not valor_original)
+        assert linha_atualizada["pode_ler"] is False
     finally:
         resp = await client.patch(f"/api/v1/permissoes/{linha['id']}", headers=headers, json={
             "pode_criar": linha["pode_criar"], "pode_ler": linha["pode_ler"],
-            "pode_atualizar": valor_original, "pode_apagar": linha["pode_apagar"]
+            "pode_atualizar": linha["pode_atualizar"], "pode_apagar": linha["pode_apagar"]
         })
         assert resp.status_code == 200, resp.text
+        from app.core import mapa_permissoes
+        mapa_permissoes.invalidar_cache()

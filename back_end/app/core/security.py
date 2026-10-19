@@ -155,6 +155,10 @@ def exigir_perfil(*perfis_permitidos: str):
                 detail=f"Acesso restrito a: {', '.join(nomes.get(p, p) for p in perfis_permitidos)}."
             )
         return utilizador
+    # Deixa ver de fora que perfis esta rota aceita — é assim que o Mapa de
+    # Permissões calcula sozinho o teto do que o código permite a cada perfil
+    # (ver app/core/mapa_permissoes.py::teto_do_codigo).
+    verificar.perfis_permitidos = frozenset(perfis_permitidos)
     return verificar
 
 

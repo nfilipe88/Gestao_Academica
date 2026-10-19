@@ -13,6 +13,7 @@ from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
 from app.core import fila_notificacoes
 from app.core.modulos import exigir_modulo
+from app.core.mapa_permissoes import verificar_mapa
 from app.database.session import engine, preaquecer_pool
 
 # Antes de qualquer outra coisa, para também apanhar erros no arranque
@@ -40,6 +41,10 @@ app = FastAPI(
     description="Motor de regras e APIs da plataforma educacional.",
     version="1.0.0",
     lifespan=lifespan,
+    # Mapa de Permissões: antes de cada rota de um módulo de escola, confirma
+    # que o perfil (e a escola) tem essa operação no mapa — ver
+    # app/core/mapa_permissoes.py. Só restringe; nunca dá mais do que o código.
+    dependencies=[Depends(verificar_mapa)],
 )
 
 # CONFIGURAÇÃO DE CORS (Essencial para o Angular comunicar com a API)
