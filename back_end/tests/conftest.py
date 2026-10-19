@@ -42,7 +42,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import update
 
 from main import app
-from app.core import rate_limiter
+from app.core import eventos_seguranca, rate_limiter
 from app.database.models import Usuario
 from app.database.session import AsyncSessionLocalSistema
 
@@ -59,6 +59,9 @@ def _limpar_rate_limiter():
     sempre um cliente novo — exceto os testes que testam o limitador
     em si, que disparam o limite dentro do próprio teste."""
     rate_limiter._memoria.clear()
+    # Mesma razão para os pontos/bloqueios de IP dos eventos de segurança
+    # (todos os testes vêm do mesmo IP do ASGITransport).
+    eventos_seguranca.limpar_memoria()
     yield
 
 

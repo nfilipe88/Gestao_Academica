@@ -149,11 +149,11 @@ def test_detecao_de_tipos():
     assert validacao_ficheiros.detetar_tipo(ole, "pauta.exe") is None
 
 
-def test_zip_bomb_e_recusado_antes_de_abrir():
+async def test_zip_bomb_e_recusado_antes_de_abrir():
     bomba = _zip({"[Content_Types].xml": b"<Types/>", "xl/worksheets/sheet1.xml": b"0" * (60 * 1024 * 1024)})
     assert len(bomba) < 1024 * 1024
     with pytest.raises(HTTPException) as erro:
-        validacao_ficheiros.validar_upload(bomba, {validacao_ficheiros.XLSX}, ".xlsx")
+        await validacao_ficheiros.validar_upload(bomba, {validacao_ficheiros.XLSX}, ".xlsx")
     assert erro.value.status_code == 400
 
 

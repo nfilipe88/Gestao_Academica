@@ -18,13 +18,14 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
+from defusedxml import DefusedXmlException
 from fastapi import HTTPException
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage, validacao_ficheiros
+from app.core import eventos_seguranca, storage, validacao_ficheiros
 from app.core.limites_plano import garantir_vaga_para_alunos
 from app.database.models_academico import Curso, Disciplina, GradeCurricular, SerieAno, Turma
 from app.database.models_diario import Avaliacao, PeriodoAvaliacao, TipoAvaliacaoConfig
@@ -141,10 +142,27 @@ def _extrair_pesos_formula(formula: str | None, coluna_mact: str, coluna_pt: str
     return Decimal("50"), Decimal("50"), False
 
 
+class _ExcelComDTD(Exception):
+    """O .xlsx traz uma definição de tipo de documento (DTD) — nenhum Excel
+    legítimo a tem; é a forma de tentar ler ficheiros do servidor (XXE)
+    ou esgotá-lo ("billion laughs"). O defusedxml recusa-a; aqui só se
+    distingue isto de um ficheiro simplesmente estragado."""
+
+
+def _tem_dtd(erro: BaseException | None) -> bool:
+    while erro is not None:
+        if isinstance(erro, DefusedXmlException):
+            return True
+        erro = erro.__cause__ or erro.__context__
+    return False
+
+
 def _parsear_mini_pauta(conteudo: bytes) -> dict:
     try:
         wb = load_workbook(BytesIO(conteudo), data_only=False)
-    except Exception:
+    except Exception as erro:
+        if _tem_dtd(erro):
+            raise _ExcelComDTD() from erro
         raise HTTPException(status_code=400, detail="Não foi possível ler o ficheiro — confirme que é um .xlsx válido.")
     ws = wb.active
 
@@ -274,9 +292,16 @@ async def pre_visualizar_mini_pauta(
         raise HTTPException(status_code=400, detail="O ficheiro não pode passar de 5 MB.")
     # Também recusa um .xlsx cujo conteúdo expande para dezenas de MB
     # ("zip bomb") antes de o openpyxl o tentar abrir.
-    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "um ficheiro .xlsx", nome_ficheiro)
+    content_type = await validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "um ficheiro .xlsx", nome_ficheiro)
 
-    dados = _parsear_mini_pauta(conteudo)
+    try:
+        dados = _parsear_mini_pauta(conteudo)
+    except _ExcelComDTD:
+        await eventos_seguranca.registar(
+            eventos_seguranca.FICHEIRO_MALICIOSO, eventos_seguranca.ALTA,
+            f'"{nome_ficheiro}": Excel com DTD (tentativa de ler ficheiros do servidor ou de o esgotar).',
+        )
+        raise HTTPException(status_code=400, detail="Não foi possível ler o ficheiro — confirme que é um .xlsx válido.")
 
     nomes_alunos = [a["nome_completo"] for a in dados["alunos"]]
     existentes: dict[str, uuid.UUID] = {}

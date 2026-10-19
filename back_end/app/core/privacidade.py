@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import storage
 from app.database.models_crm import FunilEtapa, LeadCandidato, LeadDocumento, MensagemLead, OportunidadeCRM
 from app.database.models_notificacoes import Notificacao
-from app.database.models_usuarios import ContaAtivacaoToken, LoginHistorico, PasswordResetToken, RefreshToken
+from app.database.models_usuarios import ContaAtivacaoToken, EventoSeguranca, LoginHistorico, PasswordResetToken, RefreshToken
 
 logger = logging.getLogger("privacidade")
 
@@ -48,6 +48,8 @@ NOTIFICACOES_LIDAS_RETENCAO_DIAS = int(os.getenv("NOTIFICACOES_LIDAS_RETENCAO_DI
 LEADS_NAO_CONVERTIDOS_RETENCAO_DIAS = int(os.getenv("LEADS_NAO_CONVERTIDOS_RETENCAO_DIAS", "15"))
 # Tokens expirados/usados/revogados ficam este tempo (para auditar incidentes) e depois saem.
 TOKENS_RETENCAO_DIAS = int(os.getenv("TOKENS_RETENCAO_DIAS", "30"))
+# Eventos de segurança (IP, browser, utilizador — ver app/core/eventos_seguranca.py).
+SEGURANCA_EVENTOS_RETENCAO_DIAS = int(os.getenv("SEGURANCA_EVENTOS_RETENCAO_DIAS", "180"))
 
 
 async def limpar_dados_operacionais(db: AsyncSession, agora: datetime | None = None) -> dict[str, int]:
@@ -82,6 +84,11 @@ async def limpar_dados_operacionais(db: AsyncSession, agora: datetime | None = N
         )
     )
     resumo["notificacoes_lidas"] = resultado.rowcount or 0
+
+    resultado = await db.execute(
+        delete(EventoSeguranca).where(EventoSeguranca.data_evento < agora - timedelta(days=SEGURANCA_EVENTOS_RETENCAO_DIAS))
+    )
+    resumo["eventos_seguranca"] = resultado.rowcount or 0
 
     resumo.update(await _limpar_leads_nao_convertidos(db, agora))
 

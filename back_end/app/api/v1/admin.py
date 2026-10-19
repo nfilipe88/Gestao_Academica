@@ -14,13 +14,16 @@ from app.schemas.admin import (
 from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
 from app.schemas.financeiro import DespesaCreate
 from app.core.email import enviar_email, escapar, template_base
-from app.core import fila_notificacoes
+from app.core import eventos_seguranca, fila_notificacoes
 from app.cruds import admin as crud_admin
 from app.cruds import usuarios as crud_usuarios
 from app.cruds import auditoria as crud_auditoria
 from app.cruds import suporte as crud_suporte
 from app.cruds import estatisticas as crud_estatisticas
 from app.cruds import financeiro as crud_financeiro
+from app.cruds import seguranca as crud_seguranca
+from app.schemas.comum import PaginaOut
+from app.schemas.seguranca import BloqueioIpOut, EventoSegurancaOut
 from app.schemas.suporte import MensagemTicketCreate, TicketAdminComMensagens, TicketEstadoUpdate
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Painel Super Admin"])
@@ -430,3 +433,33 @@ async def remover_despesa_do_tenant(
     db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
 ):
     await crud_financeiro.remover_despesa(db, tenant_id, despesa_id)
+
+
+# ==========================================
+# SEGURANÇA — tentativas de acesso indevido em todas as escolas (incluindo
+# as anónimas) e IPs bloqueados automaticamente (ver app/core/eventos_seguranca.py).
+# ==========================================
+@router.get("/seguranca/eventos", response_model=PaginaOut[EventoSegurancaOut])
+async def listar_eventos_seguranca(
+    tenant_id: uuid.UUID | None = None,
+    tipo: str | None = Query(None, max_length=40), gravidade: str | None = Query(None, max_length=10),
+    ip: str | None = Query(None, max_length=45),
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER),
+):
+    return await crud_seguranca.listar_eventos(
+        db, tenant_id=tenant_id, so_da_escola=False, tipo=tipo, gravidade=gravidade, ip=ip,
+        page=page, page_size=page_size,
+    )
+
+
+@router.get("/seguranca/bloqueios", response_model=list[BloqueioIpOut])
+async def listar_ips_bloqueados(utilizador: dict = Depends(_PODE_ACEDER)):
+    return await crud_seguranca.listar_bloqueios()
+
+
+@router.delete("/seguranca/bloqueios/{ip}")
+async def desbloquear_ip(ip: str, utilizador: dict = Depends(_PODE_ACEDER)):
+    """Levanta já o bloqueio (ex.: era a rede de uma escola, não um ataque)."""
+    await eventos_seguranca.desbloquear_ip(ip)
+    return {"mensagem": f"O endereço {ip} foi desbloqueado."}

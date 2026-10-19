@@ -239,7 +239,7 @@ async def adicionar_documento_matricula(
     db: AsyncSession, tenant_id, matricula_id: uuid.UUID, descricao: str | None,
     nome_original: str, content_type: str, conteudo: bytes
 ) -> list[dict]:
-    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "PNG, JPEG, GIF, WebP ou PDF", nome_original)
+    content_type = await validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "PNG, JPEG, GIF, WebP ou PDF", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_DOCUMENTO:
         raise HTTPException(status_code=400, detail="Cada documento não pode passar de 8 MB.")
 

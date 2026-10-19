@@ -14,11 +14,14 @@ enviado por um utilizador sem que o browser o interprete como página da
 própria plataforma.
 """
 import io
+import re
 import unicodedata
 import zipfile
 from urllib.parse import quote
 
 from fastapi import HTTPException
+
+from app.core import eventos_seguranca
 
 PNG = "image/png"
 JPEG = "image/jpeg"
@@ -50,6 +53,10 @@ _MAXIMO_RACIO_COMPRESSAO = 200
 _EXTENSOES_OLE = {"doc": DOC, "xls": XLS, "ppt": PPT}
 
 
+class _ZipBomba(Exception):
+    pass
+
+
 def _tipo_zip(conteudo: bytes) -> str | None:
     try:
         with zipfile.ZipFile(io.BytesIO(conteudo)) as arquivo:
@@ -57,7 +64,7 @@ def _tipo_zip(conteudo: bytes) -> str | None:
             total = sum(m.file_size for m in membros)
             comprimido = max(sum(m.compress_size for m in membros), 1)
             if total > _MAXIMO_DESCOMPRIMIDO or total / comprimido > _MAXIMO_RACIO_COMPRESSAO:
-                raise HTTPException(status_code=400, detail="Ficheiro recusado: o conteúdo comprimido é anormalmente grande.")
+                raise _ZipBomba()
             nomes = {m.filename for m in membros}
             if "[Content_Types].xml" in nomes:
                 if any(n.startswith("xl/") for n in nomes):
@@ -100,10 +107,33 @@ def detetar_tipo(conteudo: bytes, nome_ficheiro: str = "") -> str | None:
     return None
 
 
-def validar_upload(conteudo: bytes, aceites: set[str], descricao_aceites: str, nome_ficheiro: str = "") -> str:
+# Conteúdo que nunca é um documento legítimo num upload desta plataforma:
+# páginas/scripts (o ataque do anexo .html), executáveis Windows/Linux,
+# scripts de shell e PHP — quase sempre disfarçados com outra extensão.
+_INICIOS_MALICIOSOS = re.compile(
+    rb"^(\xef\xbb\xbf)?\s*(<\s*(!doctype|html|script|svg|iframe|\?php|\?xml)|MZ|\x7fELF|#!)", re.IGNORECASE
+)
+
+
+async def validar_upload(conteudo: bytes, aceites: set[str], descricao_aceites: str, nome_ficheiro: str = "") -> str:
     """Devolve o tipo REAL do ficheiro (é esse que se grava e com que se
-    serve depois), ou 400 se não for um dos `aceites`."""
-    tipo = detetar_tipo(conteudo, nome_ficheiro)
+    serve depois), ou 400 se não for um dos `aceites`. Um ficheiro
+    malicioso (página/script/executável disfarçado, zip bomb) fica
+    registado como evento de segurança, com o IP e o utilizador; um
+    engano honesto (ex.: um PDF onde se pede uma foto) não."""
+    try:
+        tipo = detetar_tipo(conteudo, nome_ficheiro)
+    except _ZipBomba:
+        await eventos_seguranca.registar(
+            eventos_seguranca.FICHEIRO_MALICIOSO, eventos_seguranca.ALTA,
+            f'"{nome_ficheiro}": ficheiro comprimido que expande para um tamanho anormal (zip bomb).',
+        )
+        raise HTTPException(status_code=400, detail="Ficheiro recusado: o conteúdo comprimido é anormalmente grande.")
+    if tipo is None and _INICIOS_MALICIOSOS.match(conteudo[:256]):
+        await eventos_seguranca.registar(
+            eventos_seguranca.FICHEIRO_MALICIOSO, eventos_seguranca.ALTA,
+            f'"{nome_ficheiro}": conteúdo de página/script/executável enviado como documento.',
+        )
     if tipo not in aceites:
         raise HTTPException(
             status_code=400,

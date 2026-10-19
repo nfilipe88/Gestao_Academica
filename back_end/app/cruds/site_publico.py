@@ -107,7 +107,7 @@ async def atualizar_config(db: AsyncSession, tenant_id, dados: SitePublicoConfig
 
 
 async def adicionar_foto(db: AsyncSession, tenant_id, nome_original: str, content_type: str, conteudo: bytes) -> dict:
-    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FOTO_ACEITES, "PNG, JPEG, GIF ou WebP", nome_original)
+    content_type = await validacao_ficheiros.validar_upload(conteudo, _TIPOS_FOTO_ACEITES, "PNG, JPEG, GIF ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_FOTO:
         raise HTTPException(status_code=400, detail="Cada foto não pode passar de 4 MB.")
 

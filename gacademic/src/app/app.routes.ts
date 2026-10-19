@@ -221,6 +221,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/estatisticas.component/estatisticas.component').then((m) => m.EstatisticasAdminComponent)
       },
       {
+        // Tentativas de acesso indevido em toda a plataforma + IPs bloqueados.
+        path: 'admin/seguranca',
+        canActivate: [superAdminGuard],
+        loadComponent: () => import('./features/admin/seguranca.component/seguranca.component').then((m) => m.SegurancaAdminComponent)
+      },
+      {
         path: 'tarefas',
         canActivate: [perfilGuard(..._STAFF)],
         loadComponent: () => import('./features/tarefas/tarefas.component/tarefas.component').then((m) => m.TarefasComponent)

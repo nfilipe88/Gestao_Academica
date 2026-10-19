@@ -99,7 +99,7 @@ async def atualizar_configuracao(db: AsyncSession, tenant_id, dados: Configuraca
 # LOGÓTIPO DA ESCOLA
 # ==========================================
 async def atualizar_logotipo(db: AsyncSession, tenant_id, nome_original: str, content_type: str, conteudo: bytes) -> Tenant:
-    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_LOGOTIPO_ACEITES, "PNG, JPEG, GIF ou WebP", nome_original)
+    content_type = await validacao_ficheiros.validar_upload(conteudo, _TIPOS_LOGOTIPO_ACEITES, "PNG, JPEG, GIF ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_LOGOTIPO:
         raise HTTPException(status_code=400, detail="O logótipo não pode passar de 2 MB.")
 

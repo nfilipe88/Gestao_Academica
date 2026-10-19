@@ -32,7 +32,7 @@ from app.database.models_diario import TipoAvaliacaoConfig
 from app.database.models_usuarios import ContaAtivacaoToken, LoginHistorico, PasswordResetToken, RefreshToken
 from app.core.security import verificar_senha, gerar_hash_senha, criar_token_acesso, REFRESH_TOKEN_EXPIRE_DIAS
 from app.core.email import enviar_email, escapar, template_base
-from app.core import fila_notificacoes, revogacao
+from app.core import eventos_seguranca, fila_notificacoes, revogacao
 from app.core.privacidade import VERSAO_TERMOS
 from app.cruds import dois_fatores
 from app.schemas.auth import RegistoInicial
@@ -279,6 +279,14 @@ async def autenticar(email: str, palavra_passe: str, ip: str | None = None, user
         usuario = resultado.scalars().first()
 
         if not usuario or not verificar_senha(palavra_passe, usuario.senha_hash):
+            # Anónimo de propósito (sem usuario_id): quem falha a palavra-passe
+            # não está autenticado, e estas tentativas contam para bloquear o IP.
+            # A escola fica associada (se o e-mail existir) para o Gestor ver.
+            await eventos_seguranca.registar(
+                eventos_seguranca.LOGIN_FALHADO, eventos_seguranca.BAIXA,
+                "Palavra-passe errada." if usuario else "E-mail sem conta na plataforma.",
+                email=email, tenant_id=usuario.tenant_id if usuario else None,
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Email ou palavra-passe incorretos",

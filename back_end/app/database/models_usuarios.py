@@ -166,3 +166,35 @@ class DesafioDoisFatores(Base):
     usado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
 
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+
+class EventoSeguranca(Base):
+    """
+    Tentativa de acesso indevido detetada pela plataforma (ver
+    app/core/eventos_seguranca.py): token forjado, acesso a uma área que
+    o perfil não permite, ficheiro malicioso, sondagem de endereços
+    (/.env, ../), força bruta no login. Regista QUEM (IP, browser e, se
+    tiver sessão, utilizador e escola), O QUÊ (tipo, gravidade, endereço)
+    e PORQUÊ (detalhe).
+
+    tenant_id é nulo para tentativas anónimas — com o RLS, essas só o
+    Super Admin as vê; cada Gestor vê as da própria escola. O IP é dado
+    pessoal: apagado ao fim de SEGURANCA_EVENTOS_RETENCAO_DIAS (ver
+    app/core/privacidade.py).
+    """
+    __tablename__ = "evento_seguranca"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    data_evento: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), index=True)
+    tipo: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    gravidade: Mapped[str] = mapped_column(String(10), nullable=False)  # BAIXA, MEDIA, ALTA
+    ip: Mapped[str] = mapped_column(String(45), nullable=False, index=True)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=True, index=True)
+    usuario_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
+    # Cópia do e-mail no momento (sobrevive à conta ser apagada; no login
+    # falhado é o e-mail TENTADO, que pode nem existir).
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    metodo: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    caminho: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    detalhe: Mapped[str | None] = mapped_column(Text, nullable=True)

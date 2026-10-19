@@ -233,7 +233,7 @@ async def _avisar_mudanca_dois_fatores(usuario: Usuario, ativada: bool) -> None:
 async def enviar_assinatura_pessoal(
     db: AsyncSession, tenant_id, usuario_id: uuid.UUID, nome_original: str, content_type: str, conteudo: bytes
 ) -> None:
-    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_ASSINATURA_ACEITES, "PNG, JPEG ou WebP", nome_original)
+    content_type = await validacao_ficheiros.validar_upload(conteudo, _TIPOS_ASSINATURA_ACEITES, "PNG, JPEG ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_ASSINATURA:
         raise HTTPException(status_code=400, detail="A assinatura não pode passar de 5 MB.")
 

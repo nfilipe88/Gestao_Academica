@@ -4,9 +4,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.cabecalhos import CabecalhosDeSegurancaMiddleware
+from app.core.eventos_seguranca import MonitorSegurancaMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, calendario, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, eventos, financeiro, horarios, importacao, indicadores, lms, matriculas, notificacoes, perfil, fecho, permissoes, portal, privacidade, professores, propinas, publico, suporte, tarefas, transferencias, usuarios
+from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, calendario, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, eventos, financeiro, horarios, importacao, indicadores, lms, matriculas, notificacoes, perfil, fecho, permissoes, portal, privacidade, professores, propinas, publico, seguranca, suporte, tarefas, transferencias, usuarios
 from fastapi import Depends
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
@@ -59,6 +60,11 @@ app.add_middleware(
     allow_headers=["*"], # Permite o envio do cabeçalho de Authorization (Bearer Token)
 )
 
+# Registo de tentativas de acesso indevido e bloqueio temporário de IPs
+# (ver app/core/eventos_seguranca.py). Adicionado ANTES dos cabeçalhos de
+# segurança, que ficam por fora: as respostas 403/404 que ele próprio dá
+# também os levam.
+app.add_middleware(MonitorSegurancaMiddleware)
 app.add_middleware(CabecalhosDeSegurancaMiddleware)
 
 
@@ -99,6 +105,7 @@ app.include_router(notificacoes.router)
 app.include_router(documentos.router)
 app.include_router(transferencias.router, dependencies=[Depends(exigir_modulo("Transferências de Alunos"))])
 app.include_router(usuarios.router)
+app.include_router(seguranca.router)
 app.include_router(auditoria.router)
 app.include_router(publico.router)
 app.include_router(suporte.router)

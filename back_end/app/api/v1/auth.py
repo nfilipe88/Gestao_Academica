@@ -9,7 +9,7 @@ from app.schemas.auth import (
     ReenviarCodigoIn, RefreshTokenIn, RefreshTokenOut, RegistoInicial, TokenResponse
 )
 from app.core.email import enviar_email, escapar, template_base
-from app.core import fila_notificacoes
+from app.core import eventos_seguranca, fila_notificacoes
 from app.core import recaptcha
 from app.core.rate_limiter import excedeu_limite
 from app.core.security import REFRESH_TOKEN_EXPIRE_DIAS, obter_utilizador_atual
@@ -62,6 +62,10 @@ def _limpar_cookie_refresh(response: Response) -> None:
 
 async def _verificar_limite_login(chave: str) -> None:
     if await excedeu_limite(chave, _LOGIN_MAX_TENTATIVAS, _LOGIN_JANELA_SEGUNDOS):
+        await eventos_seguranca.registar(
+            eventos_seguranca.FORCA_BRUTA, eventos_seguranca.MEDIA,
+            f"Mais de {_LOGIN_MAX_TENTATIVAS} tentativas de login num minuto ({chave.split(':', 1)[-1]}).",
+        )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Demasiadas tentativas de login. Tente novamente dentro de 1 minuto."

@@ -10,10 +10,11 @@ import {
 import { PERFIS_ATRIBUIVEIS, UsuarioStaff } from '../../../store/usuarios/usuarios.models';
 import { selectIsGestor, selectUsuario } from '../../../store/auth/auth.selectors';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
+import { EventosSegurancaComponent } from '../../../shared/components/eventos-seguranca/eventos-seguranca.component';
 
 @Component({
   selector: 'app-acessos.component',
-  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, PaginacaoComponent],
+  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, PaginacaoComponent, EventosSegurancaComponent],
   templateUrl: './acessos.component.html',
   styleUrl: './acessos.component.css',
 })
@@ -35,7 +36,7 @@ export class AcessosComponent implements OnInit {
 
   perfisAtribuiveis = PERFIS_ATRIBUIVEIS;
 
-  aba: 'staff' | 'auditoria' = 'staff';
+  aba: 'staff' | 'auditoria' | 'seguranca' = 'staff';
   mostrarFormularioSecretaria = false;
   secretariaForm = this.fb.group({
     nome_completo: ['', Validators.required],

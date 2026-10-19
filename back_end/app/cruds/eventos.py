@@ -95,7 +95,7 @@ async def adicionar_foto_evento(db: AsyncSession, tenant_id, evento_id: uuid.UUI
     contagem aqui — de propósito: um evento pode ter tantas fotos
     quantas fizerem sentido para contar a história desse dia, sem o
     limite de 8 pensado para a galeria genérica da página."""
-    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FOTO_ACEITES, "PNG, JPEG, GIF ou WebP", nome_original)
+    content_type = await validacao_ficheiros.validar_upload(conteudo, _TIPOS_FOTO_ACEITES, "PNG, JPEG, GIF ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_FOTO:
         raise HTTPException(status_code=400, detail="Cada foto não pode passar de 4 MB.")
 

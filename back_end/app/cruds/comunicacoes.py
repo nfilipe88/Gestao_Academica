@@ -453,7 +453,7 @@ async def adicionar_anexo(db: AsyncSession, tenant_id, comunicado_id: uuid.UUID,
     # ficheiro com o tipo declarado pelo browser e servia-o de volta
     # "inline" — um .html anexado corria como página da plataforma no
     # browser do encarregado que o abrisse (roubo de sessão).
-    content_type = validacao_ficheiros.validar_upload(
+    content_type = await validacao_ficheiros.validar_upload(
         conteudo, _TIPOS_ANEXO_ACEITES, "PDF, imagem (PNG, JPEG, GIF, WebP) ou documento Office (Word, Excel, PowerPoint, OpenDocument)", nome_original
     )
 

@@ -298,7 +298,7 @@ async def adicionar_documento_lead(
 ) -> list[dict]:
     if tipo not in TIPOS_DOCUMENTO_VALIDOS:
         raise HTTPException(status_code=400, detail=f"Tipo de documento inválido. Use um de: {', '.join(sorted(TIPOS_DOCUMENTO_VALIDOS))}.")
-    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "PNG, JPEG, GIF, WebP ou PDF", nome_original)
+    content_type = await validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "PNG, JPEG, GIF, WebP ou PDF", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_DOCUMENTO:
         raise HTTPException(status_code=400, detail="Cada documento não pode passar de 8 MB.")
 

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 import jwt
-from jwt import InvalidTokenError
+from jwt import DecodeError, ExpiredSignatureError, InvalidSignatureError, InvalidTokenError
 from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 import uuid
@@ -9,7 +9,7 @@ import os
 from dotenv import load_dotenv
 from passlib.context import CryptContext
 
-from app.core import revogacao
+from app.core import eventos_seguranca, revogacao
 
 load_dotenv()
 
@@ -106,12 +106,27 @@ async def obter_utilizador_atual(token: str = Depends(oauth2_scheme)) -> Dict[st
         if iat is not None and await revogacao.esta_revogado(tenant_id, usuario_id, jti, float(iat)):
             raise credenciais_exception
 
+        eventos_seguranca.definir_utilizador(uuid.UUID(usuario_id), uuid.UUID(tenant_id))
         return {
             "usuario_id": uuid.UUID(usuario_id),
             "tenant_id": uuid.UUID(tenant_id),
             "perfil_acesso": perfil,
             "jti": jti,
         }
+    except ExpiredSignatureError:
+        # Normal: o access token dura ~20 min e o front-end renova-o — nunca é um evento de segurança.
+        raise credenciais_exception
+    except InvalidSignatureError:
+        # Assinatura inválida = token fabricado/alterado por alguém sem a chave do servidor.
+        await eventos_seguranca.registar(
+            eventos_seguranca.TOKEN_FORJADO, eventos_seguranca.ALTA, "Token com assinatura inválida (forjado ou alterado)."
+        )
+        raise credenciais_exception
+    except DecodeError:
+        await eventos_seguranca.registar(
+            eventos_seguranca.TOKEN_FORJADO, eventos_seguranca.MEDIA, "Token malformado (não é um token desta plataforma)."
+        )
+        raise credenciais_exception
     except InvalidTokenError:
         raise credenciais_exception
 
@@ -130,6 +145,10 @@ def exigir_perfil(*perfis_permitidos: str):
     """
     async def verificar(utilizador: Dict[str, Any] = Depends(obter_utilizador_atual)) -> Dict[str, Any]:
         if utilizador["perfil_acesso"] not in perfis_permitidos:
+            await eventos_seguranca.registar(
+                eventos_seguranca.ACESSO_NEGADO, eventos_seguranca.MEDIA,
+                f"Perfil {utilizador['perfil_acesso']} tentou aceder a uma área reservada a: {', '.join(perfis_permitidos)}.",
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Acesso restrito a: {', '.join(perfis_permitidos)}."

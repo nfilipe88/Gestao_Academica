@@ -342,7 +342,7 @@ async def adicionar_documento_aluno(
     db: AsyncSession, tenant_id, aluno_id: uuid.UUID, descricao: str | None,
     nome_original: str, content_type: str, conteudo: bytes
 ) -> list[dict]:
-    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "PNG, JPEG, GIF, WebP ou PDF", nome_original)
+    content_type = await validacao_ficheiros.validar_upload(conteudo, _TIPOS_FICHEIRO_ACEITES, "PNG, JPEG, GIF, WebP ou PDF", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_DOCUMENTO:
         raise HTTPException(status_code=400, detail="Cada documento não pode passar de 8 MB.")
 
@@ -434,7 +434,7 @@ async def enviar_foto_perfil(
     db: AsyncSession, tenant_id, aluno_id: uuid.UUID, usuario_id,
     nome_original: str, content_type: str, conteudo: bytes
 ) -> list[dict]:
-    content_type = validacao_ficheiros.validar_upload(conteudo, _TIPOS_FOTO_ACEITES, "PNG, JPEG ou WebP", nome_original)
+    content_type = await validacao_ficheiros.validar_upload(conteudo, _TIPOS_FOTO_ACEITES, "PNG, JPEG ou WebP", nome_original)
     if len(conteudo) > _TAMANHO_MAXIMO_FOTO:
         raise HTTPException(status_code=400, detail="A fotografia não pode passar de 5 MB.")
 

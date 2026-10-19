@@ -19,7 +19,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import fila_notificacoes
+from app.core import eventos_seguranca, fila_notificacoes
 from app.core.email import enviar_email, escapar, template_base
 from app.core.security import SECRET_KEY
 from app.database.models import Usuario
@@ -128,6 +128,14 @@ async def validar_codigo(db: AsyncSession, desafio_bruto: str, codigo: str, fina
         if restantes <= 0:
             registo.usado = True
         await db.commit()
+        email = (await db.execute(select(Usuario.email).where(Usuario.id == registo.usuario_id))).scalar_one_or_none()
+        await eventos_seguranca.registar(
+            eventos_seguranca.DOIS_FATORES_FALHADO,
+            eventos_seguranca.MEDIA if restantes <= 0 else eventos_seguranca.BAIXA,
+            "Código da verificação em dois passos errado"
+            + (" pela 5.ª vez — código anulado." if restantes <= 0 else f" ({registo.tentativas}.ª tentativa)."),
+            email=email, tenant_id=registo.tenant_id,
+        )
         if restantes <= 0:
             raise HTTPException(status_code=400, detail="Código incorreto demasiadas vezes. Volte a iniciar sessão.")
         raise HTTPException(status_code=400, detail=f"Código incorreto. Restam {restantes} tentativa(s).")

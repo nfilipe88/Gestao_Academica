@@ -30,7 +30,25 @@
       [class.border-transparent]="aba !== 'auditoria'" [class.text-slate-500]="aba !== 'auditoria'">
       Histórico
     </button>
+    <button type="button" (click)="aba = 'seguranca'"
+      class="px-4 py-2 text-sm font-medium border-b-2 -mb-px cursor-pointer transition-colors"
+      [class.border-blue-600]="aba === 'seguranca'" [class.text-blue-600]="aba === 'seguranca'"
+      [class.border-transparent]="aba !== 'seguranca'" [class.text-slate-500]="aba !== 'seguranca'">
+      Segurança
+    </button>
   </div>
+
+  @if (aba === 'seguranca') {
+    <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
+      <h3 class="text-sm font-semibold text-slate-800 mb-1">Tentativas de acesso indevido</h3>
+      <p class="text-xs text-slate-500 mb-4">
+        Quem tentou entrar onde não devia na sua escola: áreas sem permissão, palavras-passe erradas,
+        ficheiros maliciosos. Recebe um e-mail quando acontece algo de gravidade média ou alta.
+        Clique numa linha para ver o detalhe.
+      </p>
+      <app-eventos-seguranca url="/api/v1/seguranca/eventos"></app-eventos-seguranca>
+    </div>
+  }
 
   @if (aba === 'staff') {
     <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">

@@ -14,6 +14,8 @@ import os
 
 import httpx
 
+from app.core import eventos_seguranca
+
 logger = logging.getLogger("recaptcha")
 
 # Chave pública, servida ao frontend via GET /api/v1/public/config —
@@ -43,6 +45,9 @@ async def token_e_valido(token: str | None, ip_cliente: str | None = None) -> bo
     if not RECAPTCHA_SECRET_KEY:
         return True
     if not token:
+        await eventos_seguranca.registar(
+            eventos_seguranca.RECAPTCHA_FALHADO, eventos_seguranca.BAIXA, "Formulário público enviado sem verificação reCAPTCHA."
+        )
         return False
     try:
         async with httpx.AsyncClient(timeout=5.0) as cliente:
@@ -65,4 +70,8 @@ async def token_e_valido(token: str | None, ip_cliente: str | None = None) -> bo
         # tráfego real, sem ter de adivinhar porque é que um pedido
         # legítimo pode ter ficado bloqueado.
         logger.warning("reCAPTCHA recusou um pedido: %s", resultado)
+        await eventos_seguranca.registar(
+            eventos_seguranca.RECAPTCHA_FALHADO, eventos_seguranca.BAIXA,
+            f"reCAPTCHA recusou o pedido (score {resultado.get('score', '—')}, {', '.join(resultado.get('error-codes', [])) or 'sem código'}).",
+        )
     return aceite
