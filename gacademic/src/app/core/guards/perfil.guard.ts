@@ -9,6 +9,7 @@ import { selectPerfilAcesso } from '../../store/auth/auth.selectors';
 // ALUNO/RESPONSAVEL/SUPER_ADMIN não conseguem abrir, ver app.routes.ts).
 const _HOME_POR_PERFIL: Record<string, string> = {
   SUPER_ADMIN: '/admin',
+  SUPORTE: '/admin/tickets',
   ALUNO: '/portal',
   RESPONSAVEL: '/portal',
   GESTOR: '/dashboard',

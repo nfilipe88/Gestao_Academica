@@ -2,7 +2,7 @@ import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { map, take } from 'rxjs';
-import { selectIsSuperAdmin } from '../../store/auth/auth.selectors';
+import { selectIsEquipaPlataforma, selectIsSuperAdmin } from '../../store/auth/auth.selectors';
 
 // authGuard (aplicado ao pai) já garante sessão válida — este guard só
 // acrescenta a verificação de perfil, para rotas exclusivas do Super
@@ -16,5 +16,17 @@ export const superAdminGuard: CanActivateFn = () => {
   return store.select(selectIsSuperAdmin).pipe(
     take(1),
     map(isSuperAdmin => isSuperAdmin || router.createUrlTree(['/dashboard']))
+  );
+};
+
+// Páginas da plataforma que o Suporte também usa (Instituições em modo de
+// consulta, Tickets, Segurança) — o resto continua só com superAdminGuard.
+export const equipaPlataformaGuard: CanActivateFn = () => {
+  const store = inject(Store);
+  const router = inject(Router);
+
+  return store.select(selectIsEquipaPlataforma).pipe(
+    take(1),
+    map(eEquipa => eEquipa || router.createUrlTree(['/dashboard']))
   );
 };

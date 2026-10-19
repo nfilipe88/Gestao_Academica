@@ -1,5 +1,6 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
@@ -20,6 +21,7 @@ import { selectPaginacaoUsuarios, selectUsuarios, selectUsuariosError, selectUsu
 import { PERFIS_ATRIBUIVEIS, UsuarioStaff } from '../../../store/usuarios/usuarios.models';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 import { NomePerfilPipe } from '../../../shared/pipes/nome-perfil.pipe';
+import { selectIsSuperAdmin } from '../../../store/auth/auth.selectors';
 
 @Component({
   selector: 'app-admin.component',
@@ -29,6 +31,10 @@ import { NomePerfilPipe } from '../../../shared/pipes/nome-perfil.pipe';
 })
 export class AdminComponent implements OnInit {
   private store = inject(Store);
+  // Super Admin vê e muda tudo; o Suporte usa este mesmo painel só para
+  // consulta (escolas e pessoal) e para desativar a verificação em dois
+  // passos — ver _EQUIPA em back_end/app/api/v1/admin.py.
+  eSuperAdmin = toSignal(this.store.select(selectIsSuperAdmin), { initialValue: false });
   private fb = inject(FormBuilder);
 
   tenants$ = this.store.select(selectTenants);
@@ -135,9 +141,12 @@ export class AdminComponent implements OnInit {
 
   ngOnInit() {
     this.store.dispatch(carregarTenants({ page: this.paginaTenants, page_size: this.tamanhoTenants }));
-    this.store.dispatch(TransferenciasActions.carregarSolicitacoesAuditoria({ page: this.paginaTransferencias, page_size: this.tamanhoTransferencias }));
-    this.store.dispatch(carregarPlanos());
-    this.store.dispatch(carregarMrr());
+    // Planos, MRR e transferências são só do Super Admin (o Suporte levaria 403).
+    if (this.eSuperAdmin()) {
+      this.store.dispatch(TransferenciasActions.carregarSolicitacoesAuditoria({ page: this.paginaTransferencias, page_size: this.tamanhoTransferencias }));
+      this.store.dispatch(carregarPlanos());
+      this.store.dispatch(carregarMrr());
+    }
 
     this.filtroTenantsForm.controls.nome.valueChanges.pipe(
       debounceTime(300), distinctUntilChanged()

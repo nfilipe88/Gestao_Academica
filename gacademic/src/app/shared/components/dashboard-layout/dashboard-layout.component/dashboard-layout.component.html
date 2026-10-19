@@ -38,9 +38,10 @@
 
     <nav aria-label="Menu principal" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 space-y-1 mt-2">
 
-      @if (isSuperAdmin$ | async) {
-        <!-- SUPER_ADMIN só gere instituições — nenhum módulo interno de
-             nenhuma escola (exigir_perfil_staff no back-end). -->
+      @if (isEquipaPlataforma$ | async) {
+        <!-- Equipa da plataforma (Super Admin e Suporte) — nenhum módulo
+             interno de nenhuma escola (exigir_perfil_staff no back-end).
+             O Suporte vê só Instituições (consulta), Tickets e Segurança. -->
         <a routerLink="/admin" routerLinkActive="bg-slate-800 text-blue-400"
           [routerLinkActiveOptions]="{ exact: true }"
           class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
@@ -50,6 +51,7 @@
           </svg>
           @if (!sidebarColapsada) { <span>Instituições</span> }
         </a>
+        @if (isSuperAdmin$ | async) {
         <a routerLink="/admin/permissoes" routerLinkActive="bg-slate-800 text-blue-400"
           [routerLinkActiveOptions]="{ exact: true }"
           class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
@@ -59,6 +61,7 @@
           </svg>
           @if (!sidebarColapsada) { <span>Mapa de Permissões</span> }
         </a>
+        }
         <a routerLink="/admin/tickets" routerLinkActive="bg-slate-800 text-blue-400"
           [routerLinkActiveOptions]="{ exact: true }"
           class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
@@ -68,6 +71,7 @@
           </svg>
           @if (!sidebarColapsada) { <span>Tickets de Suporte</span> }
         </a>
+        @if (isSuperAdmin$ | async) {
         <a routerLink="/admin/estatisticas" routerLinkActive="bg-slate-800 text-blue-400"
           [routerLinkActiveOptions]="{ exact: true }"
           class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
@@ -77,6 +81,7 @@
           </svg>
           @if (!sidebarColapsada) { <span>Estatísticas</span> }
         </a>
+        }
         <a routerLink="/admin/seguranca" routerLinkActive="bg-slate-800 text-blue-400"
           [routerLinkActiveOptions]="{ exact: true }"
           class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
@@ -86,6 +91,17 @@
           </svg>
           @if (!sidebarColapsada) { <span>Segurança</span> }
         </a>
+        @if (isSuperAdmin$ | async) {
+        <a routerLink="/admin/equipa" routerLinkActive="bg-slate-800 text-blue-400"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-slate-800 transition-colors"
+          [class.justify-center]="sidebarColapsada" title="Equipa da plataforma" aria-label="Equipa da plataforma">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+          </svg>
+          @if (!sidebarColapsada) { <span>Equipa</span> }
+        </a>
+        }
       } @else if (isAlunoOuResponsavel$ | async) {
         <!-- ALUNO/RESPONSAVEL só têm o Portal — os módulos internos
              abaixo (Cursos, Turmas, Alunos, ...) devolvem 403 para

@@ -4,12 +4,12 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.session import obter_sessao_db_admin
+from app.database.session import obter_sessao_db_admin, obter_sessao_db_cross_tenant
 from app.core.security import exigir_perfil
 from app.core import estatisticas_excel
 from app.schemas.admin import (
     AssinaturaTenantInput, PlanoSaaSCreate, PlanoSaaSOut, PlanoSaaSUpdate,
-    IsencaoLimiteAlunosUpdate, TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
+    IsencaoLimiteAlunosUpdate, MembroEquipaCreate, MembroEquipaOut, TenantCreateAdmin, TenantStatusUpdate, ValidadeLicencaUpdate
 )
 from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
 from app.schemas.financeiro import DespesaCreate
@@ -32,14 +32,22 @@ router = APIRouter(prefix="/api/v1/admin", tags=["Painel Super Admin"])
 # as instituições em si, não os dados académicos de nenhuma delas.
 _PODE_ACEDER = exigir_perfil("SUPER_ADMIN")
 
+# Equipa da plataforma = Super Admin + Suporte. O Suporte ajuda as escolas
+# (tickets, consulta das escolas e do seu pessoal, desbloquear pessoas,
+# eventos de segurança), mas não suspende escolas, não mexe em planos/
+# faturação/permissões nem cria contas — isso fica só com o Super Admin.
+# Só as rotas abaixo que usam _EQUIPA/_sessao_equipa estão abertas ao Suporte.
+_EQUIPA = exigir_perfil("SUPER_ADMIN", "SUPORTE")
+_sessao_equipa = obter_sessao_db_cross_tenant("SUPER_ADMIN", "SUPORTE")
+
 
 @router.get("/tenants")
 async def listar_tenants(
     page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
     nome: str | None = Query(None), plano_id: uuid.UUID | None = Query(None),
     usuarios_min: int | None = Query(None, ge=0), usuarios_max: int | None = Query(None, ge=0),
-    db: AsyncSession = Depends(obter_sessao_db_admin),
-    utilizador: dict = Depends(_PODE_ACEDER)
+    db: AsyncSession = Depends(_sessao_equipa),
+    utilizador: dict = Depends(_EQUIPA)
 ):
     """Lista todas as instituições (tenants) da plataforma, com contagens básicas de uso e o plano ativo de cada uma."""
     return await crud_admin.listar_tenants(db, page, page_size, nome, plano_id, usuarios_min, usuarios_max)
@@ -217,7 +225,7 @@ async def cancelar_assinatura_tenant(
 async def listar_usuarios_do_tenant(
     tenant_id: uuid.UUID,
     page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
-    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+    db: AsyncSession = Depends(_sessao_equipa), utilizador: dict = Depends(_EQUIPA)
 ):
     """Staff (Gestor/Secretaria/Professor) de uma escola específica."""
     return await crud_usuarios.listar_usuarios(db, tenant_id, page, page_size)
@@ -256,7 +264,7 @@ async def alterar_estado_ativo_no_tenant(
 @router.post("/tenants/{tenant_id}/usuarios/{usuario_id}/dois-fatores/desativar")
 async def desativar_dois_fatores_no_tenant(
     tenant_id: uuid.UUID, usuario_id: uuid.UUID,
-    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+    db: AsyncSession = Depends(_sessao_equipa), utilizador: dict = Depends(_EQUIPA)
 ):
     """Desliga a verificação em dois passos de um utilizador de qualquer escola
     (ex.: o único Gestor de uma escola perdeu o acesso ao e-mail)."""
@@ -312,7 +320,7 @@ async def listar_entidades_auditoria_do_tenant(
 async def listar_tickets(
     page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
     estado: str | None = Query(None),
-    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+    db: AsyncSession = Depends(_sessao_equipa), utilizador: dict = Depends(_EQUIPA)
 ):
     return await crud_suporte.listar_tickets_admin(db, page, page_size, estado)
 
@@ -320,7 +328,7 @@ async def listar_tickets(
 @router.get("/tickets/{ticket_id}", response_model=TicketAdminComMensagens)
 async def obter_ticket(
     ticket_id: uuid.UUID,
-    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+    db: AsyncSession = Depends(_sessao_equipa), utilizador: dict = Depends(_EQUIPA)
 ):
     return await crud_suporte.obter_ticket_admin_detalhe(db, ticket_id)
 
@@ -328,7 +336,7 @@ async def obter_ticket(
 @router.post("/tickets/{ticket_id}/mensagens", status_code=201)
 async def responder_ticket(
     ticket_id: uuid.UUID, dados: MensagemTicketCreate,
-    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+    db: AsyncSession = Depends(_sessao_equipa), utilizador: dict = Depends(_EQUIPA)
 ):
     """Responde ao ticket; se for de um visitante sem conta (tenant_id None), a resposta é também enviada por e-mail."""
     await crud_suporte.responder_ticket_admin(db, ticket_id, dados)
@@ -338,7 +346,7 @@ async def responder_ticket(
 @router.patch("/tickets/{ticket_id}/estado")
 async def alterar_estado_ticket(
     ticket_id: uuid.UUID, dados: TicketEstadoUpdate,
-    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)
+    db: AsyncSession = Depends(_sessao_equipa), utilizador: dict = Depends(_EQUIPA)
 ):
     ticket = await crud_suporte.atualizar_estado_admin(db, ticket_id, dados.estado)
     return {"mensagem": f"Ticket marcado como {ticket.estado}.", "estado": ticket.estado}
@@ -445,7 +453,7 @@ async def listar_eventos_seguranca(
     tipo: str | None = Query(None, max_length=40), gravidade: str | None = Query(None, max_length=10),
     ip: str | None = Query(None, max_length=45),
     page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
-    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER),
+    db: AsyncSession = Depends(_sessao_equipa), utilizador: dict = Depends(_EQUIPA),
 ):
     return await crud_seguranca.listar_eventos(
         db, tenant_id=tenant_id, so_da_escola=False, tipo=tipo, gravidade=gravidade, ip=ip,
@@ -454,12 +462,43 @@ async def listar_eventos_seguranca(
 
 
 @router.get("/seguranca/bloqueios", response_model=list[BloqueioIpOut])
-async def listar_ips_bloqueados(utilizador: dict = Depends(_PODE_ACEDER)):
+async def listar_ips_bloqueados(utilizador: dict = Depends(_EQUIPA)):
     return await crud_seguranca.listar_bloqueios()
 
 
 @router.delete("/seguranca/bloqueios/{ip}")
-async def desbloquear_ip(ip: str, utilizador: dict = Depends(_PODE_ACEDER)):
+async def desbloquear_ip(ip: str, utilizador: dict = Depends(_EQUIPA)):
     """Levanta já o bloqueio (ex.: era a rede de uma escola, não um ataque)."""
     await eventos_seguranca.desbloquear_ip(ip)
     return {"mensagem": f"O endereço {ip} foi desbloqueado."}
+
+
+
+# ==========================================
+# EQUIPA DA PLATAFORMA — contas de Suporte (só o Super Admin).
+# ==========================================
+@router.get("/equipa", response_model=list[MembroEquipaOut])
+async def listar_equipa(db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER)):
+    return await crud_admin.listar_equipa(db, utilizador["tenant_id"])
+
+
+@router.post("/equipa", response_model=MembroEquipaOut, status_code=201)
+async def criar_membro_suporte(
+    dados: MembroEquipaCreate,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER),
+):
+    membro = await crud_admin.criar_membro_suporte(db, utilizador["tenant_id"], dados.nome_completo, dados.email, dados.palavra_passe)
+    return await _membro_out(membro)
+
+
+@router.patch("/equipa/{usuario_id}/ativo", response_model=MembroEquipaOut)
+async def alterar_estado_membro(
+    usuario_id: uuid.UUID, dados: AtivoUpdate,
+    db: AsyncSession = Depends(obter_sessao_db_admin), utilizador: dict = Depends(_PODE_ACEDER),
+):
+    return await _membro_out(await crud_admin.alterar_estado_membro(db, utilizador["tenant_id"], usuario_id, dados.ativo))
+
+
+async def _membro_out(membro) -> dict:
+    return {"id": membro.id, "nome_completo": membro.nome_completo, "email": membro.email,
+            "perfil_acesso": membro.perfil_acesso, "ativo": membro.ativo, "data_criacao": membro.data_criacao}

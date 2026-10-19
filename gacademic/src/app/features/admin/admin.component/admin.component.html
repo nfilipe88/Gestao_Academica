@@ -2,9 +2,13 @@
 
   <div class="flex items-center justify-between flex-wrap gap-2">
     <div>
-      <h2 class="text-2xl font-bold text-slate-800">Painel Super Admin</h2>
-      <p class="text-slate-500 text-sm">Instituições (escolas) registadas na plataforma.</p>
+      <h2 class="text-2xl font-bold text-slate-800">{{ eSuperAdmin() ? 'Painel Super Admin' : 'Instituições' }}</h2>
+      <p class="text-slate-500 text-sm">
+        Instituições (escolas) registadas na plataforma.
+        @if (!eSuperAdmin()) { Modo de consulta (Suporte): pode ver as escolas e o seu pessoal e desativar a verificação em dois passos de quem perdeu o acesso ao e-mail. }
+      </p>
     </div>
+    @if (eSuperAdmin()) {
     <div class="flex items-center gap-2 shrink-0">
       <button type="button" (click)="alternarFormularioNovaEscola()"
         class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors cursor-pointer">
@@ -16,6 +20,7 @@
         Processar validade de licenças agora
       </button>
     </div>
+    }
   </div>
 
   @if (erro$ | async; as erro) {
@@ -32,6 +37,7 @@
       <input type="text" formControlName="nome" placeholder="Pesquisar por nome..."
         class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500" id="f-admin-1" />
     </div>
+    @if (eSuperAdmin()) {
     <div class="min-w-40">
       <label class="block text-xs font-medium text-slate-500 mb-1" for="f-admin-2">Plano</label>
       <select formControlName="plano_id"
@@ -42,6 +48,7 @@
         }
       </select>
     </div>
+    }
     <div class="w-28">
       <label class="block text-xs font-medium text-slate-500 mb-1" for="f-admin-3">Nº utiliz. mín.</label>
       <input type="number" min="0" formControlName="usuarios_min"
@@ -112,8 +119,10 @@
             <th class="py-3 px-6 font-medium">Estado</th>
             <th class="py-3 px-6 font-medium">Validade da Licença</th>
             <th class="py-3 px-6 font-medium text-right">Acessos</th>
-            <th class="py-3 px-6 font-medium text-right">Assinatura</th>
-            <th class="py-3 px-6 font-medium text-right">Ação</th>
+            @if (eSuperAdmin()) {
+              <th class="py-3 px-6 font-medium text-right">Assinatura</th>
+              <th class="py-3 px-6 font-medium text-right">Ação</th>
+            }
           </tr>
         </thead>
         <tbody>
@@ -128,7 +137,7 @@
                   [title]="'Alunos ativos' + (tenant.limite_alunos ? ' / limite do plano' : '')">
                   {{ tenant.total_alunos }}@if (tenant.limite_alunos) { / {{ tenant.limite_alunos }} }
                 </span>
-                @if (tenant.limite_alunos || tenant.isento_limite_alunos) {
+                @if ((tenant.limite_alunos || tenant.isento_limite_alunos) && eSuperAdmin()) {
                   <button type="button" (click)="onAlternarIsencaoLimite(tenant.id, tenant.isento_limite_alunos)"
                     class="block ml-auto mt-1 text-[10px] font-semibold py-0.5 px-2 rounded-full cursor-pointer transition-colors"
                     [class.bg-amber-100]="tenant.isento_limite_alunos" [class.text-amber-700]="tenant.isento_limite_alunos"
@@ -157,12 +166,16 @@
                 </span>
               </td>
               <td class="py-3 px-6">
+                @if (eSuperAdmin()) {
                 <div class="flex items-center gap-2">
                   <input type="date" [value]="tenant.data_validade_licenca" #validadeInput
                     class="border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800" />
                   <button type="button" (click)="onGuardarValidadeLicenca(tenant.id, validadeInput.value)"
                     class="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">Guardar</button>
                 </div>
+                } @else {
+                  <span class="text-sm text-slate-600">{{ tenant.data_validade_licenca ? (tenant.data_validade_licenca | date: 'dd/MM/yyyy') : '—' }}</span>
+                }
                 @if (diasAteExpirar(tenant.data_validade_licenca); as info) {
                   @if (info.dias < 0 && -info.dias >= 30) {
                     <p class="text-xs text-rose-600 mt-1">Suspensa — {{ -info.dias }} dia(s) em atraso</p>
@@ -180,9 +193,10 @@
                   class="text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
                   [class.bg-blue-100]="usuariosDoTenantId !== tenant.id" [class.text-blue-700]="usuariosDoTenantId !== tenant.id" [class.hover:bg-blue-200]="usuariosDoTenantId !== tenant.id"
                   [class.bg-slate-200]="usuariosDoTenantId === tenant.id" [class.text-slate-700]="usuariosDoTenantId === tenant.id">
-                  {{ usuariosDoTenantId === tenant.id ? 'Fechar' : 'Gerir Acessos' }}
+                  {{ usuariosDoTenantId === tenant.id ? 'Fechar' : (eSuperAdmin() ? 'Gerir Acessos' : 'Ver pessoal') }}
                 </button>
               </td>
+              @if (eSuperAdmin()) {
               <td class="py-3 px-6 text-right">
                 <button type="button" (click)="onAlternarAssinatura(tenant.id)"
                   class="text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
@@ -213,6 +227,7 @@
                   </button>
                 }
               </td>
+              }
             </tr>
             @if (usuariosDoTenantId === tenant.id) {
               <tr class="border-b border-slate-100 bg-slate-50/60">
@@ -227,10 +242,12 @@
 
                   <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <h4 class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Funcionários de {{ tenant.nome_fantasia }}</h4>
+                    @if (eSuperAdmin()) {
                     <button type="button" (click)="alternarFormularioSecretaria()"
                       class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-lg transition-colors cursor-pointer">
                       {{ mostrarFormularioSecretaria ? 'Cancelar' : '+ Nova Conta de Secretaria' }}
                     </button>
+                    }
                   </div>
 
                   @if (mostrarFormularioSecretaria) {
@@ -294,7 +311,7 @@
                             }
                           </td>
                           <td class="py-2 px-3 text-right space-x-2 whitespace-nowrap">
-                            @if (podeMudarPerfil(u) && usuarioAEditarPerfilId !== u.id) {
+                            @if (podeMudarPerfil(u) && usuarioAEditarPerfilId !== u.id && eSuperAdmin()) {
                               <button type="button" (click)="onAbrirEdicaoPerfil(u.id)" class="text-slate-500 hover:text-slate-700 font-medium cursor-pointer">Mudar perfil</button>
                             }
                             @if (u.dois_fatores_ativo) {
@@ -308,6 +325,7 @@
                                   class="text-amber-700 hover:text-amber-900 font-medium cursor-pointer">Desativar 2 passos</button>
                               }
                             }
+                            @if (eSuperAdmin()) {
                             @if (usuarioASuspenderId === u.id) {
                               <span class="text-rose-600">{{ u.ativo ? 'Suspender?' : 'Reativar?' }}</span>
                               <button type="button" (click)="onConfirmarAlterarAtivo(u.id, !u.ativo)" class="text-rose-600 hover:text-rose-800 font-medium cursor-pointer">Sim</button>
@@ -319,6 +337,7 @@
                                 [class.text-emerald-600]="!u.ativo" [class.hover:text-emerald-800]="!u.ativo">
                                 {{ u.ativo ? 'Suspender' : 'Reativar' }}
                               </button>
+                            }
                             }
                           </td>
                         </tr>
@@ -396,6 +415,7 @@
     }
   </div>
 
+  @if (eSuperAdmin()) {
   <div>
     <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
       <h3 class="text-lg font-bold text-slate-800">Planos &amp; Faturação SaaS</h3>
@@ -605,4 +625,5 @@
     </div>
   </div>
 
+  }
 </div>

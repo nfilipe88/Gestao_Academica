@@ -253,7 +253,8 @@ async def _avisar_super_admins(evento) -> None:
     from app.database.models import Usuario
     async with AsyncSessionLocalSistema() as db:
         emails = (await db.execute(
-            select(Usuario.email).where(Usuario.perfil_acesso == "SUPER_ADMIN", Usuario.ativo.is_(True))
+            # Super Admin e Suporte: é o Suporte quem ajuda a desbloquear quem foi bloqueado por engano.
+            select(Usuario.email).where(Usuario.perfil_acesso.in_(("SUPER_ADMIN", "SUPORTE")), Usuario.ativo.is_(True))
         )).scalars().all()
     await _enviar_aviso(
         list(emails), f"Alerta de segurança: {evento.tipo}",

@@ -1,5 +1,5 @@
 """Schemas Pydantic do Painel Super Admin."""
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 import uuid
 
@@ -117,3 +117,23 @@ class AssinaturaTenantInput(BaseModel):
     model_config = {"extra": "forbid"}
     plano_id: uuid.UUID
     proxima_cobranca: date
+
+
+
+class MembroEquipaCreate(BaseModel):
+    """Conta de Suporte da equipa da plataforma (criada pelo Super Admin)."""
+    model_config = {"extra": "forbid"}
+    nome_completo: str = Field(..., min_length=1, max_length=255)
+    email: EmailStr
+    palavra_passe: str = Field(..., min_length=12, max_length=128)
+
+    _validar_palavra_passe = field_validator("palavra_passe")(validar_forca_senha)
+
+
+class MembroEquipaOut(BaseModel):
+    id: uuid.UUID
+    nome_completo: str
+    email: str
+    perfil_acesso: str
+    ativo: bool
+    data_criacao: datetime

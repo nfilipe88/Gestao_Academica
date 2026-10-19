@@ -63,6 +63,20 @@ export const selectIsSuperAdmin = createSelector(
   (state) => state.usuario?.perfil_acesso === 'SUPER_ADMIN'
 );
 
+// Suporte: equipa da plataforma que ajuda as escolas — tickets, consulta
+// das escolas, desbloquear pessoas e eventos de segurança. Não suspende
+// escolas nem mexe em planos/permissões (ver _EQUIPA em api/v1/admin.py).
+export const selectIsSuporte = createSelector(
+  selectAuthState,
+  (state) => state.usuario?.perfil_acesso === 'SUPORTE'
+);
+
+// Super Admin ou Suporte — quem vê a área da plataforma (/admin...).
+export const selectIsEquipaPlataforma = createSelector(
+  selectAuthState,
+  (state) => state.usuario?.perfil_acesso === 'SUPER_ADMIN' || state.usuario?.perfil_acesso === 'SUPORTE'
+);
+
 // Mapa de Permissões (/admin/permissoes): SUPER_ADMIN e GESTOR podem ver
 // e editar (exigir_perfil("SUPER_ADMIN", "GESTOR") em api/v1/permissoes.py).
 export const selectPodeEditarPermissoes = createSelector(

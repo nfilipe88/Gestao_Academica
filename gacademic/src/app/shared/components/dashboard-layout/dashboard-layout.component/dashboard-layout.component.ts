@@ -2,7 +2,7 @@ import { AsyncPipe } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { IsActiveMatchOptions, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { logout } from '../../../../store/auth/auth.actions';
-import { selectIsAlunoOuResponsavel, selectIsGestor, selectIsGestorOuSecretaria, selectIsSuperAdmin } from '../../../../store/auth/auth.selectors';
+import { selectIsAlunoOuResponsavel, selectIsEquipaPlataforma, selectIsGestor, selectIsGestorOuSecretaria, selectIsSuperAdmin } from '../../../../store/auth/auth.selectors';
 import { carregarConfiguracao } from '../../../../store/configuracoes/configuracoes.actions';
 import { Store } from '@ngrx/store';
 import { NotificacoesSinoComponent } from '../../notificacoes-sino/notificacoes-sino.component/notificacoes-sino.component';
@@ -21,6 +21,7 @@ export class DashboardLayoutComponent implements OnInit {
   isGestorOuSecretaria$ = this.store.select(selectIsGestorOuSecretaria);
   isAlunoOuResponsavel$ = this.store.select(selectIsAlunoOuResponsavel);
   isSuperAdmin$ = this.store.select(selectIsSuperAdmin);
+  isEquipaPlataforma$ = this.store.select(selectIsEquipaPlataforma);
 
   sidebarColapsada = false;
 

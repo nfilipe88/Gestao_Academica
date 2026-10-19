@@ -12,6 +12,7 @@ import { selectAuthError } from '../../store/auth/auth.selectors';
 import { perfilGuard } from './perfil.guard';
 import { authGuard } from './auth.guard';
 import { termosGuard } from './termos.guard';
+import { equipaPlataformaGuard, superAdminGuard } from './super-admin.guard';
 import { ALUNO, GESTOR, instalarLocalStorageFalso, jwtFalso } from '../../testing/ajudas';
 
 async function correr(guard: any, url = '/destino'): Promise<boolean | string> {
@@ -52,6 +53,32 @@ describe('guards', () => {
 
     it('sem perfil cai no dashboard', async () => {
       expect(await correr(perfilGuard('GESTOR'))).toBe('/dashboard');
+    });
+  });
+
+  describe('Suporte (equipa da plataforma)', () => {
+    const SUPORTE = { ...GESTOR, perfil_acesso: 'SUPORTE' };
+
+    it('entra nas páginas da equipa (Instituições, Tickets, Segurança)', async () => {
+      entrar(SUPORTE);
+      expect(await correr(equipaPlataformaGuard)).toBe(true);
+    });
+
+    it('não entra nas páginas só do Super Admin', async () => {
+      entrar(SUPORTE);
+      expect(await correr(superAdminGuard)).toBe('/dashboard');
+    });
+
+    it('o Super Admin entra em ambas; um Gestor em nenhuma', async () => {
+      entrar({ ...GESTOR, perfil_acesso: 'SUPER_ADMIN' });
+      expect(await correr(equipaPlataformaGuard)).toBe(true);
+      entrar(GESTOR);
+      expect(await correr(equipaPlataformaGuard)).toBe('/dashboard');
+    });
+
+    it('bloqueado noutra página, volta aos Tickets', async () => {
+      entrar(SUPORTE);
+      expect(await correr(perfilGuard('GESTOR'))).toBe('/admin/tickets');
     });
   });
 

@@ -2,7 +2,7 @@ import { DashboardHomeComponent } from './features/academico/dashboard-home.comp
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
-import { superAdminGuard } from './core/guards/super-admin.guard';
+import { equipaPlataformaGuard, superAdminGuard } from './core/guards/super-admin.guard';
 import { permissoesGuard } from './core/guards/permissoes.guard';
 import { perfilGuard } from './core/guards/perfil.guard';
 import { publicoMatchGuard } from './core/guards/publico.guard';
@@ -199,7 +199,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin',
-        canActivate: [superAdminGuard],
+        canActivate: [equipaPlataformaGuard],
         loadComponent: () => import('./features/admin/admin.component/admin.component').then((m) => m.AdminComponent)
       },
       {
@@ -209,7 +209,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin/tickets',
-        canActivate: [superAdminGuard],
+        canActivate: [equipaPlataformaGuard],
         loadComponent: () => import('./features/admin/tickets.component/tickets.component').then((m) => m.TicketsComponent)
       },
       {
@@ -221,9 +221,15 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/estatisticas.component/estatisticas.component').then((m) => m.EstatisticasAdminComponent)
       },
       {
-        // Tentativas de acesso indevido em toda a plataforma + IPs bloqueados.
-        path: 'admin/seguranca',
+        // Contas de Suporte da equipa da plataforma — só o Super Admin.
+        path: 'admin/equipa',
         canActivate: [superAdminGuard],
+        loadComponent: () => import('./features/admin/equipa.component/equipa.component').then((m) => m.EquipaPlataformaComponent)
+      },
+      {
+        // Tentativas de acesso indevido em toda a plataforma + IPs bloqueados (Super Admin e Suporte).
+        path: 'admin/seguranca',
+        canActivate: [equipaPlataformaGuard],
         loadComponent: () => import('./features/admin/seguranca.component/seguranca.component').then((m) => m.SegurancaAdminComponent)
       },
       {

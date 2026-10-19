@@ -137,6 +137,8 @@ export class AuthEffects {
           destinoPorOmissao = '/portal';
         } else if (usuario.perfil_acesso === 'SUPER_ADMIN') {
           destinoPorOmissao = '/admin';
+        } else if (usuario.perfil_acesso === 'SUPORTE') {
+          destinoPorOmissao = '/admin/tickets';
         }
         this.router.navigateByUrl(returnUrl || destinoPorOmissao);
       })

@@ -31,7 +31,7 @@ async def test_qualquer_pessoa_com_sessao_le_os_nomes(client):
     token_secretaria = await _criar_secretaria_com_token(client, auth_headers(escola["token"]), escola["nif"])
     resp = await client.get("/api/v1/permissoes/perfis", headers=auth_headers(token_secretaria))
     assert resp.status_code == 200
-    assert [p["codigo"] for p in resp.json()] == ["SUPER_ADMIN", "GESTOR", "SECRETARIA", "PROFESSOR", "ALUNO", "RESPONSAVEL"]
+    assert [p["codigo"] for p in resp.json()] == ["SUPER_ADMIN", "GESTOR", "SECRETARIA", "PROFESSOR", "ALUNO", "RESPONSAVEL", "SUPORTE"]
     assert (await client.get("/api/v1/permissoes/perfis")).status_code == 401
 
 

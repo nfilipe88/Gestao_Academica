@@ -556,3 +556,51 @@ async def obter_resumo_mrr(db: AsyncSession) -> dict:
         "total_assinaturas_ativas": sum(p["total_assinaturas"] for p in por_plano_lista),
         "por_plano": por_plano_lista,
     }
+
+
+# ==========================================
+# EQUIPA DA PLATAFORMA — contas de Suporte (só o Super Admin as gere).
+# Vivem no mesmo tenant interno do Super Admin que as cria (o da
+# plataforma, nunca uma escola cliente).
+# ==========================================
+async def listar_equipa(db: AsyncSession, tenant_plataforma_id) -> list[dict]:
+    membros = (await db.execute(
+        select(Usuario).where(Usuario.tenant_id == tenant_plataforma_id)
+        .order_by(Usuario.perfil_acesso.desc(), Usuario.nome_completo)
+    )).scalars().all()
+    return [
+        {"id": u.id, "nome_completo": u.nome_completo, "email": u.email, "perfil_acesso": u.perfil_acesso,
+         "ativo": u.ativo, "data_criacao": u.data_criacao}
+        for u in membros
+    ]
+
+
+async def criar_membro_suporte(db: AsyncSession, tenant_plataforma_id, nome_completo: str, email: str, palavra_passe: str) -> Usuario:
+    if (await db.execute(select(Usuario.id).where(Usuario.email == email))).scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Este email já está em uso.")
+    membro = Usuario(
+        tenant_id=tenant_plataforma_id, nome_completo=nome_completo.strip(), email=email,
+        senha_hash=gerar_hash_senha(palavra_passe), perfil_acesso="SUPORTE", ativo=True, email_verificado=True,
+    )
+    db.add(membro)
+    await db.commit()
+    await db.refresh(membro)
+    return membro
+
+
+async def alterar_estado_membro(db: AsyncSession, tenant_plataforma_id, usuario_id: uuid.UUID, ativo: bool) -> Usuario:
+    """Só contas de Suporte: suspender um Super Admin por aqui podia
+    deixar a plataforma sem ninguém com acesso total."""
+    membro = (await db.execute(
+        select(Usuario).where(Usuario.id == usuario_id, Usuario.tenant_id == tenant_plataforma_id)
+    )).scalars().first()
+    if not membro:
+        raise HTTPException(status_code=404, detail="Membro da equipa não encontrado.")
+    if membro.perfil_acesso != "SUPORTE":
+        raise HTTPException(status_code=400, detail="Só as contas de Suporte podem ser suspensas aqui.")
+    membro.ativo = ativo
+    await db.commit()
+    await db.refresh(membro)
+    if not ativo:
+        await revogacao.revogar_usuario(membro.id)
+    return membro

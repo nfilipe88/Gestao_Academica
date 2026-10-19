@@ -1,0 +1,87 @@
+<div class="space-y-6">
+  <div>
+    <h2 class="text-2xl font-bold text-slate-800">Equipa da plataforma</h2>
+    <p class="text-slate-500 text-sm">
+      Contas de {{ 'SUPORTE' | nomePerfil }}: ajudam as escolas (tickets, consulta das escolas e do seu pessoal,
+      desbloquear pessoas, eventos de segurança), sem suspender escolas nem mexer em planos, faturação ou permissões.
+    </p>
+  </div>
+
+  @if (mensagem()) {
+    <div role="status" class="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ mensagem() }}</div>
+  }
+  @if (erro()) {
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro() }}</div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="onCriar()" class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4">
+    <h3 class="text-sm font-semibold text-slate-800">Nova conta de {{ 'SUPORTE' | nomePerfil }}</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-equipa-nome">Nome completo</label>
+        <input id="f-equipa-nome" formControlName="nome_completo"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-equipa-email">E-mail</label>
+        <input id="f-equipa-email" type="email" formControlName="email" autocomplete="off"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1" for="f-equipa-senha">Palavra-passe inicial</label>
+        <input id="f-equipa-senha" type="password" formControlName="palavra_passe" autocomplete="new-password"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500" />
+        <p class="text-xs text-slate-500 mt-1">Mín. 12 caracteres, com maiúsculas, minúsculas e números.</p>
+      </div>
+    </div>
+    <button type="submit" [disabled]="form.invalid || aEnviar()"
+      class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+      Criar conta
+    </button>
+  </form>
+
+  <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-x-auto">
+    <table class="w-full text-sm text-left">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
+          <th class="py-3 px-6 font-medium">Nome</th>
+          <th class="py-3 px-6 font-medium">E-mail</th>
+          <th class="py-3 px-6 font-medium">Perfil</th>
+          <th class="py-3 px-6 font-medium">Estado</th>
+          <th class="py-3 px-6 font-medium">Criada em</th>
+          <th class="py-3 px-6 font-medium text-right">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of membros(); track m.id) {
+          <tr class="border-b border-slate-100">
+            <td class="py-3 px-6 text-slate-800 font-medium">{{ m.nome_completo }}</td>
+            <td class="py-3 px-6 text-slate-600">{{ m.email }}</td>
+            <td class="py-3 px-6">
+              <span class="text-xs font-medium py-0.5 px-2 rounded-full whitespace-nowrap"
+                [class.bg-indigo-100]="m.perfil_acesso === 'SUPER_ADMIN'" [class.text-indigo-700]="m.perfil_acesso === 'SUPER_ADMIN'"
+                [class.bg-sky-100]="m.perfil_acesso === 'SUPORTE'" [class.text-sky-700]="m.perfil_acesso === 'SUPORTE'">
+                {{ m.perfil_acesso | nomePerfil }}
+              </span>
+            </td>
+            <td class="py-3 px-6">
+              <span class="text-xs font-medium py-0.5 px-2 rounded-full"
+                [class.bg-emerald-100]="m.ativo" [class.text-emerald-700]="m.ativo"
+                [class.bg-slate-100]="!m.ativo" [class.text-slate-500]="!m.ativo">{{ m.ativo ? 'Ativo' : 'Suspenso' }}</span>
+            </td>
+            <td class="py-3 px-6 text-slate-500 tabular-nums">{{ m.data_criacao | date: 'dd/MM/yyyy' }}</td>
+            <td class="py-3 px-6 text-right">
+              @if (m.perfil_acesso === 'SUPORTE') {
+                <button type="button" (click)="onAlternarAtivo(m)"
+                  class="text-xs font-medium cursor-pointer"
+                  [class.text-rose-600]="m.ativo" [class.text-emerald-700]="!m.ativo">{{ m.ativo ? 'Suspender' : 'Reativar' }}</button>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="py-6 text-center text-slate-500">Sem membros na equipa.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
