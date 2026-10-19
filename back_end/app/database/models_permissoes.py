@@ -46,3 +46,17 @@ class PermissaoModulo(Base):
     __table_args__ = (
         UniqueConstraint("modulo", "perfil", name="uq_permissao_modulo_perfil"),
     )
+
+
+class PerfilNome(Base):
+    """Nome mostrado de cada perfil (ex.: GESTOR → "Diretor Geral"),
+    editável pelo Super Admin e igual para toda a plataforma.
+
+    O `codigo` nunca muda: é ele que as permissões reais usam
+    (exigir_perfil("GESTOR", ...) em cada rota, Usuario.perfil_acesso).
+    Mudar o nome é só o que as pessoas leem — ecrãs, listas, mensagens."""
+    __tablename__ = "perfil_nome"
+
+    codigo: Mapped[str] = mapped_column(String(30), primary_key=True)
+    nome: Mapped[str] = mapped_column(String(60), nullable=False)
+    ordem: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

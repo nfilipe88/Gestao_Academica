@@ -7,6 +7,7 @@ import * as PerfilActions from '../../../store/perfil/perfil.actions';
 import { selectPerfil, selectPerfilErro, selectPerfilMensagem } from '../../../store/perfil/perfil.selector';
 import { Perfil } from '../../../store/perfil/perfil.models';
 import { CapturaAssinaturaComponent } from '../../../shared/components/captura-assinatura/captura-assinatura.component/captura-assinatura.component';
+import { NomePerfilPipe } from '../../../shared/pipes/nome-perfil.pipe';
 
 // Perfis que efetivamente assinam documentos (ver app/core/assinaturas.py)
 // — a secção de assinatura pessoal fica escondida para ALUNO/RESPONSAVEL,
@@ -16,7 +17,7 @@ const PERFIS_COM_ASSINATURA_PESSOAL = ['GESTOR', 'SECRETARIA', 'PROFESSOR'];
 
 @Component({
   selector: 'app-perfil.component',
-  imports: [ReactiveFormsModule, AsyncPipe, CapturaAssinaturaComponent],
+  imports: [ReactiveFormsModule, AsyncPipe, CapturaAssinaturaComponent, NomePerfilPipe],
   templateUrl: './perfil.component.html',
   styleUrl: './perfil.component.css',
 })

@@ -1,7 +1,7 @@
 """Schemas Pydantic do Mapa de Permissões (ver models_permissoes.py)."""
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PermissaoModuloOut(BaseModel):
@@ -24,3 +24,14 @@ class PermissaoModuloUpdate(BaseModel):
     pode_ler: bool
     pode_atualizar: bool
     pode_apagar: bool
+
+
+class PerfilNomeOut(BaseModel):
+    codigo: str
+    nome: str
+    model_config = {"from_attributes": True}
+
+
+class PerfilNomeUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
+    nome: str = Field(..., min_length=2, max_length=60)

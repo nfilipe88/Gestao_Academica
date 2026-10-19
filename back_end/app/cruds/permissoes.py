@@ -1,10 +1,11 @@
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models_permissoes import PermissaoModulo
+from app.core import nomes_perfil
+from app.database.models_permissoes import PerfilNome, PermissaoModulo
 from app.schemas.permissoes import PermissaoModuloUpdate
 
 
@@ -32,3 +33,30 @@ async def atualizar_permissao(
     await db.commit()
     await db.refresh(permissao)
     return permissao
+
+
+# ==========================================
+# NOMES DOS PERFIS (ver models_permissoes.py::PerfilNome)
+# ==========================================
+async def listar_nomes_perfis(db: AsyncSession) -> list[PerfilNome]:
+    return list((await db.execute(select(PerfilNome).order_by(PerfilNome.ordem))).scalars().all())
+
+
+async def renomear_perfil(db: AsyncSession, codigo: str, nome: str) -> PerfilNome:
+    perfil = await db.get(PerfilNome, codigo)
+    if not perfil:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+    nome = " ".join(nome.split())
+    if len(nome) < 2:
+        raise HTTPException(status_code=400, detail="O nome tem de ter pelo menos 2 caracteres.")
+    repetido = (await db.execute(
+        select(PerfilNome).where(func.lower(PerfilNome.nome) == nome.lower(), PerfilNome.codigo != codigo)
+    )).scalars().first()
+    if repetido:
+        # Dois perfis com o mesmo nome tornavam impossível saber quem é quem nas listas.
+        raise HTTPException(status_code=400, detail=f'O nome "{nome}" já é usado pelo perfil {repetido.codigo}.')
+    perfil.nome = nome
+    await db.commit()
+    await db.refresh(perfil)
+    nomes_perfil.invalidar()
+    return perfil

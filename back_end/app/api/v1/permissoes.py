@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
-from app.core.security import exigir_perfil
+from app.core.security import exigir_perfil, obter_utilizador_atual
 from app.cruds import permissoes as crud_permissoes
-from app.schemas.permissoes import PermissaoModuloOut, PermissaoModuloUpdate
+from app.schemas.permissoes import PerfilNomeOut, PerfilNomeUpdate, PermissaoModuloOut, PermissaoModuloUpdate
 
 router = APIRouter(prefix="/api/v1/permissoes", tags=["Mapa de Permissões"])
 
@@ -31,3 +31,28 @@ async def atualizar_permissao(
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_ACEDER)
 ):
     return await crud_permissoes.atualizar_permissao(db, permissao_id, dados)
+
+
+
+# ==========================================
+# NOMES DOS PERFIS — o que as pessoas leem (GESTOR → "Diretor Geral").
+# Ler: qualquer pessoa com sessão (aparecem em listas e mensagens de toda a
+# app). Mudar: só o Super Admin, e vale para toda a plataforma.
+# ==========================================
+_SO_SUPER_ADMIN = exigir_perfil("SUPER_ADMIN")
+
+
+@router.get("/perfis", response_model=list[PerfilNomeOut])
+async def listar_nomes_perfis(
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(obter_utilizador_atual)
+):
+    return await crud_permissoes.listar_nomes_perfis(db)
+
+
+@router.put("/perfis/{codigo}", response_model=PerfilNomeOut)
+async def renomear_perfil(
+    codigo: str, dados: PerfilNomeUpdate,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_SO_SUPER_ADMIN)
+):
+    """Muda só o nome mostrado; o código (e todas as permissões) fica igual."""
+    return await crud_permissoes.renomear_perfil(db, codigo, dados.nome)

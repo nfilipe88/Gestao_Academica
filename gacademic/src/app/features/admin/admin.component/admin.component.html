@@ -268,7 +268,7 @@
                             @if (usuarioAEditarPerfilId === u.id) {
                               <select #perfilSelectAdmin [value]="u.perfil_acesso" class="border border-slate-300 rounded px-1.5 py-0.5 text-xs">
                                 @for (p of perfisAtribuiveis; track p) {
-                                  <option [value]="p">{{ p }}</option>
+                                  <option [value]="p">{{ p | nomePerfil }}</option>
                                 }
                               </select>
                               <button type="button" (click)="onGuardarPerfil(u.id, perfilSelectAdmin.value)" class="ml-1 text-blue-600 hover:text-blue-800 font-medium cursor-pointer">Guardar</button>
@@ -278,7 +278,7 @@
                                 [class.bg-indigo-100]="u.perfil_acesso === 'GESTOR'" [class.text-indigo-700]="u.perfil_acesso === 'GESTOR'"
                                 [class.bg-blue-100]="u.perfil_acesso === 'SECRETARIA'" [class.text-blue-700]="u.perfil_acesso === 'SECRETARIA'"
                                 [class.bg-purple-100]="u.perfil_acesso === 'PROFESSOR'" [class.text-purple-700]="u.perfil_acesso === 'PROFESSOR'">
-                                {{ u.perfil_acesso }}
+                                {{ u.perfil_acesso | nomePerfil }}
                               </span>
                             }
                           </td>

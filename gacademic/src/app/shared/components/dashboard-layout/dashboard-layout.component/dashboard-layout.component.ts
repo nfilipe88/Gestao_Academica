@@ -6,6 +6,7 @@ import { selectIsAlunoOuResponsavel, selectIsGestor, selectIsGestorOuSecretaria,
 import { carregarConfiguracao } from '../../../../store/configuracoes/configuracoes.actions';
 import { Store } from '@ngrx/store';
 import { NotificacoesSinoComponent } from '../../notificacoes-sino/notificacoes-sino.component/notificacoes-sino.component';
+import { NomesPerfisService } from '../../../../core/services/nomes-perfis.service';
 
 @Component({
   selector: 'app-dashboard-layout.component',
@@ -15,6 +16,7 @@ import { NotificacoesSinoComponent } from '../../notificacoes-sino/notificacoes-
 })
 export class DashboardLayoutComponent implements OnInit {
   private store = inject(Store);
+  private nomesPerfis = inject(NomesPerfisService);
   isGestor$ = this.store.select(selectIsGestor);
   isGestorOuSecretaria$ = this.store.select(selectIsGestorOuSecretaria);
   isAlunoOuResponsavel$ = this.store.select(selectIsAlunoOuResponsavel);
@@ -41,6 +43,9 @@ export class DashboardLayoutComponent implements OnInit {
     // plataforma para formatar valores monetários — incluindo os que
     // o Aluno/Responsável vê no Portal.
     this.store.dispatch(carregarConfiguracao());
+    // Nomes dos perfis definidos pelo Super Admin (ex.: GESTOR → "Diretor
+    // Geral") — usados pelo pipe nomePerfil em toda a app.
+    this.nomesPerfis.carregar();
   }
 
   alternarSidebar() {

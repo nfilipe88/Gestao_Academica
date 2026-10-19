@@ -9,6 +9,33 @@
     <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ erro }}</div>
   }
 
+  @if (isSuperAdmin$ | async) {
+    <section class="bg-white p-6 rounded-xl shadow-xs border border-slate-200 space-y-4" aria-labelledby="t-nomes-perfis">
+      <div>
+        <h3 id="t-nomes-perfis" class="text-sm font-semibold text-slate-800">Nomes dos perfis</h3>
+        <p class="text-xs text-slate-500 mt-1">
+          O nome que aparece em toda a plataforma (ex.: "Gestor" → "Diretor Geral"). Muda só o que se lê:
+          as permissões de cada perfil ficam exatamente iguais. Vale para todas as escolas.
+        </p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        @for (p of nomesPerfis.perfis(); track p.codigo) {
+          <form class="flex items-end gap-2" (ngSubmit)="onRenomear(p.codigo, campoNome.value)">
+            <div class="flex-1">
+              <label class="block text-xs text-slate-500 mb-1" [for]="'f-nome-' + p.codigo">{{ p.codigo }}</label>
+              <input #campoNome [id]="'f-nome-' + p.codigo" [value]="p.nome" maxlength="60"
+                class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-hidden focus:border-blue-500" />
+            </div>
+            <button type="submit" class="text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer py-1.5">Guardar</button>
+          </form>
+        }
+      </div>
+      @if (mensagemNomes()) {
+        <p [attr.role]="erroNomes() ? 'alert' : 'status'" class="text-sm" [class.text-rose-600]="erroNomes()" [class.text-emerald-700]="!erroNomes()">{{ mensagemNomes() }}</p>
+      }
+    </section>
+  }
+
   <!-- Legenda -->
   <div class="flex flex-wrap gap-2">
     @for (op of operacoes; track op.chave) {
@@ -31,27 +58,27 @@
   <!-- Cartões de resumo por perfil -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
     <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Super Admin</span>
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">{{ 'SUPER_ADMIN' | nomePerfil }}</span>
       <h3 class="text-sm font-semibold text-slate-800 mt-2">Dono da plataforma</h3>
       <p class="text-xs text-slate-500 mt-1 leading-relaxed">Gere as instituições em si — suspende, reativa, decide transferências de alunos entre escolas. Não vê dados académicos de nenhuma escola.</p>
     </div>
     <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Gestor</span>
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">{{ 'GESTOR' | nomePerfil }}</span>
       <h3 class="text-sm font-semibold text-slate-800 mt-2">Acesso total à sua escola</h3>
       <p class="text-xs text-slate-500 mt-1 leading-relaxed">É o único que configura a instituição (IBAN, moeda, contacto) e cria contas de Professor. Fora isso, o mesmo alcance da Secretaria.</p>
     </div>
     <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Secretaria</span>
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">{{ 'SECRETARIA' | nomePerfil }}</span>
       <h3 class="text-sm font-semibold text-slate-800 mt-2">Operação do dia-a-dia</h3>
       <p class="text-xs text-slate-500 mt-1 leading-relaxed">Matrículas, financeiro, CRM, documentos — quase tudo o que o Gestor faz, exceto criar Professores e configurar a instituição.</p>
     </div>
     <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Professor</span>
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">{{ 'PROFESSOR' | nomePerfil }}</span>
       <h3 class="text-sm font-semibold text-slate-800 mt-2">Vê tudo, mexe no seu</h3>
       <p class="text-xs text-slate-500 mt-1 leading-relaxed">Consulta a escola toda em leitura, mas só lança notas, frequência e comunica nas turmas/disciplinas que lecciona. Sem Financeiro, CRM ou Indicadores.</p>
     </div>
     <div class="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">Aluno / Responsável</span>
+      <span class="text-[10px] font-bold tracking-wide uppercase text-blue-600 bg-blue-50 rounded px-2 py-0.5">{{ 'ALUNO' | nomePerfil }} / {{ 'RESPONSAVEL' | nomePerfil }}</span>
       <h3 class="text-sm font-semibold text-slate-800 mt-2">Só o Portal</h3>
       <p class="text-xs text-slate-500 mt-1 leading-relaxed">O seu boletim, horário, mensalidades e pedidos de documentos — ou os dos seus educandos. Nenhum módulo interno da escola.</p>
     </div>
@@ -65,7 +92,7 @@
           <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wide">
             <th class="py-3 px-6 font-semibold">Módulo</th>
             @for (perfil of perfis; track perfil.id) {
-              <th class="py-3 px-4 font-semibold text-center">{{ perfil.label }}</th>
+              <th class="py-3 px-4 font-semibold text-center">{{ rotuloColuna(perfil.id) }}</th>
             }
           </tr>
         </thead>

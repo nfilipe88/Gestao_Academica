@@ -11,10 +11,11 @@ import { PERFIS_ATRIBUIVEIS, UsuarioStaff } from '../../../store/usuarios/usuari
 import { selectIsGestor, selectUsuario } from '../../../store/auth/auth.selectors';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 import { EventosSegurancaComponent } from '../../../shared/components/eventos-seguranca/eventos-seguranca.component';
+import { NomePerfilPipe } from '../../../shared/pipes/nome-perfil.pipe';
 
 @Component({
   selector: 'app-acessos.component',
-  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, PaginacaoComponent, EventosSegurancaComponent],
+  imports: [ReactiveFormsModule, CommonModule, AsyncPipe, PaginacaoComponent, EventosSegurancaComponent, NomePerfilPipe],
   templateUrl: './acessos.component.html',
   styleUrl: './acessos.component.css',
 })

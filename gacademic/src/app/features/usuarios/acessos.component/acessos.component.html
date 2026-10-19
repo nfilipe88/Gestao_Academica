@@ -13,7 +13,7 @@
   }
 
   @if (!(podeAceder$ | async)) {
-    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">Acesso restrito a: GESTOR.</div>
+    <div role="alert" class="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">Acesso restrito a: {{ 'GESTOR' | nomePerfil }}.</div>
   }
 
   @if (podeAceder$ | async) {
@@ -111,7 +111,7 @@
                     <select #perfilSelect [value]="u.perfil_acesso"
                       class="border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800">
                       @for (p of perfisAtribuiveis; track p) {
-                        <option [value]="p">{{ p }}</option>
+                        <option [value]="p">{{ p | nomePerfil }}</option>
                       }
                     </select>
                     <button type="button" (click)="onGuardarPerfil(u.id, perfilSelect.value)"
@@ -123,7 +123,7 @@
                       [class.bg-indigo-100]="u.perfil_acesso === 'GESTOR'" [class.text-indigo-700]="u.perfil_acesso === 'GESTOR'"
                       [class.bg-blue-100]="u.perfil_acesso === 'SECRETARIA'" [class.text-blue-700]="u.perfil_acesso === 'SECRETARIA'"
                       [class.bg-purple-100]="u.perfil_acesso === 'PROFESSOR'" [class.text-purple-700]="u.perfil_acesso === 'PROFESSOR'">
-                      {{ u.perfil_acesso }}
+                      {{ u.perfil_acesso | nomePerfil }}
                     </span>
                   }
                 </td>
@@ -212,7 +212,7 @@
                 <td class="py-2 pr-4 text-slate-800 font-medium">{{ registo.nome_alvo }}</td>
                 <td class="py-2 pr-4 text-slate-500">
                   @if (registo.perfil_anterior && registo.perfil_novo) {
-                    {{ registo.perfil_anterior }} → {{ registo.perfil_novo }}
+                    {{ registo.perfil_anterior | nomePerfil }} → {{ registo.perfil_novo | nomePerfil }}
                   } @else if (registo.detalhe) {
                     {{ registo.detalhe }}
                   }

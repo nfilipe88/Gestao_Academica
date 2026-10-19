@@ -1,11 +1,15 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { map } from 'rxjs';
 import { carregarPermissoes, atualizarPermissao } from '../../../store/permissoes/permissoes.actions';
 import { selectPermissoes, selectPermissoesError } from '../../../store/permissoes/permissoes.selector';
 import { OperacoesCrud, PerfilPermissao, PermissaoModulo } from '../../../store/permissoes/permissoes.models';
 import { PopoverComponent } from '../../../shared/components/popover/popover.component/popover.component';
+import { NomePerfilPipe } from '../../../shared/pipes/nome-perfil.pipe';
+import { NomesPerfisService } from '../../../core/services/nomes-perfis.service';
+import { selectIsSuperAdmin } from '../../../store/auth/auth.selectors';
 
 // Perfis fixos da plataforma (ver app/core/security.py::exigir_perfil no
 // back-end). Não confundir com "Perfis Personalizados" — uma
@@ -36,7 +40,7 @@ interface LinhaModulo {
 
 @Component({
   selector: 'app-permissoes.component',
-  imports: [CommonModule, AsyncPipe, PopoverComponent],
+  imports: [CommonModule, AsyncPipe, FormsModule, PopoverComponent, NomePerfilPipe],
   templateUrl: './permissoes.component.html',
   styleUrl: './permissoes.component.css',
 })
@@ -47,6 +51,27 @@ export class PermissoesComponent implements OnInit {
   operacoes = OPERACOES;
 
   erro$ = this.store.select(selectPermissoesError);
+  isSuperAdmin$ = this.store.select(selectIsSuperAdmin);
+  nomesPerfis = inject(NomesPerfisService);
+  mensagemNomes = signal<string | null>(null);
+  erroNomes = signal(false);
+
+  // Cabeçalho de cada coluna com os nomes definidos pelo Super Admin.
+  rotuloColuna(id: PerfilPermissao): string {
+    const codigos: Record<string, string[]> = {
+      super_admin: ['SUPER_ADMIN'], gestor: ['GESTOR'], secretaria: ['SECRETARIA'],
+      professor: ['PROFESSOR'], aluno_responsavel: ['ALUNO', 'RESPONSAVEL'],
+    };
+    return (codigos[id] ?? [id]).map(c => this.nomesPerfis.nome(c)).join(' / ');
+  }
+
+  onRenomear(codigo: string, nome: string) {
+    this.mensagemNomes.set(null);
+    this.nomesPerfis.renomear(codigo, nome).subscribe({
+      next: (p) => { this.erroNomes.set(false); this.mensagemNomes.set(`Nome guardado: ${p.codigo} → "${p.nome}".`); },
+      error: (err) => { this.erroNomes.set(true); this.mensagemNomes.set(err.error?.detail || 'Não foi possível guardar o nome.'); },
+    });
+  }
 
   // Agrupa a lista plana (uma linha por módulo x perfil, ver
   // schemas/permissoes.py) em linhas por módulo — mantém a mesma forma

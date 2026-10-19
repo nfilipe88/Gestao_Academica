@@ -9,7 +9,7 @@ import os
 from dotenv import load_dotenv
 from passlib.context import CryptContext
 
-from app.core import eventos_seguranca, revogacao
+from app.core import eventos_seguranca, nomes_perfil, revogacao
 
 load_dotenv()
 
@@ -149,9 +149,10 @@ def exigir_perfil(*perfis_permitidos: str):
                 eventos_seguranca.ACESSO_NEGADO, eventos_seguranca.MEDIA,
                 f"Perfil {utilizador['perfil_acesso']} tentou aceder a uma área reservada a: {', '.join(perfis_permitidos)}.",
             )
+            nomes = await nomes_perfil.obter_nomes()
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Acesso restrito a: {', '.join(perfis_permitidos)}."
+                detail=f"Acesso restrito a: {', '.join(nomes.get(p, p) for p in perfis_permitidos)}."
             )
         return utilizador
     return verificar

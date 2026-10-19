@@ -19,10 +19,11 @@ import * as UsuariosActions from '../../../store/usuarios/usuarios.actions';
 import { selectPaginacaoUsuarios, selectUsuarios, selectUsuariosError, selectUsuariosMensagem } from '../../../store/usuarios/usuarios.selector';
 import { PERFIS_ATRIBUIVEIS, UsuarioStaff } from '../../../store/usuarios/usuarios.models';
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
+import { NomePerfilPipe } from '../../../shared/pipes/nome-perfil.pipe';
 
 @Component({
   selector: 'app-admin.component',
-  imports: [CommonModule, AsyncPipe, FormsModule, ReactiveFormsModule, PaginacaoComponent],
+  imports: [CommonModule, AsyncPipe, FormsModule, ReactiveFormsModule, PaginacaoComponent, NomePerfilPipe],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.css',
 })

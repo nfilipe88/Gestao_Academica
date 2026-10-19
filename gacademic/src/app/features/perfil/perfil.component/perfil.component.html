@@ -20,7 +20,7 @@
       <div class="min-w-0">
         <p class="font-semibold text-slate-800 truncate">{{ perfil.nome_completo }}</p>
         <p class="text-sm text-slate-500 truncate">{{ perfil.nome_instituicao }}</p>
-        <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">{{ perfil.perfil_acesso }}</span>
+        <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">{{ perfil.perfil_acesso | nomePerfil }}</span>
       </div>
     </div>
 
