@@ -21,6 +21,7 @@ o controlo das próprias contas) e a equipa da plataforma (Super Admin e
 Suporte nunca são restringidos pelo mapa).
 """
 import time
+import uuid
 
 from fastapi import HTTPException, Request, status
 from fastapi.routing import APIRoute
@@ -197,6 +198,38 @@ async def _restricoes_escola(tenant_id) -> dict:
     return mapa
 
 
+async def perfil_personalizado_do_usuario(usuario_id) -> dict | None:
+    """{"id", "nome", "perfil_base", "modulos": {modulo: {operacao: bool}}}
+    do perfil da escola desta pessoa, ou None se não tiver."""
+    if not usuario_id:
+        return None
+    chave = str(usuario_id)
+    em_cache = _cache_perfil_usuario.get(chave)
+    if em_cache and time.monotonic() - em_cache[0] < _TTL_SEGUNDOS:
+        return em_cache[1]
+    from sqlalchemy import select
+    from app.database.session import AsyncSessionLocalSistema
+    from app.database.models import Usuario
+    from app.database.models_permissoes import PerfilPersonalizado, PerfilPersonalizadoPermissao
+    async with AsyncSessionLocalSistema() as db:
+        perfil = (await db.execute(
+            select(PerfilPersonalizado)
+            .join(Usuario, Usuario.perfil_personalizado_id == PerfilPersonalizado.id)
+            .where(Usuario.id == uuid.UUID(chave))
+        )).scalars().first()
+        resultado = None
+        if perfil is not None:
+            linhas = (await db.execute(
+                select(PerfilPersonalizadoPermissao).where(PerfilPersonalizadoPermissao.perfil_personalizado_id == perfil.id)
+            )).scalars().all()
+            resultado = {
+                "id": perfil.id, "nome": perfil.nome, "perfil_base": perfil.perfil_base,
+                "modulos": {l.modulo: {op: getattr(l, op) for op in OPERACOES} for l in linhas},
+            }
+    _cache_perfil_usuario[chave] = (time.monotonic(), resultado)
+    return resultado
+
+
 async def permissao_efetiva(tenant_id, perfil_acesso: str, modulo: str, operacao: str, usuario_id=None) -> bool:
     if perfil_acesso in PERFIS_FORA_DO_MAPA:
         return True
@@ -211,7 +244,27 @@ async def permissao_efetiva(tenant_id, perfil_acesso: str, modulo: str, operacao
     da_escola = (await _restricoes_escola(tenant_id)).get((modulo, coluna))
     if da_escola is not None and not da_escola.get(operacao, False):
         return False
+    # Perfil da escola (só Secretaria/Professor o podem ter): sem linha para
+    # o módulo = sem acesso.
+    if coluna in ("secretaria", "professor"):
+        personalizado = await perfil_personalizado_do_usuario(usuario_id)
+        if personalizado is not None and personalizado["perfil_base"] == perfil_acesso:
+            if not personalizado["modulos"].get(modulo, {}).get(operacao, False):
+                return False
     return True
+
+
+async def permissoes_do_usuario(tenant_id, perfil_acesso: str, usuario_id) -> dict | None:
+    """O que vale para esta pessoa em cada módulo (as três camadas) — para o
+    front-end esconder o que ela não pode usar. None = o mapa não a restringe."""
+    coluna = COLUNA_DO_PERFIL.get(perfil_acesso)
+    if perfil_acesso in PERFIS_FORA_DO_MAPA or coluna is None:
+        return None
+    modulos = sorted({m for (m, c) in await _mapa_base() if c == coluna})
+    return {
+        m: {op: await permissao_efetiva(tenant_id, perfil_acesso, m, op, usuario_id) for op in OPERACOES}
+        for m in modulos
+    }
 
 
 async def verificar_mapa(request: Request) -> None:
@@ -235,9 +288,9 @@ async def verificar_mapa(request: Request) -> None:
     if await permissao_efetiva(tenant_id, perfil, modulo, operacao, claims.get("sub")):
         return
 
-    import uuid
     from app.core import eventos_seguranca, nomes_perfil
-    nome_perfil = await nomes_perfil.nome(perfil)
+    personalizado = await perfil_personalizado_do_usuario(claims.get("sub"))
+    nome_perfil = personalizado["nome"] if personalizado else await nomes_perfil.nome(perfil)
     # Com o utilizador identificado: é uma pessoa da escola, nunca conta para
     # bloquear o IP (ver eventos_seguranca) — vai para o registo e para o Gestor.
     await eventos_seguranca.registar(

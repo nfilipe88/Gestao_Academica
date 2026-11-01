@@ -25,10 +25,11 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Usuario
+from app.database.models_permissoes import PerfilPersonalizado
 from app.database.models_usuarios import DesafioDoisFatores, UsuarioAuditoria
 from app.core.security import gerar_hash_senha
 from app.core.paginacao import DEFAULT_PAGE_SIZE, paginar, paginar_linhas
-from app.core import fila_notificacoes, revogacao
+from app.core import fila_notificacoes, mapa_permissoes, nomes_perfil, revogacao
 from app.core.email import enviar_email, escapar, template_base
 from app.schemas.usuarios import PerfilAcessoUpdate, SecretariaCreate
 
@@ -78,6 +79,12 @@ async def listar_usuarios(db: AsyncSession, tenant_id, page: int, page_size: int
         .order_by(Usuario.nome_completo)
     )
     pagina = await paginar(db, query, page, page_size)
+    ids_perfis = {u.perfil_personalizado_id for u in pagina["items"] if u.perfil_personalizado_id}
+    nomes_perfis = {}
+    if ids_perfis:
+        nomes_perfis = dict((await db.execute(
+            select(PerfilPersonalizado.id, PerfilPersonalizado.nome).where(PerfilPersonalizado.id.in_(ids_perfis))
+        )).all())
     # Serialização explícita — nunca devolver o Usuario tal como veio da
     # base de dados: tem senha_hash, que não pode sair da API de forma nenhuma.
     pagina["items"] = [
@@ -88,6 +95,8 @@ async def listar_usuarios(db: AsyncSession, tenant_id, page: int, page_size: int
             "perfil_acesso": u.perfil_acesso,
             "ativo": u.ativo,
             "dois_fatores_ativo": u.dois_fatores_ativo,
+            "perfil_personalizado_id": u.perfil_personalizado_id,
+            "perfil_personalizado_nome": nomes_perfis.get(u.perfil_personalizado_id),
             "data_criacao": u.data_criacao,
         }
         for u in pagina["items"]
@@ -137,6 +146,8 @@ async def alterar_perfil(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, dad
         raise HTTPException(status_code=400, detail="Esta é a última conta de Gestor ativa da escola — não pode ficar sem nenhuma.")
 
     usuario.perfil_acesso = dados.perfil_acesso
+    # Um perfil da escola parte de UM perfil base — mudar de base tira-o.
+    usuario.perfil_personalizado_id = None
     await _registar_auditoria(
         db, tenant_id, usuario.id, autor_id, acao="MUDANCA_PERFIL",
         perfil_anterior=perfil_anterior, perfil_novo=dados.perfil_acesso
@@ -148,7 +159,49 @@ async def alterar_perfil(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, dad
     # alguém acabado de rebaixar de GESTOR para SECRETARIA continuava a
     # conseguir usar permissões de GESTOR nesse intervalo.
     await revogacao.revogar_usuario(usuario.id)
+    mapa_permissoes.invalidar_cache()
     return usuario
+
+
+async def atribuir_perfil_personalizado(
+    db: AsyncSession, tenant_id, usuario_id: uuid.UUID, perfil_personalizado_id: uuid.UUID | None, autor_id: uuid.UUID | None
+) -> tuple[Usuario, str | None]:
+    """Dá (ou tira, com None) um perfil da escola a uma pessoa. Só se o
+    perfil partir do perfil que ela já tem (ex.: "Tesouraria" só para quem
+    é Secretaria) — nunca muda o perfil base. Efeito no pedido seguinte."""
+    usuario = await _obter_usuario_no_tenant(db, tenant_id, usuario_id)
+    nome_novo = None
+    if perfil_personalizado_id is not None:
+        perfil = (await db.execute(
+            select(PerfilPersonalizado).where(
+                PerfilPersonalizado.id == perfil_personalizado_id, PerfilPersonalizado.tenant_id == tenant_id)
+        )).scalars().first()
+        if not perfil:
+            raise HTTPException(status_code=404, detail="Perfil da escola não encontrado.")
+        if perfil.perfil_base != usuario.perfil_acesso:
+            raise HTTPException(
+                status_code=400,
+                detail=f'O perfil "{perfil.nome}" parte de {perfil.perfil_base} — só pode ser dado a quem tem esse perfil.'
+            )
+        nome_novo = perfil.nome
+    if usuario.perfil_personalizado_id == perfil_personalizado_id:
+        return usuario, nome_novo  # idempotente
+
+    nome_anterior = None
+    if usuario.perfil_personalizado_id:
+        nome_anterior = (await db.execute(
+            select(PerfilPersonalizado.nome).where(PerfilPersonalizado.id == usuario.perfil_personalizado_id)
+        )).scalar()
+    nome_base = await nomes_perfil.nome(usuario.perfil_acesso)
+    usuario.perfil_personalizado_id = perfil_personalizado_id
+    await _registar_auditoria(
+        db, tenant_id, usuario.id, autor_id, acao="PERFIL_ESCOLA",
+        detalhe=f'{nome_anterior or nome_base} → {nome_novo or nome_base}.'
+    )
+    await db.commit()
+    await db.refresh(usuario)
+    mapa_permissoes.invalidar_cache()
+    return usuario, nome_novo
 
 
 async def alterar_estado_ativo(db: AsyncSession, tenant_id, usuario_id: uuid.UUID, ativo: bool, autor_id: uuid.UUID | None) -> Usuario:

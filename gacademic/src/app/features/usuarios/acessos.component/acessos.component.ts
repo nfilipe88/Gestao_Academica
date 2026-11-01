@@ -12,6 +12,7 @@ import { selectIsGestor, selectUsuario } from '../../../store/auth/auth.selector
 import { PaginacaoComponent } from '../../../shared/components/paginacao/paginacao.component/paginacao.component';
 import { EventosSegurancaComponent } from '../../../shared/components/eventos-seguranca/eventos-seguranca.component';
 import { NomePerfilPipe } from '../../../shared/pipes/nome-perfil.pipe';
+import { PerfilEscola, PerfisEscolaService } from '../../../core/services/perfis-escola.service';
 
 @Component({
   selector: 'app-acessos.component',
@@ -36,6 +37,8 @@ export class AcessosComponent implements OnInit {
   podeAceder$ = this.store.select(selectIsGestor);
 
   perfisAtribuiveis = PERFIS_ATRIBUIVEIS;
+  // Perfis da escola (ex.: "Tesouraria") — criados no Mapa de Permissões.
+  perfisEscola = inject(PerfisEscolaService);
 
   aba: 'staff' | 'auditoria' | 'seguranca' = 'staff';
   mostrarFormularioSecretaria = false;
@@ -49,9 +52,11 @@ export class AcessosComponent implements OnInit {
   usuarioAEditarPerfilId: string | null = null;
   usuarioASuspenderId: string | null = null;
   usuarioADesativarDoisFatoresId: string | null = null;
+  usuarioAEditarPerfilEscolaId: string | null = null;
 
   ngOnInit() {
     this.store.dispatch(UsuariosActions.carregarUsuarios({}));
+    this.perfisEscola.carregar();
   }
 
   onPaginaStaff(pagina: number) {
@@ -76,6 +81,7 @@ export class AcessosComponent implements OnInit {
 
   onAbrirEdicaoPerfil(usuarioId: string) {
     this.usuarioAEditarPerfilId = usuarioId;
+    this.usuarioAEditarPerfilEscolaId = null;
   }
 
   onCancelarEdicaoPerfil() {
@@ -86,6 +92,25 @@ export class AcessosComponent implements OnInit {
     if (novoPerfil !== 'GESTOR' && novoPerfil !== 'SECRETARIA') return;
     this.store.dispatch(UsuariosActions.alterarPerfil({ usuario_id: usuarioId, perfil_acesso: novoPerfil }));
     this.usuarioAEditarPerfilId = null;
+  }
+
+  // Só os perfis da escola que partem do perfil que a pessoa já tem.
+  perfisEscolaPara(usuario: UsuarioStaff): PerfilEscola[] {
+    return this.perfisEscola.perfis().filter(p => p.perfil_base === usuario.perfil_acesso);
+  }
+
+  onAbrirPerfilEscola(usuarioId: string) {
+    this.usuarioAEditarPerfilEscolaId = usuarioId;
+    this.usuarioAEditarPerfilId = null;
+  }
+
+  onCancelarPerfilEscola() {
+    this.usuarioAEditarPerfilEscolaId = null;
+  }
+
+  onGuardarPerfilEscola(usuarioId: string, perfilId: string) {
+    this.store.dispatch(UsuariosActions.atribuirPerfilPersonalizado({ usuario_id: usuarioId, perfil_personalizado_id: perfilId || null }));
+    this.usuarioAEditarPerfilEscolaId = null;
   }
 
   onPedirSuspensao(usuarioId: string) {
@@ -141,6 +166,7 @@ export class AcessosComponent implements OnInit {
       SUSPENSAO: 'Acesso suspenso',
       REATIVACAO: 'Acesso reativado',
       DESATIVACAO_2FA: 'Verificação em dois passos desativada',
+      PERFIL_ESCOLA: 'Perfil da escola',
     };
     return labels[acao] ?? acao;
   }

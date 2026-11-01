@@ -1,5 +1,5 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, OnInit, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -10,12 +10,12 @@ import { OperacoesCrud, PerfilPermissao, PermissaoModulo } from '../../../store/
 import { PopoverComponent } from '../../../shared/components/popover/popover.component/popover.component';
 import { NomePerfilPipe } from '../../../shared/pipes/nome-perfil.pipe';
 import { NomesPerfisService } from '../../../core/services/nomes-perfis.service';
-import { selectIsSuperAdmin } from '../../../store/auth/auth.selectors';
+import { selectIsGestor, selectIsSuperAdmin } from '../../../store/auth/auth.selectors';
+import { PerfilBaseEscola, PerfilEscola, PerfisEscolaService, PermissaoPerfilEscola } from '../../../core/services/perfis-escola.service';
 
 // Perfis fixos da plataforma (ver app/core/security.py::exigir_perfil no
-// back-end). Não confundir com "Perfis Personalizados" — uma
-// funcionalidade futura, ainda não implementada, que permitirá a cada
-// escola criar os seus próprios perfis com atributos configuráveis.
+// back-end). Os perfis de cada escola (ex.: "Tesouraria") aparecem como
+// colunas a seguir a estes, só na vista do Gestor — ver PerfisEscolaService.
 const PERFIS: { id: PerfilPermissao; label: string }[] = [
   { id: 'super_admin', label: 'Super Admin' },
   { id: 'gestor', label: 'Gestor' },
@@ -94,6 +94,92 @@ export class PermissoesComponent implements OnInit {
 
   ngOnInit() {
     this.store.dispatch(carregarPermissoes());
+  }
+
+  // ==========================================
+  // Perfis da escola (só o Gestor): colunas extra na matriz
+  // ==========================================
+  perfisEscola = inject(PerfisEscolaService);
+  eGestor = toSignal(this.store.select(selectIsGestor), { initialValue: false });
+  mensagemPerfisEscola = signal<string | null>(null);
+  erroPerfisEscola = signal(false);
+  perfilAApagarId = signal<string | null>(null);
+
+  // Só o Gestor tem perfis da escola — o Super Admin nem pergunta (um 403
+  // ficava nos Eventos de Segurança).
+  private carregarPerfisEscola = effect(() => {
+    if (this.eGestor()) this.perfisEscola.carregar();
+  });
+
+  private avisarPerfis(texto: string, erro = false) {
+    this.erroPerfisEscola.set(erro);
+    this.mensagemPerfisEscola.set(texto);
+  }
+
+  onCriarPerfilEscola(nome: string, base: string, campo: HTMLInputElement) {
+    this.mensagemPerfisEscola.set(null);
+    this.perfisEscola.criar(nome, base as PerfilBaseEscola).subscribe({
+      next: (p) => {
+        campo.value = '';
+        this.avisarPerfis(`Perfil "${p.nome}" criado, igual a ${this.nomesPerfis.nome(p.perfil_base)} na escola. Desmarque na coluna dele o que não deve poder fazer e atribua-o em Gestão de Acessos.`);
+      },
+      error: (err) => this.avisarPerfis(err.error?.detail || 'Não foi possível criar o perfil.', true),
+    });
+  }
+
+  onRenomearPerfilEscola(perfil: PerfilEscola, nome: string) {
+    this.mensagemPerfisEscola.set(null);
+    this.perfisEscola.renomear(perfil.id, nome).subscribe({
+      next: (p) => this.avisarPerfis(`Nome guardado: "${p.nome}".`),
+      error: (err) => this.avisarPerfis(err.error?.detail || 'Não foi possível guardar o nome.', true),
+    });
+  }
+
+  onApagarPerfilEscola(perfil: PerfilEscola) {
+    this.perfilAApagarId.set(null);
+    this.perfisEscola.apagar(perfil.id).subscribe({
+      next: () => this.avisarPerfis(`Perfil "${perfil.nome}" apagado — quem o tinha voltou a ${this.nomesPerfis.nome(perfil.perfil_base)}.`),
+      error: (err) => this.avisarPerfis(err.error?.detail || 'Não foi possível apagar o perfil.', true),
+    });
+  }
+
+  celulaEscola(perfil: PerfilEscola, modulo: string): PermissaoPerfilEscola | undefined {
+    return perfil.permissoes.find(p => p.modulo === modulo);
+  }
+
+  bloqueioEscola(perfil: PerfilEscola, celula: PermissaoPerfilEscola, op: keyof OperacoesCrud): string | null {
+    if (celula.informativo) return 'Linha só informativa — não há páginas associadas a restringir.';
+    if (!celula[`limite_${op}` as keyof PermissaoPerfilEscola]) return `${this.nomesPerfis.nome(perfil.perfil_base)} não pode isto na escola — um perfil da escola só pode ter menos.`;
+    return null;
+  }
+
+  resumoEscola(celula: PermissaoPerfilEscola | undefined): string {
+    if (!celula) return '—';
+    const letras = OPERACOES.filter(op => celula[op.chave]).map(op => op.letra);
+    return letras.length ? letras.join('') : '—';
+  }
+
+  classeEscola(celula: PermissaoPerfilEscola | undefined): string {
+    const n = celula ? OPERACOES.filter(op => celula[op.chave]).length : 0;
+    if (n === 0) return 'bg-slate-100 text-slate-400';
+    if (n === OPERACOES.length) return 'bg-emerald-100 text-emerald-700';
+    return 'bg-amber-100 text-amber-700';
+  }
+
+  onAlterarEscola(perfil: PerfilEscola, celula: PermissaoPerfilEscola, chave: keyof OperacoesCrud, event: Event) {
+    const marcado = (event.target as HTMLInputElement).checked;
+    const operacoes: OperacoesCrud = {
+      pode_criar: celula.pode_criar, pode_ler: celula.pode_ler,
+      pode_atualizar: celula.pode_atualizar, pode_apagar: celula.pode_apagar,
+      [chave]: marcado,
+    };
+    this.mensagemPerfisEscola.set(null);
+    this.perfisEscola.atualizarModulo(perfil.id, celula.modulo, operacoes).subscribe({
+      error: (err) => {
+        (event.target as HTMLInputElement).checked = !marcado;
+        this.avisarPerfis(err.error?.detail || 'Não foi possível guardar esta permissão.', true);
+      },
+    });
   }
 
   // Super Admin edita o mapa base (todas as escolas); o Gestor vê e restringe

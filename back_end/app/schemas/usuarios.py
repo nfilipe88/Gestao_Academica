@@ -13,6 +13,8 @@ class UsuarioListadoOut(BaseModel):
     perfil_acesso: str
     ativo: bool
     dois_fatores_ativo: bool = False
+    perfil_personalizado_id: uuid.UUID | None = None
+    perfil_personalizado_nome: str | None = None
     data_criacao: datetime
     model_config = {"from_attributes": True}
 
@@ -46,3 +48,9 @@ class UsuarioAuditoriaOut(BaseModel):
     perfil_novo: str | None
     detalhe: str | None
     data_acao: datetime
+
+
+class PerfilPersonalizadoAtribuir(BaseModel):
+    model_config = {"extra": "forbid"}
+    # None = volta ao perfil base.
+    perfil_personalizado_id: uuid.UUID | None

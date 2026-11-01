@@ -7,7 +7,7 @@ from app.core.cabecalhos import CabecalhosDeSegurancaMiddleware
 from app.core.eventos_seguranca import MonitorSegurancaMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, calendario, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, eventos, financeiro, horarios, importacao, indicadores, lms, matriculas, notificacoes, perfil, fecho, permissoes, portal, privacidade, professores, propinas, publico, seguranca, suporte, tarefas, transferencias, usuarios
+from app.api.v1 import academico, admin, alunos, auditoria, auth, comportamento, calendario, comunicacoes, configuracoes, crm, diario, documentos, estatisticas, eventos, financeiro, horarios, importacao, indicadores, lms, matriculas, notificacoes, perfil, fecho, perfis_personalizados, permissoes, portal, privacidade, professores, propinas, publico, seguranca, suporte, tarefas, transferencias, usuarios
 from fastapi import Depends
 from app.core.scheduler import iniciar_scheduler, parar_scheduler
 from app.core.monitorizacao import iniciar_sentry
@@ -121,6 +121,7 @@ app.include_router(calendario.router)
 app.include_router(lms.router)
 app.include_router(perfil.router)
 app.include_router(permissoes.router)
+app.include_router(perfis_personalizados.router)
 app.include_router(propinas.router)
 app.include_router(eventos.router)
 app.include_router(importacao.router)

@@ -10,7 +10,7 @@ import uuid
 from app.database.session import obter_sessao_db
 from app.core.security import exigir_perfil
 from app.cruds import usuarios as crud_usuarios
-from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, SecretariaCreate
+from app.schemas.usuarios import AtivoUpdate, PerfilAcessoUpdate, PerfilPersonalizadoAtribuir, SecretariaCreate
 
 router = APIRouter(prefix="/api/v1/usuarios", tags=["Gestão de Acessos"])
 
@@ -47,6 +47,18 @@ async def alterar_perfil(
     """Muda o perfil entre Gestor e Secretaria (não se aplica a Professor/Aluno/Responsável — ver docstring do crud)."""
     alterado = await crud_usuarios.alterar_perfil(db, utilizador["tenant_id"], usuario_id, dados, utilizador["usuario_id"])
     return {"mensagem": f'"{alterado.nome_completo}" passou a ter o perfil {alterado.perfil_acesso}.', "perfil_acesso": alterado.perfil_acesso}
+
+
+@router.put("/{usuario_id}/perfil-personalizado")
+async def atribuir_perfil_personalizado(
+    usuario_id: uuid.UUID, dados: PerfilPersonalizadoAtribuir,
+    db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(_PODE_GERIR)
+):
+    """Dá (ou tira) um perfil da escola, ex.: "Tesouraria" — só a quem tem o perfil base desse perfil."""
+    alterado, nome = await crud_usuarios.atribuir_perfil_personalizado(
+        db, utilizador["tenant_id"], usuario_id, dados.perfil_personalizado_id, utilizador["usuario_id"])
+    texto = f'o perfil da escola "{nome}"' if nome else "o perfil base, sem perfil da escola"
+    return {"mensagem": f'"{alterado.nome_completo}" passou a ter {texto}.', "perfil_personalizado_id": alterado.perfil_personalizado_id}
 
 
 @router.patch("/{usuario_id}/ativo")

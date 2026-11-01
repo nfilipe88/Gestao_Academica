@@ -51,6 +51,23 @@ export class UsuariosEffects {
     )
   );
 
+  atribuirPerfilPersonalizado$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(UsuariosActions.atribuirPerfilPersonalizado),
+      switchMap(action => this.http.put<{ mensagem: string }>(
+        `/api/v1/usuarios/${action.usuario_id}/perfil-personalizado`, { perfil_personalizado_id: action.perfil_personalizado_id }
+      ).pipe(
+        switchMap(resp => [
+          UsuariosActions.carregarUsuarios({}),
+          UsuariosActions.usuariosOperacaoSucesso({ mensagem: resp.mensagem })
+        ]),
+        catchError(err => of(UsuariosActions.usuariosOperacaoFalhou({
+          erro: err.error?.detail || 'Não foi possível mudar o perfil da escola deste utilizador.'
+        })))
+      ))
+    )
+  );
+
   alterarPerfil$ = createEffect(() =>
     this.actions$.pipe(
       ofType(UsuariosActions.alterarPerfil),

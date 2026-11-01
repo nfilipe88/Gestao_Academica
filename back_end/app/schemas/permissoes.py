@@ -50,3 +50,50 @@ class PerfilNomeOut(BaseModel):
 class PerfilNomeUpdate(BaseModel):
     model_config = {"extra": "forbid"}
     nome: str = Field(..., min_length=2, max_length=60)
+
+
+# ==========================================
+# PERFIS DA ESCOLA (bloco D2 — ver cruds/perfis_personalizados.py)
+# ==========================================
+class PermissaoPerfilEscolaOut(BaseModel):
+    modulo: str
+    ordem: int
+    informativo: bool
+    pode_criar: bool
+    pode_ler: bool
+    pode_atualizar: bool
+    pode_apagar: bool
+    # O que o perfil base pode na escola — o teto deste perfil.
+    limite_pode_criar: bool
+    limite_pode_ler: bool
+    limite_pode_atualizar: bool
+    limite_pode_apagar: bool
+
+
+class PerfilPersonalizadoOut(BaseModel):
+    id: uuid.UUID
+    nome: str
+    perfil_base: str
+    n_utilizadores: int
+    permissoes: list[PermissaoPerfilEscolaOut]
+
+
+class PerfilPersonalizadoCreate(BaseModel):
+    model_config = {"extra": "forbid"}
+    nome: str = Field(..., min_length=2, max_length=60)
+    perfil_base: str  # SECRETARIA | PROFESSOR
+
+
+class PerfilPersonalizadoRenomear(BaseModel):
+    model_config = {"extra": "forbid"}
+    nome: str = Field(..., min_length=2, max_length=60)
+
+
+class PermissaoPerfilEscolaUpdate(PermissaoModuloUpdate):
+    modulo: str = Field(..., max_length=80)
+
+
+class MinhasPermissoesOut(BaseModel):
+    # None = o mapa não restringe esta pessoa (equipa da plataforma).
+    modulos: dict[str, dict[str, bool]] | None
+    perfil_personalizado: str | None = None

@@ -7,6 +7,7 @@ import { carregarConfiguracao } from '../../../../store/configuracoes/configurac
 import { Store } from '@ngrx/store';
 import { NotificacoesSinoComponent } from '../../notificacoes-sino/notificacoes-sino.component/notificacoes-sino.component';
 import { NomesPerfisService } from '../../../../core/services/nomes-perfis.service';
+import { MinhasPermissoesService } from '../../../../core/services/minhas-permissoes.service';
 
 @Component({
   selector: 'app-dashboard-layout.component',
@@ -17,6 +18,9 @@ import { NomesPerfisService } from '../../../../core/services/nomes-perfis.servi
 export class DashboardLayoutComponent implements OnInit {
   private store = inject(Store);
   private nomesPerfis = inject(NomesPerfisService);
+  // Esconde do menu os módulos que o Mapa de Permissões não deixa ver a esta
+  // pessoa (restrições da escola, perfil da escola). O back-end decide sempre.
+  minhas = inject(MinhasPermissoesService);
   isGestor$ = this.store.select(selectIsGestor);
   isGestorOuSecretaria$ = this.store.select(selectIsGestorOuSecretaria);
   isAlunoOuResponsavel$ = this.store.select(selectIsAlunoOuResponsavel);
@@ -47,6 +51,7 @@ export class DashboardLayoutComponent implements OnInit {
     // Nomes dos perfis definidos pelo Super Admin (ex.: GESTOR → "Diretor
     // Geral") — usados pelo pipe nomePerfil em toda a app.
     this.nomesPerfis.carregar();
+    this.minhas.carregar();
   }
 
   alternarSidebar() {

@@ -38,6 +38,13 @@ export const desativarDoisFatores = createAction(
   props<{ tenant_id?: string, usuario_id: string }>()
 );
 
+// Perfil da escola (ex.: "Tesouraria"); null = volta ao perfil base. Só a
+// própria escola do Gestor (os perfis da escola são dela).
+export const atribuirPerfilPersonalizado = createAction(
+  '[Usuarios] Atribuir Perfil Personalizado',
+  props<{ usuario_id: string, perfil_personalizado_id: string | null }>()
+);
+
 export const carregarAuditoria = createAction(
   '[Usuarios] Carregar Auditoria',
   props<{ tenant_id?: string, page?: number, page_size?: number }>()

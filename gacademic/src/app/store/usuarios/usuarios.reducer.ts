@@ -24,7 +24,7 @@ export const initialState: UsuariosState = {
 export const usuariosReducer = createReducer(
   initialState,
   on(UsuariosActions.carregarUsuarios, UsuariosActions.criarSecretaria,
-     UsuariosActions.alterarPerfil, UsuariosActions.alterarAtivo, UsuariosActions.carregarAuditoria,
+     UsuariosActions.alterarPerfil, UsuariosActions.alterarAtivo, UsuariosActions.atribuirPerfilPersonalizado, UsuariosActions.carregarAuditoria,
     (state) => ({ ...state, erro: null, mensagem: null })
   ),
   on(UsuariosActions.carregarUsuariosSucesso, (state, { usuarios, paginacao }) => ({ ...state, usuarios, paginacaoUsuarios: paginacao })),

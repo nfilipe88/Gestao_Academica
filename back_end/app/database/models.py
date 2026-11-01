@@ -195,6 +195,12 @@ class Usuario(Base):
     # pessoa introduzir o código enviado para o e-mail — ver
     # models_usuarios.py::DesafioDoisFatores e cruds/dois_fatores.py.
     dois_fatores_ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    # Perfil da escola (ex.: "Tesouraria"), só para Secretaria/Professor com
+    # o mesmo perfil base — tira permissões pelo mapa, nunca dá. Ver
+    # models_permissoes.py::PerfilPersonalizado. Apagar o perfil = a pessoa
+    # volta ao perfil base.
+    perfil_personalizado_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("perfil_personalizado.id", ondelete="SET NULL"), nullable=True, index=True)
     data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
 
     # Relacionamento

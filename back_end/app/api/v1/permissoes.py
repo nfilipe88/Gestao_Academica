@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import obter_sessao_db
+from app.core import mapa_permissoes
 from app.core.security import exigir_perfil, obter_utilizador_atual
 from app.cruds import permissoes as crud_permissoes
-from app.schemas.permissoes import PerfilNomeOut, PerfilNomeUpdate, PermissaoModuloOut, PermissaoModuloUpdate
+from app.schemas.permissoes import MinhasPermissoesOut, PerfilNomeOut, PerfilNomeUpdate, PermissaoModuloOut, PermissaoModuloUpdate
 
 router = APIRouter(prefix="/api/v1/permissoes", tags=["Mapa de Permissões"])
 
@@ -66,6 +67,17 @@ async def listar_nomes_perfis(
     db: AsyncSession = Depends(obter_sessao_db), utilizador: dict = Depends(obter_utilizador_atual)
 ):
     return await crud_permissoes.listar_nomes_perfis(db)
+
+
+@router.get("/minhas", response_model=MinhasPermissoesOut)
+async def minhas_permissoes(utilizador: dict = Depends(obter_utilizador_atual)):
+    """O que vale para quem pergunta, módulo a módulo (mapa base, escola e
+    perfil da escola) — o menu esconde o que não pode usar. Quem decide
+    continua a ser o back-end, em cada pedido."""
+    modulos = await mapa_permissoes.permissoes_do_usuario(
+        utilizador["tenant_id"], utilizador["perfil_acesso"], utilizador["usuario_id"])
+    personalizado = await mapa_permissoes.perfil_personalizado_do_usuario(utilizador["usuario_id"])
+    return {"modulos": modulos, "perfil_personalizado": personalizado["nome"] if personalizado else None}
 
 
 @router.put("/perfis/{codigo}", response_model=PerfilNomeOut)
