@@ -1,6 +1,8 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
-import { IsActiveMatchOptions, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, computed, inject, OnInit } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { IsActiveMatchOptions, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter, map, startWith } from 'rxjs';
 import { logout } from '../../../../store/auth/auth.actions';
 import { selectIsAlunoOuResponsavel, selectIsEquipaPlataforma, selectIsGestor, selectIsGestorOuSecretaria, selectIsSuperAdmin } from '../../../../store/auth/auth.selectors';
 import { carregarConfiguracao } from '../../../../store/configuracoes/configuracoes.actions';
@@ -21,6 +23,15 @@ export class DashboardLayoutComponent implements OnInit {
   // Esconde do menu os módulos que o Mapa de Permissões não deixa ver a esta
   // pessoa (restrições da escola, perfil da escola). O back-end decide sempre.
   minhas = inject(MinhasPermissoesService);
+  private router = inject(Router);
+  private rotaAtual = toSignal(this.router.events.pipe(
+    filter(evento => evento instanceof NavigationEnd),
+    map(() => this.router.url),
+    startWith(this.router.url),
+  ), { initialValue: this.router.url });
+  // Sem isto, um ecrã que depende de outro módulo (ex.: Financeiro → Alunos)
+  // ficava vazio sem nenhuma explicação para quem tem um perfil restrito.
+  leiturasEmFalta = computed(() => this.minhas.leiturasEmFaltaDaRota(this.rotaAtual()));
   isGestor$ = this.store.select(selectIsGestor);
   isGestorOuSecretaria$ = this.store.select(selectIsGestorOuSecretaria);
   isAlunoOuResponsavel$ = this.store.select(selectIsAlunoOuResponsavel);

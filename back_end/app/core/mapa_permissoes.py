@@ -74,8 +74,33 @@ _OPERACAO_DO_METODO = {"GET": "pode_ler", "HEAD": "pode_ler", "POST": "pode_cria
                        "PUT": "pode_atualizar", "PATCH": "pode_atualizar", "DELETE": "pode_apagar"}
 NOME_OPERACAO = {"pode_criar": "criar", "pode_ler": "ver", "pode_atualizar": "alterar", "pode_apagar": "apagar"}
 
-# O Gestor nunca pode perder, pelo mapa, o acesso às Configurações da escola.
-PROTEGIDOS = {("Configurações", "gestor", "pode_ler"), ("Configurações", "gestor", "pode_atualizar")}
+# O Gestor nunca pode perder, pelo mapa, o acesso às Configurações da escola. E
+# ninguém pode perder a leitura: toda a app lê daí a moeda e o ano letivo (sem
+# isto, os valores apareciam na moeda errada a quem a tivesse perdido).
+PROTEGIDOS = {
+    ("Configurações", "gestor", "pode_ler"), ("Configurações", "gestor", "pode_atualizar"),
+    ("Configurações", "secretaria", "pode_ler"), ("Configurações", "professor", "pode_ler"),
+    ("Configurações", "aluno_responsavel", "pode_ler"),
+}
+
+# O que cada ecrã precisa de LER noutros módulos para funcionar (ex.: o
+# Financeiro escolhe o aluno numa lista que vem de Alunos). Não dá nada a
+# ninguém: só serve para avisar quem tira uma destas leituras, em vez de o ecrã
+# ficar vazio sem explicação. Confirmado página a página em browser real.
+LEITURAS_NECESSARIAS: dict[str, list[str]] = {
+    "Turmas & Matrículas": ["Cursos", "Alunos & Responsáveis"],
+    "Alunos & Responsáveis": ["Turmas & Matrículas"],
+    "Diário de Classe": ["Professores", "Horários", "Trabalhos / Tarefas"],
+    "Trabalhos / Tarefas": ["Professores", "Diário de Classe"],
+    "Horários": ["Turmas & Matrículas", "Professores", "Diário de Classe"],
+    "Comunicações": ["Turmas & Matrículas", "Alunos & Responsáveis"],
+    "Documentos (interno)": ["Alunos & Responsáveis", "Professores"],
+    "CRM": ["Cursos", "Turmas & Matrículas"],
+    "Financeiro": ["Alunos & Responsáveis"],
+    "Transferências de Alunos": ["Alunos & Responsáveis"],
+    "Professores": ["Cursos", "Turmas & Matrículas"],
+    "Estatísticas": ["Financeiro"],
+}
 
 
 def modulo_do_caminho(caminho: str) -> str | None:
@@ -267,6 +292,17 @@ async def permissoes_do_usuario(tenant_id, perfil_acesso: str, usuario_id) -> di
     }
 
 
+def leituras_em_falta(modulos: dict[str, dict[str, bool]]) -> dict[str, list[str]]:
+    """{módulo que a pessoa usa: [módulos que ele precisa de ler e ela não pode]}."""
+    em_falta = {}
+    for modulo, operacoes in modulos.items():
+        if any(operacoes.values()):
+            faltam = [m for m in LEITURAS_NECESSARIAS.get(modulo, []) if not modulos.get(m, {}).get("pode_ler", False)]
+            if faltam:
+                em_falta[modulo] = faltam
+    return em_falta
+
+
 async def verificar_mapa(request: Request) -> None:
     """Dependência global (main.py): corre antes de cada rota. Pedidos sem
     sessão, fora dos módulos do mapa ou com um token que não se lê seguem
@@ -291,13 +327,16 @@ async def verificar_mapa(request: Request) -> None:
     from app.core import eventos_seguranca, nomes_perfil
     personalizado = await perfil_personalizado_do_usuario(claims.get("sub"))
     nome_perfil = personalizado["nome"] if personalizado else await nomes_perfil.nome(perfil)
-    # Com o utilizador identificado: é uma pessoa da escola, nunca conta para
-    # bloquear o IP (ver eventos_seguranca) — vai para o registo e para o Gestor.
-    await eventos_seguranca.registar(
-        eventos_seguranca.ACESSO_NEGADO, eventos_seguranca.MEDIA,
-        f"Mapa de Permissões: {nome_perfil} sem permissão para {NOME_OPERACAO[operacao]} em {modulo}.",
-        usuario_id=uuid.UUID(claims["sub"]), tenant_id=uuid.UUID(tenant_id),
-    )
+    # Fica no registo com o utilizador (nunca conta para bloquear o IP), mas sem
+    # avisar o Gestor por e-mail e só uma vez por hora: foi a própria escola que
+    # tirou esta permissão, e os ecrãs pedem dados de outros módulos ao abrir, por
+    # isso quem tem um perfil restrito chega aqui no uso normal, sem má intenção.
+    if await eventos_seguranca.uma_vez_por_janela(f"mapa:{claims['sub']}:{modulo}:{operacao}", 3600):
+        await eventos_seguranca.registar(
+            eventos_seguranca.ACESSO_NEGADO, eventos_seguranca.BAIXA,
+            f"Mapa de Permissões: {nome_perfil} sem permissão para {NOME_OPERACAO[operacao]} em {modulo}.",
+            usuario_id=uuid.UUID(claims["sub"]), tenant_id=uuid.UUID(tenant_id),
+        )
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail=f"O seu perfil ({nome_perfil}) não tem permissão para {NOME_OPERACAO[operacao]} em {modulo}.",

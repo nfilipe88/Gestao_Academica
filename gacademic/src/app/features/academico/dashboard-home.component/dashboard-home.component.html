@@ -15,10 +15,12 @@
         <h3 class="text-sm font-semibold text-blue-800 mb-3">Sugestões para explorar</h3>
         <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           @for (dica of dicas; track dica.link) {
+            @if (minhas.podeVerRota(dica.link)) {
             <li class="text-sm text-blue-900">
               {{ dica.texto }}
               <a [routerLink]="dica.link" class="ml-1 font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap">{{ dica.rotulo }} →</a>
             </li>
+            }
           }
         </ul>
       </div>
@@ -28,26 +30,35 @@
   @if (resumo$ | async; as resumo) {
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      @if (minhas.podeVer('Cursos')) {
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
         <p class="text-sm text-slate-500">Cursos</p>
         <p class="text-3xl font-bold text-slate-800 mt-1">{{ resumo.totalCursos }}</p>
       </div>
+      }
+      @if (minhas.podeVer('Turmas & Matrículas')) {
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
         <p class="text-sm text-slate-500">Turmas</p>
         <p class="text-3xl font-bold text-slate-800 mt-1">{{ resumo.totalTurmas }}</p>
       </div>
+      }
+      @if (minhas.podeVer('Alunos & Responsáveis')) {
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
         <p class="text-sm text-slate-500">Alunos</p>
         <p class="text-3xl font-bold text-slate-800 mt-1">{{ resumo.totalAlunos }}</p>
       </div>
+      }
+      @if (minhas.podeVer('Turmas & Matrículas')) {
       <div class="bg-white p-6 rounded-xl shadow-xs border border-slate-200">
         <p class="text-sm text-slate-500">Vagas totais</p>
         <p class="text-3xl font-bold text-slate-800 mt-1">{{ resumo.totalVagas }}</p>
       </div>
+      }
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
+      @if (minhas.podeVer('Cursos')) {
       <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
         <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 class="text-lg font-semibold text-slate-800">Cursos recentes</h3>
@@ -63,15 +74,24 @@
           </ul>
         }
       </div>
+      }
 
+      @if (minhas.podeVerAlgum('Cursos', 'Turmas & Matrículas', 'Alunos & Responsáveis')) {
       <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
         <h3 class="text-lg font-semibold text-slate-800 mb-4">Ações rápidas</h3>
         <div class="flex flex-col gap-3 items-start">
+          @if (minhas.podeVer('Cursos')) {
           <a routerLink="/cursos" class="text-sm font-medium text-blue-600 hover:text-blue-700">+ Novo curso</a>
+          }
+          @if (minhas.podeVer('Turmas & Matrículas')) {
           <a routerLink="/turmas" class="text-sm font-medium text-blue-600 hover:text-blue-700">+ Nova turma</a>
+          }
+          @if (minhas.podeVer('Alunos & Responsáveis')) {
           <a routerLink="/alunos" class="text-sm font-medium text-blue-600 hover:text-blue-700">+ Novo aluno</a>
+          }
         </div>
       </div>
+      }
 
     </div>
   }

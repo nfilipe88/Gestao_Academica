@@ -24,6 +24,12 @@ servidor: se o servidor se perder, os ficheiros e as cópias de segurança não 
   1. ficheiros da aplicação — credenciais de leitura e escrita;
   2. backups — credenciais **só de escrita** (PutObject) e uma **regra de ciclo de vida** que apaga
      objetos com mais de 14 dias. Se o fornecedor permitir, ligar versionamento / Object Lock.
+     **Confirme que essas credenciais não conseguem apagar**: nem todos os fornecedores separam
+     escrever de apagar, e quem as roubasse podia destruir as cópias.
+
+  Os backups cobrem só a **base de dados**. Os ficheiros (logótipos, anexos, documentos) ficam só
+  no bucket 1: ligue lá o **versionamento**, para um ficheiro apagado ou substituído por engano se
+  poder recuperar.
 - **SMTP** (obrigatório: ativação de contas, recuperação de palavra-passe, códigos da verificação
   em dois passos).
 
@@ -66,6 +72,9 @@ docker compose exec backend python scripts/backup_manual.py   # tem de sair um .
 docker compose exec backend python seed_super_admin.py   # conta Super Admin (pede os dados)
 ```
 
+- **Abrir o site num browser a sério** e confirmar que está com o aspeto certo. Um `curl` dá 200
+  mesmo com a página partida.
+
 - Abrir `https://<domínio>`: cadeado válido; `http://` redireciona para `https://`.
 - Ensaio de restauro no **seu computador** (com a chave privada e credenciais de leitura do
   bucket de backups) — ver `README.md`, secção "Backup e Restauro".
@@ -97,11 +106,14 @@ escrita para os backups, `ensaio-local/s3.json`).
 
 ```bash
 cd deploy/producao
-cp .env.exemplo .env      # DOMINIO=localhost; S3 em http://s3:8333 com as credenciais de ensaio-local/s3.json
+python3 ensaio-local/preparar-env.py      # .env com segredos descartáveis, chave pública dos backups
 ./primeiro-certificado.sh --teste-local
 docker compose -f docker-compose.yml -f docker-compose.ensaio-local.yml up -d --build
+node ensaio-local/verificar-browser.mjs   # abre o site num Chrome real (CSP, CSS, JavaScript)
 # https://localhost (certificado autoassinado — o browser avisa, é normal no ensaio)
 ```
+
+O CI corre isto em cada push (job "Ensaio da receita de produção").
 
 ## O que esta receita NÃO cobre
 

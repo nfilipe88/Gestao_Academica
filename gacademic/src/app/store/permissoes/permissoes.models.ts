@@ -21,6 +21,8 @@ export interface PermissaoModulo {
   informativo: boolean;
   // Operações que nunca se podem tirar (o Gestor nas Configurações).
   protegidas: (keyof OperacoesCrud)[];
+  // O que este módulo precisa de LER noutros para o ecrã funcionar.
+  leituras_necessarias: string[];
   // Só na vista do Gestor: o que vale na escola dele.
   escola_pode_criar?: boolean | null;
   escola_pode_ler?: boolean | null;

@@ -38,6 +38,7 @@ if "_test" not in os.environ["DATABASE_URL"] and "test" not in os.environ["DATAB
     )
 
 import pytest
+import redis
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import update
 
@@ -45,6 +46,22 @@ from main import app
 from app.core import eventos_seguranca, rate_limiter
 from app.database.models import Usuario
 from app.database.session import AsyncSessionLocalSistema
+
+
+# Com REDIS_URL (o modo de produção; ver o 2.º pytest em .github/workflows/ci.yml)
+# os contadores vivem no Redis e a limpeza em memória abaixo não os toca: ao fim
+# de 5 escolas registadas, todos os testes levavam 429. Só as chaves da
+# plataforma, nunca um FLUSHDB: mesmo assim, usar um Redis só para os testes.
+_REDIS_TESTES = redis.from_url(os.environ["REDIS_URL"]) if os.getenv("REDIS_URL") else None
+_CHAVES_REDIS_ENTRE_TESTES = ("ratelimit:*", "seguranca:*", "lock:*", "fila:*")
+
+
+def _limpar_redis_entre_testes() -> None:
+    if _REDIS_TESTES is None:
+        return
+    for padrao in _CHAVES_REDIS_ENTRE_TESTES:
+        for chave in _REDIS_TESTES.scan_iter(padrao):
+            _REDIS_TESTES.delete(chave)
 
 
 @pytest.fixture(autouse=True)
@@ -62,6 +79,7 @@ def _limpar_rate_limiter():
     # Mesma razão para os pontos/bloqueios de IP dos eventos de segurança
     # (todos os testes vêm do mesmo IP do ASGITransport).
     eventos_seguranca.limpar_memoria()
+    _limpar_redis_entre_testes()
     yield
 
 

@@ -17,16 +17,19 @@ dias, para todas as escolas — não é preciso o Gestor lembrar-se de
 clicar.
 """
 import logging
+import os
 
+import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select, text
 
 from app.database.session import AsyncSessionLocal, AsyncSessionLocalSistema
-from app.database.models import Tenant
+from app.database.models import Tenant, Usuario
 from app.cruds.financeiro import processar_regua_cobranca_do_tenant
 from app.cruds.admin import processar_validade_licencas
 from app.core import backup, fila_notificacoes, privacidade
+from app.core.email import enviar_email, escapar, template_base
 from app.core.lock_distribuido import tentar_obter_lock
 
 logger = logging.getLogger("scheduler")
@@ -128,10 +131,51 @@ async def job_backup_diario() -> dict:
         logger.info("Backup diário: outra instância já está a tratar disto agora — a saltar.")
         return {}
     try:
-        return await backup.executar_backup_diario()
-    except Exception:
+        resumo = await backup.executar_backup_diario()
+    except Exception as erro:
         logger.exception("Falha ao executar o backup diário.")
+        await _avisar_falha_do_backup(erro)
         return {}
+    await _confirmar_backup_a_monitorizacao()
+    return resumo
+
+
+async def _avisar_falha_do_backup(erro: Exception) -> None:
+    """E-mail ao Super Admin: sem isto a falha só ficava no log, e ninguém olha
+    para o log até precisar de um backup que afinal não existe."""
+    try:
+        async with AsyncSessionLocalSistema() as db:
+            emails = (await db.execute(
+                select(Usuario.email).where(Usuario.perfil_acesso == "SUPER_ADMIN", Usuario.ativo.is_(True))
+            )).scalars().all()
+        corpo = template_base(
+            "O backup diário falhou",
+            f"""
+            <p>O backup diário da base de dados <strong>falhou</strong> e não ficou nenhuma cópia nova.</p>
+            <p>Erro: {escapar(type(erro).__name__)}: {escapar(str(erro)[:500])}</p>
+            <p>Veja os registos do back-end e corra <code>scripts/backup_manual.py</code>
+            depois de corrigir a causa (RUNBOOK.md).</p>
+            """
+        )
+        for email in emails:
+            await fila_notificacoes.agendar_email(enviar_email, destinatario=email, assunto="Falha no backup diário", corpo_html=corpo)
+    except Exception:
+        logger.exception("Não foi possível avisar o Super Admin da falha do backup.")
+
+
+async def _confirmar_backup_a_monitorizacao() -> None:
+    """Pede BACKUP_HEARTBEAT_URL depois de cada backup bem-sucedido (ex.:
+    healthchecks.io), que avisa quando o sinal deixa de chegar. É a única forma
+    de saber que o job nem sequer correu (servidor em baixo, agendador parado):
+    aí não há erro nenhum para apanhar."""
+    url = os.getenv("BACKUP_HEARTBEAT_URL")
+    if not url:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as cliente:
+            (await cliente.get(url)).raise_for_status()
+    except Exception:
+        logger.exception("O backup correu, mas não foi possível avisar a monitorização (BACKUP_HEARTBEAT_URL).")
 
 
 async def job_limpeza_operacional_diaria() -> dict:

@@ -4,6 +4,7 @@ Permissões (app/core/mapa_permissoes.py). Cada teste usa escolas novas
 (tudo é por tenant; nada toca no mapa base global)."""
 import uuid
 
+from app.core import fila_notificacoes
 from tests.conftest import auth_headers, criar_escola_e_gestor
 from tests.test_auth_rbac import _criar_secretaria_com_token
 from tests.test_comportamento import _criar_professor_com_token
@@ -199,4 +200,83 @@ async def test_minhas_permissoes_da_equipa_da_plataforma(client):
     headers_sa = auth_headers((await _criar_super_admin(client))["access_token"])
     resp = await client.get("/api/v1/permissoes/minhas", headers=headers_sa)
     assert resp.status_code == 200
-    assert resp.json() == {"modulos": None, "perfil_personalizado": None}
+    assert resp.json() == {"modulos": None, "perfil_personalizado": None, "leituras_em_falta": {}}
+
+
+async def _tesouraria_so_com_financeiro(client, prefixo: str) -> tuple[dict, dict, dict]:
+    _, headers, sec_id, headers_sec = await _escola_com_secretaria(client, prefixo)
+    perfil = await _criar_perfil(client, headers, "Tesouraria")
+    for cel in perfil["permissoes"]:
+        if not cel["informativo"] and cel["modulo"] not in ("Financeiro", "Configurações"):
+            resp = await _definir(client, headers, perfil["id"], cel["modulo"])
+            assert resp.status_code == 200, resp.text
+    resp = await client.put(f"/api/v1/usuarios/{sec_id}/perfil-personalizado", headers=headers,
+                            json={"perfil_personalizado_id": perfil["id"]})
+    assert resp.status_code == 200, resp.text
+    return perfil, headers, headers_sec
+
+
+async def test_ninguem_perde_a_leitura_das_configuracoes(client):
+    """Toda a app lê daí a moeda: sem isto, os valores apareciam noutra moeda."""
+    perfil, headers, headers_sec = await _tesouraria_so_com_financeiro(client, "perfil-escola-moeda")
+    configuracoes = _celula(perfil, "Configurações")
+    assert "pode_ler" in configuracoes["protegidas"] and configuracoes["pode_ler"] is True
+
+    resp = await _definir(client, headers, perfil["id"], "Configurações")
+    assert resp.status_code == 400 and "protegida" in resp.json()["detail"]
+    assert (await client.get("/api/v1/configuracoes", headers=headers_sec)).status_code == 200
+
+    # A escola também não a pode tirar à Secretaria.
+    linhas = (await client.get("/api/v1/permissoes", headers=headers)).json()
+    celula = next(l for l in linhas if l["modulo"] == "Configurações" and l["perfil"] == "secretaria")
+    resp = await client.put(f"/api/v1/permissoes/{celula['id']}/escola", headers=headers, json={op: False for op in _OPS})
+    assert resp.status_code == 400 and "protegida" in resp.json()["detail"]
+
+
+async def test_avisa_o_que_falta_ler_para_o_ecra_funcionar(client):
+    """Financeiro sem ler Alunos: a lista de alunos fica vazia. A pessoa e o
+    Gestor têm de ver porquê, não um ecrã vazio sem explicação."""
+    perfil, headers, headers_sec = await _tesouraria_so_com_financeiro(client, "perfil-escola-leituras")
+    assert _celula(perfil, "Financeiro")["leituras_necessarias"] == ["Alunos & Responsáveis"]
+
+    minhas = (await client.get("/api/v1/permissoes/minhas", headers=headers_sec)).json()
+    assert minhas["leituras_em_falta"] == {"Financeiro": ["Alunos & Responsáveis"]}
+    assert (await client.get("/api/v1/alunos", headers=headers_sec)).status_code == 403
+
+    # Dar a leitura resolve; é uma decisão visível do Gestor, nunca automática.
+    resp = await _definir(client, headers, perfil["id"], "Alunos & Responsáveis", pode_ler=True)
+    assert resp.status_code == 200, resp.text
+    minhas = (await client.get("/api/v1/permissoes/minhas", headers=headers_sec)).json()
+    assert minhas["leituras_em_falta"].get("Financeiro") is None
+    assert (await client.get("/api/v1/alunos", headers=headers_sec)).status_code == 200
+
+
+async def test_o_mapa_sem_restricoes_nao_tem_avisos(client):
+    """O mapa base não pode nascer com ecrãs partidos para nenhum perfil de staff."""
+    escola = await criar_escola_e_gestor(client, "perfil-escola-sem-avisos")
+    headers = auth_headers(escola["token"])
+    token_sec = await _criar_secretaria_com_token(client, headers, escola["nif"])
+    _, token_prof = await _criar_professor_com_token(client, headers, "Prof Sem Avisos")
+    for quem in (headers, auth_headers(token_sec), auth_headers(token_prof)):
+        minhas = (await client.get("/api/v1/permissoes/minhas", headers=quem)).json()
+        assert minhas["leituras_em_falta"] == {}, minhas["leituras_em_falta"]
+
+
+async def test_recusa_do_mapa_nao_alarma_o_gestor_nem_enche_o_registo(client, monkeypatch):
+    """Os ecrãs pedem dados de outros módulos ao abrir: quem tem um perfil
+    restrito chega aqui no uso normal. Fica registado, sem e-mail e sem repetir."""
+    enviados = []
+
+    async def _agendar_falso(_funcao_envio, **kwargs):
+        enviados.append(kwargs)
+
+    monkeypatch.setattr(fila_notificacoes, "agendar_email", _agendar_falso)
+    _, headers, headers_sec = await _tesouraria_so_com_financeiro(client, "perfil-escola-sem-alarme")
+    enviados.clear()
+    for _ in range(5):
+        assert (await client.get("/api/v1/alunos", headers=headers_sec)).status_code == 403
+
+    itens = (await client.get("/api/v1/seguranca/eventos", headers=headers)).json()["items"]
+    recusas = [e for e in itens if e["tipo"] == "ACESSO_NEGADO" and e["caminho"] == "/api/v1/alunos"]
+    assert len(recusas) == 1 and recusas[0]["gravidade"] == "BAIXA" and recusas[0]["email"]
+    assert not any("segurança" in e["assunto"].lower() for e in enviados)

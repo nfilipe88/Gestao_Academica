@@ -83,6 +83,9 @@ def main() -> None:
     avisos.append(("PAYPAL_MODE não é sandbox com credenciais preenchidas", not (_v(env, "PAYPAL_CLIENT_ID") and _v(env, "PAYPAL_MODE", ) != "live"), "credenciais sandbox em produção?"))
     avisos.append(("REDIS_URL definido (obrigatório com > 1 instância)", bool(_v(env, "REDIS_URL")), "vazio só é correto com uma instância"))
 
+    avisos.append(("Sinal de que o backup correu (BACKUP_HEARTBEAT_URL)", bool(_v(env, "BACKUP_HEARTBEAT_URL")),
+                   "sem isto, um backup que nem chega a correr passa despercebido"))
+
     falhou = False
     print("BLOQUEADORES")
     for nome, ok, dica in bloqueadores:

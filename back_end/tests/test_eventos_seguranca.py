@@ -8,7 +8,7 @@ import jwt
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
-from app.core import fila_notificacoes, privacidade
+from app.core import eventos_seguranca, fila_notificacoes, privacidade
 from app.core.security import ALGORITHM, SECRET_KEY
 from app.database.models_usuarios import EventoSeguranca
 from app.database.session import AsyncSessionLocalSistema
@@ -197,3 +197,32 @@ async def test_eventos_antigos_sao_apagados_pela_limpeza_diaria():
         await db.commit()
         await privacidade.limpar_dados_operacionais(db)
         assert (await db.get(EventoSeguranca, antigo_id)) is None
+
+
+# ==========================================
+# IP partilhado (escola, rede móvel): uma pessoa não pode deixar de fora as outras
+# ==========================================
+async def test_uma_pessoa_a_errar_a_palavra_passe_nao_bloqueia_o_ip():
+    ip = _ip_unico()
+    async with _cliente_de(ip) as distraida:
+        for tentativa in range(20):
+            await distraida.post("/api/v1/auth/login", data={"username": "pessoa.distraida@teste.pt", "password": f"errada{tentativa}"})
+        # Ela está travada pelo limite de login, mas quem partilha o IP não.
+        assert not await eventos_seguranca.ip_bloqueado(ip)
+        resp = await distraida.post("/api/v1/auth/login", data={"username": "outra.pessoa@teste.pt", "password": "errada"})
+        assert resp.status_code == 401, resp.text
+
+
+async def test_ip_bloqueado_nao_corta_quem_ja_tem_sessao(client):
+    escola = await criar_escola_e_gestor(client, "seg-sessao-em-ip-bloqueado")
+    ip = _ip_unico()
+    await eventos_seguranca.bloquear_ip(ip, "teste")
+    async with _cliente_de(ip) as na_mesma_rede:
+        # Quem já entrou continua a trabalhar...
+        assert (await na_mesma_rede.get("/api/v1/perfil", headers=auth_headers(escola["token"]))).status_code == 200
+        # ...e pode renovar a sessão (a própria rota valida o refresh token).
+        assert (await na_mesma_rede.post("/api/v1/auth/refresh", json={"refresh_token": "invalido"})).status_code != 403
+        # Sem sessão, ou com um token que não é válido, continua bloqueado.
+        assert (await na_mesma_rede.get("/api/v1/public/config")).status_code == 403
+        forjado = jwt.encode({"sub": str(uuid.uuid4())}, "outra-chave-com-pelo-menos-32-caracteres!", algorithm=ALGORITHM)
+        assert (await na_mesma_rede.get("/api/v1/perfil", headers=auth_headers(forjado))).status_code == 403

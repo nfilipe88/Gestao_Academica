@@ -12,13 +12,16 @@ Quem regista o quê:
     maliciosos;
   - api/v1/auth.py, cruds/dois_fatores.py, core/recaptcha.py: força bruta.
 
-Duas regras para não tratar o normal como ataque:
+Três regras para não tratar o normal como ataque:
   - um token EXPIRADO não é registado (acontece a cada ~20 min a toda a
     gente); só um token com assinatura inválida (forjado);
   - só eventos ANÓNIMOS (sem sessão) contam para o bloqueio automático de
     IP — numa escola, muitas pessoas partilham o mesmo IP público; um
     utilizador identificado que tenta onde não deve vai para o registo e
-    para o Gestor, mas nunca bloqueia a rede da escola inteira.
+    para o Gestor, mas nunca bloqueia a rede da escola inteira;
+  - errar a palavra-passe conta pouco (quem insiste já leva 429 ao fim de 5
+    tentativas), e quem já tem sessão válida continua a trabalhar mesmo com
+    o IP bloqueado: o bloqueio é para travar ataques, não pessoas.
 
 Nunca levanta exceções: uma falha a registar nunca pode estragar o pedido
 em si (mesmo princípio de fila_notificacoes/auditoria).
@@ -49,10 +52,13 @@ RECAPTCHA_FALHADO = "RECAPTCHA_FALHADO"
 IP_BLOQUEADO = "IP_BLOQUEADO"
 
 BAIXA, MEDIA, ALTA = "BAIXA", "MEDIA", "ALTA"
-_PONTOS = {BAIXA: 1, MEDIA: 3, ALTA: 10}
+_PONTOS = {BAIXA: 1, MEDIA: 6, ALTA: 20}
 
 # ---- Bloqueio automático de IP ----
-LIMITE_PONTOS = int(os.getenv("SEGURANCA_LIMITE_PONTOS", "30"))
+# 3 ataques (ALTA), 10 sondagens (MEDIA) ou 60 tentativas falhadas de login no
+# mesmo IP em 10 minutos. Era metade, mas 15 erros de UMA pessoa chegavam para
+# deixar de fora toda a gente atrás desse IP durante uma hora.
+LIMITE_PONTOS = int(os.getenv("SEGURANCA_LIMITE_PONTOS", "60"))
 JANELA_SEGUNDOS = int(os.getenv("SEGURANCA_JANELA_SEGUNDOS", "600"))
 BLOQUEIO_SEGUNDOS = int(os.getenv("SEGURANCA_BLOQUEIO_SEGUNDOS", "3600"))
 # IPs que nunca são bloqueados (ex.: o escritório de quem administra a
@@ -126,6 +132,11 @@ async def _reservar(chave: str, segundos: int) -> bool:
     return True
 
 
+async def uma_vez_por_janela(chave: str, segundos: int) -> bool:
+    """True só da primeira vez nesta janela — para não encher o registo com o mesmo evento."""
+    return await _reservar(f"registo:{chave}", segundos)
+
+
 async def ip_bloqueado(ip: str) -> bool:
     if _redis is not None:
         try:
@@ -177,15 +188,16 @@ async def desbloquear_ip(ip: str) -> None:
 # ---- Registo ----
 async def registar(
     tipo: str, gravidade: str, detalhe: str | None = None, *,
-    email: str | None = None, usuario_id=None, tenant_id=None, ip: str | None = None,
+    email: str | None = None, usuario_id=None, tenant_id=None, ip: str | None = None, pontos: int | None = None,
 ) -> None:
+    """pontos: quanto conta para bloquear o IP, se não for o normal desta gravidade."""
     try:
-        await _registar(tipo, gravidade, detalhe, email=email, usuario_id=usuario_id, tenant_id=tenant_id, ip=ip)
+        await _registar(tipo, gravidade, detalhe, email=email, usuario_id=usuario_id, tenant_id=tenant_id, ip=ip, pontos=pontos)
     except Exception:
         logger.exception("Falha a registar o evento de segurança %s.", tipo)
 
 
-async def _registar(tipo, gravidade, detalhe, *, email, usuario_id, tenant_id, ip) -> None:
+async def _registar(tipo, gravidade, detalhe, *, email, usuario_id, tenant_id, ip, pontos) -> None:
     from app.database.session import AsyncSessionLocalSistema
     from app.database.models import Usuario
     from app.database.models_usuarios import EventoSeguranca
@@ -220,7 +232,7 @@ async def _registar(tipo, gravidade, detalhe, *, email, usuario_id, tenant_id, i
 
     # Só o anónimo conta para bloquear o IP (ver docstring do módulo).
     if usuario_id is None and ip not in IPS_NUNCA_BLOQUEAR and ip != "desconhecido":
-        total = await _somar_pontos(ip, _PONTOS.get(gravidade, 1))
+        total = await _somar_pontos(ip, _PONTOS.get(gravidade, 1) if pontos is None else pontos)
         if total >= LIMITE_PONTOS and not await ip_bloqueado(ip):
             motivo = f"{total} pontos de eventos suspeitos em {JANELA_SEGUNDOS // 60} min (último: {tipo})"
             await bloquear_ip(ip, motivo)
@@ -308,6 +320,23 @@ def classificar_endereco(caminho: str, query: str) -> tuple[str, str] | None:
     return None
 
 
+def _tem_sessao_valida(autorizacao: str) -> bool:
+    if not autorizacao.lower().startswith("bearer "):
+        return False
+    import jwt
+    from app.core.security import ALGORITHM, SECRET_KEY
+    try:
+        jwt.decode(autorizacao[7:].strip(), SECRET_KEY, algorithms=[ALGORITHM])
+        return True
+    except jwt.InvalidTokenError:
+        return False
+
+
+# Num IP bloqueado continuam a passar: a monitorização e renovar uma sessão que
+# já existe (o refresh token é validado pela própria rota).
+_CAMINHOS_LIVRES_DE_BLOQUEIO = {"/api/v1/health", "/api/v1/auth/refresh"}
+
+
 class MonitorSegurancaMiddleware:
     """ASGI puro (mesma razão de cabecalhos.py): recusa IPs bloqueados,
     deteta endereços de sondagem/ataque e guarda o contexto do pedido
@@ -334,7 +363,10 @@ class MonitorSegurancaMiddleware:
             "usuario_id": None, "tenant_id": None,
         })
         try:
-            if caminho != "/api/v1/health" and await ip_bloqueado(ip):
+            if (
+                caminho not in _CAMINHOS_LIVRES_DE_BLOQUEIO and await ip_bloqueado(ip)
+                and not _tem_sessao_valida(cabecalhos.get(b"authorization", b"").decode("latin-1"))
+            ):
                 await _responder(send, 403, "O seu endereço foi bloqueado temporariamente por atividade suspeita. Tente mais tarde.")
                 return
 

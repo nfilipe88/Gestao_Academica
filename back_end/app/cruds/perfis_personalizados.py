@@ -63,13 +63,18 @@ async def _vista(db: AsyncSession, perfil: PerfilPersonalizado) -> dict:
     permissoes = []
     for limite in limites:
         propria = proprias.get(limite["modulo"])
+        coluna = PERFIS_BASE_PERSONALIZAVEIS[perfil.perfil_base]
+        protegidas = [op for op in OPERACOES if (limite["modulo"], coluna, op) in mapa_permissoes.PROTEGIDOS]
         permissoes.append({
             "modulo": limite["modulo"], "ordem": limite["ordem"], "informativo": limite["informativo"],
             # O que vale de facto: o do perfil E o que a escola deixa ao base.
-            # Linhas só informativas não decidem nada — mostram o do perfil base.
-            **{op: limite[op] if limite["informativo"] else bool(propria and getattr(propria, op)) and limite[op]
+            # Linhas só informativas e operações protegidas não dependem do perfil.
+            **{op: limite[op] if limite["informativo"] or op in protegidas
+               else bool(propria and getattr(propria, op)) and limite[op]
                for op in OPERACOES},
             **{f"limite_{op}": limite[op] for op in OPERACOES},
+            "protegidas": protegidas,
+            "leituras_necessarias": mapa_permissoes.LEITURAS_NECESSARIAS.get(limite["modulo"], []),
         })
     return {
         "id": perfil.id, "nome": perfil.nome, "perfil_base": perfil.perfil_base,
@@ -145,7 +150,10 @@ async def atualizar_modulo(db: AsyncSession, tenant_id, perfil_id: uuid.UUID, mo
         raise HTTPException(status_code=404, detail="Módulo não encontrado no Mapa de Permissões.")
     if limite["informativo"]:
         raise HTTPException(status_code=400, detail=f"{modulo} é só informativo — não há nada a restringir.")
+    coluna = PERFIS_BASE_PERSONALIZAVEIS[perfil.perfil_base]
     for op in OPERACOES:
+        if not getattr(dados, op) and (modulo, coluna, op) in mapa_permissoes.PROTEGIDOS:
+            raise HTTPException(status_code=400, detail=f"Esta permissão é protegida: a plataforma precisa dela para funcionar ({modulo}).")
         if getattr(dados, op) and not limite[op]:
             nome_base = await nomes_perfil.nome(perfil.perfil_base)
             raise HTTPException(

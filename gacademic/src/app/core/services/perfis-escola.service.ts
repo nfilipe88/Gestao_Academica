@@ -14,6 +14,10 @@ export interface PermissaoPerfilEscola extends OperacoesCrud {
   limite_pode_ler: boolean;
   limite_pode_atualizar: boolean;
   limite_pode_apagar: boolean;
+  // Operações que nunca se podem tirar (ex.: ler as Configurações).
+  protegidas: (keyof OperacoesCrud)[];
+  // O que este módulo precisa de LER noutros para o ecrã funcionar.
+  leituras_necessarias: string[];
 }
 
 export interface PerfilEscola {

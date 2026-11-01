@@ -8,6 +8,7 @@ import { selectCursos, selectTurmas } from '../../../store/academico/academic.se
 import { carregarAlunos } from '../../../store/alunos/alunos.actions';
 import { selectPaginacaoAlunos } from '../../../store/alunos/alunos.selector';
 import { selectUsuario } from '../../../store/auth/auth.selectors';
+import { MinhasPermissoesService } from '../../../core/services/minhas-permissoes.service';
 import { CHAVE_LOCAL_DICAS_DASHBOARD_FECHADAS, guardarLocal, lerLocal } from '../../../core/utils/armazenamento-local';
 
 interface Dica {
@@ -50,6 +51,7 @@ const DICAS_POR_PERFIL: Record<string, Dica[]> = {
 export class DashboardHomeComponent implements OnInit {
   private store = inject(Store);
   private platformId = inject(PLATFORM_ID);
+  minhas = inject(MinhasPermissoesService);
 
   usuario$ = this.store.select(selectUsuario);
 

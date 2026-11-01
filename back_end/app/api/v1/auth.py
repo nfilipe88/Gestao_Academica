@@ -65,6 +65,9 @@ async def _verificar_limite_login(chave: str) -> None:
         await eventos_seguranca.registar(
             eventos_seguranca.FORCA_BRUTA, eventos_seguranca.MEDIA,
             f"Mais de {_LOGIN_MAX_TENTATIVAS} tentativas de login num minuto ({chave.split(':', 1)[-1]}).",
+            # Avisa como MEDIA, mas conta pouco para o IP: pode ser só uma pessoa
+            # enganada, e o 429 já trava quem insiste.
+            pontos=1,
         )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

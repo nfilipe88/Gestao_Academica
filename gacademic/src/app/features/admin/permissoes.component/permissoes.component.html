@@ -46,7 +46,7 @@
         <h3 id="t-perfis-escola" class="text-sm font-semibold text-slate-800">Perfis da escola</h3>
         <p class="text-xs text-slate-500 mt-1">
           Crie um perfil a partir da {{ 'SECRETARIA' | nomePerfil }} ou do {{ 'PROFESSOR' | nomePerfil }} — por exemplo,
-          uma "Tesouraria" só com o Financeiro. Começa igual ao perfil base; desmarque na coluna dele (a verde-azulado,
+          uma "Tesouraria" com o Financeiro e a leitura de Alunos. Começa igual ao perfil base; desmarque na coluna dele (a verde-azulado,
           na tabela abaixo) o que não deve poder fazer. Nunca pode ter mais do que o perfil base tem na escola.
           Atribui-se a cada pessoa em Gestão de Acessos.
         </p>
@@ -89,6 +89,14 @@
                   <button type="button" (click)="perfilAApagarId.set(pe.id)" class="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer">Apagar</button>
                 }
               </span>
+              @for (aviso of avisosPerfil(pe); track aviso.modulo + aviso.precisa) {
+                <p role="status" class="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+                  {{ aviso.modulo }} precisa de ler {{ aviso.precisa }}: sem isso, o ecrã fica incompleto para quem tem este perfil.
+                  @if (aviso.corrigivel) {
+                    <button type="button" (click)="onDarLeituraPerfil(pe, aviso.precisa)" class="ml-1 font-medium underline cursor-pointer">Dar a leitura</button>
+                  }
+                </p>
+              }
             </li>
           }
         </ul>
@@ -97,6 +105,20 @@
         <p [attr.role]="erroPerfisEscola() ? 'alert' : 'status'" class="text-sm" [class.text-rose-600]="erroPerfisEscola()" [class.text-emerald-700]="!erroPerfisEscola()">{{ mensagemPerfisEscola() }}</p>
       }
     </section>
+  }
+
+  @if (avisosMapa().length) {
+    <div role="status" class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-1">
+      <p class="font-medium">Estas restrições deixam ecrãs incompletos:</p>
+      @for (aviso of avisosMapa(); track aviso.perfil + aviso.modulo + aviso.precisa) {
+        <p class="text-xs">
+          {{ rotuloColuna(aviso.perfil) }}: {{ aviso.modulo }} precisa de ler {{ aviso.precisa }}.
+          @if (aviso.corrigivel) {
+            <button type="button" (click)="onDarLeituraMapa(aviso.perfil, aviso.precisa)" class="ml-1 font-medium underline cursor-pointer">Dar a leitura</button>
+          }
+        </p>
+      }
+    </div>
   }
 
   <!-- Legenda -->
@@ -256,7 +278,7 @@
       <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
         <li>Cada pedido ao back-end passa por duas verificações antes de tocar em qualquer dado: a regra de perfil escrita no código e este mapa. Só passa se as duas deixarem — por isso o mapa só pode tirar permissões, nunca dar além do código.</li>
         <li>Desmarcar uma operação aqui tem efeito imediato (até 30 segundos): quem tentar recebe "sem permissão" e a tentativa fica nos Eventos de Segurança.</li>
-        <li>O Gestor nunca perde Ler/Atualizar nas Configurações, para não ficar trancado fora da própria escola. A equipa da plataforma (Super Admin e Suporte) não é restringida pelo mapa.</li>
+        <li>O Gestor nunca perde Ler/Atualizar nas Configurações, para não ficar trancado fora da própria escola, e ninguém perde a leitura delas: toda a aplicação lê daí a moeda e o ano letivo. A equipa da plataforma (Super Admin e Suporte) não é restringida pelo mapa.</li>
         <li>Dados de escrita ficam ainda mais restritos: mesmo com "Total", uma ação só é aceite se o registo pertencer à mesma instituição de quem pede.</li>
         <li>O isolamento entre escolas (multi-tenant) é reforçado a dois níveis — no código da aplicação e diretamente na base de dados.</li>
       </ul>
@@ -265,7 +287,7 @@
       <h3 class="text-sm font-semibold text-slate-800 mb-3">A caminho</h3>
       <ul class="text-xs text-slate-500 space-y-2 leading-relaxed list-disc pl-4">
         <li>O mapa base é da plataforma (Super Admin); cada escola pode restringir mais na sua, sem afetar as outras.</li>
-        <li>Cada escola pode criar os seus perfis — por exemplo, uma "Tesouraria" com acesso só ao Financeiro: cada um parte da Secretaria ou do Professor e só pode ter menos, nunca mais.</li>
+        <li>Cada escola pode criar os seus perfis — por exemplo, uma "Tesouraria" com o Financeiro e a leitura de Alunos: cada um parte da Secretaria ou do Professor e só pode ter menos, nunca mais.</li>
         <li>O menu de cada pessoa esconde os módulos que o mapa não a deixa ver.</li>
       </ul>
     </div>

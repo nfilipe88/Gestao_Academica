@@ -21,8 +21,10 @@ class PermissaoModuloOut(BaseModel):
     codigo_pode_apagar: bool = True
     # Linha sem rotas associadas (ex.: Visão Geral) — só descreve, não decide nada.
     informativo: bool = False
-    # Operações que nunca se podem tirar (ex.: o Gestor nas Configurações).
+    # Operações que nunca se podem tirar (ex.: ler as Configurações).
     protegidas: list[str] = []
+    # O que este módulo precisa de LER noutros para o ecrã funcionar — só para avisar.
+    leituras_necessarias: list[str] = []
     # Só na vista do Gestor: o que vale na escola dele (mapa base E restrições da escola).
     escola_pode_criar: bool | None = None
     escola_pode_ler: bool | None = None
@@ -68,6 +70,8 @@ class PermissaoPerfilEscolaOut(BaseModel):
     limite_pode_ler: bool
     limite_pode_atualizar: bool
     limite_pode_apagar: bool
+    protegidas: list[str] = []
+    leituras_necessarias: list[str] = []
 
 
 class PerfilPersonalizadoOut(BaseModel):
@@ -97,3 +101,5 @@ class MinhasPermissoesOut(BaseModel):
     # None = o mapa não restringe esta pessoa (equipa da plataforma).
     modulos: dict[str, dict[str, bool]] | None
     perfil_personalizado: str | None = None
+    # {módulo: [o que ele precisa de ler e esta pessoa não pode]} — para o ecrã explicar porquê fica vazio.
+    leituras_em_falta: dict[str, list[str]] = {}

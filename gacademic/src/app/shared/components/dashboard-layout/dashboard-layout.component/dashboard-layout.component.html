@@ -227,10 +227,12 @@
       </a>
 
       @if (isGestorOuSecretaria$ | async) {
+        @if (minhas.podeVerAlgum('Indicadores', 'Estatísticas')) {
         @if (!sidebarColapsada) {
           <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Painéis</p>
         } @else {
           <hr class="border-slate-800 mt-3 mb-1 mx-2" />
+        }
         }
 
         <!-- Indicadores: visão executiva agregada de outros módulos —
@@ -345,10 +347,12 @@
       }
 
       @if (isGestorOuSecretaria$ | async) {
+        @if (minhas.podeVerAlgum('CRM', 'Turmas & Matrículas', 'Transferências de Alunos')) {
         @if (!sidebarColapsada) {
           <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Matrículas e Captação</p>
         } @else {
           <hr class="border-slate-800 mt-3 mb-1 mx-2" />
+        }
         }
 
         <!-- CRM: dados de contacto de famílias ainda não matriculadas —
@@ -405,10 +409,12 @@
       }
 
       @if (isGestorOuSecretaria$ | async) {
+        @if (minhas.podeVerAlgum('Financeiro')) {
         @if (!sidebarColapsada) {
           <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Financeiro</p>
         } @else {
           <hr class="border-slate-800 mt-3 mb-1 mx-2" />
+        }
         }
 
         <!-- Financeiro: criar contratos, marcar pagamentos e processar a
@@ -441,10 +447,12 @@
         }
       }
 
+      @if (minhas.podeVerAlgum('Comunicações', 'Documentos (interno)')) {
       @if (!sidebarColapsada) {
         <p class="px-3 pt-4 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Comunicação</p>
       } @else {
         <hr class="border-slate-800 mt-3 mb-1 mx-2" />
+      }
       }
 
       @if (minhas.podeVer('Comunicações')) {
@@ -632,6 +640,12 @@
       <app-notificacoes-sino></app-notificacoes-sino>
     </header>
     <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8">
+      @if (leiturasEmFalta().length) {
+        <div role="status" class="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          O seu perfil não pode ver {{ leiturasEmFalta().join(', ') }}, por isso parte desta página pode aparecer vazia.
+          Se precisar, peça à direção da escola para lhe dar a permissão de Ler.
+        </div>
+      }
       <router-outlet></router-outlet>
     </div>
   </main>

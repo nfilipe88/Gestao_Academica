@@ -77,7 +77,11 @@ async def minhas_permissoes(utilizador: dict = Depends(obter_utilizador_atual)):
     modulos = await mapa_permissoes.permissoes_do_usuario(
         utilizador["tenant_id"], utilizador["perfil_acesso"], utilizador["usuario_id"])
     personalizado = await mapa_permissoes.perfil_personalizado_do_usuario(utilizador["usuario_id"])
-    return {"modulos": modulos, "perfil_personalizado": personalizado["nome"] if personalizado else None}
+    return {
+        "modulos": modulos,
+        "perfil_personalizado": personalizado["nome"] if personalizado else None,
+        "leituras_em_falta": mapa_permissoes.leituras_em_falta(modulos) if modulos else {},
+    }
 
 
 @router.put("/perfis/{codigo}", response_model=PerfilNomeOut)

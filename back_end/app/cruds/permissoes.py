@@ -28,6 +28,7 @@ def _vista(linha: PermissaoModulo, restricao: PermissaoModuloEscola | None, vist
         **{f"codigo_{op}": (teto[op] if teto else True) for op in mapa_permissoes.OPERACOES},
         "informativo": teto is None,
         "protegidas": [op for op in mapa_permissoes.OPERACOES if (linha.modulo, linha.perfil, op) in mapa_permissoes.PROTEGIDOS],
+        "leituras_necessarias": mapa_permissoes.LEITURAS_NECESSARIAS.get(linha.modulo, []),
     }
     if vista_escola:
         for op in mapa_permissoes.OPERACOES:
@@ -72,7 +73,7 @@ async def atualizar_permissao(db: AsyncSession, permissao_id: uuid.UUID, dados: 
                 detail=f"O código não deixa este perfil {mapa_permissoes.NOME_OPERACAO[op]} em {linha.modulo} — o mapa só pode restringir.",
             )
         if not pedido and (linha.modulo, linha.perfil, op) in mapa_permissoes.PROTEGIDOS:
-            raise HTTPException(status_code=400, detail=f"Esta permissão é protegida: o Gestor nunca pode perder o acesso a {linha.modulo}.")
+            raise HTTPException(status_code=400, detail=f"Esta permissão é protegida: a plataforma precisa dela para funcionar ({linha.modulo}).")
     for op in mapa_permissoes.OPERACOES:
         setattr(linha, op, getattr(dados, op))
     await db.commit()
@@ -93,7 +94,7 @@ async def restringir_na_escola(db: AsyncSession, tenant_id, permissao_id: uuid.U
                 detail=f"O mapa base da plataforma não deixa este perfil {mapa_permissoes.NOME_OPERACAO[op]} em {linha.modulo} — a escola só pode restringir.",
             )
         if not pedido and (linha.modulo, linha.perfil, op) in mapa_permissoes.PROTEGIDOS:
-            raise HTTPException(status_code=400, detail=f"Esta permissão é protegida: o Gestor nunca pode perder o acesso a {linha.modulo}.")
+            raise HTTPException(status_code=400, detail=f"Esta permissão é protegida: a plataforma precisa dela para funcionar ({linha.modulo}).")
     restricao = (await db.execute(
         select(PermissaoModuloEscola).where(
             PermissaoModuloEscola.tenant_id == tenant_id, PermissaoModuloEscola.modulo == linha.modulo,

@@ -59,6 +59,9 @@ back-end corre sem `--reload`, por isso alterar código ou `.env` só tem efeito
 | "Limite de N aluno(s) do plano atingido" | Comportamento esperado. Desativar alunos que saíram, mudar de plano, ou **Isentar** (Super Admin). |
 | Utilizador diz que "o token é inválido" logo depois de a escola ser reativada | Tokens emitidos no mesmo segundo da desativação são revogados; pedir para voltar a iniciar sessão. |
 | Uploads (logótipo, anexos) falham | S3 em baixo ou credenciais erradas (`S3_*`). Ver `docker compose ps` e os registos do `backend`. |
+| "O seu endereço foi bloqueado temporariamente" | O IP juntou demasiados eventos suspeitos sem sessão (3 ataques, 10 sondagens ou 60 logins falhados em 10 min). Dura 1 hora e quem já tem sessão não é afetado. Painel de Segurança → desbloquear; se for uma escola com IP fixo, juntar a `SEGURANCA_IPS_NUNCA_BLOQUEAR`. |
+| E-mail "Falha no backup diário" | Não há cópia nova. Ver os registos do `backend` (o e-mail traz o erro), corrigir e correr `scripts/backup_manual.py`. |
+| Alguém com um perfil da escola vê um ecrã vazio e o aviso "O seu perfil não pode ver…" | Falta-lhe uma leitura de que o ecrã depende. O Gestor dá-a em Mapa de Permissões (o aviso também aparece lá, com o botão "Dar a leitura"). |
 | Formulários públicos devolvem 429 | Rate limiting a funcionar (registo 5/h, leads 10/h por IP). Esperar, ou investigar abuso. |
 | Formulários públicos devolvem 400 "Verificação de segurança falhou" | reCAPTCHA recusou o pedido (score < 0.5). O log tem `reCAPTCHA recusou um pedido:` com o motivo. |
 | Um pedido de documento fica em "pendente de pagamento" | Pagamento por transferência: a Secretaria confirma em Documentos → **Marcar paga** (o PayPal só serve moedas que aceita; Kwanza não). Depois o PDF fica disponível ao Responsável. |

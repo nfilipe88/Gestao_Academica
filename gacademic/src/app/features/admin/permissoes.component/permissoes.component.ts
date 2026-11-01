@@ -1,5 +1,5 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { Component, effect, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -12,6 +12,7 @@ import { NomePerfilPipe } from '../../../shared/pipes/nome-perfil.pipe';
 import { NomesPerfisService } from '../../../core/services/nomes-perfis.service';
 import { selectIsGestor, selectIsSuperAdmin } from '../../../store/auth/auth.selectors';
 import { PerfilBaseEscola, PerfilEscola, PerfisEscolaService, PermissaoPerfilEscola } from '../../../core/services/perfis-escola.service';
+import { AvisoLeitura, avisosDeLeitura } from './avisos-leitura';
 
 // Perfis fixos da plataforma (ver app/core/security.py::exigir_perfil no
 // back-end). Os perfis de cada escola (ex.: "Tesouraria") aparecem como
@@ -149,8 +150,58 @@ export class PermissoesComponent implements OnInit {
 
   bloqueioEscola(perfil: PerfilEscola, celula: PermissaoPerfilEscola, op: keyof OperacoesCrud): string | null {
     if (celula.informativo) return 'Linha só informativa — não há páginas associadas a restringir.';
+    if (celula.protegidas?.includes(op)) return 'Protegida: toda a aplicação precisa disto (moeda, ano letivo).';
     if (!celula[`limite_${op}` as keyof PermissaoPerfilEscola]) return `${this.nomesPerfis.nome(perfil.perfil_base)} não pode isto na escola — um perfil da escola só pode ter menos.`;
     return null;
+  }
+
+  avisosPerfil(perfil: PerfilEscola): (AvisoLeitura & { corrigivel: boolean })[] {
+    const celulas = perfil.permissoes.map(p => ({
+      ...p, ler: p.pode_ler, escreve: p.pode_criar || p.pode_atualizar || p.pode_apagar,
+    }));
+    return avisosDeLeitura(celulas).map(aviso => ({
+      ...aviso, corrigivel: !!this.celulaEscola(perfil, aviso.precisa)?.limite_pode_ler,
+    }));
+  }
+
+  onDarLeituraPerfil(perfil: PerfilEscola, modulo: string) {
+    const celula = this.celulaEscola(perfil, modulo);
+    if (!celula) return;
+    this.mensagemPerfisEscola.set(null);
+    this.perfisEscola.atualizarModulo(perfil.id, modulo, {
+      pode_criar: celula.pode_criar, pode_ler: true,
+      pode_atualizar: celula.pode_atualizar, pode_apagar: celula.pode_apagar,
+    }).subscribe({
+      error: (err) => this.avisarPerfis(err.error?.detail || 'Não foi possível guardar esta permissão.', true),
+    });
+  }
+
+  // O mesmo aviso para as restrições do próprio mapa (ex.: tirar à Secretaria ler Alunos).
+  private permissoes = toSignal(this.store.select(selectPermissoes), { initialValue: [] as PermissaoModulo[] });
+  avisosMapa = computed(() => {
+    const avisos: (AvisoLeitura & { perfil: PerfilPermissao; corrigivel: boolean })[] = [];
+    for (const perfil of ['gestor', 'secretaria', 'professor'] as PerfilPermissao[]) {
+      const celulas = this.permissoes().filter(p => p.perfil === perfil);
+      const paraAviso = celulas.map(c => ({
+        ...c, ler: this.valor(c, 'pode_ler'),
+        escreve: this.valor(c, 'pode_criar') || this.valor(c, 'pode_atualizar') || this.valor(c, 'pode_apagar'),
+      }));
+      for (const aviso of avisosDeLeitura(paraAviso)) {
+        const necessaria = celulas.find(c => c.modulo === aviso.precisa);
+        if (necessaria) avisos.push({ ...aviso, perfil, corrigivel: !this.bloqueio(necessaria, 'pode_ler') });
+      }
+    }
+    return avisos;
+  });
+
+  onDarLeituraMapa(perfil: PerfilPermissao, modulo: string) {
+    const celula = this.permissoes().find(p => p.perfil === perfil && p.modulo === modulo);
+    if (!celula) return;
+    const operacoes: OperacoesCrud = {
+      pode_criar: this.valor(celula, 'pode_criar'), pode_ler: true,
+      pode_atualizar: this.valor(celula, 'pode_atualizar'), pode_apagar: this.valor(celula, 'pode_apagar'),
+    };
+    this.store.dispatch(atualizarPermissao({ id: celula.id, operacoes, escola: !this.eSuperAdminSinal() }));
   }
 
   resumoEscola(celula: PermissaoPerfilEscola | undefined): string {
@@ -195,7 +246,7 @@ export class PermissoesComponent implements OnInit {
   // Porque é que uma operação não se pode mudar (null = pode).
   bloqueio(celula: PermissaoModulo, op: keyof OperacoesCrud): string | null {
     if (celula.perfil === 'super_admin') return 'A equipa da plataforma não é restringida pelo mapa.';
-    if (celula.protegidas?.includes(op) && this.valor(celula, op)) return 'Protegida: o Gestor nunca perde esta permissão.';
+    if (celula.protegidas?.includes(op) && this.valor(celula, op)) return 'Protegida: a plataforma precisa disto para funcionar.';
     if (this.eSuperAdminSinal()) {
       if (!celula[`codigo_${op}` as keyof PermissaoModulo] && !celula[op]) return 'O código não permite isto a este perfil — o mapa só restringe.';
       return null;

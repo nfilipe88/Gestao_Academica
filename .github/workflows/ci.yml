@@ -135,6 +135,52 @@ jobs:
         working-directory: gacademic
         run: npx ng build
 
+  # Arranca a receita de produção inteira (nginx com a CSP real, 2 workers,
+  # Postgres, Redis, S3) e abre-a num Chrome real. O curl não chega: a CSP já
+  # deixou o site todo sem CSS com o curl a dizer 200 em tudo.
+  ensaio-producao:
+    name: Ensaio da receita de produção (browser real)
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_FILE: docker-compose.yml:docker-compose.ensaio-local.yml
+    defaults:
+      run:
+        working-directory: deploy/producao
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+
+      - name: Preparar segredos descartáveis e certificado autoassinado
+        run: |
+          python3 ensaio-local/preparar-env.py
+          bash primeiro-certificado.sh --teste-local
+
+      - name: Arrancar a receita
+        run: docker compose up -d --build
+
+      - name: Esperar que a API responda através do nginx
+        run: |
+          for i in $(seq 1 60); do
+            curl -skf https://localhost/api/v1/health && exit 0
+            sleep 5
+          done
+          exit 1
+
+      - name: Verificar em browser real
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+        run: node ensaio-local/verificar-browser.mjs
+
+      - name: Registos (se falhou)
+        if: failure()
+        run: docker compose ps -a && docker compose logs --tail 80 backend frontend nginx
+
   docker-build:
     name: Build das imagens Docker (back-end + front-end)
     runs-on: ubuntu-latest
