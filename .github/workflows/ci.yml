@@ -161,6 +161,12 @@ jobs:
           python3 ensaio-local/preparar-env.py
           bash primeiro-certificado.sh --teste-local
 
+      - name: Validar a variante da Cloudflare
+        env:
+          COMPOSE_FILE: docker-compose.yml:docker-compose.cloudflare.yml
+          CLOUDFLARE_TUNNEL_TOKEN: token-so-para-validar
+        run: docker compose config --quiet
+
       - name: Arrancar a receita
         run: docker compose up -d --build
 

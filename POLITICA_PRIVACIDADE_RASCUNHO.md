@@ -128,6 +128,7 @@ Só partilhamos dados com prestadores necessários ao serviço, por ordem de sen
 | Prestador | Para quê | Dados que recebe | Onde fica **[EQUIPA/JURISTA]** |
 |---|---|---|---|
 | **Alojamento e base de dados** | Guardar tudo | Todos os dados da plataforma | [EQUIPA] |
+| **Cloudflare** | Entrega do site, HTTPS e proteção contra ataques; com o R2, também pode ser o storage abaixo | Endereço IP e dados do navegador; todo o tráfego passa decifrado pelos seus servidores, incluindo o que as pessoas escrevem e veem na plataforma | [EQUIPA] |
 | **Storage de ficheiros (S3 ou equivalente)** | Logótipos, anexos, documentos dos alunos, **cópias de segurança diárias** | Ficheiros e cópias completas da base de dados | [EQUIPA] |
 | **Fornecedor de e-mail (SMTP)** | E-mails de ativação de conta, redefinição de palavra-passe, avisos e lembretes | Nome, e-mail e o conteúdo da mensagem | [EQUIPA] |
 | **Google reCAPTCHA** | Distinguir pessoas de robôs no registo de escolas e nos formulários públicos | Endereço IP, dados do navegador e sinais de comportamento no formulário | EUA **[JURISTA]** |

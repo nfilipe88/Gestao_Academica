@@ -1,0 +1,40 @@
+# Produção com a Cloudflare à frente, sem nenhuma porta aberta para a Internet
+# (só o SSH). Passo a passo em LEIA-ME.md, secção "Com a Cloudflare à frente".
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d --build
+#
+# Em relação ao docker-compose.yml: o HTTPS passa a ser da Cloudflare, por isso
+# saem o certbot e as portas 80/443, e entra o cloudflared, que abre ele próprio
+# uma ligação de saída até à Cloudflare.
+
+services:
+  nginx:
+    ports: !reset []
+    volumes: !override
+      - ./nginx.cloudflare.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx-comum.conf:/etc/nginx/snippets/comum.conf:ro
+    command: ["nginx", "-g", "daemon off;"]
+
+  # Não arranca nesta variante: os certificados são da Cloudflare.
+  certbot:
+    profiles: ["so-com-certificado-proprio"]
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    depends_on:
+      - nginx
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Defina CLOUDFLARE_TUNNEL_TOKEN no .env}
+    networks:
+      interna:
+        # O nginx só confia no IP real do visitante vindo daqui (nginx.cloudflare.conf.template).
+        ipv4_address: 172.30.250.11

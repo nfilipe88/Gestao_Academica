@@ -98,6 +98,49 @@ docker compose restart backend
 docker compose exec postgres psql -U postgres academic_db
 ```
 
+## Com a Cloudflare à frente
+
+Em vez de abrir as portas 80 e 443 e de pedir certificados, o servidor abre ele próprio uma ligação
+de saída até à Cloudflare (Túnel). O HTTPS e a proteção ficam com a Cloudflare, e **a firewall do
+servidor pode fechar tudo menos o SSH (22)**. O resto da receita é igual: o servidor continua a ser
+preciso, com o Postgres, o Redis, o back-end e o front-end.
+
+**1. No painel da Cloudflare**
+
+- Adicionar o domínio e mudar os nameservers no sítio onde foi comprado.
+- **Zero Trust → Networks → Tunnels → Create a tunnel** (tipo Cloudflared). Guardar o token e, em
+  **Public Hostname**, apontar o domínio para o serviço `HTTP` `nginx:80`.
+- **Speed → Rocket Loader: desligado**, **Scrape Shield → Email Address Obfuscation: desligado** e
+  **Security → Bots → Bot Fight Mode: desligado**. Os três injetam scripts inline na página, que a
+  CSP bloqueia de propósito (já deixou o site sem CSS uma vez).
+- **SSL/TLS → Edge Certificates → Always Use HTTPS: ligado**.
+
+**2. Ficheiros e backups no R2** (opcional; qualquer S3 serve)
+
+- Criar dois buckets e um token para cada um, com permissão **Object Read & Write** limitada a esse
+  bucket. Endpoint `https://<ID-DA-CONTA>.r2.cloudflarestorage.com`, região `auto`.
+- Bucket de backups: **regra de ciclo de vida** que apaga objetos com mais de 14 dias.
+- **Atenção:** o R2 não tem tokens só de escrita, por isso quem roubasse as credenciais do servidor
+  também podia apagar os backups (lê-los não adianta: estão cifrados). Para o proteger, procure no
+  painel as **regras de bloqueio do bucket (Bucket Lock)** ou guarde os backups noutro fornecedor
+  com chaves só de escrita.
+
+**3. No servidor**: seguir a secção 2, sem o `primeiro-certificado.sh`, com estas duas linhas no `.env`:
+
+```bash
+COMPOSE_FILE=docker-compose.yml:docker-compose.cloudflare.yml
+CLOUDFLARE_TUNNEL_TOKEN=<o token do túnel>
+```
+
+```bash
+docker compose up -d --build
+node ensaio-local/verificar-browser.mjs https://<domínio>   # abre o site real num Chrome
+```
+
+**Confirmar o IP real:** provocar um evento (abrir `https://<domínio>/.env`) e ver no painel de
+Segurança o seu próprio IP, não um IP interno `172.30.x.x`. Se todos os eventos aparecerem com o
+mesmo IP, **não abrir às escolas**: o bloqueio automático apanharia toda a gente de uma só vez.
+
 ## Ensaio local (antes do servidor real)
 
 Para experimentar a receita inteira num computador com Docker, sem domínio nem S3: o ficheiro

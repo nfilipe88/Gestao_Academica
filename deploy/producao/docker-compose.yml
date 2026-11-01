@@ -120,6 +120,7 @@ services:
     volumes:
       # O nginx substitui ${DOMINIO} no modelo ao arrancar (envsubst da imagem oficial).
       - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx-comum.conf:/etc/nginx/snippets/comum.conf:ro
       - certbot_conf:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro
     ports:

@@ -1,0 +1,28 @@
+# Produção atrás do Túnel da Cloudflare (docker-compose.cloudflare.yml). O
+# HTTPS termina na Cloudflare; o cloudflared fala connosco pela rede interna, em
+# HTTP, e nenhuma porta fica aberta para a Internet. ${DOMINIO} é substituído no
+# arranque pelo valor do .env.
+
+server_tokens off;
+
+# Para o nginx, todos os pedidos vêm do cloudflared. Sem isto, todos os
+# visitantes pareciam o mesmo IP, e o bloqueio automático e os limites por IP
+# caíam sobre a plataforma inteira de uma só vez. Só se confia no cabeçalho
+# vindo desse IP fixo: quem o enviar de outro lado é ignorado.
+set_real_ip_from 172.30.250.11;
+real_ip_header CF-Connecting-IP;
+
+# Qualquer outro nome: fecha a ligação.
+server {
+    listen 80 default_server;
+    return 444;
+}
+
+server {
+    listen 80;
+    server_name ${DOMINIO};
+
+    # O visitante chegou por HTTPS, à Cloudflare; o HTTP é só o último troço interno.
+    set $proto_visitante https;
+    include /etc/nginx/snippets/comum.conf;
+}
