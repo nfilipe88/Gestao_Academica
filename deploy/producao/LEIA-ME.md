@@ -107,23 +107,36 @@ preciso, com o Postgres, o Redis, o back-end e o front-end.
 
 **1. No painel da Cloudflare**
 
+Os nomes dos menus mudam com alguma frequência: se um não existir, procure o nome da definição na
+pesquisa do painel.
+
 - Adicionar o domínio e mudar os nameservers no sítio onde foi comprado.
-- **Zero Trust → Networks → Tunnels → Create a tunnel** (tipo Cloudflared). Guardar o token e, em
-  **Public Hostname**, apontar o domínio para o serviço `HTTP` `nginx:80`.
-- **Speed → Rocket Loader: desligado**, **Scrape Shield → Email Address Obfuscation: desligado** e
-  **Security → Bots → Bot Fight Mode: desligado**. Os três injetam scripts inline na página, que a
-  CSP bloqueia de propósito (já deixou o site sem CSS uma vez).
+- **Só em ambiente de ensaio, antes do túnel: limitar o acesso à equipa.** **Zero Trust → Access
+  controls → Applications → Create new application → Self-hosted**, com o hostname do site e uma
+  política **Allow** com os e-mails da equipa. Sem isto, o site fica aberto a toda a Internet assim
+  que o túnel ligar. Retirar antes de abrir às escolas: bloqueia também webhooks e monitorização externa.
+- **Networking → Tunnels → Create a tunnel** (tipo Cloudflared). Guardar o token, que aparece no
+  comando de instalação, depois de `--token`. Não é preciso correr esse comando: a receita já traz o
+  `cloudflared`. No separador **Routes**, publicar uma aplicação com o hostname do site e o serviço
+  `http://nginx:80`.
+- **Speed → Settings → Rocket Loader: desligado**, **Security → Settings → Email Address Obfuscation:
+  desligado** e **Security → Settings → Bot Fight Mode: desligado**. Os três injetam scripts inline na
+  página, que a CSP bloqueia de propósito (já deixou o site sem CSS uma vez).
 - **SSL/TLS → Edge Certificates → Always Use HTTPS: ligado**.
 
 **2. Ficheiros e backups no R2** (opcional; qualquer S3 serve)
 
 - Criar dois buckets e um token para cada um, com permissão **Object Read & Write** limitada a esse
   bucket. Endpoint `https://<ID-DA-CONTA>.r2.cloudflarestorage.com`, região `auto`.
-- Bucket de backups: **regra de ciclo de vida** que apaga objetos com mais de 14 dias.
-- **Atenção:** o R2 não tem tokens só de escrita, por isso quem roubasse as credenciais do servidor
-  também podia apagar os backups (lê-los não adianta: estão cifrados). Para o proteger, procure no
-  painel as **regras de bloqueio do bucket (Bucket Lock)** ou guarde os backups noutro fornecedor
-  com chaves só de escrita.
+- Bucket de backups, em **Settings**: **regra de bloqueio (Bucket Lock)** de 14 dias e **regra de
+  ciclo de vida** que apaga objetos com mais de 15 dias. O bloqueio tem prioridade sobre o ciclo de
+  vida: com o mesmo prazo, a limpeza podia falhar.
+- **O bloqueio é obrigatório aqui:** o R2 não tem tokens só de escrita, por isso quem roubasse as
+  credenciais do servidor podia apagar os backups (lê-los não adianta: estão cifrados). Durante o
+  prazo do bloqueio, não pode.
+- **Bucket de ficheiros:** a documentação do R2 indica que não há versionamento, por isso um ficheiro
+  apagado por engano não se recupera. Antes de haver dados reais, escolha entre aceitar isso e usar
+  outro fornecedor para este bucket.
 
 **3. No servidor**: seguir a secção 2, sem o `primeiro-certificado.sh`, com estas duas linhas no `.env`:
 
@@ -136,6 +149,9 @@ CLOUDFLARE_TUNNEL_TOKEN=<o token do túnel>
 docker compose up -d --build
 node ensaio-local/verificar-browser.mjs https://<domínio>   # abre o site real num Chrome
 ```
+
+Com o acesso limitado à equipa, o `verificar-browser.mjs` só vê a página de login da Cloudflare. Nesse
+caso, entrar num browser normal, abrir o site e confirmar o aspeto e que a consola não mostra erros de CSP.
 
 **Confirmar o IP real:** provocar um evento (abrir `https://<domínio>/.env`) e ver no painel de
 Segurança o seu próprio IP, não um IP interno `172.30.x.x`. Se todos os eventos aparecerem com o
